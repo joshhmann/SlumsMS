@@ -30,7 +30,6 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntFunction;
 import java.util.function.LongSupplier;
@@ -40,8 +39,9 @@ import java.util.function.LongSupplier;
  *
  * <p><b>Bounded by construction.</b> 3,000 bots make 9 million pairs, so nothing here stores or scans all of them:
  * <ul>
- *   <li>each bot keeps at most {@link #maxBonds()} (14) bonds; past that the weakest goes (the one just touched only
- *   when it is itself the weakest), as {@link BotAffinity#bound} does for players;</li>
+ *   <li>each bot keeps at most {@link #maxBonds()} (14) bonds; past that the least significant goes (a faded neutral
+ *   one before an estranged, rival or close one; the one just touched only when it is itself the least), as
+ *   {@link BotAffinity#bound} does for players;</li>
  *   <li>bonds only move on shared events the game already has: a party join, minutes in one party (counted from the
  *   director's minute step, which walks the online bots once), a bot thread, guild mates meeting, a PQ together
  *   ({@link #onPqTogether}, for S3), a KS between bots on an observed map, a buff or a trade between bots, and a
@@ -58,8 +58,17 @@ import java.util.function.LongSupplier;
  * ({@link BondRules#scale}). A bond crossing into FRIEND pushes the bot's chart point once ({@code PARTY} for party-like
  * events, else {@code CHAT}), through {@link LifeMemory#push}, plasticity-weighted there.
  *
+ * <p><b>Stage 2 (ticket 181):</b> every bond also carries eight relationship axes and a {@link Stage}
+ * ({@link Axis}, {@link AxisTable}, {@link #axes}, {@link #stage}); {@code score} still moves by the event's own delta,
+ * so {@link #state}, crews and every other score reader are untouched. Unobserved maps get a bounded <i>background</i>
+ * tier: {@link #backgroundMaps()} of them (2) per step, {@link #backgroundPairsPerMap()} pair(s) each, the same NEAR /
+ * GUILD treatment, so unwatched bots relate too ({@code -Dslums.bonds.background=false} switches it off; its cost is
+ * inside the {@code social-tick} phase).
+ *
  * <p>System properties: {@code solomapling.bonds} (true) switches it all off; {@code solomapling.bonds.k} (14);
- * {@code solomapling.bonds.pairsPerMap} (3); half-lives in {@link BondRules}; weights in {@link BondEvent}.
+ * {@code solomapling.bonds.pairsPerMap} (3); {@code slums.bonds.background} (true),
+ * {@code slums.bonds.background.maps} (2), {@code slums.bonds.background.pairs} (1); half-lives in {@link BondRules}
+ * and {@link Axis}; weights in {@link BondEvent}.
  */
 public final class BotBonds {
 
@@ -97,7 +106,7 @@ public final class BotBonds {
     private static final Map<Integer, long[]> crewCache = new ConcurrentHashMap<>();
     private static volatile BondStore store = new BondStore.Jdbc();
     private static volatile Executor writer = ExecutorServiceManager::runAsync;
-    private static volatile LongSupplier clock = System::currentTimeMillis;
+    private static volatile LongSupplier clock = soloMapling.ArtificialPlayer.BotSocialSystem.SocialSim::now;
     private static volatile Disposition disposition = BotBonds::seededShares;
     private static volatile Pushes pushes = BotBonds::pushChart;
     private static volatile Lookup lookup = BotBonds::worldLookup;
@@ -109,6 +118,9 @@ public final class BotBonds {
     private static volatile long lastFlushAt;
     /** Diagnostics: pairs touched by the last minute step (party, sampled). */
     private static volatile int lastPartyPairs, lastSampledPairs;
+    /** Diagnostics: the background tier of the last step: pairs touched, unobserved maps sampled, cost in microseconds. */
+    private static volatile int lastBackgroundPairs, lastBackgroundMaps;
+    private static volatile long lastBackgroundMicros;
 
     /** The crew source S5's gate asks (close FRIEND bonds); cheap and memory-only. */
     public static final SocialCrew CREW = BotBonds::crew;
@@ -142,6 +154,27 @@ public final class BotBonds {
 
     public static int maxBonds() {
         return Math.max(4, Math.min(32, Integer.getInteger("solomapling.bonds.k", 14)));
+    }
+
+    /**
+     * Stage 2's background tier ({@code -Dslums.bonds.background}, on unless {@code false}): each step also samples
+     * pairs on a few maps no real player is watching, so unwatched bots develop relationships too.
+     */
+    public static boolean background() {
+        return !"false".equalsIgnoreCase(System.getProperty("slums.bonds.background", "true"));
+    }
+
+    /** How many unobserved maps the background tier samples per step ({@code -Dslums.bonds.background.maps}, 2; 0..20). */
+    public static int backgroundMaps() {
+        return Math.max(0, Math.min(20, Integer.getInteger("slums.bonds.background.maps", 2)));
+    }
+
+    /**
+     * Pairs per sampled unobserved map per step ({@code -Dslums.bonds.background.pairs}, 1): fewer than the observed
+     * tier's {@link #pairsPerMap()}, never more.
+     */
+    public static int backgroundPairsPerMap() {
+        return Math.max(0, Math.min(pairsPerMap(), Integer.getInteger("slums.bonds.background.pairs", 1)));
     }
 
     public static int pairsPerMap() {
@@ -186,6 +219,7 @@ public final class BotBonds {
             return false;
         }
         double[] shares = disposition.shares(botId);
+        Persona persona = Persona.of(botId, shares); // memory only; read before the set's lock is taken
         double delta = event.delta() * BondRules.scale(event.delta(), shares[0], shares[1]);
         BondSet set = sets.computeIfAbsent(botId, BondSet::new);
         AffinityState before;
@@ -198,7 +232,7 @@ public final class BotBonds {
                 bond = new Bond(botId, otherId, 0, 0, 0, now);
             }
             before = BondRules.state(fresh ? null : bond, now);
-            if (!BondRules.apply(bond, event, delta, now, ignoreCooldown)) {
+            if (!BondRules.apply(bond, event, delta, now, ignoreCooldown, persona)) {
                 return false;
             }
             set.bonds.put(otherId, bond);
@@ -211,6 +245,9 @@ public final class BotBonds {
             snapshot = bond.snapshot();
         }
         dirtyBots.add(botId);
+        if (event.defaultDelta() == 0 && event.delta() == 0) {
+            return true; // an axis-only event (the giver's side of a gift): no score moved, so no score-reading hook runs
+        }
         soloMapling.ArtificialPlayer.Reputation.onBond(botId, otherId, event, now); // 1.6.0 S4: a KS, gift or PQ counts
         if (before != after) {
             crewCache.remove(botId);
@@ -223,7 +260,8 @@ public final class BotBonds {
     }
 
     /**
-     * Keeps at most {@link #maxBonds()} bonds in the set, dropping the weakest (faded ones first); false when the bond
+     * Keeps at most {@link #maxBonds()} bonds in the set, dropping the least significant (faded neutral ones first,
+     * {@link BondRules#significance}: never an estranged, rival or close edge while a faded neutral one is held); false when the bond
      * of {@code touched} was itself dropped. Caller holds the set's lock.
      */
     static boolean bound(BondSet set, long now, int touched) {
@@ -245,8 +283,9 @@ public final class BotBonds {
                 if (keepTouched && b.otherId == touched) {
                     continue;
                 }
-                double abs = Math.abs(BondRules.scoreAt(b, now));
-                // ties: the newcomer loses to an established bond (no churn on equal scores)
+                // stage 2: by significance (score, affection, resentment, rivalry, stage), so an estranged, rival, romantic
+                // or close edge outlives a faded neutral one; ties: the newcomer loses to an established bond
+                double abs = BondRules.significance(b, now);
                 if (abs < weakestAbs || abs == weakestAbs && b.otherId == touched) {
                     weakest = b;
                     weakestAbs = abs;
@@ -347,8 +386,10 @@ public final class BotBonds {
         long now = now();
         if (aGave && !bGave) {
             record(b.getId(), a.getId(), BondEvent.GIFT, now, false);
+            record(a.getId(), b.getId(), BondEvent.GIFT_GIVEN, now, false); // the giver's own, smaller, edge
         } else if (bGave && !aGave) {
             record(a.getId(), b.getId(), BondEvent.GIFT, now, false);
+            record(b.getId(), a.getId(), BondEvent.GIFT_GIVEN, now, false);
         } else {
             together(a.getId(), b.getId(), BondEvent.TRADE);
         }
@@ -406,7 +447,7 @@ public final class BotBonds {
         long socialStarted = System.nanoTime();
         try {
             step(soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getAllBots().values().stream()
-                    .map(soloMapling.ArtificialPlayer.BotSM::getChr).toList(), ThreadLocalRandom.current());
+                    .map(soloMapling.ArtificialPlayer.BotSM::getChr).toList(), soloMapling.ArtificialPlayer.BotSocialSystem.SocialSim.random(0, "bonds-step"));
         } catch (RuntimeException e) {
             log.debug("Bot bonds step failed", e);
         } finally {
@@ -427,6 +468,7 @@ public final class BotBonds {
     static void step(Collection<Character> bots, Random rng) {
         Map<Integer, List<Character>> byParty = new HashMap<>();
         Map<Long, List<Character>> byMap = new HashMap<>();
+        Map<Long, List<Character>> quietMaps = background() && backgroundMaps() > 0 ? new HashMap<>() : null;
         Map<Integer, Boolean> observed = new HashMap<>();
         for (Character chr : bots) {
             if (chr == null || !isBot(chr.getId()) || chr.getMap() == null) {
@@ -437,9 +479,10 @@ public final class BotBonds {
                 byParty.computeIfAbsent(p.getId(), k -> new ArrayList<>()).add(chr);
             }
             int mapId = chr.getMapId();
-            if (observed.computeIfAbsent(mapId, BotBonds::observed)) {
+            boolean watched = observed.computeIfAbsent(mapId, BotBonds::observed);
+            if (watched || quietMaps != null) {
                 long k = ((long) chr.getMap().getChannelId() << 32) | (mapId & 0xffffffffL);
-                byMap.computeIfAbsent(k, x -> new ArrayList<>()).add(chr);
+                (watched ? byMap : quietMaps).computeIfAbsent(k, x -> new ArrayList<>()).add(chr);
             }
         }
         int partyPairs = 0;
@@ -468,6 +511,47 @@ public final class BotBonds {
         }
         lastPartyPairs = partyPairs;
         lastSampledPairs = sampled;
+        backgroundTier(quietMaps, rng);
+    }
+
+    /**
+     * Stage 2's background tier: of the unobserved maps that hold two or more bots, {@link #backgroundMaps()} drawn
+     * at random (reservoir sampling, one draw per candidate map) each get {@link #backgroundPairsPerMap()} sampled
+     * pairs, the same {@link BondEvent#NEAR} / {@link BondEvent#GUILD} treatment as an observed map at a lower rate
+     * (two maps, one pair, per minute). The cost is inside the {@code social-tick} phase that wraps {@link #step}.
+     */
+    private static void backgroundTier(Map<Long, List<Character>> quietMaps, Random rng) {
+        int pairs = 0;
+        int picked = 0;
+        long started = System.nanoTime();
+        if (quietMaps != null && !quietMaps.isEmpty()) {
+            int want = backgroundMaps();
+            int perMap = backgroundPairsPerMap();
+            List<List<Character>> chosen = new ArrayList<>(want);
+            int seen = 0;
+            for (List<Character> here : quietMaps.values()) {
+                if (here.size() < 2) {
+                    continue;
+                }
+                seen++;
+                if (chosen.size() < want) {
+                    chosen.add(here);
+                } else {
+                    int slot = rng.nextInt(seen);
+                    if (slot < want) {
+                        chosen.set(slot, here);
+                    }
+                }
+            }
+            for (List<Character> here : chosen) {
+                pairs += samplePairs(here, perMap, rng, (a, b) -> together(a.getId(), b.getId(),
+                        sameGuild(a, b) ? BondEvent.GUILD : BondEvent.NEAR));
+                picked++;
+            }
+        }
+        lastBackgroundPairs = pairs;
+        lastBackgroundMaps = picked;
+        lastBackgroundMicros = (System.nanoTime() - started) / 1000;
     }
 
     private static volatile java.util.function.IntPredicate observedMap =
@@ -643,6 +727,55 @@ public final class BotBonds {
             AffinityState s = BondRules.state(set.bonds.get(otherId), now);
             return s.hostile() && !BotAffinity.hostilityEnabled() ? AffinityState.NEUTRAL : s;
         }
+    }
+
+    /**
+     * The eight axes of how bot {@code botId} feels about bot {@code otherId} now (each faded to now by its own
+     * half-life), as an immutable view; {@link Axes#NONE} when there is no bond. It is {@code botId}'s own edge and
+     * nothing more: no code reads {@code otherId}'s edge to answer for {@code botId}, so a bot never knows what the
+     * other feels about it (Bob may admire Alice while Alice dislikes him, and Bob's edge cannot tell).
+     */
+    public static Axes axes(int botId, int otherId) {
+        BondSet set = sets.get(botId);
+        if (set == null || !enabled()) {
+            return Axes.NONE;
+        }
+        long now = now();
+        synchronized (set) {
+            Bond b = set.bonds.get(otherId);
+            return b == null ? Axes.NONE : Axes.of(BondRules.axesAt(b, now));
+        }
+    }
+
+    /**
+     * The relationship {@link Stage} of bot {@code botId} toward bot {@code otherId} now: the stored stage cooled by
+     * whatever time has faded, never raised by time ({@link Stage#STRANGER} when there is no bond). A cooled stage is
+     * kept on the bond (and flushed with the next batch).
+     */
+    public static Stage stage(int botId, int otherId) {
+        BondSet set = sets.get(botId);
+        if (set == null || !enabled()) {
+            return Stage.STRANGER;
+        }
+        long now = now();
+        boolean moved = false;
+        Stage cooled;
+        synchronized (set) {
+            Bond b = set.bonds.get(otherId);
+            if (b == null) {
+                return Stage.STRANGER;
+            }
+            cooled = BondRules.stageAt(b, now);
+            if (cooled != b.stage) {
+                b.stage = cooled;
+                b.dirty = true;
+                moved = true;
+            }
+        }
+        if (moved) {
+            dirtyBots.add(botId);
+        }
+        return cooled;
     }
 
     public static double score(int botId, int otherId) {
@@ -845,6 +978,18 @@ public final class BotBonds {
             c.setLength(c.length() - 1);
             lines.add(c.toString());
         }
+        if (!bonds.isEmpty()) { // stage 2: where each of the top bonds stands, with the axes that matter
+            StringBuilder st = new StringBuilder("Stages:");
+            for (View v : bonds.subList(0, Math.min(Math.min(3, top), bonds.size()))) {
+                Axes ax = axes(botId, v.otherId());
+                st.append(' ').append(names.apply(v.otherId())).append(' ').append(stage(botId, v.otherId()).label())
+                        .append(String.format(Locale.ROOT, " (fam %.2f trust %.2f aff %.2f resp %.2f riv %.2f res %.2f obl %.2f),",
+                                ax.familiarity(), ax.trust(), ax.affection(), ax.respect(), ax.rivalry(), ax.resentment(),
+                                ax.obligation()));
+            }
+            st.setLength(st.length() - 1);
+            lines.add(st.toString());
+        }
         return lines;
     }
 
@@ -950,8 +1095,14 @@ public final class BotBonds {
             }
         }
         return "bonds " + total + " held by " + sets.size() + " bots (K " + maxBonds() + "), last step party pairs "
-                + lastPartyPairs + ", sampled " + lastSampledPairs + ", loaded " + loaded + ", dirty "
+                + lastPartyPairs + ", sampled " + lastSampledPairs + ", background " + lastBackgroundPairs + " pairs on "
+                + lastBackgroundMaps + " maps (" + lastBackgroundMicros + " us), loaded " + loaded + ", dirty "
                 + dirtyBots.size() + ", deletes " + deletes.size();
+    }
+
+    /** Tests and diagnostics: what the background tier did in the last step: {pairs, unobserved maps sampled}. */
+    static int[] backgroundStats() {
+        return new int[]{lastBackgroundPairs, lastBackgroundMaps};
     }
 
     // ── defaults behind the seams ──
@@ -994,7 +1145,7 @@ public final class BotBonds {
                                   Disposition testDisposition, Pushes testPushes, Lookup testLookup) {
         store = testStore != null ? testStore : new BondStore.Jdbc();
         writer = testWriter != null ? testWriter : ExecutorServiceManager::runAsync;
-        clock = testClock != null ? testClock : System::currentTimeMillis;
+        clock = testClock != null ? testClock : soloMapling.ArtificialPlayer.BotSocialSystem.SocialSim::now;
         disposition = testDisposition != null ? testDisposition : BotBonds::seededShares;
         pushes = testPushes != null ? testPushes : BotBonds::pushChart;
         lookup = testLookup != null ? testLookup : BotBonds::worldLookup;
