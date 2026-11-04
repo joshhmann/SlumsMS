@@ -11,6 +11,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import soloMapling.ArtificialPlayer.BotHoldings;
+import soloMapling.ArtificialPlayer.BotSupplySystem.BotResupply.RestockOutcome;
 
 import java.awt.Point;
 import java.lang.reflect.Field;
@@ -373,15 +374,60 @@ class BotShoppingTest {
 
         warrior.setMap(100000000);   // in town, not in the store: the walk there failed
         BotShopping.headFor(warrior, GROCER);
-        assertFalse(BotSupplies.restock(warrior));
+        assertEquals(RestockOutcome.NOTHING, BotSupplies.restock(warrior));
         assertEquals(100_000, warrior.getMeso());
 
         warrior.setMap(100000102);
-        assertFalse(BotSupplies.restock(warrior), "that trip ended in town; standing by a shop is not enough");
+        assertEquals(RestockOutcome.NOTHING, BotSupplies.restock(warrior),
+                "that trip ended in town; standing by a shop is not enough");
         BotShopping.headFor(warrior, GROCER);
-        assertTrue(BotSupplies.restock(warrior));
+        assertEquals(RestockOutcome.BOUGHT, BotSupplies.restock(warrior));
         assertEquals(BotShopping.hpGoal(35), count(warrior, WHITE));
         assertTrue(BotShopping.report().contains("1 visits"), BotShopping.report());
+    }
+
+    // ---------------------------------------------------------------- a trip that bought nothing (train#F2)
+
+    // train#F2: a bot under ~200 x level mesos has no budget at all, so its town trip buys nothing. Returning "no
+    // restock" was indistinguishable from a success, so the next shortage walked it straight back: town -> shop ->
+    // train -> town. A trip that bought nothing now refuses the next resupply trip for ten minutes.
+    @Test
+    void aRestockThatBoughtNothingRefusesTheNextResupplyTripForTenMinutes() throws Exception {
+        Town town = new Town();
+        town.sites.put(100000102, List.of(GROCER));
+        ShopCatalog.useForTest(town);
+        BotShopping.install();
+        long t0 = 5_000_000L;
+        Character broke = bot(Job.WARRIOR, 30, 700, 200, 1_000);   // reserve 6,000: nothing to spend
+        broke.setMap(100000102);
+        BotShopping.headFor(broke, GROCER);
+
+        assertEquals(BotResupply.RestockOutcome.NOTHING, BotSupplies.restock(broke, t0));
+        assertFalse(BotSupplies.mayResupply(broke.getId(), t0), "it just tried and bought nothing");
+        assertFalse(BotSupplies.mayResupply(broke.getId(), t0 + BotSupplies.RESTOCK_REFUSAL_MS - 1));
+        assertTrue(BotSupplies.mayResupply(broke.getId(), t0 + BotSupplies.RESTOCK_REFUSAL_MS),
+                "ten minutes on, the trip may be tried again");
+    }
+
+    @Test
+    void aRestockThatBoughtItsKitOrPartOfItAllowsTheNextTrip() throws Exception {
+        Town town = new Town();
+        town.sites.put(100000102, List.of(GROCER));
+        ShopCatalog.useForTest(town);
+        BotShopping.install();
+        long t0 = 6_000_000L;
+        Character rich = bot(Job.WARRIOR, 35, 1600, 150, 100_000);
+        rich.setMap(100000102);
+        BotShopping.headFor(rich, GROCER);
+        assertEquals(BotResupply.RestockOutcome.BOUGHT, BotSupplies.restock(rich, t0));
+        assertTrue(BotSupplies.mayResupply(rich.getId(), t0), "it bought its kit: nothing is refused");
+
+        Character mage = bot(Job.MAGICIAN, 20, 300, 400, 20_000);   // essentials only
+        mage.setMap(100000102);
+        BotShopping.headFor(mage, GROCER);
+        assertEquals(BotResupply.RestockOutcome.PARTIAL, BotSupplies.restock(mage, t0),
+                "it bought some of its kit, so the trip did something");
+        assertTrue(BotSupplies.mayResupply(mage.getId(), t0));
     }
 
     // ---------------------------------------------------------------- the starter stash

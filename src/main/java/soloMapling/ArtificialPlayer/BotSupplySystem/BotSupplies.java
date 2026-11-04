@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -75,6 +76,30 @@ public final class BotSupplies {
 
     /** Memory-only: a failed ammo trip already chose the existing melee fallback, so do not create a trip loop. */
     public static boolean shouldRetryAmmoTrip(int botId) { return !meleeWithoutAmmo.contains(botId); }
+
+    // train#F2: a trip whose restock bought nothing (all its mesos are reserve, the town sells nothing it can fire)
+    // must not be walked again at the next shortage, or the bot loops town -> shop -> train -> town forever. It grinds
+    // it out for this long instead; a trip that buys anything at all clears the refusal.
+    static final long RESTOCK_REFUSAL_MS = 10 * 60_000L;
+    private static final Map<Integer, Long> refusedUntilMs = new ConcurrentHashMap<>();
+
+    /* Whether a resupply trip may start now: a restock that bought nothing refuses one until RESTOCK_REFUSAL_MS on. */
+    public static boolean mayResupply(int botId, long nowMs) {
+        Long until = refusedUntilMs.get(botId);
+        return until == null || nowMs >= until;
+    }
+
+    private static void noteRestock(int botId, BotResupply.RestockOutcome outcome, long nowMs) {
+        if (outcome != BotResupply.RestockOutcome.NOTHING) {
+            refusedUntilMs.remove(botId);
+            return;
+        }
+        refusedUntilMs.put(botId, nowMs + RESTOCK_REFUSAL_MS);
+        if (log.isDebugEnabled()) {
+            log.debug("Supplies: bot {} bought nothing in town; no resupply trip for {} min",
+                    botId, RESTOCK_REFUSAL_MS / 60_000);
+        }
+    }
 
     private static boolean outOfAmmo(Character bot, BotAttackProfile main, int level) {
         if (main.route != BotAttackProfile.Route.RANGED) {
@@ -140,12 +165,21 @@ public final class BotSupplies {
      * The second half: offer the bot's needs to the resupply hook (ticket 09 buys at the shop NPC the bot has walked
      * to), and if it still has no ammo for its ranged attack, settle for melee until some turns up.
      */
-    public static boolean restock(Character bot) {
+    public static BotResupply.RestockOutcome restock(Character bot) {
+        return restock(bot, System.currentTimeMillis());
+    }
+
+    /* As above, on a given clock (tests): what the trip got done, and it is remembered (see mayResupply). */
+    static BotResupply.RestockOutcome restock(Character bot, long nowMs) {
         if (bot == null) {
-            return false;
+            return BotResupply.RestockOutcome.NOTHING;
         }
         SupplyNeeds needs = needs(bot);
-        boolean got = needs.wantsAnything() && BotResupply.request(bot, needs);
+        BotResupply.RestockOutcome outcome = needs.wantsAnything()
+                ? BotResupply.request(bot, needs) : BotResupply.RestockOutcome.NOTHING;
+        if (needs.wantsAnything()) {
+            noteRestock(bot.getId(), outcome, nowMs);
+        }
         if (outOfAmmo(bot)) {
             if (meleeWithoutAmmo.add(bot.getId()) && log.isDebugEnabled()) {
                 log.debug("Supplies: bot {} ({}) found no ammo in town; fights in melee until it has some", bot.getId(),
@@ -154,7 +188,7 @@ public final class BotSupplies {
         } else {
             meleeWithoutAmmo.remove(bot.getId());
         }
-        return got;
+        return outcome;
     }
 
     /* Notes a bot leaving its grind for town over a shortage (the debug log the supply rates are checked from). */
@@ -173,6 +207,7 @@ public final class BotSupplies {
     /* Releases a despawned bot's supply state. */
     public static void clearBot(int botId) {
         meleeWithoutAmmo.remove(botId);
+        refusedUntilMs.remove(botId);
         BotAmmo.clearBot(botId);
         BotVitals.clearBot(botId);
         OffscreenSupplies.clearBot(botId);
