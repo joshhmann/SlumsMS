@@ -216,13 +216,54 @@ tools/ops/autoqa-proof 6d18f961e..HEAD
 tools/ops/helper-checkout /root/work/164-all
 ```
 
-## What auto-QA covers
+## What auto-QA covers (`tools/ops/autoqa-proof 6d18f961e..b7da256e1`)
 
-`tools/ops/autoqa-proof 6d18f961e..HEAD` reports `checks: every check (186) - a runner or platform file changed`, so the
-release run is `tools/ops/autoqa-run all`. The rows themselves are covered by `t-mx-1`..`t-mx-6` (Kerning PQ, need
-`-Dslums.mechanics=true`; they SKIP without it) and `t-ex-2` (Zakum, needs `-Dslums.mechanics.boss=true`; it reads
-`EX2 BASELINE` and SKIPs otherwise). `t-in-3` shares the `src/main/java/soloMapling/mechanics/**` glob. Everything
-else the rows add is covered by unit tests only; `docs/ops/qa-suite.md` names the manual companion for each row.
+The proof reads `src/main/resources/soloMapling/autoqa-coverage.tsv` against the 278 files this branch changes and
+answers `checks: every check (186) - a runner or platform file changed`, so the release run is
+
+```
+tools/ops/autoqa-run all
+```
+
+That is the answer for the branch as a whole: 42 distinct check ids appear against its changed files
+(`t-at-1 t-bk-1 t-bk-3 t-cb-1 t-cb-2 t-cb-3 t-cv-1 t-ev-1 t-ev-3 t-ex-1 t-ex-2 t-fy-1 t-fy-2 t-fy-3 t-fy-4 t-gb-1
+t-gb-2 t-gb-3 t-gb-4 t-gb-5 t-gb-6 t-gu-1 t-in-3 t-ld-1 t-mr-1 t-mx-1 t-mx-2 t-mx-3 t-mx-4 t-mx-5 t-mx-6 t-nc-1
+t-oa-1 t-pb-1 t-pr-1 t-rb-1 t-sg-1 t-sg-2 t-sk-1 t-sk-2 t-su-1 t-su-3 t-vb-5`). Most of those belong to code the
+branch only touches in passing (the attack formula, gear scoring, guild scenarios); the ids that are **obligations of
+this branch** - the ones whose subject is a row, a solver or a companion mechanic that lives here - are these nine,
+grouped by what they prove:
+
+| Check | Title (from `AutoQaCatalog`) | What it proves for this branch | Needs |
+| --- | --- | --- | --- |
+| `t-mx-1` | "Four bots clear Kerning PQ stage 1 on their own" | the mechanics engine runs a real PQ stage end to end (`MX1 PASS cleared stage 1 in N s`) | `-Dslums.mechanics=true`; SKIPs without it |
+| `t-mx-2` | "Four bots play all of Kerning PQ on their own, prizes and bonus included" | all five KPQ stages plus the bonus through the real scripts | same |
+| `t-mx-3` | "A stopped KPQ run leaves nobody inside and frees the channel's KPQ" | the run's teardown, which the admission/`finish` union rewrote | same |
+| `t-mx-4` | "Two channels run Kerning PQ at once" | instance-per-channel isolation of a bot run | same |
+| `t-mx-5` | "A player leads his alts and a bot in KPQ; the stop leaves nobody inside" | a real player leading a mixed party - the shape every row now runs in | same, plus `t-oa-1`'s QA alts |
+| `t-mx-6` | "A player party takes the KPQ channel from a bot lobby run" | the lobby yielding its channel to a player party | same |
+| `t-ex-1` | "Your party bots join your Zakum expedition with you" | bots in a real expedition, from the party side | none (holds `pq:zakum`) |
+| `t-ex-2` | "A GM and party bots fight the real Zakum expedition" | the boss row driving a real expedition instance (`EX2 CHECK members=`) | `-Dslums.mechanics.boss=true`; with it off it reads `EX2 BASELINE` and SKIPs |
+| `t-in-3` | "A bot in a PQ lobby invites you when your level fits" | the lobby's invite path and `ContentLobby.rows()` | none |
+
+Three ids sit next to them as shared obligations rather than row checks: `t-oa-1` ("Call an alt as a companion: party,
+cap 5, saved on dismiss") for the owned-alt mechanics the alt-invite merge touches, `t-pb-1` ("Party invites follow
+feelings") for the party-invite path, and `t-mr-1` for the companion combat the boss lane's `OwnedAltCombat` changes.
+
+The four Hard-boss rows and Guild Quest add **no new check id**: `autoqa-coverage.tsv:208-211` gives `nwill`,
+`nlucid`, `ndarknell` and `nverus` the mechanics ids (`t-mx-1..t-mx-6`) explicitly, and `guildquest.yaml` is covered by
+the `src/main/java/soloMapling/mechanics/**` line (the same six ids plus `t-in-3`) because it lives in that tree. So the
+row-level obligation list for release QA is exactly the nine above.
+
+Sixteen changed files are named by the proof as covered by no check at all - worth handing to the release runner so
+nobody assumes they are tested: `scripts/event/ChaosZakumBattle.js`, `scripts/npc/2030013.js`,
+`scripts/npc/9040009.js`, `scripts/reactor/2111001.js`, `client/BotClient.java`, `constants/id/MobId.java`,
+`net/server/Server.java`, `GuildOperationHandler.java`, `UseCatchItemHandler.java`, `guild/Guild.java`,
+`scripting/event/EventInstanceManager.java`, `scripting/event/EventManager.java`,
+`scripting/npc/NPCConversationManager.java`, `server/expeditions/{Expedition,ExpeditionBossLog,ExpeditionType}.java`,
+`server/life/MonsterCatch.java`, `server/maps/{MapItem,MapleMap}.java`,
+`ArtificialPlayer/BotDialoguePack/RunOutcomeDialogue.yaml`, `ArtificialPlayer/BotRunOutcome.java` (all under
+`src/main/java/`). They are mostly the seams' engine-side edits and the outcome record; `t-ex-2`/`t-mx-*` exercise them
+through the client path, but the proof map does not claim them.
 
 ## Verification run on this branch
 
@@ -287,6 +328,42 @@ reported as they are: files outside the usual folders (`REPORT-altinvite.md`, `R
    no solver path uses them; fixing them means editing the WZ dump, outside this branch.
 8. **The whole-dump `map-integrity` sweep is not gating anything.** Its report over a partial dump is noise; only the
    per-row view is meaningful, and `ContentRowWzIntegrityTest` is that view inside the suite.
+
+## Version notes (AGENTS.md "done means switched on and noted")
+
+Two files carry the notes for what this branch builds; both are on the branch.
+
+**`docs/roadmap/1.7.0.md`** - three rows updated in place, no new section:
+
+| Row | Now says |
+| --- | --- |
+| "Bots play the mechanics (headline)" | step 1 done (56 rows, 29 boss / 27 party quest, 195 stages), the two switches plus the per-row flags, the three check ids, and that step 2 (imperfection by persona) has not started and no client has played the rows |
+| "PQ difficulties" | mechanism done, one HARD tier per low-level PQ row, off behind `-Dslums.mechanics.tiers` with `-Dslums.mechanics.tier`; the numbers are explicitly a proposal (`DIFFICULTY-CHAOS-PLAN.md` section 9) awaiting the owner; outstanding: the entry NPC's tier menu, rewards/EXP per tier, bots' behaviour per tier, the site leaderboard; Expert and Master exist in the enum and in no row |
+| "Chaos Zakum and Chaos Horntail" | Chaos Zakum done behind `-Dslums.chaos.zakum` (row `zakum-chaos`, check `t-ex-2`, the arms-then-bodies order, the shield, the clear now recorded); Chaos Horntail **not shipped, with the reason**: no script/row/rewards, its body id `8810121` has no `Mob.wz` entry (the reason `Monster.reviveTarget`'s guard exists), its parts die into ordinary corpses so `MapleMap.isHorntailDefeated()` (`MapleMap.java:4905`, requiring `MobId.DEAD_HORNTAIL_MIN..MAX` = 8810010-8810017) can never fire, and `ExpeditionType.CHAOS_HORNTAIL` is used by nothing but the min-size test |
+
+**`docs/release/1.7.0-notes.md`** - new, in the shape `docs/release/1.6.1-notes.md` already uses: a staff block per
+family first (status, switches, check ids, what is still open), then the player lines, which are the only part that ships.
+Version: **1.7.0**, because that is where the repo already puts these - `docs/ops/qa-suite.md:293` heads the Kerning
+check "(1.7.0, ticket 130)", the roadmap rows live in `docs/roadmap/1.7.0.md`, and AGENTS.md's rule is `docs/roadmap/<v>.md`
+plus the patch-notes draft for the same `<v>`. The branch is built on `release-1.6.4`, which is the freeze branch, not the
+version number of what it carries; if the owner ships this as 1.6.4 instead, the file is renamed, not rewritten.
+
+The player lines cover the two fixes the owner named, in words a player can read: the item-reactor bug ("items dropped by
+bots on the ground could stop a gate, chest or altar reacting to the other items lying on it" - the drop's owner was
+looked up through a cached client, and a bot's drop carried one that was gone) and the revive-id crash ("a boss part that
+revives into a monster the data does not have no longer breaks the death handling" - the missing form is skipped and
+named once, and the rest of the death runs). Then one line per content family that becomes bot-playable (party quests,
+boss expeditions, Chaos Zakum, Guild Quest) and the sentence that every row is switch-gated and off by default.
+
+Three things a reader must not take as settled, because the answer is the owner's and was not invented:
+
+1. **The tier numbers.** The roadmap row says "proposal" and `DIFFICULTY-CHAOS-PLAN.md` section 9 is explicitly a proposal;
+   this branch applies whatever a row carries. No number in the four rows is presented as decided, and the notes file says
+   nothing about tier numbers - only that the switch exists.
+2. **The Chaos Zakum quota.** The row plays today; how many chaos clears a character or a day may take is the owner's call
+   and is written as outstanding, not guessed.
+3. **Which version the file is named for.** See above: 1.7.0 is where the repo's own QA doc and roadmap already place these
+   rows, but the branch is off `release-1.6.4`; renaming the file is the only change if the owner decides otherwise.
 
 ## Deploy note
 
