@@ -32,6 +32,11 @@ Read-only audit of the server code (eleven lanes). Documented, not changed.
 | # | Ticket | Purpose |
 |---|---|---|
 | [184](184-possible-overlaps-1-6-4.md) | Possible overlaps to revisit | Parking list of places where in-flight 1.6.4 work could collide, with how to check each and what to do; check before starting or merging |
+## Improvement backlog (owner direction, 2026-11-03)
+
+| # | Ticket | Purpose |
+|---|---|---|
+| [185](185-bot-alt-improvement-backlog-1-6-4.md) | Bot and alt improvement backlog | Improvements that need an owner decision or a later start; a menu, nothing started, no briefs |
 
 ## 1.6.2 release closure (owner direction, 2026-10-31)
 
