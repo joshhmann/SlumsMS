@@ -378,16 +378,16 @@ class MakerCraftingMenuSubInteraction {
 
         let message = '';
 
+        if (this.cm.getLevel() < this.selectedRecipe.requiredLevel) {
+            message += 'You are not high enough level to craft this.\r\n\r\n';
+            message += `#fUI/UIWindow.img/Quest/icon0# #fUI/UIWindow.img/UserInfo/ReqLv#. #r${this.selectedRecipe.requiredLevel}#k`;
+        }
+
         if (missingMaterialRequirements.length > 0) {
-            message += 'Hey! You\'re missing some materials.';
-            if (this.cm.getLevel() < this.selectedRecipe.requiredLevel) {
-                 if (message.length > 0) {
-                 message += '\r\n\r\n';
-               }
-
-                message += `#fUI/UIWindow.img/Quest/icon0# #fUI/UIWindow.img/UserInfo/ReqLv#. #r${this.selectedRecipe.requiredLevel}#k`;
+            if (message.length > 0) {
+                message += '\r\n\r\n';
             }
-
+            message += 'Hey! You\'re missing some materials.';
             message += '\r\n\r\n#fUI/UIWindow.img/Quest/icon0# #r#eMissing Materials:#n#k\r\n';
             for (let requirement of missingMaterialRequirements) {
                 message += `#i${requirement.itemId}:# #z${requirement.itemId}# ( #r${this.cm.numberWithCommas(requirement.actualAmount)}#k / ${this.cm.numberWithCommas(requirement.requiredAmount)} )\r\n`;
