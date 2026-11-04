@@ -26,13 +26,7 @@ var sel;
 actionx = {"Mental": false, "Physical": false};
 
 function start() {
-    if (cm.isQuestStarted(6192)) {
-        if (cm.getParty() == null) {
-            cm.sendOk("Form a party to start this instance.");
-            cm.dispose();
-            return;
-        }
-
+    if (cm.getParty() != null && cm.getPlayer().getLevel() >= 80) {
         var em = cm.getEventManager("ElnathPQ");
         if (em == null) {
             cm.sendOk("The El Nath PQ has encountered an error.");
@@ -62,7 +56,7 @@ function start() {
             return;
         }
 
-        cm.sendNext("Hi there.");
+        cm.sendNext("Hi there. To try the El Nath party quest, form a party and talk to me again.");
         cm.dispose();
         return;
     }
