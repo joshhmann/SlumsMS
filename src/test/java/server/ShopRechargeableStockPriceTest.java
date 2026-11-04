@@ -32,7 +32,7 @@ class ShopRechargeableStockPriceTest {
     private static final List<String> SHOP_ITEMS_SQL = List.of(
             "database/migrations/021-cosmetics-merchant.sql",
             "database/migrations/024-restore-stock-shop-items.sql",
-            "src/main/java/soloMapling/Casino/casino_chip_shop_setup.sql");
+            "database/migrations/064-casino-chip-shop.sql");
     /* Each stock row is written "SELECT shopid, itemid, price, ..." (024) or the same shape after INSERT ... VALUES. */
     private static final Pattern STOCK_ROW = Pattern.compile("SELECT\\s+(\\d+)\\s*,\\s*(\\d+)\\s*,");
 
