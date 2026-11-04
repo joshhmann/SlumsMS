@@ -100,7 +100,7 @@ rollback. What a swap drops (grind spot, the old runtime's pending friend or pla
 | 1 | `SocialMind` (traits, emotions, needs), decay, persistence | decay and restart round-trip tests | built (`164-social-mind`); TEST persistence check pending; no decision reads it yet |
 | 2 | 8-axis bonds, migration 059, background formation | axis table, directedness, hysteresis, eviction, restart and legacy-row round trips, background tier, simulated-days tests | built (`164-social-bonds`, `f03304844`); migration 059 not yet applied on TEST; no decision reads the axes yet |
 | 3 | Memory extension (migration 060), relevance recall, knowledge boundaries, memory in bot-bot talk | knowledge-boundary tests | built (`164-social-memory`): subject type, place, confidence, valence, provenance, other party; `BotMemory.recall(.., Query, ..)` and `remember(..)` writer; repeats merge; world news only from witnesses or tellers; circle-restricted counts; `BotThreads`/`BotTalk` prompts carry the partner's real memories. Unit-tested only; TEST not run |
-| 4 | `SocialAction` registry, missing actions, gifts, emotion/memory into `TalkBrain` and `LifeDecision` | per-action outcome tests | planned |
+| 4 | `SocialAction` registry, missing actions, gifts, emotion/memory into `TalkBrain` and `LifeDecision` | per-action outcome tests, utility ordering, Alice/Bob/Clara scene, 3-day 12-bot simulation | built (`164-social-acts`): section 8; unit and simulation tests only, TEST not run |
 | 5 | Intentions (memory in `BotThreads`/`BotTalk` prompts moved to Stage 3) | dialogue-to-intention test | planned |
 | 6 | Social LOD, loop breaker, metrics in dashboard and inspect | perf measurement | 6a built (`164-social-observe`): `SocialBudget` loop breaker (per-pair cooldown, per-bot, per-map and global rates, A-B turn limit, failed-act backoff; hooked into `BotTalk`), `social` block in `live.json`, mode/mind/bonds in `/bots/{cid}`, mode and mind lines in `!botwhy`; unit tests only, no perf measurement and no TEST run yet. 6b social LOD planned |
 | 7 | 20-bot Henesys pilot, TEST (mapletest) live check | real execution evidence | planned |
@@ -147,3 +147,46 @@ Nothing here has run in a real client or on TEST yet.
 Proof: `RelationAxesTest`, `BotBondsAxesTest`, `TieAxesTest`, `AxisColumnsTest`, `BotBondsSimulatedDaysTest`. Not done: no
 database run of migration 059 (no MySQL in the unit tests; the JDBC mapping is tested against mocked result sets and the
 SQL by string checks), nothing on TEST, no decision reads the axes yet.
+
+## 8. Stage 4 as built: the social act registry and the decision tick
+
+Package `AP/BotSocialSystem` (new: `SocialActKind`, `SocialAction`, `SocialActions`, `SocialActs`, `SocialContext`,
+`SocialDecider`, `SocialLines`, and the seams `SocialWorld`, `SocialFlows`, `GiftSeam`); `AP/BotConvo` holds the game
+side of the seams (`GameSocialWorld`, `GameSocialFlows`). Switch: `-Dslums.socialacts` (on unless `false`).
+
+- **Registry.** `SocialActions.perform(actor, target, kind, now)` is the one entry: switch, both bots on a map, the act's
+  preconditions, free/idle requirement, `SocialBudget.allow`, execute, `SocialBudget.record`, counters (`SocialMetrics`,
+  `social.acts` in `live.json`). Never throws. Acts toward a real player are refused (player-facing talk stays on `SocialGate`).
+  `best(actor, candidates, now)` scores every legal (act, target) with noise from `SocialSim.random(actor, "social-act")`
+  scaled by impulsiveness and patience, and returns the best or nothing under the bot's own bar (loners need more pull).
+- **The 16 acts** (table in `SocialActs`' javadoc: preconditions, utility terms, success/failure, state changed). Wrapped
+  without behaviour change: GREET, CONVERSE (`BotTalk.run`), ASK_HELP (`run` with HELP forced), OFFER_HELP (the help trip,
+  extracted from the HELP act as `BotTalk.helpTrip`), INVITE/ACCEPT/DECLINE (an open invitation the other answers on its own
+  tick; ACCEPT runs `LfgParty.form` / `BotTalk.plainParty` / `BotTalk.comeAlong`), SHARE_INFO and SPREAD_RUMOR
+  (`BotWorldGossip.pass`, `BotGossip.keep`). Built: COMPLIMENT, APOLOGIZE, RECONCILE, ARGUE, AVOID, SPEND_TIME, GIVE_GIFT.
+- **New bond events** (`BondEvent`, rows in `AxisTable`): COMPLIMENT, APOLOGY and RECONCILE (resentment and rivalry fall,
+  trust rises), ARGUE (a harder SPAT). The stage still climbs one rung per event, so a pair recovers gradually.
+- **Memory.** Acts write short, name-free notes (`Kind.CHAT`, wording rotated by the minute because the memory drops the
+  same text within 20 h); the next decisions read them back with `BotMemory.recall` (an open fight, an apology, a
+  making-up decide APOLOGIZE and RECONCILE).
+- **Utility** is built from the SocialMind (needs, emotions, traits), the actor's OWN edge and stage, memory, the target's
+  company (jealous bots hesitate beside a distrusted company; a hothead confronts someone standing with a friend), norms
+  (never argue with a close friend unless resentment is 0.5+; honest bots do not spread rumors; PG-13 game-only insults
+  from the drama bank; nothing aimed at a player), habituation, and the budget's per-pair gaps. Friendly acts scale by a
+  social drive from unmet company needs, so met needs quieten a bot.
+- **Decision tick.** `SocialDecider.onMap` is called from `BotTalk.tick` after the greetings and chats: per map at most 2
+  due bots decide (each every 45-180 s, sooner for the sociable and the lonely; an invitee answers within seconds), from
+  at most 6 visible bots it knows. No model call, no database read. A bot with no loaded mind is skipped.
+- **Inputs into existing decisions.** `BotTalk.WorldSense.mind` blends the mind's mood into the mood, sociability and
+  loneliness into the social share, anger into the killer share, and an unmet companionship need into the COMPANY goal.
+  `LifeRuntime` adds the mind's companionship/loneliness pull (at most about 0.4) to the SOCIAL need. AVOID records are
+  honoured by the arrival greeting and the idle chat.
+- **Seams for the sibling stages.** `GiftSeam` (default: a bond GIFT/GIFT_GIVEN gesture, no item) is what the
+  bot-to-bot gift plugs into by replacing `SocialActions.giftSeam`; `SocialActions.avoiding/avoidRecords/pendingInvite`
+  are read APIs; `SocialActions.observer` sees every carried-out act; Stage 5's `SocialIntents` calls `perform`.
+
+Proof: `SocialActsTest` (every act: outcome, refusal, failure), `SocialUtilityTest` (utility ordering, the Alice/Bob/Clara
+scene with seeded runs, stability, norms), `SocialDeciderTest`, `SocialSimulationTest` (12 bots, 3 simulated days, counts
+printed), `BotTalkSocialActsTest` (mind inputs on and off, avoid records, the tick hook). Not done: no sitting together
+(SPEND_TIME stands beside the target), no PQ choice on INVITE beyond what `WorldSense.offers` allows, nothing on TEST or in
+a client.
