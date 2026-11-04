@@ -11,6 +11,9 @@ package soloMapling.ArtificialPlayer;
  *   <li>{@code slums.bots.partysupport} - bots heal their party and drink buff pots while partied with a real player.</li>
  *   <li>{@code slums.bots.famerequest} - a friendly bot may fame a player who asks.</li>
  *   <li>{@code slums.bots.magicguard} - a bot with Magic Guard up splits the damage it takes between HP and MP.</li>
+ *   <li>{@code slums.bots.merchantpoolstock} - a selling merchant bot stocks items from the resale pool bot shops
+ *       restock from instead of generating a fresh item per trade, and stocks nothing while that pool is empty
+ *       (ticket 181, market#F-07).</li>
  * </ul>
  */
 public final class BotSupportSwitches {
@@ -32,6 +35,14 @@ public final class BotSupportSwitches {
 
     public static boolean magicGuard() {
         return Boolean.getBoolean("slums.bots.magicguard");
+    }
+
+    /**
+     * Ticket 181 (market#F-07): when set, a selling merchant bot stocks from the resale pool bot shops restock from and
+     * stocks nothing while that pool is empty. Unset, it generates an item per stocked trade as 1.6.4 did.
+     */
+    public static boolean merchantBotsDrawFromPool() {
+        return Boolean.getBoolean("slums.bots.merchantpoolstock");
     }
 
     /**

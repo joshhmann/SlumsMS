@@ -51,6 +51,16 @@ public final class BotConsignment {
         return item != null && listings.containsKey(item);
     }
 
+    /**
+     * Ticket 181 (market#F-03): the price the bot valued this lot at when it listed it - its basis, the least an
+     * accepted offer may rewrite the shelf to (the listing price when it went up). A lot that is not consigned, or that
+     * is gone, answers null.
+     */
+    public static Integer basis(PlayerShopItem item) {
+        Listing l = item == null ? null : listings.get(item);
+        return l == null ? null : l.price();
+    }
+
     public static int listedBy(int botId) {
         int n = 0;
         for (Listing l : listings.values()) {
@@ -199,7 +209,7 @@ public final class BotConsignment {
         clock = testClock == null ? System::currentTimeMillis : testClock;
     }
 
-    static void clearForTest() {
+    public static void clearForTest() {
         listings.clear();
         owed.clear();
     }
@@ -208,7 +218,8 @@ public final class BotConsignment {
         return owed.getOrDefault(botId, 0L);
     }
 
-    static void putForTest(int botId, HiredMerchant shop, PlayerShopItem item, int price) {
+    /** Public so a test outside this package (the shop-offer price floor) can seed a lot without a shop. */
+    public static void putForTest(int botId, HiredMerchant shop, PlayerShopItem item, int price) {
         listings.put(item, new Listing(botId, "bot" + botId, shop, item, price, clock.getAsLong()));
     }
 }
