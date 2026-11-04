@@ -35,6 +35,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /** Ticket 59 through {@link BotConversation}: the bank when the model is out, the voice, the contract's tag. */
+@org.junit.jupiter.api.extension.ExtendWith(soloMapling.ArtificialPlayer.BotSocialSystem.SocialFlagsOff.class)
 class ConvoConversationFlowTest {
 
     private final List<List<BotBrain.Turn>> asked = new CopyOnWriteArrayList<>();

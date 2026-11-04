@@ -32,6 +32,7 @@ import static org.mockito.Mockito.*;
  * nothing held the bot's movement. These tests pin the hold (45 s, refreshed by every exchange) and the exceptions
  * that still let a bot go. Package-local so it can use the same fakes as {@link BotConversationFlowTest}.
  */
+@org.junit.jupiter.api.extension.ExtendWith(soloMapling.ArtificialPlayer.BotSocialSystem.SocialFlagsOff.class)
 class BotConversationHoldTest {
 
     private final List<String> said = new CopyOnWriteArrayList<>();

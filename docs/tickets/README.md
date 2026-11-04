@@ -57,6 +57,11 @@ Read-only audit of the server code (eleven lanes). Documented, not changed.
 | # | Ticket | Purpose |
 |---|---|---|
 | [186](186-external-bot-repo-adoption-1-6-4.md) | Adopt ideas from the other-repo bot audit | BotStory, nutnnut/Cosmic, SoloMapling, cosmic_agents: 12 ranked candidates, 7 measurements first; nothing started, boss fights stay with the boss lane |
+## Social intelligence (owner direction, 2026-11-03)
+
+| # | Ticket | State |
+|---|---|---|
+| [271](271-social-intelligence.md) | Persistent NPC social intelligence (traits, emotions, needs, relationships, memory, actions, modes, Henesys pilot) | Stages 0, 0b on `164-social-core`; 1 on `164-social-mind`; 2-7 planned. Design: `docs/design/social-intelligence-audit.md` |
 
 ## 1.6.2 release closure (owner direction, 2026-10-31)
 

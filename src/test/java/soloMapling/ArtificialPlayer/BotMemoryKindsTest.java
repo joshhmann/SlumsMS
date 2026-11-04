@@ -93,9 +93,13 @@ class BotMemoryKindsTest {
         assertEquals(BotMemory.Kind.HELP, notes.get(1).kind());
         assertEquals("healed me at ellinia", notes.get(1).text());
         assertTrue(BotMemory.about(SLOT, BotStore.BOT_ID_BASE + 9).isEmpty());
-        // a day later the same thing is a new episode
+        // a day later the same thing happens again: Stage 3 folds it into the old note (a count, one more weight)
+        // instead of a third row that would fill the pair's cap
         BotEpisodes.onAffinity(BOT, PLAYER, AffinityEvent.PARTY, 101000000, now + DAY);
-        assertEquals(3, notes().size());
+        assertEquals(2, notes().size());
+        BotMemory.Note party = notes().stream().filter(n -> n.kind() == BotMemory.Kind.PARTY).findFirst().orElseThrow();
+        assertEquals("partied together in ellinia (x2)", party.text());
+        assertEquals(4, party.weight());
     }
 
     @Test
@@ -197,8 +201,10 @@ class BotMemoryKindsTest {
     @Test
     void aPairKeepsAtMostTenNotesDroppingTheLeastWorthKeeping() {
         long now = clock.get();
+        String[] runs = {"alpha stage", "bravo trek", "charlie trial", "delta climb", "echo raid", "foxtrot hunt",
+                "golf dive", "hotel crawl", "india rush", "juliet march"}; // ten different things (similar ones merge)
         for (int i = 0; i < 10; i++) {
-            BotMemory.episode(SLOT, PLAYER, BotMemory.Kind.PQ, "did PQ " + i + " together", 6, "", now + i);
+            BotMemory.episode(SLOT, PLAYER, BotMemory.Kind.PQ, runs[i], 6, "", now + i);
         }
         BotMemory.setSlot(SLOT, PLAYER, BotMemory.Kind.JOKE, "my pet ate my return scroll", now);
         BotMemory.episode(SLOT, PLAYER, BotMemory.Kind.HELP, "buffed me", 2, "", now + 20);

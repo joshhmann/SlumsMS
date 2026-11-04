@@ -11,13 +11,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 /** 1.6.1 ticket 114: bt-1 is registered and refuses (changing nothing) while bot talk is off. */
+@org.junit.jupiter.api.extension.ExtendWith(soloMapling.ArtificialPlayer.BotSocialSystem.SocialFlagsOff.class)
 class TalkScenarioTest {
     @TempDir
     Path directory;
 
     @Test
     void bt1RefusesWhileBotTalkIsOff() {
-        System.clearProperty("slums.bottalk");
+        System.setProperty("slums.bottalk", "false");
         QaWorld world = mock(QaWorld.class);
         Character gm = QaTestSupport.gm(1, "Admin", 100000000);
         QaSuite suite = QaTestSupport.suite(TalkScenarios.all(), world, directory, new QaTestSupport.ManualScheduler());

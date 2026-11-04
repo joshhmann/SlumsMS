@@ -56,6 +56,7 @@ public final class BotEpisodes {
     private BotEpisodes() {
     }
 
+    /** Whether this character id is a bot (the player-facing episodes below skip those; {@link #botEvent} is for them). */
     private static boolean bot(int charId) {
         return BotHelpers.isArtificial(charId);
     }
@@ -162,6 +163,31 @@ public final class BotEpisodes {
         });
     }
 
+    /**
+     * Stage 3 (ticket 271): bot {@code botCharId} remembers something it did or saw with another BOT, written by the
+     * server's own events (never by the LLM): a talk, an ask and its answer, a trip, a trade, gossip passed on. The
+     * note is about the other bot ({@link BotMemory.SubjectType#BOT}, keyed by its character id), lives under the same
+     * 10-per-pair cap and age sweep as a note about a player, and a repeat of a similar thing folds into one note with a
+     * count ({@link BotMemory#remember}). The note text must name nobody: the prompts that read it add the names.
+     * Written in the background.
+     *
+     * @param valence -1..1: how it felt to the writer (a warm yes is positive, a rude refusal negative)
+     */
+    public static void botEvent(int botCharId, int otherBotCharId, BotMemory.Kind kind, String text, double valence,
+                                int mapId, long now) {
+        if (!bot(botCharId) || !bot(otherBotCharId) || botCharId == otherBotCharId || text == null || text.isBlank()) {
+            return;
+        }
+        writer.execute(() -> {
+            try {
+                BotMemory.remember(slot(botCharId), otherBotCharId, kind, text, valence, mapId,
+                        BotMemory.Provenance.WITNESSED, Double.NaN, 0, now);
+            } catch (RuntimeException ex) {
+                log.debug("Could not write bot {}'s memory of bot {}", botCharId, otherBotCharId, ex);
+            }
+        });
+    }
+
     /** A small push on Bartle's chart, at most once per {@link #PUSH_GAP_MS} per bot and kind. True when it moved. */
     static boolean nudge(int botCharId, SocialProfile.Push push, long now) {
         long k = ((long) botCharId << 8) | push.ordinal();
@@ -181,7 +207,7 @@ public final class BotEpisodes {
     }
 
     /** A map's short place name in lower case ("ellinia", "the door to zakum"), or null. */
-    static String placeName(int mapId) {
+    public static String placeName(int mapId) {
         try {
             String place = server.maps.MapFactory.loadPlaceName(mapId);
             if (place == null || place.isBlank()) {

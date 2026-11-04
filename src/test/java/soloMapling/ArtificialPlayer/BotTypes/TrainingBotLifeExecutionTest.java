@@ -19,6 +19,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+@org.junit.jupiter.api.extension.ExtendWith(soloMapling.ArtificialPlayer.BotSocialSystem.SocialFlagsOff.class)
 class TrainingBotLifeExecutionTest {
     private static final LifeDecision.Result RESTOCK = new LifeDecision.Result(List.of(),
             Optional.of(LifeDecision.Activity.RESTOCK), LifeDecision.Outcome.CHOOSE);
@@ -166,7 +167,7 @@ class TrainingBotLifeExecutionTest {
                 assertFalse(bot.startLifeRestockTrip());
                 var request = bot.prepareLifeActivity(RESTOCK);
                 bot.submitLifeActivity(request);
-                System.clearProperty("slums.botlife.execute");
+                System.setProperty("slums.botlife.execute", "false");
                 drain(bot);
                 assertEquals("GRIND", phase(bot));
                 assertEquals(0, bot.lifeActivityState().active());

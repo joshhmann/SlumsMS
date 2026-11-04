@@ -512,8 +512,11 @@ public final class WorldEventReactions {
         long now = System.currentTimeMillis();
         for (var n : soloMapling.ArtificialPlayer.BotWorldGossip.recent(now)) {
             if (n.kind == soloMapling.ArtificialPlayer.BotWorldGossip.Kind.EVENT && n.what.equals(newsName(e))) {
-                String line = soloMapling.ArtificialPlayer.BotWorldGossip.line(n, n.witnessedBy(speaker.getId())
-                        || e.joinedBots.contains(speaker.getId()), "", rng);
+                boolean witness = n.witnessedBy(speaker.getId()) || e.joinedBots.contains(speaker.getId());
+                if (!witness && !n.knows(speaker.getId(), now)) {
+                    break; // Stage 3, no omniscience: this bot neither was there nor was told
+                }
+                String line = soloMapling.ArtificialPlayer.BotWorldGossip.line(n, witness, "", rng);
                 if (line != null) {
                     out.add(speaker.getName() + " (news): " + line);
                     String said = line;

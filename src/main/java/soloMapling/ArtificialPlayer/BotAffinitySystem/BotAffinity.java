@@ -70,7 +70,7 @@ public final class BotAffinity {
     private static final Map<Integer, Boolean> loading = new ConcurrentHashMap<>();
     private static volatile AffinityStore store = new AffinityStore.Jdbc();
     private static volatile Executor writer = ExecutorServiceManager::runAsync;
-    private static volatile LongSupplier clock = System::currentTimeMillis;
+    private static volatile LongSupplier clock = soloMapling.ArtificialPlayer.BotSocialSystem.SocialSim::now;
     /** Whether a player is still online (the sweep drops the others). */
     private static volatile IntPredicate isOnline = BotAffinity::playerOnline;
     private static volatile boolean sweeperStarted;
@@ -179,7 +179,7 @@ public final class BotAffinity {
         }
         List<Tie> all = new ArrayList<>(pt.ties.values());
         all.removeIf(t -> t.botId == keep);
-        all.sort(Comparator.comparingDouble(t -> Math.abs(AffinityRules.scoreAt(t, now))));
+        all.sort(Comparator.comparingDouble(t -> AffinityRules.significance(t, now))); // estranged, rival, close outlive faded
         int excess = pt.ties.size() - max;
         for (Tie t : all.subList(0, Math.min(excess, all.size()))) {
             pt.ties.remove(t.botId);
@@ -223,6 +223,50 @@ public final class BotAffinity {
         synchronized (pt) {
             Tie tie = pt.ties.get(slot(botCharId));
             return tie == null ? 0 : AffinityRules.scoreAt(tie, now());
+        }
+    }
+
+    /**
+     * The eight axes of how bot {@code botCharId} feels about player {@code playerId} now (faded to now), or
+     * {@link Axes#NONE} when there is no tie or the player's ties are not loaded. Memory only; never shown to players.
+     * It is the bot's own edge: nothing here reads what the player feels.
+     */
+    public static Axes axes(int botCharId, int playerId) {
+        if (!enabled() || !isBotId(botCharId)) {
+            return Axes.NONE;
+        }
+        PlayerTies pt = online.get(playerId);
+        if (pt == null) {
+            return Axes.NONE;
+        }
+        synchronized (pt) {
+            Tie tie = pt.ties.get(slot(botCharId));
+            return tie == null ? Axes.NONE : Axes.of(AffinityRules.axesAt(tie, now()));
+        }
+    }
+
+    /**
+     * The relationship {@link Stage} of bot {@code botCharId} toward player {@code playerId} now (cooled by time, never
+     * raised by it); {@link Stage#STRANGER} when unknown or not loaded. A cooled stage is kept on the tie.
+     */
+    public static Stage stage(int botCharId, int playerId) {
+        if (!enabled() || !isBotId(botCharId)) {
+            return Stage.STRANGER;
+        }
+        PlayerTies pt = online.get(playerId);
+        if (pt == null) {
+            return Stage.STRANGER;
+        }
+        synchronized (pt) {
+            Tie tie = pt.ties.get(slot(botCharId));
+            if (tie == null) {
+                return Stage.STRANGER;
+            }
+            Stage now = AffinityRules.stageAt(tie, now());
+            if (now != tie.stage) {
+                tie.stage = now; // the hysteresis memory follows what time did; derivable again, so not flagged dirty
+            }
+            return now;
         }
     }
 
@@ -366,6 +410,7 @@ public final class BotAffinity {
         }
         long now = now();
         int slot = slot(botCharId);
+        Persona persona = Persona.of(botCharId); // memory only; read before the player's lock is taken
         AffinityState before;
         AffinityState after;
         Tie snapshot;
@@ -379,7 +424,7 @@ public final class BotAffinity {
                 tie = new Tie(slot, playerId, 0, 0, 0, now);
             }
             before = AffinityRules.state(pt.ties.get(slot), now, off);
-            if (!AffinityRules.apply(tie, event, delta, now, off)) {
+            if (!AffinityRules.apply(tie, event, delta, now, off, persona)) {
                 return false;
             }
             pt.ties.put(slot, tie);
@@ -819,7 +864,7 @@ public final class BotAffinity {
                                   IntPredicate testOnline) {
         store = testStore != null ? testStore : new AffinityStore.Jdbc();
         writer = testWriter != null ? testWriter : ExecutorServiceManager::runAsync;
-        clock = testClock != null ? testClock : System::currentTimeMillis;
+        clock = testClock != null ? testClock : soloMapling.ArtificialPlayer.BotSocialSystem.SocialSim::now;
         isOnline = testOnline != null ? testOnline : BotAffinity::playerOnline;
         purge = testStore != null ? id -> { } : MEMORY_PURGE;
         online.clear();

@@ -1536,6 +1536,34 @@ public final class AutoQaCatalog {
                 .minutes(2)
                 .expect(probe("makerBatch"))
                 .build());
+        // ticket 271 stage 7 (the Henesys pilot): the social layer's four read-only probes (Probes164Social). Each
+        // samples counters the server has already accumulated and SKIPs with a reason while there is too little of
+        // it, so none of them stages a scene or moves a bot
+        // modes (-Dslums.modeswitch): after 8 bots x 30 min of mode decisions, the census holds all three modes,
+        // switches went out of training and back into it, the type swap was refused on at most 5% of switches, and no
+        // bot went over three switches an hour
+        c.add(Check.auto("t-ms-1", "Bot modes: training, social and town all populated, switches both ways, capped")
+                .laneOnly().minutes(2)
+                .expect(probe("modeSwitch"))
+                .build());
+        // minds (-Dslums.socialacts): a sample of online bots with a loaded mind has no NaN, a mood in [-1, 1], and
+        // at least two minds moved off their seed values (an event landed)
+        c.add(Check.auto("t-sm-1", "Bot minds: moods in range, no NaN, events land on seeded emotions and needs")
+                .laneOnly().minutes(2)
+                .expect(probe("socialMind"))
+                .build());
+        // acts (-Dslums.socialacts, -Dslums.socialbudget): at least three kinds of act landed between bots, errors
+        // and budget refusals stay under their shares, the turn cap bites, and no kind is refused more than it lands
+        c.add(Check.auto("t-sa-1", "Social acts: three kinds land, budget and turn cap bite, few errors")
+                .laneOnly().minutes(2)
+                .expect(probe("socialActs"))
+                .build());
+        // The Henesys pilot's own counters (probe "socialPilot", Probes164Social). The id is t-pi-1 because t-sp-1 is
+        // the 1.6.2 "bots spread out" check. SocialPilot exists now, so the check is registered.
+        c.add(Check.auto("t-pi-1", "Henesys pilot: its own counters report work")
+                .laneOnly().minutes(2)
+                .expect(probe("socialPilot"))
+                .build());
         return List.copyOf(c);
     }
 

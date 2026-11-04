@@ -59,6 +59,7 @@ class BotBondsTest {
         BotAffinity.useForTest(null, null, null, null);
         SocialGate.resetForTest();
         System.clearProperty("solomapling.bonds.k");
+        System.clearProperty("slums.bonds.background");
     }
 
     /** One shared event both ways, then past every cooldown. */
@@ -272,6 +273,7 @@ class BotBondsTest {
 
     @Test
     void theMinuteStepTouchesPartiesAndAFewSampledPairsOnObservedMapsOnly() {
+        System.setProperty("slums.bonds.background", "false"); // stage 2's background tier has its own tests
         BotBonds.useObservedForTest(mapId -> mapId == 100);
         MapleMap observed = map(100);
         MapleMap quiet = map(200);

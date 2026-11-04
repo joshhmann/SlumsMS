@@ -278,6 +278,14 @@ public final class LifeMemoryStore {
         return memories.size();
     }
 
+    /**
+     * Test seam (simulated restarts): makes {@code memory} the character's memory for the run, as if the row had just
+     * been read. A real run never calls this; {@link #of} does it from the table.
+     */
+    public static void putForTest(int characterId, LifeMemory memory) {
+        memories.put(characterId, memory);
+    }
+
     /** Test seam: a mock pool (null restores the real one); forgets every memory and row. */
     public static void useConnectionSourceForTest(Connections source) {
         synchronized (LOAD_LOCK) {

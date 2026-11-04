@@ -14,6 +14,10 @@ public final class LifeTownSlots {
         long key = key(map);
         if (Objects.equals(byBot.get(botId), key)) return true;
         int cap = BotMapCap.cap(map.getId());
+        if (cap > 0 && soloMapling.ArtificialPlayer.BotSocialSystem.SocialPilot.isPilot(botId)
+                && soloMapling.ArtificialPlayer.BotSocialSystem.SocialPilot.isPilotMap(map.getId())) {
+            cap += soloMapling.ArtificialPlayer.BotSocialSystem.SocialPilot.headroom(); // stage 7: the pilot never bounces off a full town
+        }
         if (!BotMapCap.hasRoom(map.getBotCount() + incoming.getOrDefault(key, 0), cap)) return false;
         release(botId);
         byBot.put(botId, key); incoming.merge(key, 1, Integer::sum);

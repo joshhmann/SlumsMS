@@ -83,7 +83,12 @@ public final class BotGossip {
                 byMap.computeIfAbsent(chr.getMapId(), k -> new ArrayList<>()).add(chr);
             }
         }
-        step(byMap, now, ThreadLocalRandom.current());
+        long socialStarted = System.nanoTime();
+        try {
+            step(byMap, now, ThreadLocalRandom.current());
+        } finally {
+            soloMapling.ArtificialPlayer.GCMoveSystem.BotPerformanceMonitor.recordSocialTick(System.nanoTime() - socialStarted);
+        }
     }
 
     /** One round over the online bots grouped by map; returns how many notes and reputations changed hands. */
@@ -147,6 +152,8 @@ public final class BotGossip {
             if (listenerChr == null) {
                 continue; // an offline friend hears the reputation, not a note (notes go to bots with memory loaded)
             }
+            // Stage 3: the only way news reaches a bot that was not there: a knower tells it along this bond
+            BotWorldGossip.pass(tellerChr.getId(), listenerId, now, rng);
             int teller = tellerChr.getId() - BotStore.BOT_ID_BASE;
             List<BotMemory.Note> notes = notesByTeller.getOrDefault(teller, List.of());
             if (notes.isEmpty()) {
@@ -393,6 +400,9 @@ public final class BotGossip {
             if (n.whoId == teller.getId() || n.whoId == other.getId()) {
                 continue;
             }
+            if (!n.knows(teller.getId(), now)) {
+                continue; // Stage 3, no omniscience: it neither saw this nor was told it
+            }
             double bias = switch (n.kind) {
                 case BOSS -> 0.6 + 2 * achiever;
                 case DROP -> 0.6 + 1.5 * achiever + 1.5 * explorer;
@@ -599,6 +609,7 @@ public final class BotGossip {
         synchronized (stories) {
             Heard known = heardOf(tellerId, fact.about(), now);
             int hops = known == null ? 1 : known.hops() + 1;
+            hops = Math.max(hops, newsHops(fact, tellerId, now) + 1); // world news: counted from its witnesses
             if (hops > BotMemory.MAX_HOPS) {
                 return null;
             }
@@ -609,11 +620,38 @@ public final class BotGossip {
                 }
             }
             Heard kept = new Heard(fact, tellerId, tellerName, hops, now);
+            toldNews(fact, tellerId, listenerId, now); // Stage 3: a listener told a piece of news now knows it
             mine.addLast(kept);
             while (mine.size() > STORIES_PER_BOT) {
                 mine.pollFirst();
             }
             return kept;
+        }
+    }
+
+    /** Mouths between {@code botId} and a witness of the world news this fact is about (0: not news, or it is a witness). */
+    private static int newsHops(Fact fact, int botId, long now) {
+        if (!"news".equals(fact.kind())) {
+            return 0;
+        }
+        for (BotWorldGossip.News n : BotWorldGossip.recent(now)) {
+            if (BotWorldGossip.about(n).equals(fact.about())) {
+                return Math.max(0, n.hopsOf(botId, now));
+            }
+        }
+        return 0;
+    }
+
+    /** A news story told in a thread: the listener now knows the news (and may voice it), one mouth deeper. */
+    private static void toldNews(Fact fact, int tellerId, int listenerId, long now) {
+        if (!"news".equals(fact.kind())) {
+            return;
+        }
+        for (BotWorldGossip.News n : BotWorldGossip.recent(now)) {
+            if (BotWorldGossip.about(n).equals(fact.about())) {
+                BotWorldGossip.tell(n, tellerId, listenerId, now);
+                return;
+            }
         }
     }
 

@@ -70,7 +70,7 @@ class LifeRuntimeTest {
         var chr = mock(Character.class); when(bot.getChr()).thenReturn(chr);
         String old=System.getProperty("slums.botlife.enabled");
         try (var roster=mockStatic(BotRoster.class); var qa=mockStatic(QaSuite.class)) {
-            System.clearProperty("slums.botlife.enabled");
+            System.setProperty("slums.botlife.enabled", "false"); // on by default since 1.6.4; false is the rollback
             var runtime=new LifeRuntime(bot);
             clearInvocations(bot);
             runtime.tick(System.currentTimeMillis());

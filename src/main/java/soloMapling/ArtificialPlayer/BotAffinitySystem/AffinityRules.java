@@ -26,6 +26,9 @@ public final class AffinityRules {
     /** Below this a tie has faded to nothing: its history is forgotten and the row may be dropped. */
     public static final double FADED = 3;
 
+    /** Axis units a hearsay event may move trust, affection or resentment to at most (as {@link #HEARSAY_CAP} of 100). */
+    public static final double HEARSAY_AXIS_CAP = 0.15;
+
     private AffinityRules() {
     }
 
@@ -101,8 +104,20 @@ public final class AffinityRules {
         return apply(tie, event, event.delta(), now, optedOut);
     }
 
-    /** As {@link #apply(Tie, AffinityEvent, long, boolean)} with an explicit delta (a big gift counts more). */
+    /**
+     * As {@link #apply(Tie, AffinityEvent, long, boolean)} with an explicit delta (a big gift counts more), for a
+     * neutral character. See the {@link Persona} overload.
+     */
     public static boolean apply(Tie tie, AffinityEvent event, int delta, long now, boolean optedOut) {
+        return apply(tie, event, delta, now, optedOut, Persona.NEUTRAL);
+    }
+
+    /**
+     * As above, and the event's {@link AxisTable} row, scaled by how far {@code delta} is from the event's default
+     * and by {@code persona}, moves the faded axes; then the stage moves at most one rung. Hearsay moves trust,
+     * affection and resentment only while each is under {@link #HEARSAY_AXIS_CAP} and never past it.
+     */
+    public static boolean apply(Tie tie, AffinityEvent event, int delta, long now, boolean optedOut, Persona persona) {
         if (delta == 0 || (optedOut && delta < 0)) {
             return false;
         }
@@ -112,6 +127,8 @@ public final class AffinityRules {
             return false;
         }
         double current = scoreAt(tie, now);
+        double[] axes = axesAt(tie, now);
+        Stage prev = Stage.settle(tie.stage, axes, false);
         if (Math.abs(current) < FADED) {
             tie.kind = 0;      // a faded history is forgotten: earning a state starts over
             tie.hostile = 0;
@@ -130,7 +147,17 @@ public final class AffinityRules {
                 tie.hostile = Math.min(999, tie.hostile + 1);
             }
         }
+        double[] row = AxisTable.scaled(event, Math.abs(delta) / (double) Math.abs(event.defaultDelta()), persona);
+        double[] moved = Axes.plus(axes, row);
+        if (event.hearsay()) {
+            for (int i : new int[]{Axis.TRU, Axis.AFF, Axis.REN}) {
+                moved[i] = Math.abs(axes[i]) >= HEARSAY_AXIS_CAP ? axes[i]
+                        : Math.max(-HEARSAY_AXIS_CAP, Math.min(HEARSAY_AXIS_CAP, moved[i]));
+            }
+        }
         tie.score = next;
+        tie.axes = moved;
+        tie.stage = Stage.step(prev, moved, true);
         tie.updatedAt = now;
         tie.lastAt.put(event, now);
         tie.dirty = true;
@@ -153,10 +180,19 @@ public final class AffinityRules {
     /** GM: a fresh grudge, as if the player had just KSed the bot again and again: at least a rival, as of now. */
     public static void forceGrudge(Tie tie, long now) {
         double current = scoreAt(tie, now);
+        double[] axes = axesAt(tie, now);
+        Stage prev = Stage.settle(tie.stage, axes, false);
         tie.score = Math.max(-MAX, Math.min(current, rivalAt()) - 20);
         tie.hostile = Math.max(tie.hostile + 3, 3);
         tie.kind = 0;
         tie.updatedAt = now;
+        double[] grudge = Axes.legacy(tie.score, 0, tie.hostile);
+        axes[Axis.REN] = Math.max(axes[Axis.REN], grudge[Axis.REN]);
+        axes[Axis.RIV] = Math.max(axes[Axis.RIV], grudge[Axis.RIV]);
+        axes[Axis.AFF] = Math.min(axes[Axis.AFF], grudge[Axis.AFF]);
+        axes[Axis.TRU] = Math.min(axes[Axis.TRU], grudge[Axis.TRU]);
+        tie.stage = Stage.step(prev, axes, true);
+        tie.axes = axes;
         tie.dirty = true;
     }
 
@@ -164,10 +200,33 @@ public final class AffinityRules {
         tie.score = score;
         tie.kind = kind;
         tie.hostile = hostile;
+        tie.axes = Axes.legacy(score, kind, hostile);
+        tie.stage = Stage.settle(Stage.STRANGER, tie.axes, true);
     }
 
-    /** Whether a stored tie has faded to nothing (it may be dropped). */
+    /**
+     * Whether a stored tie has faded to nothing (it may be dropped): its score is under {@link #FADED} and no axis but
+     * familiarity still holds a feeling (0.03).
+     */
     public static boolean faded(Tie tie, long now) {
-        return Math.abs(scoreAt(tie, now)) < FADED;
+        return Math.abs(scoreAt(tie, now)) < FADED && Axes.feeling(axesAt(tie, now)) < 0.03;
+    }
+
+    // ── ticket 271 stage 2: axes and stage (the same arithmetic as BondRules, for bot-to-player edges) ──
+
+    /** The tie's eight axes faded to {@code now}. */
+    static double[] axesAt(Tie tie, long now) {
+        return Axes.faded(tie.axes, now - tie.updatedAt);
+    }
+
+    /** The tie's stage at {@code now}: the stored one, cooled by whatever time has faded (never raised by time). */
+    static Stage stageAt(Tie tie, long now) {
+        return Stage.settle(tie.stage, axesAt(tie, now), false);
+    }
+
+    /** How much the tie matters when a full list must drop one ({@link Axes#significance}). */
+    static double significance(Tie tie, long now) {
+        double[] axes = axesAt(tie, now);
+        return Axes.significance(scoreAt(tie, now), axes, Stage.settle(tie.stage, axes, false));
     }
 }

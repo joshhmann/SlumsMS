@@ -627,6 +627,36 @@ them (and undoes any LOD pin) itself. None of them is on the release allow-list.
   the shared ring was empty and the hour's 20 copies had gone to other bots' stuck reports). A tool that is off
   SKIPs the check naming its flag.
 
+### Social checks (1.6.4, ticket 271 stage 7)
+
+Probes in `Probes164Social`, no `!qa` scenario; each samples counters the server has already accumulated and moves
+nothing, so they run beside a live population rather than staging one. They are lane-only (they need a populated
+roster), and none is on the release allow-list. Every one SKIPs with its reason instead of FAILing when its flag is
+off or there is too little history to judge. Runbook: `docs/qa/social-test-runbook.md`.
+
+- **t-ms-1 (mode switching):** after at least 8 roster bots have been through a mode decision and the brain has made
+  240 of them (8 bots x 30 minutes, one decision a bot a minute), `ModeSwitch.census()` must hold at least one bot in
+  each of training, social and town; `ModeSwitch.stats()` must show a switch out of training *and* a switch back into
+  it; there must be at least 3 switches; `refused swap refused` must be at most 5% of them; and
+  `ModeSwitch.switchesLastHour(now)` (a read-only accessor added for this) must keep every bot at or under the
+  policy's 3 switches an hour. SKIPs when `-Dslums.modeswitch=false` or the daily-life brain is not reaching every
+  bot (`LifeRuntime.reachesAllBots`).
+- **t-sm-1 (the mind):** a sample of online roster bots whose life memory is in RAM (5 needed). Every value must be
+  finite and the mood in `[-1, 1]`; at least 2 of the 5 must have moved off their seed values - a top emotion above
+  its baseline, or a need outside the seed band 0.19..0.51 - which is how "an event landed on a mind" is visible
+  without reading the trace. SKIPs when `-Dslums.socialacts=false` (nothing would land) or the social layer has made
+  no decision yet. Persistence across a restart is the runbook's job, not this check's.
+- **t-sa-1 (social acts):** at least 3 kinds of act must have landed (`KIND.ok`) between bots with no real player
+  involved, errors must stay at or under 5% of the acts that landed, `SocialBudget` must refuse at most half of the
+  attempts, the turn limit must bite (at least one `denied turn-limit` in 200+ allowed acts) but not dominate, and no
+  single kind may be refused more than it lands with 10+ attempts. SKIPs when `-Dslums.socialacts=false` or under 20
+  attempts have been made.
+- **t-pi-1 (the Henesys pilot):** registered. The probe `socialPilot` reads `SocialPilot.stats()` and
+  `SocialPilot.enabled()` (through a seam a test can swap) and its verdicts are unit-tested. It SKIPs when
+  `-Dslums.socialpilot=false`, when no pilot bot is online yet (`online` is 0), or when the class is absent; it FAILs
+  on a negative counter or on a pilot with bots online whose counters are all still 0. Id is `t-pi-1` because `t-sp-1`
+  is already the 1.6.2 "bots spread out" check.
+
 ### bt-1: bots talk to bots (1.6.1, ticket 114)
 
 `!qa run bt-1` (needs `-Dslums.bottalk=true`): five fresh bots next to the GM, Ann and Bob friends, Cat, Dan and Eve a

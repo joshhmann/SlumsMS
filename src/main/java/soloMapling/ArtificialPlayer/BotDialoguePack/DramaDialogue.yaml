@@ -300,6 +300,77 @@ Drama:
       - "{PLAYER} lv {LEVEL}, i was there last week"
       - "{PLAYER} grind more talk less"
       - "{PLAYER} ur dmg is a rounding error"
+  # ---- 1.6.4 social acts between bots (SocialActions): compliments, apologies, spats, invites. {PLAYER} is the other
+  # bot's name. Game only, PG-13, short and lowercase like the rest of the bank ----
+  SocialCompliment:
+    text:
+      - "nice gear {PLAYER}"
+      - "{PLAYER} u play so clean"
+      - "ngl {PLAYER} ur kind of a legend around here"
+      - "{PLAYER} good job today"
+      - "{PLAYER} always fun to train near u"
+      - "ur lv {LEVEL} already? nice {PLAYER}"
+      - "{PLAYER} ur a good one"
+  SocialApology:
+    text:
+      - "{PLAYER} sorry about earlier. i was salty"
+      - "hey {PLAYER}, my bad. that got out of hand"
+      - "{PLAYER} i shouldnt have said that. sorry"
+      - "ok {PLAYER} i overreacted. sorry"
+  SocialApologyAccepted:
+    text:
+      - "its ok {PLAYER}. forget it"
+      - "thanks {PLAYER}. me too, sorry"
+      - "np {PLAYER}, we good"
+  SocialApologyRefused:
+    text:
+      - "not yet {PLAYER}"
+      - "mm. i need a minute {PLAYER}"
+      - "words are cheap {PLAYER}"
+  SocialReconcile:
+    text:
+      - "{PLAYER} can we just be cool again?"
+      - "{PLAYER} lets start over. party sometime?"
+      - "{PLAYER} i dont wanna fight anymore. truce?"
+      - "{PLAYER} ok truce. my pots are on me"
+  SocialReconcileAccepted:
+    text:
+      - "truce {PLAYER}"
+      - "fine {PLAYER}, start over"
+      - "yeah ok {PLAYER}. we good"
+  SocialArgue:
+    text:
+      - "{PLAYER} ur such a ninja looter"
+      - "{PLAYER} ks again. real mature"
+      - "{PLAYER} stay out of my mobs"
+      - "{PLAYER} u talk big for a lv {LEVEL}"
+      - "{PLAYER} get ur own spot"
+  SocialArgueBack:
+    text:
+      - "whatever {PLAYER}"
+      - "lol u wish {PLAYER}"
+      - "{PLAYER} take it somewhere else"
+      - "try farming for once {PLAYER}"
+  SocialInvite:
+    text:
+      - "{PLAYER} wanna party?"
+      - "{PLAYER} duo for a bit?"
+      - "{PLAYER} want to train together?"
+  SocialInviteAccept:
+    text:
+      - "sure {PLAYER}"
+      - "ok {PLAYER}, send it"
+      - "yeah lets go {PLAYER}"
+  SocialInviteDecline:
+    text:
+      - "cant right now {PLAYER}"
+      - "maybe later {PLAYER}"
+      - "not now {PLAYER}, sorry"
+  SocialSpendTime:
+    text:
+      - "mind if i hang here {PLAYER}?"
+      - "{PLAYER} lets just chill for a bit"
+      - "{PLAYER} nice spot. staying a while"
   # ---- rivals: KS wars ----
   KsWarCall:
     text:

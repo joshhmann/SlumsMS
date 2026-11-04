@@ -128,6 +128,7 @@ public final class DashboardExporter {
         private final Sources sources;
         private final java.util.function.Supplier<EconomyFeed> economy;
         private final LiveSnapshot snapshot = new LiveSnapshot();
+        private final SocialExport social = new SocialExport();
         private final SeriesStore series;
         private final AtomicLong lastWarnAt = new AtomicLong();
         private int runs;
@@ -166,7 +167,8 @@ public final class DashboardExporter {
             List<LiveSnapshot.BotSample> bots = sources.bots();
             EconomyFeed feed = economy.get();
             feed.observe(bots, now);
-            LiveSnapshot.Result result = snapshot.build(now, bots, sources.population(), sources.health(), feed,
+            LiveSnapshot.Health health = sources.health();
+            LiveSnapshot.Result result = snapshot.build(now, bots, sources.population(), health, feed,
                     sources.mapNames());
             // Tickets 36/37: which tier answered players' lines and how fast, flags, actions, Decide calls.
             result.live().put("chat", soloMapling.ArtificialPlayer.BotBrainSystem.ChatStats.snapshot());
@@ -178,6 +180,13 @@ public final class DashboardExporter {
             }
             if (accounts != null) {
                 result.live().put("accounts", accounts);
+            }
+            // 1.6.4 stage 6a: the social layer (modes, loop breaker, bot talk, social-tick cost, bonds); memory only
+            try {
+                result.live().put("social", social.build(now, health.phases()));
+            } catch (RuntimeException | LinkageError e) {
+                result.live().put("social", null);   // one failing read leaves the rest of the snapshot
+                log.debug("Dashboard social block failed", e);
             }
             result.live().put("wealthIndex", soloMapling.ArtificialPlayer.PlayerWealthIndex.snapshot());
             // Ticket 157: the effective on/off settings (system properties and config toggles), once per export

@@ -214,6 +214,10 @@ public final class Reputation {
             && soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.optedOut(id);
     private static volatile boolean loaded;
     private static volatile boolean loading;
+    /** Where the boot read gets its connection (a seam for tests). */
+    private static volatile BotStore.ConnectionSource loadSource = BotDbGate::connection;
+    /** A bot's circle: itself, its bond neighbours (friends, crew) and its guild mates, as character ids (a seam for tests). */
+    private static volatile java.util.function.IntFunction<java.util.Collection<Integer>> circle = Reputation::worldCircle;
 
     private Reputation() {
     }
@@ -436,7 +440,11 @@ public final class Reputation {
         return out;
     }
 
-    /** Totals over every group: what the whole bot world counts about this subject (decayed). */
+    /**
+     * <b>Deliberately aggregate</b> (an operator statistic and a test hook, never a bot's knowledge): totals over EVERY
+     * group, what the whole bot world counts about this subject (decayed). A bot's own view is {@link #known}, which
+     * reads only the groups the bot belongs to; nothing that decides what a bot says or does may call this.
+     */
     public static Map<Mark, Double> totals(int subjectId) {
         Map<Mark, Double> out = new java.util.EnumMap<>(Mark.class);
         long now = now();
@@ -457,7 +465,10 @@ public final class Reputation {
         return out;
     }
 
-    /** Per group, the counts about this subject, for {@code !botwhy}/QA ("crew of 1000000007: ks 1.0 hop 0"). */
+    /**
+     * Per group, the counts about this subject, for {@code !botwhy}/QA ("crew of 1000000007: ks 1.0 hop 0"). Like
+     * {@link #totals} an operator view over every group, not a bot's knowledge.
+     */
     public static List<String> describe(int subjectId) {
         List<String> out = new ArrayList<>();
         long now = now();
@@ -584,6 +595,49 @@ public final class Reputation {
         }
     }
 
+    // ── a holder's own circle ──
+
+    /** A bot's circle: itself, its friends and crew ({@code BotBonds}) and its guild mates ({@code BotGuilds}). */
+    static java.util.Collection<Integer> worldCircle(int botCharId) {
+        java.util.Set<Integer> out = new java.util.LinkedHashSet<>();
+        out.add(botCharId);
+        try {
+            out.addAll(soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.friendsOf(botCharId));
+            out.addAll(soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.crewOf(botCharId));
+        } catch (RuntimeException | LinkageError e) {
+            // no bonds loaded: the bot alone
+        }
+        try {
+            var m = soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.membership(botCharId);
+            if (m != null && m.guildId() > 0) {
+                for (var g : soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.membersOf(m.guildId())) {
+                    out.add(g.charId());
+                }
+            }
+        } catch (RuntimeException | LinkageError e) {
+            // no guild roster: bonds and crew still count
+        }
+        out.removeIf(id -> !BotHelpers.isArtificial(id));
+        return out;
+    }
+
+    /**
+     * What this bot's own circle (itself, its crew and bond neighbours, its guild mates) holds first hand about a
+     * subject, per memory kind, read from {@code botmemory} through {@link BotMemory#kindCounts(int, java.util.Collection)}.
+     * Bots outside the circle are never read: this is the restricted form of the all-bots count. Reads the database:
+     * call it off the game thread. Empty when the player opted out ({@code @botdrama off}).
+     */
+    public static Map<BotMemory.Kind, Integer> circleKindCounts(int botCharId, int subjectId) {
+        if (!enabled() || optedOut.test(subjectId)) {
+            return new java.util.EnumMap<>(BotMemory.Kind.class);
+        }
+        List<Integer> slots = new ArrayList<>();
+        for (int id : circle.apply(botCharId)) {
+            slots.add(id - BotStore.BOT_ID_BASE);
+        }
+        return BotMemory.kindCounts(subjectId, slots);
+    }
+
     // ── @botdrama off ──
 
     /** {@code @botdrama off}: every group forgets the player (and the index points at nothing about them). */
@@ -599,9 +653,15 @@ public final class Reputation {
 
     // ── boot read ──
 
-    /** S3's first-hand rows about players that make a reputation: scams, gifts, favors, PQs and the KS feeling note. */
+    /**
+     * S3's first-hand rows about players that make a reputation: scams, gifts, favors, PQs and the KS feeling note.
+     * Stage 3: only notes about PLAYERS (character id below the bot id base). A bot's note about another bot (a gift
+     * between bots, a PQ together) is that bot's own first-hand memory and is counted live by {@code BotBonds}; counting
+     * it again at boot would double it and spread one bot's private history to its whole guild and crew.
+     */
     static final String LOAD = "SELECT BotId, AboutCharacterId, Kind, Note, CreatedAt FROM botmemory WHERE Source = 'DIRECT'"
-            + " AND (Kind IN ('SCAM', 'GIFT', 'FAVOR', 'PQ', 'BOSS') OR Note = ?) ORDER BY CreatedAt DESC LIMIT 20000";
+            + " AND AboutCharacterId < ? AND (Kind IN ('SCAM', 'GIFT', 'FAVOR', 'PQ', 'BOSS') OR Note = ?)"
+            + " ORDER BY CreatedAt DESC LIMIT 20000";
 
     /** Once, off the game thread (the gossip step calls it): rebuilds players' reputations from the S3 rows. */
     public static void loadAsync() {
@@ -628,14 +688,18 @@ public final class Reputation {
         }
         List<Row> rows = new ArrayList<>();
         String ks = soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.NOTE_KS;
-        try (Connection con = BotDbGate.connection(); PreparedStatement ps = con.prepareStatement(LOAD)) {
-            ps.setString(1, ks);
+        try (Connection con = loadSource.get(); PreparedStatement ps = con.prepareStatement(LOAD)) {
+            ps.setInt(1, BotStore.BOT_ID_BASE);
+            ps.setString(2, ks);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
+                    int about = rs.getInt("AboutCharacterId");
+                    if (about >= BotStore.BOT_ID_BASE) {
+                        continue; // Stage 3: a note about another bot is not a player's reputation (the SQL says so too)
+                    }
                     Mark m = ks.equals(rs.getString("Note")) ? Mark.KS : Mark.of(BotMemory.Kind.parse(rs.getString("Kind")));
                     if (m != null) {
-                        rows.add(new Row(BotStore.BOT_ID_BASE + rs.getInt("BotId"), rs.getInt("AboutCharacterId"), m,
-                                rs.getLong("CreatedAt")));
+                        rows.add(new Row(BotStore.BOT_ID_BASE + rs.getInt("BotId"), about, m, rs.getLong("CreatedAt")));
                     }
                 }
             }
@@ -651,6 +715,15 @@ public final class Reputation {
 
     /** Test seam: groups, clock and opt-outs (nulls restore the real ones); forgets everything. */
     public static void useForTest(Groups testGroups, LongSupplier testClock, IntPredicate testOptedOut) {
+        useForTest(testGroups, testClock, testOptedOut, null, null);
+    }
+
+    /** As above, with the boot read's connection source and the circle (nulls restore the real ones). */
+    public static void useForTest(Groups testGroups, LongSupplier testClock, IntPredicate testOptedOut,
+                                  BotStore.ConnectionSource testLoadSource,
+                                  java.util.function.IntFunction<java.util.Collection<Integer>> testCircle) {
+        loadSource = testLoadSource != null ? testLoadSource : BotDbGate::connection;
+        circle = testCircle != null ? testCircle : Reputation::worldCircle;
         groups = testGroups != null ? testGroups : Reputation::worldGroups;
         clock = testClock != null ? testClock : System::currentTimeMillis;
         optedOut = testOptedOut != null ? testOptedOut : id -> !BotHelpers.isArtificial(id)
