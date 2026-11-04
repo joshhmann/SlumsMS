@@ -103,7 +103,7 @@ public final class RingActionHandler extends AbstractPacketHandler {
             source.dropMessage(1, "You can't engage yourself.");
             source.sendPacket(WeddingPackets.OnMarriageResult((byte) 0));
             return;
-        } else if (target.isOwnedAlt()) { // 1.6.0.4: an owned alt never answers, and is no population bot either
+        } else if (target.isOwnedAlt() && !soloMapling.companions.OwnedAltWedding.accepts(source, target)) { // 1.6.0.4: an owned alt never answers, and is no population bot either (ticket 189: its owner may engage it behind -Dslums.ownedalts.marry)
             source.dropMessage(1, soloMapling.companions.OwnedAltService.interactionRefusal(source, target, "answer a proposal"));
             source.sendPacket(WeddingPackets.OnMarriageResult((byte) 0));
             return;
@@ -149,6 +149,10 @@ public final class RingActionHandler extends AbstractPacketHandler {
         }
 
         source.setMarriageItemId(itemid);
+        if (target.isOwnedAlt()) { // ticket 189 stage 2: the owner's own alt answers through the accept body, with no packet
+            answerProposal(source, target, true);
+            return;
+        }
         if (soloMapling.ArtificialPlayer.BotHelpers.isBot(target)) {
             // 1.5.0 bot drama: a bot partner weighs the ring itself (romance opt-in, dating, still friends)
             soloMapling.ArtificialPlayer.BotDramaSystem.BotRomance.proposalToBot(source, target, itemid);
@@ -163,7 +167,7 @@ public final class RingActionHandler extends AbstractPacketHandler {
      * QA t-rm-2); a bot partner's token is recorded on it, never put in an inventory, so it always has room.
      */
     static boolean targetHasEtcSpace(Character target, int tokenId) {
-        if (soloMapling.ArtificialPlayer.BotHelpers.isBot(target)) {
+        if (soloMapling.ArtificialPlayer.BotHelpers.isBot(target) && !target.isOwnedAlt()) {
             return true;
         }
         return InventoryManipulator.checkSpace(target.getClient(), tokenId, 1, "");
@@ -408,6 +412,53 @@ public final class RingActionHandler extends AbstractPacketHandler {
         return true;
     }
 
+    /**
+     * The answer to a proposal: the accept packet's body (mode 2), also what an owner's own alt "says" when the owner
+     * proposes to it (ticket 189 stage 2: an alt has no client to send the packet).
+     */
+    static void answerProposal(final Character source, final Character target, final boolean accepted) {
+        final int itemid = source.getMarriageItemId();
+        if (target.getPartnerId() > 0 || itemid <= 0 || !source.haveItem(itemid) || source.getPartnerId() > 0 || !source.isAlive() || !target.isAlive()) {
+            target.sendPacket(PacketCreator.enableActions());
+            return;
+    }
+
+        if (accepted) {
+            final int newItemId = getEngagementBoxId(itemid);
+            if (!InventoryManipulator.checkSpace(target.getClient(), newItemId, 1, "") || !InventoryManipulator.checkSpace(source, newItemId, 1, "")) {
+                target.sendPacket(PacketCreator.enableActions());
+                return;
+            }
+
+            try {
+                InventoryManipulator.removeById(source.getClient(), InventoryType.USE, itemid, 1, false, false);
+
+                int marriageId = source.getClient().getWorldServer().createRelationship(source.getId(), target.getId());
+                source.setPartnerId(target.getId()); // engage them (new marriageitemid, partnerid for both)
+                target.setPartnerId(source.getId());
+
+                source.setMarriageItemId(newItemId);
+                target.setMarriageItemId(newItemId + 1);
+
+                InventoryManipulator.addById(source.getClient(), newItemId, (short) 1);
+                InventoryManipulator.addById(target.getClient(), (newItemId + 1), (short) 1);
+
+                source.sendPacket(WeddingPackets.OnMarriageResult(marriageId, source, false));
+                target.sendPacket(WeddingPackets.OnMarriageResult(marriageId, target, false));
+
+                source.sendPacket(WeddingPackets.OnNotifyWeddingPartnerTransfer(target.getId(), target.getMapId()));
+                target.sendPacket(WeddingPackets.OnNotifyWeddingPartnerTransfer(source.getId(), source.getMapId()));
+            } catch (Exception e) {
+                log.error("Error with engagement", e);
+            }
+        } else {
+            source.dropMessage(1, target.getName() + " has politely declined your engagement request.");
+            source.sendPacket(WeddingPackets.OnMarriageResult((byte) 0));
+
+            source.setMarriageItemId(-1);
+        }
+    }
+
     @Override
     public final void handlePacket(InPacket p, Client c) {
         byte mode = p.readByte();
@@ -437,52 +488,22 @@ public final class RingActionHandler extends AbstractPacketHandler {
                     return;
                 }
 
+                if (source.isOwnedAlt() || target.isOwnedAlt()) { // ticket 189 (MA-10): an alt never answers or proposes by packet
+                    target.sendPacket(PacketCreator.enableActions());
+                    return;
+                }
+
                 if (soloMapling.ArtificialPlayer.BotHelpers.isBot(source)
                         && soloMapling.ArtificialPlayer.BotDramaSystem.BotRomance.playerAnsweredBot(target, source, accepted)) {
                     target.sendPacket(PacketCreator.enableActions()); // 1.5.0 bot drama: a bot partner proposed
                     return;
                 }
 
-                final int itemid = source.getMarriageItemId();
-                if (target.getPartnerId() > 0 || source.getId() != id || itemid <= 0 || !source.haveItem(itemid) || source.getPartnerId() > 0 || !source.isAlive() || !target.isAlive()) {
+                if (source.getId() != id) {
                     target.sendPacket(PacketCreator.enableActions());
                     return;
                 }
-
-                if (accepted) {
-                    final int newItemId = getEngagementBoxId(itemid);
-                    if (!InventoryManipulator.checkSpace(c, newItemId, 1, "") || !InventoryManipulator.checkSpace(source, newItemId, 1, "")) {
-                        target.sendPacket(PacketCreator.enableActions());
-                        return;
-                    }
-
-                    try {
-                        InventoryManipulator.removeById(source.getClient(), InventoryType.USE, itemid, 1, false, false);
-
-                        int marriageId = c.getWorldServer().createRelationship(source.getId(), target.getId());
-                        source.setPartnerId(target.getId()); // engage them (new marriageitemid, partnerid for both)
-                        target.setPartnerId(source.getId());
-
-                        source.setMarriageItemId(newItemId);
-                        target.setMarriageItemId(newItemId + 1);
-
-                        InventoryManipulator.addById(source.getClient(), newItemId, (short) 1);
-                        InventoryManipulator.addById(c, (newItemId + 1), (short) 1);
-
-                        source.sendPacket(WeddingPackets.OnMarriageResult(marriageId, source, false));
-                        target.sendPacket(WeddingPackets.OnMarriageResult(marriageId, target, false));
-
-                        source.sendPacket(WeddingPackets.OnNotifyWeddingPartnerTransfer(target.getId(), target.getMapId()));
-                        target.sendPacket(WeddingPackets.OnNotifyWeddingPartnerTransfer(source.getId(), source.getMapId()));
-                    } catch (Exception e) {
-                        log.error("Error with engagement", e);
-                    }
-                } else {
-                    source.dropMessage(1, target.getName() + " has politely declined your engagement request.");
-                    source.sendPacket(WeddingPackets.OnMarriageResult((byte) 0));
-
-                    source.setMarriageItemId(-1);
-                }
+                answerProposal(source, target, accepted);
                 break;
 
             case 3: // Break Engagement
@@ -503,6 +524,14 @@ public final class RingActionHandler extends AbstractPacketHandler {
                 }
 
                 if ((itemId != ItemId.INVITATION_CHAPEL && itemId != ItemId.INVITATION_CATHEDRAL) || !c.getPlayer().haveItem(itemId)) {
+                    c.sendPacket(PacketCreator.enableActions());
+                    return;
+                }
+
+                String altRefusal = soloMapling.companions.OwnedAltService.inviteRefusalByName( // ticket 189 (MA-09)
+                        c.getWorldServer().getPlayerStorage(), c.getPlayer(), name, "use a wedding invitation");
+                if (altRefusal != null) {
+                    c.getPlayer().dropMessage(5, altRefusal);
                     c.sendPacket(PacketCreator.enableActions());
                     return;
                 }

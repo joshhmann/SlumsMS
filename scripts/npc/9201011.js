@@ -219,7 +219,7 @@ function action(mode, type, selection) {
 
                     var player = cm.getPlayer();
                     var partner = cm.getMap().getCharacterById(cm.getPlayer().getPartnerId());
-                    if (partner != null) {
+                    if (partner != null && !partner.isOwnedAlt()) { // ticket 189 (MA-10): an alt cannot answer the vows
                         state = getWeddingPreparationStatus(player, partner);
 
                         switch (state) {

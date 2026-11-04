@@ -91,6 +91,12 @@ final class MarriageNpcMocks {
             return gender;
         }
 
+        public boolean ownedAlt;
+
+        public boolean isOwnedAlt() {
+            return ownedAlt;
+        }
+
         public Map0 getMap() {
             return map;
         }

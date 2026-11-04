@@ -432,8 +432,7 @@ public final class OwnedAltService {
                 && actor.getOwnedAltOwner() != null && actor.getOwnedAltOwner().getId() == owner.getId()
                 && soloMapling.ArtificialPlayer.BotTradeSystem.BotGiveTrade.isBusy(actor)) return null;
         if (actor != null && owner != null && owner.getId() == actor.getId())
-            return target.getName() + " is your alt and can't " + what + " while it travels with you."
-                    + " Use @dismiss " + target.getName() + " and log in on it.";
+            return target.getName() + " is your alt and can't " + what + " while it travels with you.";
         return target.getName() + " is an alt traveling with its owner and can't " + what + ".";
     }
 

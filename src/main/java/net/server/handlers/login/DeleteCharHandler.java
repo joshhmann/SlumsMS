@@ -39,6 +39,11 @@ import java.sql.SQLException;
 public final class DeleteCharHandler extends AbstractPacketHandler {
     private static final Logger log = LoggerFactory.getLogger(DeleteCharHandler.class);
 
+    /** Ticket 189: a character engaged or married must divorce first, or its partner is left with a ghost spouse. */
+    public static boolean blockedByMarriage(int partnerId) {
+        return partnerId > 0;
+    }
+
     @Override
     public void handlePacket(InPacket p, Client c) {
         String pic = p.readString();
@@ -46,7 +51,7 @@ public final class DeleteCharHandler extends AbstractPacketHandler {
         if (c.checkPic(pic)) {
             //check for family, guild leader, pending marriage, world transfer
             try (Connection con = DatabaseConnection.getConnection();
-                 PreparedStatement ps = con.prepareStatement("SELECT `world`, `guildid`, `guildrank`, `familyId` FROM characters WHERE id = ?");
+                 PreparedStatement ps = con.prepareStatement("SELECT `world`, `guildid`, `guildrank`, `familyId`, `partnerId` FROM characters WHERE id = ?");
                  PreparedStatement ps2 = con.prepareStatement("SELECT COUNT(*) as rowcount FROM worldtransfers WHERE `characterid` = ? AND completionTime IS NULL")) {
                 ps.setInt(1, cid);
 
@@ -58,7 +63,10 @@ public final class DeleteCharHandler extends AbstractPacketHandler {
                     int guildId = rs.getInt("guildid");
                     int guildRank = rs.getInt("guildrank");
                     int familyId = rs.getInt("familyId");
-                    if (guildId != 0 && guildRank <= 1) {
+                    if (blockedByMarriage(rs.getInt("partnerId"))) {
+                        c.sendPacket(PacketCreator.deleteCharResponse(cid, 0x18)); // "pending wedding": divorce first
+                        return;
+                    } else if (guildId != 0 && guildRank <= 1) {
                         c.sendPacket(PacketCreator.deleteCharResponse(cid, 0x16));
                         return;
                     } else if (familyId != -1) {

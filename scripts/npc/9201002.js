@@ -31,6 +31,7 @@ const YamlConfig = Java.type('config.YamlConfig');
 var weddingBlessingExp = YamlConfig.config.server.WEDDING_BLESS_EXP;
 
 var RingActionHandler = Java.type('net.server.channel.handlers.RingActionHandler');
+var OwnedAltWedding = Java.type('soloMapling.companions.OwnedAltWedding');
 
 function isWeddingIndoors(mapid) {
     return mapid >= 680000100 && mapid <= 680000500;
@@ -196,6 +197,9 @@ function action(mode, type, selection) {
                 if (hasEngagement) {
                     var text = "Hi there. How can I help you?";
                     var choice = new Array("We're ready to get married.");
+                    if (OwnedAltWedding.enabled()) { // ticket 189 stage 2, behind -Dslums.ownedalts.marry
+                        choice.push("Marry my alt now (costs one #b#t5251000##k).");
+                    }
                     for (x = 0; x < choice.length; x++) {
                         text += "\r\n#L" + x + "##b" + choice[x] + "#l";
                     }
@@ -204,6 +208,14 @@ function action(mode, type, selection) {
                     cm.sendOk("Hmm, today two fluttering hearts are about to be joined together by the blessings of love!");
                     cm.dispose();
                 }
+            } else if (status == 1 && selection == 1 && OwnedAltWedding.enabled()) {
+                var problem = OwnedAltWedding.marry(cm.getPlayer());
+                if (problem == null) {
+                    cm.sendOk("By the power vested in me through the mighty Maple tree, I now pronounce you two married. Look after each other!");
+                } else {
+                    cm.sendOk("I cannot marry you yet: " + problem + ".");
+                }
+                cm.dispose();
             } else if (status == 1) {
                 var wid = cm.getClient().getWorldServer().getRelationshipId(cm.getPlayer().getId());
                 var cserv = cm.getClient().getChannelServer();
@@ -211,6 +223,11 @@ function action(mode, type, selection) {
                 if (cserv.isWeddingReserved(wid)) {
                     if (wid == cserv.getOngoingWedding(cathedralWedding)) {
                         var partner = cserv.getPlayerStorage().getCharacterById(cm.getPlayer().getPartnerId());
+                        if (partner != null && partner.isOwnedAlt()) { // ticket 189 (MA-10): an alt cannot answer the vows
+                            cm.sendOk("Your partner is an alt and cannot stand at the altar to answer the vows. Only a player at the keyboard can say the vows.");
+                            cm.dispose();
+                            return;
+                        }
                         if (!(partner == null || !cm.getMap().equals(partner.getMap()))) {
                             if (!cm.canHold(4000313)) {
                                 cm.sendOk("Please have a free ETC slot available to get the #b#t4000313##k.");
@@ -258,6 +275,11 @@ function action(mode, type, selection) {
                 var wtype = cserv.getOngoingWeddingType(cathedralWedding);
 
                 var partner = cserv.getPlayerStorage().getCharacterById(cm.getPlayer().getPartnerId());
+                if (partner != null && partner.isOwnedAlt()) { // ticket 189 (MA-10): an alt cannot answer the vows
+                    cm.sendOk("Your partner is an alt and cannot stand at the altar to answer the vows. Only a player at the keyboard can say the vows.");
+                    cm.dispose();
+                    return;
+                }
                 if (!(partner == null || !cm.getMap().equals(partner.getMap()))) {
                     if (cserv.acceptOngoingWedding(cathedralWedding)) {
                         var wid = cm.getClient().getWorldServer().getRelationshipId(cm.getPlayer().getId());
