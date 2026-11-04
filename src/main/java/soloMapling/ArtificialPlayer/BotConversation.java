@@ -850,7 +850,7 @@ public final class BotConversation {
     static BotMemory.Query recallQuery(Session session, Character bot, boolean wary) {
         String line = null;
         for (int i = session.history.size() - 1; i >= 0; i--) {
-            BotBrain.Turn t = session.history.get(i);
+            BotBrain.Turn t = session.history.get(i).turn();
             if (t.role() == BotBrain.Role.USER) {
                 line = t.content();
                 break;
