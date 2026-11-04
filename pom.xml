@@ -24,7 +24,8 @@
             </roles>
             <properties>
                 <discord>ponkcode</discord>
-            </properties>
+                <test.forks>1</test.forks> <!-- surefire forkCount; -Dtest.forks=8 for a parallel run -->
+    </properties>
         </developer>
     </developers>
 
@@ -252,12 +253,14 @@
                 <version>${maven-surefire-plugin.version}</version>
                 <configuration>
                     <!-- Root data providers cache process-wide WZ paths/singletons. -->
-                    <forkCount>1</forkCount>
+                    <!-- Parallel forks: -Dtest.forks=8 runs 8 fresh JVMs side by side (still one class per JVM). Default 1
+                         until the parallel run is proven equal to the serial one. -->
+                    <forkCount>${test.forks}</forkCount>
                     <reuseForks>false</reuseForks>
                     <!-- Isolate the bot nav-graph cache so tests can't poison the live cache/bot-nav/ dir
                          (after nutnnut/Cosmic 6c8896f98). -->
                     <systemPropertyVariables>
-                        <bot.nav.cacheDir>cache/bot-nav-test</bot.nav.cacheDir>
+                        <bot.nav.cacheDir>cache/bot-nav-test-${surefire.forkNumber}</bot.nav.cacheDir>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
