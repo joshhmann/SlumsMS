@@ -12,7 +12,7 @@
 
 | # | Ticket | State |
 |---|---|---|
-| [181](181-social-intelligence.md) | Persistent NPC social intelligence (traits, emotions, needs, relationships, memory, actions, modes, Henesys pilot) | Stages 0 and 0b done on `164-social-core`; 1-7 planned. Design: `docs/design/social-intelligence-audit.md` |
+| [181](181-social-intelligence.md) | Persistent NPC social intelligence (traits, emotions, needs, relationships, memory, actions, modes, Henesys pilot) | Stages 0, 0b on `164-social-core`; 1 on `164-social-mind`; 2-7 planned. Design: `docs/design/social-intelligence-audit.md` |
 
 ## 1.6.2 release closure (owner direction, 2026-10-31)
 
