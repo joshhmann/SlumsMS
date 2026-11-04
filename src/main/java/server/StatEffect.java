@@ -891,6 +891,11 @@ public class StatEffect {
             return true;
         }
         if (primary && isHeal()) {
+            // b295: the caster's own MP refusal comes before anyone is healed (the one charge stays applyHpMpChange below)
+            if (!applyto.isGM() && applyto.getMp() + calcMPChange(applyfrom, true) < 0) {
+                applyto.sendPacket(PacketCreator.enableActions());
+                return false;
+            }
             if (sourceid == Cleric.HEAL) {
                 // 1.6.2 healamt: viewers draw the Heal column on a remote caster only from this cast effect
                 // (SHOW_FOREIGN_EFFECT effect 1, CUser::OnEffect case 1); Heal is not a buff over time, so
