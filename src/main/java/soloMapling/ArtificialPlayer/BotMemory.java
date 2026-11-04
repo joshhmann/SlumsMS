@@ -50,12 +50,60 @@ import java.util.function.LongSupplier;
  * (16,384) pairs, least recently used out first.
  *
  * <p>Without migration 030 the columns are missing: notes are stored as plain notes and the slots live in memory only.
+ *
+ * <p><b>Stage 3 (ticket 181, migration 060).</b> A note's subject is a real player or another bot
+ * ({@link SubjectType}; a bot subject is keyed by its character id, so the same cap, LRU and age sweep apply), and a
+ * note carries a place, a confidence, a valence, a {@link Provenance} and a second participant. {@link #remember(int,
+ * int, Kind, String, double, int, Provenance, double, int, long)} is the writer for code (never the LLM);
+ * {@link #recall(int, int, Query, long, int)} picks by relevance ({@link #score}); a repeat of a similar significant
+ * note merges into one with a count instead of filling the pair ({@link #consolidateOrInsert}). Without migration 060
+ * the new fields are kept in memory only and old rows read with the defaults of their source.
  */
 public final class BotMemory {
 
     private static final Logger log = LoggerFactory.getLogger(BotMemory.class);
 
     public enum Source { DIRECT, HEARSAY }
+
+    /** Who a note is about (migration 060 column {@code SubjectType}). A bot's id is at least {@link BotStore#BOT_ID_BASE}. */
+    public enum SubjectType {
+        PLAYER, BOT;
+
+        public static SubjectType of(int subjectId) {
+            return subjectId >= BotStore.BOT_ID_BASE ? BOT : PLAYER;
+        }
+
+        static SubjectType parse(String raw, int subjectId) {
+            if (raw != null) {
+                try {
+                    return valueOf(raw.trim().toUpperCase(Locale.ROOT));
+                } catch (IllegalArgumentException e) {
+                    // fall through to the id
+                }
+            }
+            return of(subjectId);
+        }
+    }
+
+    /**
+     * How the bot came to know it (migration 060 column {@code Provenance}): OBJECTIVE is a fact the game itself
+     * recorded, WITNESSED something the bot was part of or saw, REPORTED something it was told (always
+     * {@link Source#HEARSAY}), BELIEF the bot's own conclusion.
+     */
+    public enum Provenance {
+        OBJECTIVE, WITNESSED, REPORTED, BELIEF;
+
+        static Provenance parse(String raw, Source source) {
+            if (raw != null) {
+                try {
+                    return valueOf(raw.trim().toUpperCase(Locale.ROOT));
+                } catch (IllegalArgumentException e) {
+                    // fall through to the source
+                }
+            }
+            return source == Source.DIRECT ? WITNESSED : REPORTED;
+        }
+    }
 
     /** What a note is (migration 030 column {@code Kind}). */
     public enum Kind {
@@ -65,6 +113,8 @@ public final class BotMemory {
         FEELING,
         // Episodes: things that happened between the two, written by code.
         PQ, BOSS, PARTY, HELP, FAME, TRADE, GIFT, FAVOR, SCAM,
+        // Stage 3 (ticket 181), bot to bot: a conversation, an ask and its answer, gossip passed on. Written by code.
+        CHAT, ASKED, TOLD,
         /** A player's goal or wanted item, with a follow-up tag. */
         GOAL,
         /** Slot: what the pair last talked about. */
@@ -75,7 +125,28 @@ public final class BotMemory {
         PROGRESS;
 
         public boolean episode() {
-            return ordinal() >= PQ.ordinal() && ordinal() <= SCAM.ordinal();
+            return ordinal() >= PQ.ordinal() && ordinal() <= TOLD.ordinal();
+        }
+
+        /** The most a merged note of this kind can weigh: small talk never becomes a heavy memory. */
+        public int maxWeight() {
+            return this == CHAT || this == ASKED || this == TOLD ? 5 : 10;
+        }
+
+        /** What a note of this kind weighs when its writer gives no weight (the writer API). */
+        public int defaultWeight() {
+            return switch (this) {
+                case PQ -> 6;
+                case BOSS -> 8;
+                case PARTY, TRADE, GOAL -> 3;
+                case HELP -> 3;
+                case FAME -> 4;
+                case GIFT -> 6;
+                case FAVOR, FEELING -> 5;
+                case SCAM -> 9;
+                case CHAT, ASKED, TOLD, NOTE -> 2;
+                default -> 3;
+            };
         }
 
         /** Whether gossip may pass it on: what makes a reputation (S4 reads the same rule). */
@@ -103,14 +174,37 @@ public final class BotMemory {
     /**
      * One remembered thing. {@code weight} 1..10 is how much it matters; {@code tag} ("" for none) marks a goal or item
      * to follow up ({@code item:zhelm}, {@code goal:4th job}); {@code followedUpAt} is when a bot did (0 = not yet).
+     *
+     * <p>Stage 3 (migration 060): {@code subjectType} (the subject is a real player or another bot),
+     * {@code locationMapId} (where it happened, 0 = unknown), {@code confidence} 0..1 (how sure the bot is),
+     * {@code valence} -1..1 (how it felt: bad to good, its size is how much it stuck), {@code provenance} and
+     * {@code otherId} (a second character involved, 0 = none). A row from before 060 reads with the defaults of its
+     * source: confidence 0.9 for DIRECT and 0.5 / hops for HEARSAY, WITNESSED or REPORTED, valence 0, no place.
      */
     public record Note(long id, int botId, int aboutCharId, String text, Source source, int fromBotId, int hops,
-                       long createdAt, long lastUsedAt, Kind kind, int weight, String tag, long followedUpAt) {
+                       long createdAt, long lastUsedAt, Kind kind, int weight, String tag, long followedUpAt,
+                       SubjectType subjectType, int locationMapId, double confidence, double valence,
+                       Provenance provenance, int otherId) {
 
         public Note {
             kind = kind == null ? Kind.NOTE : kind;
             weight = Math.max(1, Math.min(10, weight));
             tag = tag == null ? "" : tag;
+            subjectType = subjectType == null ? SubjectType.of(aboutCharId) : subjectType;
+            locationMapId = Math.max(0, locationMapId);
+            confidence = Double.isNaN(confidence) || confidence < 0 ? defaultConfidence(source, hops)
+                    : Math.min(1, confidence);
+            valence = Double.isNaN(valence) ? 0 : Math.max(-1, Math.min(1, valence));
+            provenance = provenance == null ? (source == Source.DIRECT ? Provenance.WITNESSED : Provenance.REPORTED)
+                    : provenance;
+            otherId = Math.max(0, otherId);
+        }
+
+        /** A note as written before migration 060: the defaults of its source for every new field. */
+        public Note(long id, int botId, int aboutCharId, String text, Source source, int fromBotId, int hops,
+                    long createdAt, long lastUsedAt, Kind kind, int weight, String tag, long followedUpAt) {
+            this(id, botId, aboutCharId, text, source, fromBotId, hops, createdAt, lastUsedAt, kind, weight, tag,
+                    followedUpAt, null, 0, Double.NaN, 0, null, 0);
         }
 
         /** A note as before 1.6.0: a plain chat note of weight 1. */
@@ -119,18 +213,28 @@ public final class BotMemory {
             this(id, botId, aboutCharId, text, source, fromBotId, hops, createdAt, lastUsedAt, Kind.NOTE, 1, "", 0);
         }
 
+        /** 0.9 for what the bot lived, 0.5 for what it heard once, halving with each further mouth. */
+        public static double defaultConfidence(Source source, int hops) {
+            return source == Source.DIRECT ? 0.9 : 0.5 / Math.max(1, hops);
+        }
+
         public boolean tagged() {
             return !tag.isEmpty();
         }
 
         Note used(long at) {
-            return new Note(id, botId, aboutCharId, text, source, fromBotId, hops, createdAt, at, kind, weight, tag,
-                    followedUpAt);
+            return with(text, createdAt, at, weight, followedUpAt, locationMapId, confidence, valence, otherId);
         }
 
         Note followedUp(long at) {
-            return new Note(id, botId, aboutCharId, text, source, fromBotId, hops, createdAt, lastUsedAt, kind, weight,
-                    tag, at);
+            return with(text, createdAt, lastUsedAt, weight, at, locationMapId, confidence, valence, otherId);
+        }
+
+        Note with(String newText, long newCreatedAt, long newLastUsedAt, int newWeight, long newFollowedUpAt,
+                  int newLocation, double newConfidence, double newValence, int newOther) {
+            return new Note(id, botId, aboutCharId, newText, source, fromBotId, hops, newCreatedAt, newLastUsedAt, kind,
+                    newWeight, tag, newFollowedUpAt, subjectType, newLocation, newConfidence, newValence, provenance,
+                    newOther);
         }
     }
 
@@ -151,6 +255,17 @@ public final class BotMemory {
     static final String INSERT_KINDS = "INSERT INTO botmemory (BotId, AboutCharacterId, Note, Source, FromBotId, Hops, "
             + "CreatedAt, LastUsedAt, Kind, Weight, Tag, FollowedUpAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     static final String PROBE_KINDS = "SELECT Kind, Weight, Tag, FollowedUpAt FROM botmemory WHERE 1 = 0";
+    /** Migration 060: the same insert with the subject type, place, confidence, valence, provenance and other party. */
+    static final String INSERT_SOCIAL = "INSERT INTO botmemory (BotId, AboutCharacterId, Note, Source, FromBotId, Hops, "
+            + "CreatedAt, LastUsedAt, Kind, Weight, Tag, FollowedUpAt, SubjectType, Location, Confidence, Valence, "
+            + "Provenance, OtherParticipant) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    static final String PROBE_SOCIAL = "SELECT SubjectType, Location, Confidence, Valence, Provenance, OtherParticipant "
+            + "FROM botmemory WHERE 1 = 0";
+    /** A repeat of a significant note folds into the old one (text with its count, weight, recency): one UPDATE per schema. */
+    static final String MERGE_PLAIN = "UPDATE botmemory SET Note = ?, CreatedAt = ? WHERE Id = ?";
+    static final String MERGE_KINDS = "UPDATE botmemory SET Note = ?, CreatedAt = ?, Weight = ? WHERE Id = ?";
+    static final String MERGE_SOCIAL = "UPDATE botmemory SET Note = ?, CreatedAt = ?, Weight = ?, Location = ?, "
+            + "Confidence = ?, Valence = ?, OtherParticipant = ? WHERE Id = ?";
     static final String DELETE = "DELETE FROM botmemory WHERE Id = ?";
     static final String DELETE_PAIR = "DELETE FROM botmemory WHERE BotId = ? AND AboutCharacterId = ?";
     static final String TOUCH = "UPDATE botmemory SET LastUsedAt = ? WHERE Id = ?";
@@ -161,6 +276,9 @@ public final class BotMemory {
     /** S4's reputation input: how many first-hand notes of each kind bots hold about a player. */
     static final String KIND_COUNTS = "SELECT Kind, COUNT(*) AS N FROM botmemory WHERE AboutCharacterId = ? "
             + "AND Source = 'DIRECT' GROUP BY Kind";
+    /** {@link #KIND_COUNTS} for the first-hand notes of a given set of bots only (a holder's own circle). */
+    static final String KIND_COUNTS_OF = "SELECT Kind, COUNT(*) AS N FROM botmemory WHERE AboutCharacterId = ? "
+            + "AND Source = 'DIRECT' AND BotId IN (%s) GROUP BY Kind";
     // The age sweep (expired() in SQL): created before the first time AND not used since the second.
     static final String PRUNE_HEARSAY = "DELETE FROM botmemory WHERE Source = 'HEARSAY' AND CreatedAt < ? AND LastUsedAt < ?";
     static final String PRUNE_LIGHT = "DELETE FROM botmemory WHERE Source <> 'HEARSAY' AND Weight < 7"
@@ -211,6 +329,9 @@ public final class BotMemory {
     /** Whether migration 030's columns exist: null = not known yet. */
     private static volatile Boolean kinds;
     private static volatile long kindsCheckedAt;
+    /** Whether migration 060's columns exist: null = not known yet. */
+    private static volatile Boolean social;
+    private static volatile long socialCheckedAt;
     private static volatile long lastPruneAt;
 
     private BotMemory() {
@@ -259,8 +380,8 @@ public final class BotMemory {
     }
 
     /**
-     * Ticket 157 (bot inspect): how many notes this bot holds about players in the in-memory cache, and about how many
-     * players. A scan of the cache under its lock (at most {@code solomapling.memory.cachePairs} pairs, no database):
+     * Ticket 157 (bot inspect): how many notes this bot holds about anyone (players and, since Stage 3, other bots) in
+     * the in-memory cache, and about how many subjects. A scan of the cache under its lock (at most {@code solomapling.memory.cachePairs} pairs, no database):
      * call it on demand only, never per tick. Pairs never loaded or already evicted are not counted.
      */
     public static int[] cachedNotesBy(int botId) {
@@ -277,46 +398,193 @@ public final class BotMemory {
         return new int[]{notes, pairs};
     }
 
-    /** Own notes before hearsay, newest first. */
-    private static final Comparator<Note> RECALL_ORDER = Comparator.comparing((Note n) -> n.source() != Source.DIRECT)
-            .thenComparing(Comparator.comparingLong(Note::createdAt).reversed());
+    /** One query for a recall: what the bot is after right now. All parts are optional ({@link #NO_QUERY}). */
+    public record Query(Set<Kind> kinds, double moodValence, int locationMapId, Set<String> topicWords, int otherId) {
+
+        public Query {
+            kinds = kinds == null ? Set.of() : Set.copyOf(kinds);
+            moodValence = Double.isNaN(moodValence) ? 0 : Math.max(-1, Math.min(1, moodValence));
+            locationMapId = Math.max(0, locationMapId);
+            topicWords = topicWords == null ? Set.of() : Set.copyOf(topicWords);
+            otherId = Math.max(0, otherId);
+        }
+
+        /** Nothing in particular: salience, freshness and confidence alone. */
+        public static Query none() {
+            return NO_QUERY;
+        }
+
+        /** The query for a thing being talked about here: a place, the talk's words and the mood the bot is in. */
+        public static Query of(Collection<Kind> kinds, double moodValence, int locationMapId, String topicText,
+                               int otherId) {
+            return new Query(kinds == null ? Set.of() : Set.copyOf(kinds), moodValence, locationMapId,
+                    words(topicText), otherId);
+        }
+
+        /** Lower-case words of three or more letters (no filler), the unit a topic match counts in. */
+        public static Set<String> words(String text) {
+            Set<String> out = new HashSet<>();
+            if (text == null) {
+                return out;
+            }
+            for (String w : text.toLowerCase(Locale.ROOT).split("[^a-z0-9']+")) {
+                if (w.length() >= 3 && !FILLER.contains(w)) {
+                    out.add(w);
+                }
+            }
+            return out;
+        }
+    }
+
+    private static final Query NO_QUERY = new Query(Set.of(), 0, 0, Set.of(), 0);
+    private static final Set<String> FILLER = Set.of("the", "and", "you", "that", "this", "with", "for", "was", "are",
+            "but", "not", "have", "has", "had", "just", "lol", "got", "its", "your", "they", "them", "from", "what");
+
+    /** Score bonuses for a match with the query (each multiplies the base score). */
+    static final double KIND_BONUS = 1.6, LOCATION_BONUS = 1.3, OTHER_BONUS = 1.5, WORD_BONUS = 0.4, MOOD_BONUS = 0.3;
 
     /**
-     * The notes to put in the prompt: what the bot saw itself before hearsay, newest first, at most {@link #RECALL}
-     * (the two slots are not notes and are left out). Recalled notes are stamped as used.
+     * How worth bringing up a note is for this query: salience (its weight, grown by how strongly it felt either
+     * way) x freshness (halving every 10 days, 30 for a heavy note, as {@link #worth}) x confidence, times a bonus for
+     * each match: a kind of interest, the place, the other party, words of the topic, and a feeling that agrees with
+     * the bot's mood. Slots score 0 (never recalled as notes). Pure.
      */
-    public static List<String> recall(int botId, int charId, long now) {
-        List<Note> used = pick(botId, charId, false, RECALL);
-        List<String> recalled = new ArrayList<>();
-        for (Note note : used) {
-            recalled.add(note.source() == Source.HEARSAY ? "heard from " + teller(note.fromBotId()) + ": " + note.text()
-                    : note.text());
+    static double score(Note n, Query q, long now) {
+        if (n.kind().slot()) {
+            return 0;
         }
-        touch(botId, charId, used, now);
-        return recalled;
+        double salience = n.weight() / 10.0 * (1 + Math.abs(n.valence()));
+        long halfLife = TimeUnit.DAYS.toMillis(n.weight() >= HEAVY ? 30 : 10);
+        double fresh = Math.pow(0.5, Math.max(0, now - n.createdAt()) / (double) halfLife);
+        double s = salience * fresh * n.confidence();
+        if (!q.kinds().isEmpty() && q.kinds().contains(n.kind())) {
+            s *= KIND_BONUS;
+        }
+        if (q.locationMapId() > 0 && n.locationMapId() == q.locationMapId()) {
+            s *= LOCATION_BONUS;
+        }
+        if (q.otherId() > 0 && n.otherId() == q.otherId()) {
+            s *= OTHER_BONUS;
+        }
+        if (!q.topicWords().isEmpty()) {
+            int hit = 0;
+            Set<String> mine = Query.words(n.text() + " " + n.tag().replace(':', ' '));
+            for (String w : q.topicWords()) {
+                if (mine.contains(w)) {
+                    hit++;
+                }
+            }
+            s *= 1 + WORD_BONUS * Math.min(3, hit);
+        }
+        if (q.moodValence() != 0 && n.valence() != 0 && Math.signum(q.moodValence()) == Math.signum(n.valence())) {
+            s *= 1 + MOOD_BONUS * Math.abs(q.moodValence());
+        }
+        return s;
+    }
+
+    /** The best-scoring first, own (DIRECT) before hearsay at an equal score, then the newest. */
+    private static Comparator<Note> byScore(Query q, long now) {
+        return (x, y) -> {
+            double sx = score(x, q, now);
+            double sy = score(y, q, now);
+            if (Math.abs(sx - sy) > 1e-9) {
+                return Double.compare(sy, sx);
+            }
+            if ((x.source() == Source.DIRECT) != (y.source() == Source.DIRECT)) {
+                return x.source() == Source.DIRECT ? -1 : 1;
+            }
+            int byAge = Long.compare(y.createdAt(), x.createdAt());
+            return byAge != 0 ? byAge : Long.compare(y.id(), x.id());
+        };
     }
 
     /**
-     * Ticket 59's memory card: the same notes {@link #recall} picks (own before hearsay, newest first), as notes with
-     * their dates, at most {@code limit}. Stamped as used.
+     * Stage 3's scored recall: the notes this bot holds about {@code subjectId} (a player or another bot) that are
+     * most worth bringing up for {@code q}, best first, at most {@code limit}. The slots are not notes and are left
+     * out. Recalled notes are stamped as used (so they fade slower and the age sweep keeps them).
+     */
+    public static List<Note> recall(int botId, int subjectId, Query q, long now, int limit) {
+        List<Note> out = pick(botId, subjectId, false, q == null ? NO_QUERY : q, now, limit);
+        touch(botId, subjectId, out, now);
+        return out;
+    }
+
+    /**
+     * The notes to put in the prompt: the {@link #RECALL} best by {@link #score} with no particular query - what the
+     * bot saw itself before hearsay at an equal score, then the newest (the two slots are not notes and are left
+     * out). Recalled notes are stamped as used.
+     */
+    public static List<String> recall(int botId, int charId, long now) {
+        return recall(botId, charId, NO_QUERY, now);
+    }
+
+    /** {@link #recall(int, int, long)} for a query: the notes as the prompt's lines. */
+    public static List<String> recall(int botId, int charId, Query q, long now) {
+        List<String> recalled = new ArrayList<>();
+        for (Note note : recall(botId, charId, q, now, RECALL)) {
+            recalled.add(note.source() == Source.HEARSAY ? "heard from " + teller(note.fromBotId()) + ": " + note.text()
+                    : note.text());
+        }
+        return recalled;
+    }
+
+    /** Pairs being loaded in the background by {@link #recallIfCached} (bounded: one load per pair at a time). */
+    private static final Set<Long> warming = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /**
+     * {@link #recall(int, int, Query, long, int)} for a hot path that must never wait on the database (a bot thread's
+     * or a bot talk's prompt, built on the director's tick): it reads only what is already in memory. A pair that is not
+     * cached yet comes back empty and is loaded in the background, so the NEXT talk of that pair has its memories.
+     * (Writing a note loads the pair too, so a pair that has talked this session is always warm.)
+     */
+    public static List<Note> recallIfCached(int botId, int subjectId, Query q, long now, int limit) {
+        long k = key(botId, subjectId);
+        List<Note> known = cached(k);
+        if (known == null) {
+            if (warming.size() < 256 && warming.add(k)) {
+                try {
+                    background.execute(() -> {
+                        try {
+                            about(botId, subjectId);
+                        } catch (RuntimeException e) {
+                            log.debug("Could not warm what bot {} remembers about {}", botId, subjectId, e);
+                        } finally {
+                            warming.remove(k);
+                        }
+                    });
+                } catch (RuntimeException e) {
+                    warming.remove(k); // the executor refused it: ask again next time
+                }
+            }
+            return List.of();
+        }
+        List<Note> notes = new ArrayList<>(known);
+        notes.removeIf(n -> n.kind().slot());
+        notes.sort(byScore(q == null ? NO_QUERY : q, now));
+        List<Note> out = new ArrayList<>(notes.subList(0, Math.min(Math.max(0, limit), notes.size())));
+        touch(botId, subjectId, out, now);
+        return out;
+    }
+
+    /**
+     * Ticket 59's memory card: the same notes {@link #recall} picks, as notes with their dates, at most
+     * {@code limit}. Stamped as used.
      */
     public static List<Note> recallNotes(int botId, int charId, long now, int limit) {
-        List<Note> out = pick(botId, charId, false, limit);
-        touch(botId, charId, out, now);
-        return out;
+        return recall(botId, charId, NO_QUERY, now, limit);
     }
 
     /** As {@link #recallNotes}, without the episodes (the card shows those on their own). */
     public static List<Note> recallFacts(int botId, int charId, long now, int limit) {
-        List<Note> out = pick(botId, charId, true, limit);
+        List<Note> out = pick(botId, charId, true, NO_QUERY, now, limit);
         touch(botId, charId, out, now);
         return out;
     }
 
-    private static List<Note> pick(int botId, int charId, boolean withoutEpisodes, int limit) {
+    private static List<Note> pick(int botId, int charId, boolean withoutEpisodes, Query q, long now, int limit) {
         List<Note> notes = new ArrayList<>(about(botId, charId));
         notes.removeIf(n -> n.kind().slot() || (withoutEpisodes && n.kind().episode()));
-        notes.sort(RECALL_ORDER);
+        notes.sort(byScore(q, now));
         return new ArrayList<>(notes.subList(0, Math.min(Math.max(0, limit), notes.size())));
     }
 
@@ -439,6 +707,7 @@ public final class BotMemory {
             return out;
         }
         boolean extended = hasKinds();
+        boolean social = hasSocial();
         for (int from = 0; from < ids.size(); from += READ_CHUNK) {
             List<Integer> chunk = ids.subList(from, Math.min(from + READ_CHUNK, ids.size()));
             StringBuilder marks = new StringBuilder();
@@ -456,11 +725,14 @@ public final class BotMemory {
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
                         int owner = rs.getInt("BotId");
+                        if (rs.getInt("AboutCharacterId") >= BotStore.BOT_ID_BASE) {
+                            continue; // a note about another bot is that bot's own business, not a story about a player
+                        }
                         int taken = seen.merge(owner, 1, Integer::sum);
                         if (taken > limit) {
                             continue; // same rows, same order as the single-bot read: the newest `limit`
                         }
-                        Note n = read(rs, extended);
+                        Note n = read(rs, extended, social);
                         if (n.kind().passable()) {
                             out.computeIfAbsent(owner, k -> new ArrayList<>()).add(n);
                         }
@@ -474,9 +746,10 @@ public final class BotMemory {
     }
 
     /**
-     * Slice S4's reputation input: how many first-hand notes of each kind bots hold about this player (SCAM, GIFT,
-     * FAVOR, PQ...). Empty without migration 030 or when the database cannot answer. Reads the database: call it off
-     * the game thread.
+     * <b>Deliberately aggregate</b> (an operator statistic, never a bot's knowledge): how many first-hand notes of each
+     * kind ALL bots together hold about this subject (a player or a bot). No bot may read this to decide what it knows
+     * about someone: a bot's view is {@link #kindCounts(int, Collection)} over its own circle. Empty without migration
+     * 030 or when the database cannot answer. Reads the database: call it off the game thread.
      */
     public static Map<Kind, Integer> kindCounts(int aboutCharId) {
         Map<Kind, Integer> out = new EnumMap<>(Kind.class);
@@ -492,6 +765,44 @@ public final class BotMemory {
             }
         } catch (SQLException e) {
             log.debug("Could not count the notes about {}", aboutCharId, e);
+        }
+        return out;
+    }
+
+    /**
+     * What a holder's own circle (the bot slots given: itself, its crew, its bond neighbours) holds first hand about
+     * this subject, per kind. The only count a bot may act on: bots outside the circle are never read. Empty without
+     * migration 030, with an empty circle, or when the database cannot answer. Reads the database.
+     *
+     * @param circleSlots bot slots (character id minus {@link BotStore#BOT_ID_BASE}) of the circle
+     */
+    public static Map<Kind, Integer> kindCounts(int aboutCharId, Collection<Integer> circleSlots) {
+        Map<Kind, Integer> out = new EnumMap<>(Kind.class);
+        List<Integer> slots = new ArrayList<>(new HashSet<>(circleSlots));
+        if (slots.isEmpty() || !hasKinds()) {
+            return out;
+        }
+        for (int from = 0; from < slots.size(); from += READ_CHUNK) {
+            List<Integer> chunk = slots.subList(from, Math.min(from + READ_CHUNK, slots.size()));
+            StringBuilder marks = new StringBuilder();
+            for (int i = 0; i < chunk.size(); i++) {
+                marks.append(i == 0 ? "?" : ",?");
+            }
+            try (Connection con = connections().get();
+                 PreparedStatement ps = con.prepareStatement(KIND_COUNTS_OF.formatted(marks))) {
+                ps.setInt(1, aboutCharId);
+                int p = 2;
+                for (int slot : chunk) {
+                    ps.setInt(p++, slot);
+                }
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        out.merge(Kind.parse(rs.getString("Kind")), rs.getInt("N"), Integer::sum);
+                    }
+                }
+            } catch (SQLException e) {
+                log.debug("Could not count the circle's notes about {}", aboutCharId, e);
+            }
         }
         return out;
     }
@@ -548,9 +859,10 @@ public final class BotMemory {
     /**
      * Writes something that happened between the bot and the player, without the LLM (slice S3): a PQ clear, a party,
      * a heal, a trade, a gift, a scam, or a goal the player named. The same kind and text within
-     * {@link #EPISODE_DEDUPE_MS}, or a tag the pair already holds and nobody followed up, counts once.
+     * {@link #EPISODE_DEDUPE_MS}, or a tag the pair already holds and nobody followed up, counts once. A repeat of a
+     * similar episode after that folds into the old note instead of filling the pair ({@link #consolidateOrInsert}).
      *
-     * @return the stored note, or null when it was a repeat (or the text was empty)
+     * @return the stored (or merged) note, or null when it was a repeat (or the text was empty)
      */
     public static Note episode(int botId, int charId, Kind kind, String text, int weight, String tag, long now) {
         String clean = clip(text);
@@ -563,25 +875,183 @@ public final class BotMemory {
             List<Note> pair = new ArrayList<>(about(botId, charId));
             for (Note n : pair) {
                 boolean sameTag = tag != null && !tag.isEmpty() && tag.equals(n.tag()) && n.followedUpAt() == 0;
-                if (sameTag || (n.kind() == kind && n.text().equalsIgnoreCase(clean)
+                if (sameTag || (n.kind() == kind && baseOf(n.text()).equalsIgnoreCase(clean)
                         && now - n.createdAt() < EPISODE_DEDUPE_MS)) {
                     return null;
                 }
             }
-            stored = insert(new Note(0, botId, charId, clean, Source.DIRECT, 0, 0, now, 0, kind, weight, tag, 0));
+            stored = consolidateOrInsert(pair, new Note(0, botId, charId, clean, Source.DIRECT, 0, 0, now, 0, kind,
+                    weight, tag, 0));
             if (stored == null) {
                 return null;
             }
-            pair.add(stored);
             put(k, pair);
             overflow(botId, charId, now);
         }
         if (QaLog.on(QaLog.Topic.MEMORY)) { // !qa me-1, me-2
             QaLog.any(QaLog.Topic.MEMORY, "EPISODE " + kind.name() + " bot " + botId + " -> " + charId + ": \""
-                    + clean + "\" (weight " + stored.weight() + (stored.tagged() ? ", tag " + stored.tag() : "") + ")");
+                    + stored.text() + "\" (weight " + stored.weight() + (stored.tagged() ? ", tag " + stored.tag() : "")
+                    + ")");
         }
         maybePrune(now);
         return stored;
+    }
+
+    /**
+     * Stage 3's writer: bot {@code botSlot} remembers something about {@code subjectId} - a real player or another bot
+     * (character id) - written by server code, never by the LLM. {@code valence} -1..1 is how it felt, {@code location}
+     * a map id (0: unknown), {@code confidence} 0..1 (NaN: the default of its provenance), {@code other} a second
+     * character involved (0: none). REPORTED is stored as {@link Source#HEARSAY}, everything else as DIRECT. The weight
+     * comes from the kind ({@link Kind#defaultWeight}, one more for a strong feeling, at most 2 for hearsay). The same
+     * kind and text within {@link #EPISODE_DEDUPE_MS} counts once; later repeats of a similar episode merge into one
+     * note with a count; the pair keeps at most {@link #MAX_PER_PAIR} notes.
+     *
+     * @return the stored (or merged) note, or null when it was a repeat, empty, a slot kind or about the bot itself
+     */
+    public static Note remember(int botSlot, int subjectId, Kind kind, String text, double valence, int location,
+                                Provenance provenance, double confidence, int other, long now) {
+        return remember(botSlot, subjectId, kind, text, valence, location, provenance, confidence, other, 0, 0, now);
+    }
+
+    /** As above, for something told: {@code fromBotId} (a slot) is who told it and {@code hops} how many mouths deep. */
+    public static Note remember(int botSlot, int subjectId, Kind kind, String text, double valence, int location,
+                                Provenance provenance, double confidence, int other, int fromBotId, int hops, long now) {
+        String clean = clip(text);
+        if (clean.isEmpty() || kind == null || kind.slot() || subjectId <= 0
+                || subjectId == BotStore.BOT_ID_BASE + botSlot) {
+            return null;
+        }
+        Provenance how = provenance == null ? Provenance.WITNESSED : provenance;
+        Source source = how == Provenance.REPORTED ? Source.HEARSAY : Source.DIRECT;
+        double v = Double.isNaN(valence) ? 0 : Math.max(-1, Math.min(1, valence));
+        int weight = Math.min(kind.maxWeight(), kind.defaultWeight() + (Math.abs(v) >= 0.7 ? 1 : 0));
+        if (source == Source.HEARSAY) {
+            weight = Math.min(weight, 2);
+        }
+        Note fresh = new Note(0, botSlot, subjectId, clean, source, source == Source.HEARSAY ? fromBotId : 0,
+                source == Source.HEARSAY ? Math.max(1, hops) : 0, now, 0, kind, weight, "", 0, null, location,
+                confidence, v, how, other);
+        long k = key(botSlot, subjectId);
+        Note stored;
+        synchronized (lock(k)) {
+            List<Note> pair = new ArrayList<>(about(botSlot, subjectId));
+            for (Note n : pair) {
+                if (n.kind() == kind && baseOf(n.text()).equalsIgnoreCase(clean)
+                        && (source == Source.HEARSAY || now - n.createdAt() < EPISODE_DEDUPE_MS)) {
+                    return null; // a repeat (or already heard)
+                }
+            }
+            stored = consolidateOrInsert(pair, fresh);
+            if (stored == null) {
+                return null;
+            }
+            put(k, pair);
+            overflow(botSlot, subjectId, now);
+        }
+        if (QaLog.on(QaLog.Topic.MEMORY)) {
+            QaLog.any(QaLog.Topic.MEMORY, "REMEMBER " + kind.name() + " bot " + botSlot + " -> " + subjectId + " ("
+                    + stored.subjectType() + "): \"" + stored.text() + "\" (weight " + stored.weight() + ", "
+                    + stored.provenance() + " " + String.format(Locale.ROOT, "%.2f", stored.confidence()) + ")");
+        }
+        maybePrune(now);
+        return stored;
+    }
+
+    // ── consolidation: a repeat folds into the note it repeats ──
+
+    /** The count suffix a merged note carries: "partied together (x3)". */
+    private static final java.util.regex.Pattern COUNT = java.util.regex.Pattern.compile("^(.*) \\(x(\\d+)\\)$");
+    /** Two episode texts this alike (shared words over all words) are the same kind of thing happening again. */
+    static final double SIMILAR = 0.6;
+
+    /** The text without a merge's count suffix. */
+    static String baseOf(String text) {
+        java.util.regex.Matcher m = COUNT.matcher(text);
+        return m.matches() ? m.group(1) : text;
+    }
+
+    /** How many times a merged note stands for (1 for a note never merged). */
+    static int countOf(String text) {
+        java.util.regex.Matcher m = COUNT.matcher(text);
+        if (!m.matches()) {
+            return 1;
+        }
+        try {
+            return Math.max(1, Integer.parseInt(m.group(2)));
+        } catch (NumberFormatException e) {
+            return 1;
+        }
+    }
+
+    /** Shared words over all words of two texts, 0..1 (1 for the same words, case aside). */
+    static double similarity(String a, String b) {
+        Set<String> x = new HashSet<>(List.of(a.toLowerCase(Locale.ROOT).split("[^a-z0-9']+")));
+        Set<String> y = new HashSet<>(List.of(b.toLowerCase(Locale.ROOT).split("[^a-z0-9']+")));
+        x.remove("");
+        y.remove("");
+        if (x.isEmpty() || y.isEmpty()) {
+            return 0;
+        }
+        int shared = 0;
+        for (String w : x) {
+            if (y.contains(w)) {
+                shared++;
+            }
+        }
+        return shared / (double) (x.size() + y.size() - shared);
+    }
+
+    /** Whether repeats of this kind of note merge: episodes and feelings, never chat notes (the brain condenses those) or goals. */
+    private static boolean mergeable(Note n) {
+        return (n.kind().episode() || n.kind() == Kind.FEELING) && !n.tagged();
+    }
+
+    /**
+     * Called under the pair's lock: a significant note ({@link #mergeable}) that repeats one the pair holds (same kind
+     * and source, {@link #SIMILAR} words) is folded into it - the newest wording with a count ("partied together
+     * (x3)"), one more weight (at most the kind's maximum), the newest date, the mean valence and the best confidence -
+     * so a recurring thing grows in weight instead of filling the {@link #MAX_PER_PAIR} cap. Anything else is inserted.
+     * Deterministic, no model. {@code pair} is updated in place.
+     *
+     * @return the merged or inserted note, or null when the insert failed
+     */
+    private static Note consolidateOrInsert(List<Note> pair, Note fresh) {
+        Note into = null;
+        double best = 0;
+        if (mergeable(fresh)) {
+            for (Note n : pair) {
+                if (n.kind() != fresh.kind() || n.source() != fresh.source() || n.followedUpAt() != 0 || !mergeable(n)) {
+                    continue;
+                }
+                double s = similarity(baseOf(n.text()), baseOf(fresh.text()));
+                if (s >= SIMILAR && (into == null || s > best || (s == best && n.createdAt() > into.createdAt()))) {
+                    into = n;
+                    best = s;
+                }
+            }
+        }
+        if (into == null) {
+            Note stored = insert(fresh);
+            if (stored != null) {
+                pair.add(stored);
+            }
+            return stored;
+        }
+        int count = countOf(into.text()) + 1;
+        String suffix = " (x" + count + ")";
+        String base = baseOf(fresh.text());
+        if (base.length() + suffix.length() > 160) {
+            base = base.substring(0, 160 - suffix.length());
+        }
+        Note merged = into.with(base + suffix, Math.max(into.createdAt(), fresh.createdAt()), into.lastUsedAt(),
+                Math.min(fresh.kind().maxWeight(), Math.max(into.weight(), fresh.weight()) + 1), into.followedUpAt(),
+                fresh.locationMapId() > 0 ? fresh.locationMapId() : into.locationMapId(),
+                Math.max(into.confidence(), fresh.confidence()),
+                (into.valence() * (count - 1) + fresh.valence()) / count,
+                fresh.otherId() != 0 ? fresh.otherId() : into.otherId());
+        persistMerge(merged);
+        pair.set(pair.indexOf(into), merged);
+        return merged;
     }
 
     /** Fills one of the pair's two slots ({@link Kind#TOPIC}, {@link Kind#JOKE}), replacing what was there. */
@@ -714,7 +1184,8 @@ public final class BotMemory {
             return Double.MAX_VALUE;
         }
         long halfLife = TimeUnit.DAYS.toMillis(n.weight() >= HEAVY ? 30 : 10);
-        double w = n.weight() * Math.pow(0.5, Math.max(0, now - n.createdAt()) / (double) halfLife);
+        double w = n.weight() * (1 + 0.5 * Math.abs(n.valence()))
+                * Math.pow(0.5, Math.max(0, now - n.createdAt()) / (double) halfLife);
         if (n.source() == Source.HEARSAY) {
             w *= 0.5;
         }
@@ -925,15 +1396,45 @@ public final class BotMemory {
         }
     }
 
+    /**
+     * Whether migration 060's columns exist (and 030's, which they sit on). Asked once (again 10 minutes after a "no"):
+     * without them notes keep their subject type, place, confidence, valence, provenance and other party in memory only
+     * and read back with the defaults of their source.
+     */
+    static boolean hasSocial() {
+        if (!hasKinds()) {
+            return false;
+        }
+        Boolean known = social;
+        if (known != null && (known || clock.getAsLong() - socialCheckedAt < TimeUnit.MINUTES.toMillis(10))) {
+            return known;
+        }
+        try (Connection con = connections().get(); PreparedStatement ps = con.prepareStatement(PROBE_SOCIAL);
+             ResultSet ignored = ps.executeQuery()) {
+            social = true;
+            return true;
+        } catch (SQLException e) {
+            if (e.getErrorCode() == 1054 || "42S22".equals(e.getSQLState())) { // unknown column: 060 not applied
+                social = false;
+                socialCheckedAt = clock.getAsLong();
+                log.info("botmemory has no SubjectType column (migration 060 not applied): the new note fields are kept in memory only");
+            }
+            return false;
+        } catch (RuntimeException e) {
+            return false; // no pool yet: ask again next time
+        }
+    }
+
     private static List<Note> load(int botId, int charId) {
         List<Note> notes = new ArrayList<>();
         boolean extended = hasKinds();
+        boolean social = hasSocial();
         try (Connection con = connections().get(); PreparedStatement ps = con.prepareStatement(SELECT_PAIR)) {
             ps.setInt(1, botId);
             ps.setInt(2, charId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    notes.add(read(rs, extended));
+                    notes.add(read(rs, extended, social));
                 }
             }
         } catch (SQLException e) {
@@ -942,7 +1443,7 @@ public final class BotMemory {
         return notes;
     }
 
-    private static Note read(ResultSet rs, boolean extended) throws SQLException {
+    private static Note read(ResultSet rs, boolean extended, boolean social) throws SQLException {
         Kind kind = Kind.NOTE;
         int weight = 1;
         String tag = "";
@@ -953,15 +1454,82 @@ public final class BotMemory {
             tag = rs.getString("Tag");
             followedUpAt = rs.getLong("FollowedUpAt");
         }
-        return new Note(rs.getLong("Id"), rs.getInt("BotId"), rs.getInt("AboutCharacterId"), rs.getString("Note"),
-                Source.valueOf(rs.getString("Source")), rs.getInt("FromBotId"), rs.getInt("Hops"),
-                rs.getLong("CreatedAt"), rs.getLong("LastUsedAt"), kind, weight, tag, followedUpAt);
+        Source source = Source.valueOf(rs.getString("Source"));
+        int about = rs.getInt("AboutCharacterId");
+        SubjectType subject = null; // null: from the id (a pre-060 row)
+        int location = 0;
+        double confidence = Double.NaN; // NaN: the default of the source
+        double valence = 0;
+        Provenance provenance = null; // null: the default of the source
+        int other = 0;
+        if (social) {
+            subject = SubjectType.parse(rs.getString("SubjectType"), about);
+            location = rs.getInt("Location");
+            if (rs.wasNull()) {
+                location = 0;
+            }
+            confidence = rs.getDouble("Confidence");
+            if (rs.wasNull()) {
+                confidence = Double.NaN;
+            }
+            valence = rs.getDouble("Valence");
+            String raw = rs.getString("Provenance");
+            provenance = raw == null ? null : Provenance.parse(raw, source);
+            other = rs.getInt("OtherParticipant");
+            if (rs.wasNull()) {
+                other = 0;
+            }
+        }
+        return new Note(rs.getLong("Id"), rs.getInt("BotId"), about, rs.getString("Note"), source,
+                rs.getInt("FromBotId"), rs.getInt("Hops"), rs.getLong("CreatedAt"), rs.getLong("LastUsedAt"), kind,
+                weight, tag, followedUpAt, subject, location, confidence, valence, provenance, other);
+    }
+
+    /** Writes a merged note's new text, date and (by schema) weight and feeling; the row stays. */
+    private static void persistMerge(Note merged) {
+        if (merged.id() <= 0) {
+            return; // a memory-only note
+        }
+        boolean social = hasSocial();
+        boolean extended = social || hasKinds();
+        try (Connection con = connections().get();
+             PreparedStatement ps = con.prepareStatement(social ? MERGE_SOCIAL : extended ? MERGE_KINDS : MERGE_PLAIN)) {
+            ps.setString(1, merged.text());
+            ps.setLong(2, merged.createdAt());
+            if (social) {
+                ps.setInt(3, merged.weight());
+                setNullable(ps, 4, merged.locationMapId());
+                ps.setDouble(5, merged.confidence());
+                ps.setDouble(6, merged.valence());
+                setNullable(ps, 7, merged.otherId());
+                ps.setLong(8, merged.id());
+            } else if (extended) {
+                ps.setInt(3, merged.weight());
+                ps.setLong(4, merged.id());
+            } else {
+                ps.setLong(3, merged.id());
+            }
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            log.warn("Could not merge memory {} of bot {}", merged.id(), merged.botId(), e);
+        }
+    }
+
+    /** A nullable id column: 0 is stored as NULL. */
+    private static void setNullable(PreparedStatement ps, int index, int value) throws SQLException {
+        if (value > 0) {
+            ps.setInt(index, value);
+        } else {
+            ps.setNull(index, java.sql.Types.INTEGER);
+        }
     }
 
     private static Note insert(Note note) {
-        boolean extended = hasKinds();
+        boolean social = hasSocial();
+        boolean extended = social || hasKinds();
         try (Connection con = connections().get();
-             PreparedStatement ps = con.prepareStatement(extended ? INSERT_KINDS : INSERT, Statement.RETURN_GENERATED_KEYS)) {
+             PreparedStatement ps = con.prepareStatement(social ? INSERT_SOCIAL : extended ? INSERT_KINDS : INSERT,
+                     Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, note.botId());
             ps.setInt(2, note.aboutCharId());
             ps.setString(3, note.text());
@@ -976,6 +1544,14 @@ public final class BotMemory {
                 ps.setString(11, note.tag());
                 ps.setLong(12, note.followedUpAt());
             }
+            if (social) {
+                ps.setString(13, note.subjectType().name());
+                setNullable(ps, 14, note.locationMapId());
+                ps.setDouble(15, note.confidence());
+                ps.setDouble(16, note.valence());
+                ps.setString(17, note.provenance().name());
+                setNullable(ps, 18, note.otherId());
+            }
             ps.executeUpdate();
             long id = 0;
             try (ResultSet keys = ps.getGeneratedKeys()) {
@@ -985,7 +1561,8 @@ public final class BotMemory {
             }
             return new Note(id, note.botId(), note.aboutCharId(), note.text(), note.source(), note.fromBotId(),
                     note.hops(), note.createdAt(), note.lastUsedAt(), note.kind(), note.weight(), note.tag(),
-                    note.followedUpAt());
+                    note.followedUpAt(), note.subjectType(), note.locationMapId(), note.confidence(), note.valence(),
+                    note.provenance(), note.otherId());
         } catch (SQLException e) {
             log.warn("Could not store a memory of bot {}", note.botId(), e);
             return null;
@@ -1059,7 +1636,9 @@ public final class BotMemory {
     static void useConnectionSourceForTest(BotStore.ConnectionSource source) {
         connectionSource = source;
         kinds = null;
+        social = null;
         lastPruneAt = 0;
+        warming.clear();
         synchronized (cache) {
             cache.clear();
         }

@@ -5,6 +5,7 @@ import client.inventory.Item;
 import server.ItemInformationProvider;
 import soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
+import soloMapling.ArtificialPlayer.BotSocialSystem.SocialSim;
 import soloMapling.server.EventMessageSystem.EventBus;
 import soloMapling.server.EventMessageSystem.EventSubscriber;
 import soloMapling.server.EventMessageSystem.EventType;
@@ -14,10 +15,12 @@ import soloMapling.server.ExecutorServiceManager;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpeak;
@@ -33,7 +36,15 @@ import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpe
  *   mentioned at most {@value #MAX_MENTIONS} times, and the world hears at most one mention every
  *   {@link #MENTION_GAP_MS} ms.</li>
  * </ul>
- * Best effort: any gate failing just drops the line.
+ *
+ * <p><b>Knowledge boundaries (Stage 3, ticket 181).</b> The feed is global bookkeeping, but a bot only ever voices
+ * news it <i>knows</i>: it was one of the {@value #WITNESSES} bots on the actor's map when it happened (witnessed),
+ * or a knower told it ({@link #pass}, along a {@code BotGossip} step: at most {@link BotMemory#MAX_HOPS} mouths from a
+ * witness, known to the listener only after a short delay, kept as a REPORTED note of lower confidence). A bot that
+ * neither saw nor heard it says nothing about it, in the world line, in a bot thread's gossip or in an event's
+ * aftermath.
+ *
+ * <p>Best effort: any gate failing just drops the line.
  */
 public final class BotWorldGossip implements EventSubscriber {
 
@@ -49,6 +60,8 @@ public final class BotWorldGossip implements EventSubscriber {
         public final String extra;
         public final long at;
         final Set<Integer> witnesses = new HashSet<>();
+        /** Bots that were told (not witnesses): bot character id to how it reached them. Bounded by {@link #TOLD_CAP}. */
+        final Map<Integer, Told> told = new ConcurrentHashMap<>();
         int mentions;
 
         void mentionedForTest() {
@@ -60,6 +73,27 @@ public final class BotWorldGossip implements EventSubscriber {
             return witnesses.contains(botCharId);
         }
 
+        /**
+         * Whether this bot may voice the news at {@code now}: it witnessed it, or was told and the telling has arrived
+         * ({@link Told#knownAt}). A bot that neither saw nor heard it does not know it.
+         */
+        public boolean knows(int botCharId, long now) {
+            if (witnesses.contains(botCharId)) {
+                return true;
+            }
+            Told t = told.get(botCharId);
+            return t != null && t.knownAt() <= now;
+        }
+
+        /** Mouths between this bot and a witness: 0 for a witness, 1.. for a told bot, -1 when it does not know yet. */
+        public int hopsOf(int botCharId, long now) {
+            if (witnesses.contains(botCharId)) {
+                return 0;
+            }
+            Told t = told.get(botCharId);
+            return t != null && t.knownAt() <= now ? t.hops() : -1;
+        }
+
         News(Kind kind, String who, int whoId, String what, String extra, long at) {
             this.kind = kind;
             this.who = who;
@@ -69,6 +103,15 @@ public final class BotWorldGossip implements EventSubscriber {
             this.at = at;
         }
     }
+
+    /** How a told bot came by a piece of news: from whom (a character id), how many mouths deep, and when it arrives. */
+    public record Told(int fromId, int hops, long knownAt) {
+    }
+
+    /** A telling reaches its listener this long after it is made (a bot hears it the next time they chat). */
+    public static final long TOLD_DELAY_MIN_MS = TimeUnit.SECONDS.toMillis(20), TOLD_DELAY_MAX_MS = TimeUnit.SECONDS.toMillis(90);
+    /** Bots told one piece of news at most (it has {@value #WITNESSES} witnesses to start from). */
+    static final int TOLD_CAP = 12;
 
     public static final long TTL_MS = TimeUnit.HOURS.toMillis(8);
     public static final long HALF_LIFE_MS = TimeUnit.HOURS.toMillis(2);
@@ -83,6 +126,8 @@ public final class BotWorldGossip implements EventSubscriber {
     private static final BotWorldGossip INSTANCE = new BotWorldGossip();
     private static final List<News> feed = new CopyOnWriteArrayList<>();
     private static volatile boolean registered;
+    /** Where memory writes run (they read and write the database); a seam for tests. */
+    private static volatile Executor writer = ExecutorServiceManager::runAsync;
     private static volatile long lastStepAt;
     private static volatile long lastMentionAt;
 
@@ -115,7 +160,7 @@ public final class BotWorldGossip implements EventSubscriber {
             if (who == null || event.getType() == null) {
                 return;
             }
-            long now = System.currentTimeMillis();
+            long now = SocialSim.now();
             switch (event.getType()) {
                 case BOSS_KILL -> {
                     if (event.getMessage() != null && !event.getMessage().isBlank()) {
@@ -143,7 +188,7 @@ public final class BotWorldGossip implements EventSubscriber {
             if (!enabled() || a == null || b == null) {
                 return;
             }
-            record(Kind.WEDDING, a, b.getName(), null, System.currentTimeMillis());
+            record(Kind.WEDDING, a, b.getName(), null, SocialSim.now());
             // the spouse is a real player too: the witnesses remember them as well
             News n = feed.isEmpty() ? null : feed.get(feed.size() - 1);
             if (n != null && !BotHelpers.isArtificial(b.getId())) {
@@ -186,7 +231,7 @@ public final class BotWorldGossip implements EventSubscriber {
             return null;
         }
         boolean bot = BotHelpers.isArtificial(who.getId());
-        if (bot && ThreadLocalRandom.current().nextDouble() >= 0.25) {
+        if (bot && SocialSim.random(who.getId(), "world-news").nextDouble() >= 0.25) {
             return null; // bots kill and drop all day: only a few make the news
         }
         for (News n : feed) {
@@ -208,6 +253,8 @@ public final class BotWorldGossip implements EventSubscriber {
         }
         if (!bot) {
             remember(news, who.getId(), noteText(news));
+        } else {
+            rememberBot(news, who.getId(), who.getMapId());
         }
         return news;
     }
@@ -228,7 +275,7 @@ public final class BotWorldGossip implements EventSubscriber {
         }
         List<Integer> bots = List.copyOf(news.witnesses);
         long at = news.at;
-        ExecutorServiceManager.runAsync(() -> {
+        writer.execute(() -> {
             for (int botCharId : bots) {
                 try {
                     BotMemory.remember(botCharId - BotStore.BOT_ID_BASE, charId, List.of(text), BotMemory.Source.DIRECT,
@@ -238,6 +285,115 @@ public final class BotWorldGossip implements EventSubscriber {
                 }
             }
         });
+    }
+
+    /**
+     * Stage 3: the witnesses of a bot's deed keep a note about that BOT (a subject type of its own, first hand,
+     * with the map where they saw it). Off the caller's thread: memory reads the database.
+     */
+    private static void rememberBot(News news, int actorCharId, int mapId) {
+        if (news.witnesses.isEmpty()) {
+            return;
+        }
+        List<Integer> bots = List.copyOf(news.witnesses);
+        long at = news.at;
+        String text = noteText(news);
+        writer.execute(() -> {
+            for (int botCharId : bots) {
+                try {
+                    BotMemory.remember(botCharId - BotStore.BOT_ID_BASE, actorCharId, BotMemory.Kind.NOTE, text,
+                            valenceOf(news.kind), mapId, BotMemory.Provenance.WITNESSED, Double.NaN, 0, at);
+                } catch (RuntimeException ex) {
+                    // memory is best effort
+                }
+            }
+        });
+    }
+
+    /** How a deed feels to whoever hears of it: a mild lift, more for a wedding. */
+    static double valenceOf(Kind kind) {
+        return kind == Kind.WEDDING ? 0.4 : 0.3;
+    }
+
+    // ── telling: how a bot that was not there comes to know ──
+
+    /**
+     * Bot {@code teller} tells bot {@code listener} a piece of news it knows: the one worth most (fresh, least told)
+     * that the teller knows at most {@link BotMemory#MAX_HOPS} - 1 mouths from a witness, the listener does not know
+     * yet and that is not about either of them. The listener comes to know it after a delay of
+     * {@link #TOLD_DELAY_MIN_MS}..{@link #TOLD_DELAY_MAX_MS} and keeps a REPORTED note about whoever it concerns, one
+     * hop further, at the lower confidence of hearsay. Called from a {@code BotGossip} step. Returns the news told, or
+     * null when the teller knows nothing it may pass on.
+     */
+    public static News pass(int tellerId, int listenerId, long now, Random rng) {
+        if (!enabled() || tellerId == listenerId) {
+            return null;
+        }
+        News best = null;
+        double bestWeight = 0;
+        for (News n : recent(now)) {
+            int hops = n.hopsOf(tellerId, now);
+            if (hops < 0 || hops + 1 > BotMemory.MAX_HOPS || n.whoId == listenerId || n.whoId == tellerId
+                    || n.witnesses.contains(listenerId) || n.told.containsKey(listenerId) || n.told.size() >= TOLD_CAP) {
+                continue;
+            }
+            double w = freshness(now - n.at) * (0.5 + rng.nextDouble());
+            if (w > bestWeight) {
+                best = n;
+                bestWeight = w;
+            }
+        }
+        if (best == null) {
+            return null;
+        }
+        return tell(best, tellerId, listenerId, now) ? best : null;
+    }
+
+    /**
+     * {@code teller} tells {@code listener} this news. False when the teller does not know it, the listener does, or
+     * it would be more than {@link BotMemory#MAX_HOPS} mouths from a witness.
+     */
+    static boolean tell(News n, int tellerId, int listenerId, long now) {
+        int hops = n.hopsOf(tellerId, now) + 1;
+        if (hops < 1 || hops > BotMemory.MAX_HOPS || listenerId == n.whoId || n.witnesses.contains(listenerId)
+                || n.told.size() >= TOLD_CAP) {
+            return false;
+        }
+        long delay = TOLD_DELAY_MIN_MS + (long) (SocialSim.random(listenerId, "news-told").nextDouble()
+                * (TOLD_DELAY_MAX_MS - TOLD_DELAY_MIN_MS));
+        Told t = new Told(tellerId, hops, now + delay);
+        if (n.told.putIfAbsent(listenerId, t) != null) {
+            return false;
+        }
+        rememberTold(n, listenerId, t);
+        return true;
+    }
+
+    /** The listener keeps a REPORTED note about whoever the news is about (when it is about someone). */
+    private static void rememberTold(News n, int listenerId, Told t) {
+        if (n.whoId <= 0 || (!BotHelpers.isArtificial(n.whoId) && BotAffinity.optedOut(n.whoId))) {
+            return;
+        }
+        String text = toldText(n);
+        writer.execute(() -> {
+            try {
+                BotMemory.remember(listenerId - BotStore.BOT_ID_BASE, n.whoId, BotMemory.Kind.NOTE, text,
+                        valenceOf(n.kind), 0, BotMemory.Provenance.REPORTED, Double.NaN, 0,
+                        t.fromId() - BotStore.BOT_ID_BASE, t.hops(), t.knownAt());
+            } catch (RuntimeException ex) {
+                // memory is best effort
+            }
+        });
+    }
+
+    /** What a bot that was told keeps, in its own words: "heard they killed Zakum". */
+    static String toldText(News n) {
+        return switch (n.kind) {
+            case BOSS -> "heard they killed " + n.what;
+            case DROP -> "heard they got " + n.what + (n.extra == null ? "" : " from " + n.extra);
+            case WEDDING -> "heard they got married to " + n.what;
+            case EVENT -> "heard they won " + n.what;
+        };
     }
 
     // ── talking ──
@@ -260,20 +416,19 @@ public final class BotWorldGossip implements EventSubscriber {
         if (now - lastMentionAt < MENTION_GAP_MS) {
             return;
         }
-        Random rng = ThreadLocalRandom.current();
-        News news = choose(feed, now, rng);
+        Random rng = SocialSim.random(0, "world-news");
+        List<Character> bots = CharacterStorage.getAllBots().values().stream().map(BotSM::getChr).toList();
+        List<News> voiceable = new ArrayList<>(); // news nobody knows (nobody saw it, nobody was told) is not in the pick
+        for (News n : feed) {
+            if (!voicers(n, bots, now).isEmpty()) {
+                voiceable.add(n);
+            }
+        }
+        News news = choose(voiceable, now, rng);
         if (news == null) {
             return;
         }
-        List<Character> audienceBots = new ArrayList<>();
-        for (BotSM bot : CharacterStorage.getAllBots().values()) {
-            Character chr = bot.getChr();
-            if (chr == null || chr.getMap() == null || chr.getId() == news.whoId || !chr.isAlive()
-                    || BotConversation.hasAnyChat(chr.getId()) || !realListenerFor(chr, news)) {
-                continue;
-            }
-            audienceBots.add(chr);
-        }
+        List<Character> audienceBots = voicers(news, bots, now);
         if (audienceBots.isEmpty()) {
             return;
         }
@@ -289,6 +444,23 @@ public final class BotWorldGossip implements EventSubscriber {
                 BotSpeak(teller, line);
             }
         }, 2 + rng.nextInt(6), TimeUnit.SECONDS);
+    }
+
+    /**
+     * The bots that may bring this news up right now: on a map, alive, not in a chat, not the one it is about, with a
+     * real listener on their map - and, Stage 3, only a bot that KNOWS it (it was a witness, or it was told and the
+     * telling has arrived: {@link News#knows}). A bot that neither saw nor heard it is never among them.
+     */
+    static List<Character> voicers(News news, java.util.Collection<Character> bots, long now) {
+        List<Character> out = new ArrayList<>();
+        for (Character chr : bots) {
+            if (chr == null || !news.knows(chr.getId(), now) || chr.getMap() == null || chr.getId() == news.whoId
+                    || !chr.isAlive() || BotConversation.hasAnyChat(chr.getId()) || !realListenerFor(chr, news)) {
+                continue;
+            }
+            out.add(chr);
+        }
+        return out;
     }
 
     /** A real, visible player (not the one it is about) stands on the bot's map. */
@@ -402,6 +574,11 @@ public final class BotWorldGossip implements EventSubscriber {
 
     static List<News> feedForTest() {
         return feed;
+    }
+
+    /** Test seam: where memory writes run (null restores the real one). */
+    static void useWriterForTest(Executor testWriter) {
+        writer = testWriter != null ? testWriter : ExecutorServiceManager::runAsync;
     }
 
     static void resetForTest() {
