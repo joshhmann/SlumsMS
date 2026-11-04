@@ -29,6 +29,7 @@ lane's 18, the real-run lane's ten, and the engine-seam lane's Guild Quest and Z
 | 13 | `164-zenumist` @ `242274259` | `87205b607` | `magatiapq` stage 3 moved to the room its beakers stand in, the Zenumist band row `magatiapqz`, and `MechanicsRowWzIntegrityTest.everyStageThatNamesAReactorHasItOnItsOwnGround` |
 | 14 | `164-expedpolicy` @ `1b2911fad` | `4468e2da9` | owner answers 1 and 2: a bot may captain an expedition (`slums.exped.botcaptain`, on) with a real player always outranking it, an owned alt follows its owner into any expedition and takes a membership slot (`slums.exped.altfollow`, on), and `!mechanics boss <TYPE> [n]` → `BossStaging` → `ExpeditionBots.startAsCaptain` is the one caller in 1.6.4 |
 | 15 | `164-amoria` @ `c83bfabbf` | `23789b44a` | owner answer 5: a bot counts as an Amoria party member behind `slums.mechanics.amoriapq.botcount`, **default off, TEST only**; no Amoria row was written, because stages 2-4 are hand-work by the script's own design |
+| 16 | `164-botmortal` @ `015f59667` | `afdc47150` | owner answer 4, reversed: bots are **mortal** in an event instance (`-Dslums.bots.immortal` default **false**). A lethal hit kills a bot, a dead bot is a lost member whose hold goes back, only a Bishop's Resurrection clears the dead state, `revivepause` turns a death into a wait the run resumes from, and a bot's death spends the expedition death budget when `deathcount` is on (it stays off) |
 
 `164-bossfight`, `164-ex2qa` and `164-bossproof` are ancestors of `164-bossrows`/`164-opq`, so merging them adds
 nothing; every head was verified with `git for-each-ref` and `git merge-base --is-ancestor` before it was merged.
@@ -42,7 +43,7 @@ test-creating lanes both wrote.
 
 ## Every conflict and how it was resolved
 
-46 conflicts in all, across eleven merges (18 in steps 3-8, 10 in step 9, 5 in step 10, 12 in step 11, 1 in step 12); the zenumist merge (step 13), the expedition-policy merge (step 14) and the Amoria merge (step 15) conflicted in nothing. The Amoria branch did add four comment lines to `docs/release/1.6.4.conf`, which the earlier rules would have made a conflict; git placed them inside the "stays off" list, where they belong, and the conf was then extended by hand with the two expedition-policy defaults-on entries (below).
+46 conflicts in all, across eleven merges (18 in steps 3-8, 10 in step 9, 5 in step 10, 12 in step 11, 1 in step 12); the zenumist merge (step 13), the expedition-policy merge (step 14) and the Amoria merge (step 15) conflicted in nothing. The mortality merge (step 16) also conflicted in nothing: it touches BotDeaths/BotVitals, `StatEffect`, `EventInstanceManager`, `ExpeditionDeathCount`, `MechanicsRuns` and `Orchestrator`, and of those only `Orchestrator` and `MechanicsRuns` had been touched before - both by lanes that never edited the death paths. The Amoria branch did add four comment lines to `docs/release/1.6.4.conf`, which the earlier rules would have made a conflict; git placed them inside the "stays off" list, where they belong, and the conf was then extended by hand with the two expedition-policy defaults-on entries (below).
 Only the ones that needed a decision are listed; the rest were whole-block additions where both sides were kept
 verbatim.
 
@@ -235,6 +236,8 @@ party-quest row only when `Mechanics.enabled() && Mechanics.rowFlagOn(content)`.
 | `slums.exped.botcaptain` | **on** (policy) | whether a bot may captain an expedition at all: `ExpeditionBots.preferredLeader` lets a bot lead a bot party, and a real player in the party always outranks it. It does **not** make bots open boss rooms on their own - in 1.6.4 the GM command `!mechanics boss <TYPE> [n]` is the only trigger, and it is a command, not a scheduler |
 | `slums.exped.altfollow` | **on** (policy) | an owned alt joins any expedition its owner is a member of, whoever leads, and takes a membership slot - so the recruiters' size gate, the broadcasts and the max-size check count it exactly like a party bot |
 | `slums.mechanics.amoriapq.botcount` | off | a bot counts as an Amoria PQ party member. **TEST only** in 1.6.4: it changes what a real player's party is admitted to, and no Amoria row exists (stages 2-4 are hand-work by the script's own design) |
+| `slums.bots.immortal` | off (mortality is the default) | restores the pre-1.6.4 rule that a bot inside an event instance cannot die. Turning it on is a TEST-only diagnostic: with it off, a lethal hit kills the bot and only a Resurrection ends the dead state |
+| `slums.bossfight.deathcount` | off | charges a bot's death to the expedition's death budget (`ExpeditionDeathCount`, default cap 10, per-type override). Kept off because a five-bot wipe would spend the budget in one room |
 
 The three boss-policy switches the boss lane settled earlier are still off and still pinned by their own tests
 (`slums.altfight.instanceleash`, `slums.bossfight.reach`, `slums.bossfight.revivepause`; the revive-pause one is
@@ -510,11 +513,16 @@ one word (`-Dslums.exped.botcaptain=false`) and takes effect on the next start.
 - the fishing and bot-life flags `docs/HANDOFF.md` and `docs/release/1.6.0-qa.md` already say stay off on shared TEST.
   (Chaos Zakum is no longer in that group: `-Dslums.chaos.zakum=true` is part of the 1.6.4 row set and is in the conf.)
 
-**What a player sees with the sweep on:** the Kerning, Orbis, Ludi, Henesys, Cafe, LudiMaze, Pirate, Treasure,
-DelliBattle, Magatia, Ellin, Crimsonwood Keep and Sharenian Guild Quest party quests run with bots inside them; a bot
-party shares Zakum, Horntail, Chaos Zakum, the five Twin Dragon caves, Maha, Castellan, Papulatus, Krexel, Showa,
-Balrog, Scarga, Elemental Thanatos, Pink Bean, Captain Latanica, Magnus, the four Hard bosses (Will, Lucid, Verus Hilla,
-Darknell), the six GuardianNex caves, the eight BossRush waves and the Zakum-mines chest hunt instead of standing
-outside; your own alt follows you into any expedition you are already in and counts as one of the party (both
-`slums.exped.*` policy switches are on by default); a GM can stage a bot-captained expedition with `!mechanics boss
-<TYPE> [n]`; and every run that ends can leave one chat line (chatter is on by default, chat only).
+**What a player sees with the sweep on:** bots die in boss rooms now. A lethal hit kills a bot instead of being
+swallowed, a Bishop's Resurrection is the only thing that brings it back, and with revive-pause on (the conf sets it) a
+party's run holds for its dead bot rather than ending - a loss a human party has to absorb, exactly as if a real member
+had died. That is the biggest behaviour change in this release for anyone standing in an event instance. Alongside it:
+the Kerning, Orbis, Ludi, Henesys, Cafe, LudiMaze, Pirate, Treasure, DelliBattle, Magatia, Ellin, Crimsonwood Keep and
+Sharenian Guild Quest party quests run with bots inside them; a bot party shares Zakum, Horntail, Chaos Zakum, the five
+Twin Dragon caves, Maha, Castellan, Papulatus, Krexel, Showa, Balrog, Scarga, Elemental Thanatos, Pink Bean, Captain
+Latanica, Magnus, the four Hard bosses (Will, Lucid, Verus Hilla, Darknell), the six GuardianNex caves, the eight
+BossRush waves and the Zakum-mines chest hunt instead of standing outside; your own alt follows you into any expedition
+you are already in and counts as one of the party (both `slums.exped.*` policy switches are on by default); a GM can
+stage a bot-captained expedition with `!mechanics boss <TYPE> [n]`; and every run that ends can leave one chat line
+(chatter is on by default, chat only). The old immortality is one word, `-Dslums.bots.immortal=true`, and it is a TEST
+switch, not a live one.
