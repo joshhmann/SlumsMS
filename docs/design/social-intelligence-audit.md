@@ -98,7 +98,7 @@ rollback. What a swap drops (grind spot, the old runtime's pending friend or pla
 | 0 | Flags on by default, `SocialSim`, `social-tick` phase | unit + full suite | done (`cea8d6671`) |
 | 0b | Mode switching | unit, gate, multi-day policy simulation, full suite | done (this branch), TEST run pending |
 | 1 | `SocialMind` (traits, emotions, needs), decay, persistence | decay and restart round-trip tests | built (`164-social-mind`); TEST persistence check pending; no decision reads it yet |
-| 2 | 8-axis bonds, migration 059, background formation | axis table, directedness, hysteresis, eviction, restart and legacy-row round trips, background tier, simulated-days tests | built (`164-social-bonds`, `STAGE2_HASH`); migration 059 not yet applied on TEST; no decision reads the axes yet |
+| 2 | 8-axis bonds, migration 059, background formation | axis table, directedness, hysteresis, eviction, restart and legacy-row round trips, background tier, simulated-days tests | built (`164-social-bonds`, `f03304844`); migration 059 not yet applied on TEST; no decision reads the axes yet |
 | 3 | Memory extension, relevance recall, knowledge boundaries | knowledge-boundary tests | planned |
 | 4 | `SocialAction` registry, missing actions, gifts, emotion/memory into `TalkBrain` and `LifeDecision` | per-action outcome tests | planned |
 | 5 | Intentions; memory in `BotThreads`/`BotTalk` prompts | dialogue-to-intention test | planned |
