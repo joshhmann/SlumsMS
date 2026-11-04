@@ -37,6 +37,11 @@ Read-only audit of the server code (eleven lanes). Documented, not changed.
 | # | Ticket | Purpose |
 |---|---|---|
 | [185](185-bot-alt-improvement-backlog-1-6-4.md) | Bot and alt improvement backlog | Improvements that need an owner decision or a later start; a menu, nothing started, no briefs |
+## Other-repo bot audit (owner direction, 2026-11-03)
+
+| # | Ticket | Purpose |
+|---|---|---|
+| [186](186-external-bot-repo-adoption-1-6-4.md) | Adopt ideas from the other-repo bot audit | BotStory, nutnnut/Cosmic, SoloMapling, cosmic_agents: 12 ranked candidates, 7 measurements first; nothing started, boss fights stay with the boss lane |
 
 ## 1.6.2 release closure (owner direction, 2026-10-31)
 
