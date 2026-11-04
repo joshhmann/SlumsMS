@@ -1,7 +1,8 @@
 # Merge lane, 1.6.4 - everything in one tree (branch `164-all-merge`)
 
 Worktree `/root/work/164-all`, branch `164-all-merge` off `release-1.6.4` @ `6d18f961e`, push URL disabled, nothing
-pushed, nothing deployed, live server untouched. **Merged head `39276532a`**, 163 commits over the release tip.
+pushed, nothing deployed, live server untouched. **Last merge commit `39276532a`**, 163 commits over the release tip; the suite ran on `4e495c09b`, and every
+commit after these two changes reports only (checked with `git diff 4e495c09b HEAD -- src/`).
 
 This is the one branch that carries every 1.6.4 lane: the base game's two rows, the boss lane's 27, the party-quest
 lane's 17, the real-run lane's ten, and the engine-seam lane's Guild Quest - **56 rows, 29 `kind: BOSS` + 27 `kind: PQ`,
