@@ -338,6 +338,9 @@ final class SocialActs {
             if (!c.targetIdle()) {
                 return "the other is not free to chat";
             }
+            if (c.since(kind()) < 8 * 60_000L) {
+                return "chatted with them a moment ago";
+            }
             return SocialActions.flows().blocker(kind(), c.actor().id(), c.target().id(), c.now());
         }
 
@@ -348,7 +351,7 @@ final class SocialActs {
             return energy(s) * (0.12 + 0.35 * s.n(Need.COMPANIONSHIP) + 0.20 * s.n(Need.BELONGING) + 0.30 * s.t(Trait.SOCIABILITY)
                     + 0.45 * pos(c.warmth()) + 0.25 * s.e(Emotion.LONELINESS) + 0.10 * s.t(Trait.CURIOSITY)
                     + 0.10 * s.t(Trait.EMPATHY)) - 0.40 * e.resentment() - 0.20 * pos(-e.trust())
-                    - 0.3 * s.t(Trait.JEALOUSY) * c.distrustedCompany();
+                    - 0.3 * s.t(Trait.JEALOUSY) * c.distrustedCompany() - 0.5 * stale(c, kind());
         }
 
         @Override
@@ -461,6 +464,9 @@ final class SocialActs {
             }
             if (c.edge().trust() < -0.2) {
                 return "does not trust them";
+            }
+            if (c.since(kind()) < 10 * 60_000L) {
+                return "asked them a moment ago";
             }
             return SocialActions.flows().blocker(kind(), c.actor().id(), c.target().id(), c.now());
         }
@@ -1069,7 +1075,7 @@ final class SocialActs {
                     + 0.25 * (1 - s.t(Trait.CONFIDENCE)) * unease + 0.20 * pos(-e.affection())
                     + (c.memory().openFight() ? 0.25 : 0) + 0.15 * s.e(Emotion.EMBARRASSMENT)
                     - 0.35 * s.e(Emotion.ANGER) - 0.30 * s.t(Trait.IMPULSIVENESS) - 0.25 * pos(e.affection())
-                    - 0.20 * s.n(Need.COMPANIONSHIP) * s.t(Trait.SOCIABILITY);
+                    - 0.20 * s.n(Need.COMPANIONSHIP) * s.t(Trait.SOCIABILITY) - stale(c, kind());
         }
 
         @Override

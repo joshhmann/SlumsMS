@@ -85,7 +85,7 @@ class SocialActsTest extends SocialActTestBase {
         assertTrue(o.landed(), o.reason());
         assertTrue(mind(ALICE, Emotion.LONELINESS) < lonely + 0.5, "a chat eases loneliness");
         flows.failing.add(SocialActKind.CONVERSE);
-        tick(2 * 60_000);
+        tick(10 * 60_000);
         Outcome failed = SocialActions.perform(ALICE, BOB, SocialActKind.CONVERSE, now());
         assertTrue(failed.happened() && !failed.landed(), failed.reason());
         assertEquals(1L, SocialMetrics.actCounters().get("CONVERSE.failed"));
@@ -207,7 +207,7 @@ class SocialActsTest extends SocialActTestBase {
         assertEquals(java.util.List.of(ALICE + ">" + BOB), given);
         assertFalse(world.noteWith(BOB, ALICE, "earrings").isEmpty(), "the seam's description is what is remembered");
         SocialActions.giftSeam = (g, r, n) -> GiftSeam.Result.no("nothing that fits");
-        tick(2 * 3_600_000);
+        tick(7 * 3_600_000L);
         Outcome refused = SocialActions.perform(ALICE, BOB, SocialActKind.GIVE_GIFT, now());
         assertTrue(refused.happened() && !refused.landed());
         assertEquals("nothing that fits", refused.reason());
@@ -222,7 +222,7 @@ class SocialActsTest extends SocialActTestBase {
                 throw new AssertionError("blocked before it is called");
             }
         };
-        tick(2 * 3_600_000);
+        tick(7 * 3_600_000L);
         assertEquals("has nothing to give", SocialActions.perform(ALICE, BOB, SocialActKind.GIVE_GIFT, now()).reason());
     }
 

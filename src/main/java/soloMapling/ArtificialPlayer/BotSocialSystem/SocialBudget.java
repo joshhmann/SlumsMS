@@ -76,7 +76,7 @@ public final class SocialBudget {
                 Map.entry(CHAT, MINUTE), Map.entry(ASK, 15_000L),
                 Map.entry("compliment", 45 * MINUTE), Map.entry("argue", 30 * MINUTE),
                 Map.entry("apologize", 20 * MINUTE), Map.entry("reconcile", 30 * MINUTE),
-                Map.entry("avoid", 15 * MINUTE), Map.entry("spendtime", 20 * MINUTE),
+                Map.entry("avoid", 45 * MINUTE), Map.entry("spendtime", 20 * MINUTE),
                 Map.entry("gift", 6 * 60 * MINUTE), Map.entry("invite", 10 * MINUTE),
                 Map.entry("reply", 5_000L), Map.entry("offerhelp", 15 * MINUTE),
                 Map.entry("shareinfo", 5 * MINUTE), Map.entry("rumor", 20 * MINUTE));
