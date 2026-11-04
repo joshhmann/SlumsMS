@@ -1,6 +1,7 @@
 # 181: Repair client map dependencies and prove safe area entry
 
-**State:** investigation recorded; implementation and real-client proof pending. This is a repository ticket,
+**State:** investigation recorded; owner now reports a friend's client crashed on the Future Leafre route.
+Exact transition, diagnostic reproduction and fix proof pending. This is a repository ticket,
 not a newly assigned release-book bug ID. Link the Rose Garden work to existing **b251** and missing-art
 work to **b246 / client-163-mapload** rather than opening duplicate fixes.
 **Requested by:** owner, client map/crash audit followed by “look into those; write a ticket”.
@@ -40,8 +41,15 @@ The two feature lists are coverage candidates only: **7** maps with `qrLimit=310
 Owner clarification, recorded 2026-11-04 06:36 UTC (2026-11-03 10:36 PM PST): the affected path is
 the Temple of Time portal's **“Leafre of the Past (Crack in Time)”** choice. This identifies a
 normal player route outside the five missing-image maps above. It does not establish that the
-51 broken-link maps are reachable. The exact visible failure (error dialog, closure, disconnect,
-wrong destination or inability to proceed), error code and timing still need to be recorded.
+51 broken-link maps are reachable. Subsequent owner report confirms the symptom is a client crash;
+the exact transition, error code and diagnostic timing still need to be recorded.
+
+**New incident, recorded 2026-11-04 07:12 UTC (2026-11-03 11:12 PM PST):** owner reports,
+“friend just went in and it crashed”, in direct reference to the Future Leafre / Crack in Time route.
+Treat this as a real-user crash report and prioritize targeted reproduction. The friend’s precise
+map ID, installed client build, selected portal and error/trace were not supplied. Do not mark every
+Leafre map as reproduced, attribute the failure to the missing object nodes without a trace, or
+claim the adjoining maps are safe because static checks passed. No fix is verified.
 
 Source trace:
 
