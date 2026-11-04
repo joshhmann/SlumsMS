@@ -838,6 +838,34 @@ class WorldTest(unittest.TestCase):
         self.assertEqual(months, {str(m) for m in range(1, 13)})
         self.assertIn("full-sit-peace-360.webp", self.read("guide/getting-started.html"))
 
+    def test_holiday_stickers_pick_the_right_day(self):
+        # 2026-11-04: the page Slums-chan wears the holiday's sticker on the day (fixed dates, nth-weekday ones, Easter)
+        import subprocess
+        with open(os.path.join(build.SRC, "assets", "theme.js"), encoding="utf-8") as f:
+            js = f.read()
+        block = js[js.index("/* Holidays:"):js.index("/* Slums-chan's speech bubbles")]
+        for hid in re.findall(r'\["(\w+)", ', block):
+            self.assertTrue(os.path.isfile(os.path.join(build.SRC, "assets", "brand", f"holiday-{hid}-360.webp")), hid)
+        if not shutil.which("node"):
+            self.skipTest("no node")
+        want = {"2026-10-31": "halloween", "2026-11-26": "thanksgiving", "2026-11-25": "", "2027-03-28": "easter",
+                "2027-05-09": "mothersday", "2027-06-20": "fathersday", "2027-04-01": "aprilfools",
+                "2027-04-02": "hanami", "2027-02-06": "lunarnewyear", "2026-12-25": "christmas", "2027-01-02": "newyear"}
+        code = ("const block = " + json.dumps(block) + ";\n" + r"""
+const R = Date, out = {};
+for (const day of process.argv.slice(1)) {
+  const [y, m, d] = day.split("-").map(Number);
+  globalThis.Date = class extends R { constructor(...a) { a.length ? super(...a) : super(y, m - 1, d, 12); } };
+  const img = { removeAttribute() {}, classList: { add() {} }, style: {} }, b = { getAttribute: () => "[]", setAttribute() {} };
+  globalThis.document = { querySelectorAll: () => [{ querySelector: (q) => q.includes("img") ? img : b }],
+    querySelector: () => null, createElement: () => ({ set innerHTML(h) { this.textContent = h; } }) };
+  eval(block);
+  out[day] = (img.src || "").replace(/^.*holiday-|-360\.webp$/g, "");
+}
+console.log(JSON.stringify(out));""")
+        got = subprocess.run(["node", "-e", code, "--"] + list(want), capture_output=True, text=True)
+        self.assertEqual(json.loads(got.stdout or "{}"), want, got.stderr)
+
     def test_board_post_shows_the_items_price(self):
         # w09: picking an item for a post shows its price; summary.json carries the day's low/high, sales and date
         import json as _json

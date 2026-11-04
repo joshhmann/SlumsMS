@@ -403,6 +403,78 @@
   });
 })();
 
+/* Holidays: on the day (the visitor's own clock), the Slums-chan beside each page's heading puts on that holiday's
+   sticker and says so first in her bubble. The Slums-chan theme, when it's on and signed in, still swaps in the player's
+   cards. The first rule that matches wins, so a single day beats a longer stretch around it. */
+(function () {
+  var figs = document.querySelectorAll(".buddy");
+  if (!figs.length) return;
+  var me = document.querySelector('script[src$="assets/theme.js"]');
+  var base = me ? me.getAttribute("src").replace(/assets\/theme\.js$/, "") : "";
+  var now = new Date(), y = now.getFullYear(), m = now.getMonth() + 1, d = now.getDate();
+  function nth(month, weekday, n) {  // the nth weekday (0 = Sunday) of a month
+    var first = new Date(y, month - 1, 1).getDay();
+    return 1 + (weekday - first + 7) % 7 + 7 * (n - 1);
+  }
+  function easter() {  // Gregorian (anonymous algorithm): [month, day]
+    var a = y % 19, b = Math.floor(y / 100), c = y % 100, e = Math.floor(b / 4), f = b % 4, g = Math.floor((b + 8) / 25),
+      h = (19 * a + b - e - Math.floor((b - g + 1) / 3) + 15) % 30, i = Math.floor(c / 4), k = c % 4,
+      l = (32 + 2 * f + 2 * i - h - k) % 7, n = Math.floor((a + 11 * h + 22 * l) / 451);
+    return [Math.floor((h + l - 7 * n + 114) / 31), (h + l - 7 * n + 114) % 31 + 1];
+  }
+  var LUNAR = { 2027: [2, 6], 2028: [1, 26], 2029: [2, 13], 2030: [2, 3] };   // Lunar New Year
+  var MOON = { 2026: [9, 25], 2027: [9, 15], 2028: [10, 3], 2029: [9, 22], 2030: [9, 12] };   // Moon Festival
+  function on(md) { return md && md[0] === m && md[1] === d; }
+  function between(m1, d1, m2, d2) { var t = m * 100 + d; return t >= m1 * 100 + d1 && t <= m2 * 100 + d2; }
+  var E = easter();
+  var DAYS = [
+    ["aprilfools", on([4, 1]), "Nothing I say today is true. Probably.", "Slums-chan with a fake moustache for April Fools&rsquo;"],
+    ["valentine", on([2, 14]), "Happy Valentine&rsquo;s Day!", "Slums-chan hugs a heart-shaped box for Valentine&rsquo;s Day"],
+    ["whiteday", on([3, 14]), "Happy White Day!", "Slums-chan holds a blue heart box for White Day"],
+    ["stpatricks", on([3, 17]), "Happy St. Patrick&rsquo;s Day!", "Slums-chan in a green hat for St. Patrick&rsquo;s Day"],
+    ["setsubun", on([2, 3]), "Happy Setsubun! Beans out, luck in.", "Slums-chan with an oni mask and beans for Setsubun"],
+    ["lunarnewyear", on(LUNAR[y]), "Happy Lunar New Year!", "Slums-chan holds a red envelope for Lunar New Year"],
+    ["easter", on(E), "Happy Easter!", "Slums-chan in bunny ears with a toy bunny for Easter"],
+    ["earthday", on([4, 22]), "Happy Earth Day!", "Slums-chan hugs a little globe for Earth Day"],
+    ["mothersday", m === 5 && d === nth(5, 0, 2), "Happy Mother&rsquo;s Day!", "Slums-chan holds carnations for Mother&rsquo;s Day"],
+    ["fathersday", m === 6 && d === nth(6, 0, 3), "Happy Father&rsquo;s Day!", "Slums-chan holds a wrench for Father&rsquo;s Day"],
+    ["summer", on([6, 21]), "First day of summer!", "Slums-chan with sunglasses and a watermelon ice pop"],
+    ["july4", on([7, 4]), "Happy Fourth of July!", "Slums-chan with fireworks for the Fourth of July"],
+    ["tanabata", on([7, 7]), "Happy Tanabata! Make a wish.", "Slums-chan with a bamboo branch of wishes for Tanabata"],
+    ["obon", between(8, 13, 8, 15), "Happy Obon!", "Slums-chan holds a paper lantern for Obon"],
+    ["moonfestival", on(MOON[y]), "Happy Moon Festival!", "Slums-chan with a mooncake and a moon bunny"],
+    ["halloween", between(10, 24, 10, 31), "Happy Halloween! Trick or treat?", "Slums-chan in a witch hat with a jack-o&rsquo;-lantern"],
+    ["thanksgiving", m === 11 && d === nth(11, 4, 4), "Happy Thanksgiving!", "Slums-chan serves a roast turkey for Thanksgiving"],
+    ["winter", on([12, 21]), "First day of winter. Bundle up!", "Slums-chan wrapped in a scarf for winter"],
+    ["christmas", between(12, 24, 12, 25), "Merry Christmas!", "Slums-chan in a Santa hat with a present"],
+    ["newyear", between(1, 1, 1, 3) || on([12, 31]), "Happy New Year!", "Slums-chan holds up a 2027 sign for New Year"],
+    ["school", between(9, 1, 9, 7), "Back to school! Or back to grinding.", "Slums-chan with a stack of books for back to school"],
+    ["oktoberfest", between(9, 26, 10, 3), "Prost! Happy Oktoberfest!", "Slums-chan raises a beer stein for Oktoberfest"],
+    ["hanami", between(3, 25, 4, 10), "Cherry blossom season!", "Slums-chan among cherry blossoms for hanami"]
+  ];
+  var day = null;
+  for (var i = 0; i < DAYS.length; i++) if (DAYS[i][1]) { day = DAYS[i]; break; }
+  if (!day) return;
+  var tmp = document.createElement("span");
+  function text(html) { tmp.innerHTML = html; return tmp.textContent; }
+  figs.forEach(function (f) {
+    var img = f.querySelector("img.sidekick"), b = f.querySelector(".bubble");
+    if (img) {
+      img.removeAttribute("srcset");
+      img.src = base + "assets/brand/holiday-" + day[0] + "-360.webp";
+      img.width = 360; img.removeAttribute("height"); img.style.height = "auto";
+      img.alt = text(day[3]);
+      img.classList.add("holiday");
+    }
+    if (b) {
+      var lines = [];
+      try { lines = JSON.parse(b.getAttribute("data-lines")) || []; } catch (err) {}
+      b.setAttribute("data-lines", JSON.stringify([text(day[2])].concat(lines)));
+      b.textContent = text(day[2]);
+    }
+  });
+})();
+
 /* Slums-chan's speech bubbles (sections/buddy.py) circle through their lines: the page's own, then a few for every
    page. A fade, unless the visitor asked for less motion; nothing while the tab is hidden. The lines are read again
    every time, so a page can change them (exchange.js, once the exchange is open). */
