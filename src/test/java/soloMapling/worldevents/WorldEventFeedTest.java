@@ -1,6 +1,7 @@
 package soloMapling.worldevents;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -15,7 +16,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import testutil.PropsRestored;
 
+@ExtendWith(PropsRestored.class)
 class WorldEventFeedTest {
 
     private static final long T0 = 1_760_000_000_000L;

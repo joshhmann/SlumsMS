@@ -4,6 +4,7 @@ import client.Character;
 import client.Job;
 import net.server.PlayerStorage;
 import net.server.world.World;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotRoster;
@@ -17,7 +18,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
 import static soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision.*;
+import testutil.PropsRestored;
 
+@ExtendWith(PropsRestored.class)
 class LifeFriendInterruptTest {
     @Test void aChosenFriendRequestCanEndAHangoutWithoutOverlappingIt() { check(false); }
     @Test void aNewCommitmentKeepsTheHangoutAndPreventsTheFriendStart() { check(true); }

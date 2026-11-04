@@ -1,5 +1,7 @@
 package soloMapling.mechanics;
 
+import java.util.List;
+
 /**
  * The next thing a solver wants one member to do. Steps are intents: the bot's own movement (BotNav / GCMovement),
  * attack ({@code BotAttackDriver}) and NPC code carry them out, so a step never moves or hits anything itself.
@@ -11,13 +13,46 @@ public sealed interface SolverStep {
     }
 
     /**
+     * Step into the next room (boss rows only, phase B): a boss run's stages live on different maps and no portal name
+     * in our data is knowable (the door script {@code hontale_BR.js} is not its WZ portal name), so the solver says the
+     * map and the executor warps straight into the instance's own map. Only ever across maps: a member already in the
+     * room is never moved, so nothing is teleported inside a fight.
+     */
+    record WarpTo(int mapId, String why) implements SolverStep {
+    }
+
+    /**
      * Fight a mob kind until {@code untilItemCount} of {@code itemId} is held (0 = until the map is clear). 1.6.2: with
      * {@code leashPx} above 0, only mobs within that many px of ({@code nearX}, {@code nearY}) (a helper hunts by the
      * member it helps, so its kills' drops land within his reach).
      */
-    record Fight(int mobId, int itemId, int untilItemCount, int nearX, int nearY, int leashPx) implements SolverStep {
+    record Fight(List<Integer> mobIds, int itemId, int untilItemCount, int nearX, int nearY, int leashPx)
+            implements SolverStep {
+        public Fight {
+            mobIds = List.copyOf(mobIds);
+        }
+
+        /** One mob kind (the party quests): a list of one. 0 means "any". */
+        public Fight(int mobId, int itemId, int untilItemCount, int nearX, int nearY, int leashPx) {
+            this(mobId <= 0 ? List.of() : List.of(mobId), itemId, untilItemCount, nearX, nearY, leashPx);
+        }
+
         public Fight(int mobId, int itemId, int untilItemCount) {
             this(mobId, itemId, untilItemCount, 0, 0, 0);
+        }
+
+        public Fight(List<Integer> mobIds, int itemId, int untilItemCount) {
+            this(mobIds, itemId, untilItemCount, 0, 0, 0);
+        }
+
+        /** The first mob kind to try (0 for "any"): what the single-mob call sites mean. */
+        public int mobId() {
+            return mobIds.isEmpty() ? 0 : mobIds.get(0);
+        }
+
+        /** Whether a mob of this id is one this step fights. */
+        public boolean ofKind(int mobId) {
+            return mobIds.isEmpty() || mobIds.contains(mobId);
         }
 
         /** The mob at (x, y) is one this step may fight. */
@@ -28,6 +63,14 @@ public sealed interface SolverStep {
 
     /** Pick up an item from the floor or a reactor drop. */
     record Loot(int itemId) implements SolverStep {
+    }
+
+    /**
+     * Talk to one particular standing of an NPC. The same NPC can stand in 26 places on one map, and the script reads
+     * {@code cm.getNpcObjectId()} to decide which one it is (Magatia's seven books): a plain {@link TalkNpc} always
+     * reaches the first.
+     */
+    record TalkNpcAt(int objectId, int npcId) implements SolverStep {
     }
 
     /** Talk to an NPC, optionally holding {@code itemId} x {@code count} to hand in (0 = just talk). */
@@ -46,7 +89,96 @@ public sealed interface SolverStep {
     }
 
     /** Hit a reactor (box, lever). */
-    record HitReactor(int reactorOid) implements SolverStep {
+    record HitReactor(int reactorId) implements SolverStep {
+    }
+
+    /**
+     * Hit a reactor the map knows by name, not by id (OPQ stage 7: the five levers are reactors named {@code "1"} to
+     * {@code "5"} in {@code Map.wz/Map9/920010700.img}, and the script counts them by name:
+     * {@code 2013001.js} "getReactorByName(\"\" + i)").
+     */
+    record HitReactorNamed(String reactorName) implements SolverStep {
+    }
+
+    /**
+     * Put on the equip with this item id that the bot carries ({@link soloMapling.ArtificialPlayer.BotGearSystem.BotGear#wear}:
+     * the gear system's own wear rules and inventory move, with the choice made by the row). Guild Quest's maps from
+     * {@code 990000300} on take {@code decHP 30000} from whoever is not wearing the Protector Rock earring
+     * {@code 1032033} ({@code Character.doHurtHp}, {@code Character.java:3606-3609}): the gear review never puts it on
+     * by id and only does by the accident of a defence tie-break. The step names the item and is never taken for a
+     * teleport or a grant: a bot that does not carry it, or may not wear it yet, says so and nothing moves.
+     */
+    record EquipItem(int itemId, String why) implements SolverStep {
+    }
+
+    /**
+     * Take the worn equip with this item id off into the bag ({@link soloMapling.ArtificialPlayer.BotGearSystem.BotGear#takeOff},
+     * the gear system's own move the other way). Only for an item a later step has to drop from the bag: Guild Quest's Ergoth
+     * gate takes one Protector Rock {@code 1032033} dropped in its box ({@code Reactor.wz/9208009.img.xml}), the item is one
+     * per character, and {@link PlaceItem} drops from the bag, not the body. The member that gives its earring up is
+     * unprotected from then on and the row says so; nothing hides it.
+     */
+    record UnequipItem(int itemId, String why) implements SolverStep {
+    }
+
+    /**
+     * Hit the one reactor on the map that has this <em>map object id</em> ({@code Reactor.getObjectId()}), when neither
+     * its WZ id nor its name can tell it from its neighbours. Guild Quest's Gatekeeper puzzle is the case: its statues
+     * are twenty reactors of three ids, and the script names each one by {@code objectId % 1000}, zero-padded to three
+     * digits ({@code scripts/reactor/9208000.js:34-37}), into the event's {@code stage1combo} and {@code stage1guess}
+     * properties - so the pattern the party has to repeat is a list of object ids, and {@code reactorId} would hit
+     * whichever statue the map happens to list first. The object id is the map's own (it differs from one instance of
+     * the map to the next), so a solver reads it from {@link StageView#reactors()}, never from its row.
+     */
+    record HitReactorByOid(int objectId) implements SolverStep {
+    }
+
+    /**
+     * Put {@code count} of an item on the ground inside a reactor's box (OPQ, stages 1, 3, 9): the server matches a
+     * type-100 reactor's item and <em>quantity</em> exactly and needs the drop's position inside the reactor's area
+     * ({@code MapleMap.activateItemReactors}), so the stack lands on the reactor itself: {@code reactor} is its WZ
+     * name ({@code scar1}) or, all digits, its id ({@code 2006000}), and {@code x}/{@code y} is the fallback spot when
+     * the map has no such reactor. The whole stack goes down as one drop, because a count is matched, not a sum.
+     */
+    record PlaceItem(int itemId, int count, String reactor, int x, int y, String why) implements SolverStep {
+    }
+
+    /**
+     * Drop exactly {@code count} of {@code itemId} on the reactor with this <em>id</em>, and only there. Henesys PQ's
+     * six seed beds are {@code 9108000..9108005} and nothing in {@code scripts/} ever names them: the pairing lives in
+     * the reactors' own WZ event slots ({@code event/0: type 100, state 1, item, quantity 1}) and
+     * {@code MapleMap.activateItemReactors} takes a drop only when the item and the whole quantity match and the drop
+     * lies inside that reactor's area - so the bed has to be named by id, and a bed already planted must not be fed
+     * again: its script adds one to the instance's {@code stage} on every activation, and the stage clears at exactly
+     * {@code "6"}. The server fires that activation 5000 ms after the drop lands
+     * ({@code MapleMap.java:2665-2680}), which the executor honours as a settle delay rather than a failure.
+     */
+    /**
+     * Use one {@code itemId} on a monster of this kind ({@code mobId}) - Ellin PQ's purifier marble on a Poison Flower
+     * {@code 9300174}, which is how the party makes the twenty marbles {@code 4001169} the stage wants
+     * (`scripts/npc/2133001.js:60-84`). The rule itself is `server.life.MonsterCatch`; the step only says "try one now".
+     * The monster has to be weak enough (below 40% HP) for the attempt to land, so a solver keeps fighting and re-tries.
+     */
+    /**
+     * Touch a reactor - the {@code touch} callback, not {@code act}. A reacto r's {@code touch} is dispatched only from a
+     * client packet (`TouchReactorHandler.java:34-46`), so a bot standing on it does nothing; Crimsonwood Keep's sign-up
+     * is exactly this (`CWKPQ.js:98-135` hands each member a reactor by job class on touch), and Horntail's alternate head
+     * spawn (`2408003.js:30-34`) is the other.
+     */
+    record TouchReactor(int reactorId) implements SolverStep {
+    }
+
+    /**
+     * Touch the reactor <b>named</b> this - the sign-up's own addressing. `CWKPQ.js:106-118` deploys its reactors by name
+     * (`4skill<jobClass><slot>`, and `4fake*` decoys), so the name is the only thing that says which member belongs where.
+     */
+    record TouchReactorNamed(String reactorName) implements SolverStep {
+    }
+
+    record UseItemOnMob(int itemId, int mobId) implements SolverStep {
+    }
+
+    record PlaceItemOn(int reactorId, int itemId, int count, String why) implements SolverStep {
     }
 
     /** Say something in party chat (a try, a complaint, a callout). */
@@ -81,14 +213,47 @@ public sealed interface SolverStep {
      * entry of {@code answers} (the selection; 0 for a plain next or yes). KPQ: Cloto's prize ([0]), Nella's exit
      * ([0]), Lakelis' "I want to participate" ([0]).
      */
-    record Converse(int npcId, java.util.List<Integer> answers, String why) implements SolverStep {
+    record Converse(int npcId, List<Integer> answers, String why) implements SolverStep {
     }
 
     /** Walk into a portal on the member's map (the stage's way on; its script's gate still decides). */
+    /**
+     * Take a door by <em>running the portal's own script</em>, the way a player does, instead of the plain
+     * {@link EnterPortal} warp. Ludi PQ needs it twice: its doors ({@code scripts/portal/lpq0..lpq7.js}) refuse until
+     * the stage's {@code Nstageclear} property is set, and the door out of stage 6 is what <em>writes</em> that
+     * property for stage 6 ({@code lpq5.js:33-41}) - a plain {@code changeMap} would leave the stage unclearable.
+     * {@code scripting.portal.PortalScriptManager.runPortalScript} is the entry point the staging already uses.
+     */
+    record ScriptedPortal(String portalName) implements SolverStep {
+        @Override
+        public String toString() {
+            return "ScriptedPortal[portalName=" + portalName + "]";
+        }
+    }
+
     record EnterPortal(String portalName) implements SolverStep {
     }
 
+    /**
+     * The portal on this map that leads to a given map, whichever of the map's portals carries that target. A maze hub
+     * has fifteen doors and no reason for the solver to know which one is called {@code in07}: the row already says
+     * where the party goes next, so the target map id is the whole of the information.
+     */
+    record EnterPortalTo(int mapId) implements SolverStep {
+        @Override
+        public String toString() {
+            return "EnterPortalTo[mapId=" + mapId + "]";
+        }
+    }
+
     /** Nothing left for this member on this stage. */
+    /**
+     * The step the content cannot go on with: the run ends with this reason instead of the member standing still or
+     * spinning. A solver uses it for a fact of the room it cannot fix (a missing kill target), not for a slow fight.
+     */
+    record Abandon(String why) implements SolverStep {
+    }
+
     record Done() implements SolverStep {
     }
 }

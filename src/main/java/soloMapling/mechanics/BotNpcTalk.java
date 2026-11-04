@@ -39,7 +39,16 @@ final class BotNpcTalk extends AbstractScriptManager {
 
     /** One click on the NPC: the script's {@code start()} (which for KPQ's Cloto plays its first status). */
     Result talk(Character bot, int npcId) {
-        return converse(bot, npcId, List.of());
+        return converse(bot, npcId, 0, List.of());
+    }
+
+    /**
+     * One click on <b>one standing</b> of the NPC. Magatia's map holds 26 copies of the book NPC and the script keys each
+     * one's reward on {@code cm.getNpcObjectId()}, so the object id is the whole difference between "read a book" and
+     * "read the first book again".
+     */
+    Result talkAt(Character bot, int npcId, int objectId) {
+        return converse(bot, npcId, objectId, List.of());
     }
 
     /**
@@ -48,6 +57,10 @@ final class BotNpcTalk extends AbstractScriptManager {
      * stage ([0]: next), Nella's "leave?" ([0]: yes), Lakelis' "I want to participate" ([0]).
      */
     Result converse(Character bot, int npcId, List<Integer> answers) {
+        return converse(bot, npcId, 0, answers);
+    }
+
+    Result converse(Character bot, int npcId, int objectId, List<Integer> answers) {
         ScriptEngine engine;
         try {
             engine = getInvocableScriptEngine("npc/" + npcId + ".js");
@@ -57,7 +70,7 @@ final class BotNpcTalk extends AbstractScriptManager {
         if (engine == null) {
             return new Result(false, List.of(), "no script npc/" + npcId + ".js");
         }
-        BotCm cm = new BotCm(bot, npcId);
+        BotCm cm = new BotCm(bot, npcId, objectId);
         engine.put("cm", cm);
         try {
             ((Invocable) engine).invokeFunction("start");
@@ -79,8 +92,10 @@ final class BotNpcTalk extends AbstractScriptManager {
         final List<String> said = new ArrayList<>();
         boolean disposed;
 
-        BotCm(Character bot, int npcId) {
-            super(bot.getClient(), npcId, null);
+        BotCm(Character bot, int npcId, int objectId) {
+            // the 5-arg ctor is the one that carries the object id: the 3-arg one leaves it 0, and a script that reads
+            // cm.getNpcObjectId() would then see the same "placement 0" for every standing (Magatia's 26 books)
+            super(bot.getClient(), npcId, objectId, null, false);
             this.bot = bot;
         }
 
@@ -92,6 +107,17 @@ final class BotNpcTalk extends AbstractScriptManager {
         @Override
         public Character getChar() {
             return bot;
+        }
+
+        /**
+         * What a script that schedules a reactor hit for this bot hands on ({@code cm.getActingClient()}, Guild Quest's
+         * Gatekeeper, {@code scripts/npc/9040009.js:111}): the reactor's script runs later for that client, and a population
+         * bot's shared client has no player. {@link #getClient()} stays the shared client: every dialogue send and the rest of
+         * the conversation manager use it exactly as before. See {@link client.BotClient#forScripts}.
+         */
+        @Override
+        public client.Client getActingClient() {
+            return client.BotClient.forScripts(bot);
         }
 
         @Override

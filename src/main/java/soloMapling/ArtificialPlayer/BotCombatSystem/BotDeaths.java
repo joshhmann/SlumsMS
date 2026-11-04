@@ -59,6 +59,26 @@ public final class BotDeaths {
         }
     }
 
+    /**
+     * 1.6.4: whether a bot may die at all - {@code -Dslums.bots.immortal}. <b>Off by default</b>: a bot is mortal, and a
+     * lethal hit in an event instance kills it like a player, so a boss room can show whether the bots survive. On, the
+     * 1.5.0 rule comes back untouched: no bot ever dies inside an instance.
+     */
+    public static final String IMMORTAL_SWITCH = "slums.bots.immortal";
+
+    /** The switch above; false (mortal) unless a server asks for immortal bots. */
+    public static boolean immortal() {
+        return Boolean.getBoolean(IMMORTAL_SWITCH);
+    }
+
+    /**
+     * A lethal hit in an event instance kills a mortal bot outright - no roll, no harder-map rule, no world cap - the
+     * way the same hit kills a player. Outside an instance nothing changes: the rare-death rules are the open world's.
+     */
+    public static boolean diesOutright(Character bot) {
+        return bot != null && !immortal() && bot.getEventInstance() != null;
+    }
+
     /** QA cb-3: this bot's next lethal hit (while eligible) kills it whatever the map and the roll. */
     public static void forceNextDeath(int botId, boolean on) {
         if (on) {
@@ -71,10 +91,15 @@ public final class BotDeaths {
     /**
      * Re-checked at roll time (eligibility is only set at grind start): a bot that has since partied with or is
      * following a real player, is in an event, or is held by GM staging (cb-3 does not hold) never dies.
+     *
+     * <p>1.6.4: the event clause is now the immortality switch's, not a fact of instances - inside a boss room
+     * {@link #diesOutright} decides anyway, and the party/follow clauses stay the open world's own.
      */
     static boolean protectedFromDeath(Character bot) {
-        if (bot.getEventInstance() != null
-                || soloMapling.worldevents.WorldEventSteer.isStagingHeld(bot.getId())) {
+        if (bot.getEventInstance() != null) {
+            return immortal();
+        }
+        if (soloMapling.worldevents.WorldEventSteer.isStagingHeld(bot.getId())) {
             return true;
         }
         net.server.world.Party party = bot.getParty();
@@ -160,6 +185,15 @@ public final class BotDeaths {
         // One line per death so a soak can count them (the world cap is WORLD_PER_10_MIN).
         log.info("[BotDeaths] {}{} (lv {}) died on map {}", bot.getName(), bot.isOwnedAlt() ? " (owned alt)" : "",
                 bot.getLevel(), bot.getMapId());
+        // 1.6.4: a bot death spends a death of an armed expedition's budget, like a human's does
+        scripting.event.EventInstanceManager eim = bot.getEventInstance();
+        if (eim != null) {
+            try {
+                eim.botKilled(bot);
+            } catch (RuntimeException ignored) {
+                // the budget's own messages are best effort; the death itself already happened
+            }
+        }
         if (!bot.isOwnedAlt()) { // 1.6.1 ticket 13: an owned alt's death is its player's, not a population count
             try {
                 soloMapling.worldevents.WorldEvents.getInstance().onBotDied(bot); // 1.6.0: counted at a world event
@@ -172,6 +206,19 @@ public final class BotDeaths {
                     + ") dies on map " + bot.getMapId() + " (mobs lv " + MapMobIndex.level(bot.getMapId())
                     + "), HP pots left " + soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals.potionCount(bot, true));
         }
+    }
+
+    /**
+     * 1.6.4: something brought a dead bot back - a Bishop's Resurrection, a revive item, an admin - so it stops being a
+     * corpse: it may take hits again and a run drives it again. Called from {@code StatEffect}'s resurrection branch;
+     * a bot that was not dead is left alone.
+     */
+    public static void revived(Character bot) {
+        if (bot == null || lyingUntil.remove(bot.getId()) == null) {
+            return;
+        }
+        GCMovement.releaseCommitmentHold(bot); // the hold the death took, so the revived bot can walk again
+        log.info("[BotDeaths] {} is up again on map {}", bot.getName(), bot.getMapId());
     }
 
     /** True while the bot lies dead (TrainingBot holds everything). */

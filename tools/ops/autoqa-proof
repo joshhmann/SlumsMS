@@ -9,7 +9,7 @@ for the files a branch changed, the check ids that cover them plus a ready-to-ru
     tools/ops/autoqa-proof            # uncommitted changes in this worktree
 
 The last line of the default output can be pasted as is:
-`tools/ops/autoqa-run <ids>` (all 186 ids collapse to `all`). The tool never queues anything itself: it does not
+`tools/ops/autoqa-run <ids>` (every id in the catalogue collapses to `all`). The tool never queues anything itself: it does not
 touch a server, and running the line is the operator's call (see docs/ops/qa-suite.md, "Proving one fix between
 merge times").
 
@@ -45,6 +45,7 @@ import sys
 
 DEFAULT_MAP = os.path.join("src", "main", "resources", "soloMapling", "autoqa-coverage.tsv")
 SKIPS = os.path.join("src", "main", "resources", "soloMapling", "autoqa-release-skips.tsv")
+CATALOGUE = os.path.join("src", "main", "java", "soloMapling", "autoqa", "AutoQaCatalog.java")
 
 
 def git(root, *args):
@@ -145,6 +146,64 @@ def read_skips(root):
     return skips
 
 
+CHECK_DECL = re.compile(r'Check\.(?:auto|half|manual)\(\s*"([^"]+)"')
+
+
+def catalogue_ids(root):
+    """Every check id the catalogue declares, read from AutoQaCatalog.java.
+
+    The count is never a literal: AutoQaCatalogTest compares this same source (page order, one entry per check), so a
+    check added or removed there changes the number this tool prints. A source it cannot read, a repeated id, or a
+    count that does not match the declarations is a hard error - better no number than a wrong one.
+    """
+    path = os.path.join(root, CATALOGUE)
+    if not os.path.exists(path):
+        sys.exit("autoqa-proof: no catalogue at %s (pass --root, or the count cannot be trusted)" % path)
+    with open(path, encoding="utf-8") as fh:
+        ids = CHECK_DECL.findall(fh.read())
+    if not ids:
+        sys.exit("autoqa-proof: %s declares no checks (Check.auto/half/manual); refusing to print a count" % path)
+    seen = set()
+    twice = [i for i in ids if i in seen or seen.add(i)]
+    if twice:
+        sys.exit("autoqa-proof: %s declares the same check twice: %s" % (path, ", ".join(id_sort(twice))))
+    return id_sort(ids)
+
+
+def check_map_against_catalogue(cov, cat):
+    """The map may name fewer ids than the catalogue, never one the catalogue does not declare."""
+    known = set(cat) | {"all"}
+    unknown = set()
+    for check, _key, _note, _rx in cov.rows:
+        for c in check.split(","):
+            c = c.strip()
+            if c and c not in known:
+                unknown.add(c)
+    if unknown:
+        sys.exit("autoqa-proof: the coverage map names checks the catalogue does not declare: %s"
+                 % ", ".join(id_sort(unknown)))
+
+
+def grouped(ids):
+    """'t-mx-1..t-mx-6' for a run of numbers in one family, the ids themselves otherwise."""
+    fams = {}
+    loose = []
+    for c in ids:
+        m = re.match(r"^([a-z0-9-]*[a-z])-(\d+)$", c)
+        if not m:
+            loose.append(c)
+            continue
+        fams.setdefault(m.group(1), []).append(int(m.group(2)))
+    out = []
+    for fam in sorted(fams):
+        nums = sorted(fams[fam])
+        if len(nums) > 2 and nums == list(range(nums[0], nums[0] + len(nums))):
+            out.append("%s-%d..%s-%d" % (fam, nums[0], fam, nums[-1]))
+        else:
+            out.extend("%s-%d" % (fam, n) for n in nums)
+    return sorted(out + loose)
+
+
 def changed_from_range(root, rng):
     raw = git(root, "diff", "--name-status", "-z", "--no-renames", rng).split("\0")
     paths = []
@@ -202,6 +261,12 @@ def main(argv):
         sys.exit("autoqa-proof: no coverage map at %s (pass --map)" % map_path)
     cov = Map(map_path)
     skips = read_skips(root)
+    cat_root = root
+    if not os.path.exists(os.path.join(cat_root, CATALOGUE)):
+        # --root may be a throw-away repo (the tool's own tests do this): the catalogue is this script's checkout
+        cat_root = repo_root()
+    catalogue = catalogue_ids(cat_root)
+    check_map_against_catalogue(cov, catalogue)
 
     if args.files:
         changed = [(p[2:] if p.startswith("./") else p, "?") for p in args.files]
@@ -243,7 +308,9 @@ def main(argv):
     if args.json:
         print(json.dumps({"range": label, "files": per_file, "checks": ids, "all": every,
                           "unmapped": unmapped, "switches": [[k, n, c] for k, n, c in switches],
-                          "manual_only": manual, "docs_only": docs_only, "tests_only": tests_only},
+                          "manual_only": manual, "docs_only": docs_only, "tests_only": tests_only,
+                          "catalogue": len(catalogue),
+                          "all_causes": [f["path"] for f in per_file if f["checks"] == ["all"]]},
                          indent=2))
     elif args.quiet:
         if docs_only:
@@ -259,7 +326,7 @@ def main(argv):
         pad = min(max([len(f["path"]) for f in per_file] + [20]) + 2, 84)
         for f in per_file:
             if f["checks"] == ["all"]:
-                shown = "every check (runner/platform file)"
+                shown = "every check (engine file: all of them run on it)"
             elif f["checks"]:
                 shown = ", ".join(f["checks"])
             elif is_test(f["path"]):
@@ -279,9 +346,24 @@ def main(argv):
             print("\ntests only, no auto-QA run needed (the unit suite is the proof)")
         elif ids:
             if every:
-                print("\nchecks: every check (186) - a runner or platform file changed")
+                causes = [f["path"] for f in per_file if f["checks"] == ["all"]]
+                print("\nchecks: every check (%d) - %d changed file%s change%s the engine they all run on:"
+                      % (len(catalogue), len(causes), "" if len(causes) == 1 else "s",
+                         "s" if len(causes) == 1 else ""))
+                print("  (the count is read from %s, never written down here)" % CATALOGUE.replace(os.sep, "/"))
+                for p in causes:
+                    print("  " + p)
+                print("ids, grouped so a subset can still be run on its own (%d):" % len(catalogue))
+                line = "  "
+                for g in grouped(catalogue):
+                    if len(line) + len(g) + 2 > 100:
+                        print(line.rstrip())
+                        line = "  "
+                    line += g + ", "
+                print(line.rstrip(", "))
+                print("  a subset: tools/ops/autoqa-run t-mx-1,t-mx-2 (ids as printed above)")
             else:
-                print("\nchecks: %d of 186" % len(ids))
+                print("\nchecks: %d of %d" % (len(ids), len(catalogue)))
                 for c in ids:
                     tail = "  manual-only, needs a person and a real client" if c in skips else ""
                     print("  %s%s" % (c, tail))
@@ -304,4 +386,9 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except BrokenPipeError:
+        # the reader closed the pipe (| head, | less); nothing left to say
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        sys.exit(0)

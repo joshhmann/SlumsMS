@@ -1,5 +1,6 @@
 package soloMapling.worldevents;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 import soloMapling.ArtificialPlayer.BotPopulationCurve;
 
@@ -14,7 +15,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import testutil.PropsRestored;
 
+@ExtendWith(PropsRestored.class)
 class EventSchedulerTest {
 
     private static final long MIN = 60_000L;

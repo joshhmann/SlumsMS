@@ -8,6 +8,10 @@ import net.server.world.PartyCharacter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import net.server.PlayerStorage;
+import net.server.channel.Channel;
+import net.server.Server;
 import server.expeditions.Expedition;
 import server.expeditions.ExpeditionType;
 import server.maps.MapleMap;
@@ -21,7 +25,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -29,8 +36,10 @@ import static org.mockito.Mockito.when;
 class ExpeditionBotsTest {
 
     private static final int LEADER = 1;
+    private static final int ALTAR = 211042400; // Zakum's altar, the recruiting map
     private final List<Expedition> made = new ArrayList<>();
     private final MapleMap altar = mock(MapleMap.class);
+    private PlayerStorage storage;
 
     @BeforeAll
     static void timers() {
@@ -43,8 +52,11 @@ class ExpeditionBotsTest {
     void noDatabase() {
         ExpeditionBots.quota = (bot, exped) -> true; // the boss log is a DB read
         net.server.world.World world = mock(net.server.world.World.class);
-        when(world.getPlayerStorage()).thenReturn(mock(net.server.PlayerStorage.class));
+        storage = mock(PlayerStorage.class);
+        when(world.getPlayerStorage()).thenReturn(storage);
         when(altar.getWorldServer()).thenReturn(world); // dispose() reads the online members
+        when(altar.getId()).thenReturn(ALTAR);
+        when(altar.getChannelServer()).thenReturn(mock(Channel.class)); // the registration timer removes the expedition
     }
 
     @AfterEach
@@ -56,7 +68,12 @@ class ExpeditionBotsTest {
     // ── the rules ────────────────────────────────────────────────────────────
 
     private static ExpeditionBots.Facts facts(int owner, boolean sole, boolean sameMap, int level, boolean quest) {
-        return new ExpeditionBots.Facts(true, false, false, false, sameMap, level, owner, sole, quest);
+        return new ExpeditionBots.Facts(true, false, false, false, sameMap, level, owner, sole, quest, false, false);
+    }
+
+    /** An owned alt: whether it is one, and whether the owner it follows is a member of the expedition. */
+    private static ExpeditionBots.Facts altFacts(int owner, boolean ownerMember) {
+        return new ExpeditionBots.Facts(true, false, false, false, true, 60, owner, false, true, true, ownerMember);
     }
 
     @Test
@@ -89,14 +106,47 @@ class ExpeditionBotsTest {
     @Test
     void theRecruitersMemberQuestAndOtherBlocksApply() {
         assertEquals("quest", ExpeditionBots.skip(ExpeditionType.VONLEON, LEADER, facts(LEADER, false, true, 130, false)));
-        ExpeditionBots.Facts member = new ExpeditionBots.Facts(true, true, false, false, true, 60, LEADER, false, true);
+        ExpeditionBots.Facts member = new ExpeditionBots.Facts(true, true, false, false, true, 60, LEADER, false, true, false, false);
         assertEquals("member", ExpeditionBots.skip(ExpeditionType.ZAKUM, LEADER, member));
-        ExpeditionBots.Facts banned = new ExpeditionBots.Facts(true, false, true, false, true, 60, LEADER, false, true);
+        ExpeditionBots.Facts banned = new ExpeditionBots.Facts(true, false, true, false, true, 60, LEADER, false, true, false, false);
         assertEquals("banned", ExpeditionBots.skip(ExpeditionType.ZAKUM, LEADER, banned));
-        ExpeditionBots.Facts dead = new ExpeditionBots.Facts(true, false, false, true, true, 60, LEADER, false, true);
+        ExpeditionBots.Facts dead = new ExpeditionBots.Facts(true, false, false, true, true, 60, LEADER, false, true, false, false);
         assertEquals("dead", ExpeditionBots.skip(ExpeditionType.ZAKUM, LEADER, dead));
-        ExpeditionBots.Facts human = new ExpeditionBots.Facts(false, false, false, false, true, 60, LEADER, false, true);
+        ExpeditionBots.Facts human = new ExpeditionBots.Facts(false, false, false, false, true, 60, LEADER, false, true, false, false);
         assertEquals("not a bot", ExpeditionBots.skip(ExpeditionType.ZAKUM, LEADER, human));
+    }
+
+    @Test
+    void anAltWhoseOwnerIsAMemberFollowsIntoAStrangerLedExpedition() {
+        assertNull(ExpeditionBots.skip(ExpeditionType.ZAKUM, LEADER, altFacts(2, true)));
+        assertTrue(ExpeditionBots.ownerAdmits(LEADER, altFacts(2, true)));
+    }
+
+    @Test
+    void anAltWhoseOwnerIsNotAMemberIsStillSkipped() {
+        assertEquals("owner", ExpeditionBots.skip(ExpeditionType.ZAKUM, LEADER, altFacts(2, false)));
+        // an alt whose owner logged off is nobody's to take
+        assertEquals("owner", ExpeditionBots.skip(ExpeditionType.ZAKUM, LEADER, altFacts(-2, false)));
+    }
+
+    @Test
+    void withAltFollowOffTheOwnerRuleIsTheOldOne() {
+        System.setProperty(ExpeditionBots.ALT_FOLLOW_SWITCH, "false");
+        try {
+            assertEquals("owner", ExpeditionBots.skip(ExpeditionType.ZAKUM, LEADER, altFacts(2, true)));
+            assertNull(ExpeditionBots.skip(ExpeditionType.ZAKUM, LEADER, altFacts(LEADER, false)),
+                    "the leader's own alt always comes");
+        } finally {
+            System.clearProperty(ExpeditionBots.ALT_FOLLOW_SWITCH);
+        }
+    }
+
+    @Test
+    void aCompanionOfAMemberWhoIsNotItsOwnerIsNotAdmitted() {
+        // only an owned alt follows its owner; a population bot's "owner" is whoever it follows
+        ExpeditionBots.Facts companion = new ExpeditionBots.Facts(true, false, false, false, true, 60, 2, false, true,
+                false, true);
+        assertEquals("owner", ExpeditionBots.skip(ExpeditionType.ZAKUM, LEADER, companion));
     }
 
     @Test
@@ -156,6 +206,47 @@ class ExpeditionBotsTest {
         exped.beginRegistration();
         made.add(exped);
         return exped;
+    }
+
+    @Test
+    void anAdmittedAltWhoseOwnerIsAMemberCountsAsAPartyMember() {
+        boolean saved = YamlConfig.config.server.USE_ENABLE_SOLO_EXPEDITIONS;
+        YamlConfig.config.server.USE_ENABLE_SOLO_EXPEDITIONS = false;
+        try {
+            Character leader = player(LEADER, "Josh");       // a stranger to both of them
+            Character owner = player(2, "Owner");
+            Character alt = altOf(owner, 3, "Alt3");
+            party(leader, owner, alt);
+            Expedition exped = new Expedition(leader, ExpeditionType.ZAKUM, true, 3, 3);
+            exped.beginRegistration();
+            made.add(exped);
+            exped.addMemberInt(owner);                        // the owner is in this expedition
+            when(storage.getCharacterById(2)).thenReturn(owner);
+            when(storage.getCharacterById(3)).thenReturn(alt);
+            when(owner.isPresentInWorld()).thenReturn(true);
+            when(alt.isPresentInWorld()).thenReturn(true);
+
+            assertEquals(List.of("Alt3"), ExpeditionBots.autoJoin(leader, exped));
+
+            assertEquals(3, exped.getMembers().size(), "the alt is a member, not an onlooker");
+            assertTrue(exped.getMemberList().stream().anyMatch(e -> "Alt3".equals(e.getValue())));
+            assertTrue(exped.getMembers().size() >= exped.getMinSize(), "the script's size gate counts it");
+            assertTrue(exped.getActiveMembers().contains(alt), "and broadcasts reach it");
+        } finally {
+            YamlConfig.config.server.USE_ENABLE_SOLO_EXPEDITIONS = saved;
+        }
+    }
+
+    @Test
+    void anAltWhoseOwnerIsOutsideTheExpeditionDoesNotFollow() {
+        Character leader = player(LEADER, "Josh");
+        Character owner = player(2, "Owner");
+        Character alt = altOf(owner, 3, "Alt3");
+        party(leader, owner, alt);
+        Expedition exped = expedition(leader, ExpeditionType.ZAKUM, 3);
+
+        assertTrue(ExpeditionBots.autoJoin(leader, exped).isEmpty());
+        assertFalse(exped.getMembers().containsKey(3));
     }
 
     @Test
@@ -279,5 +370,156 @@ class ExpeditionBotsTest {
         exped.removeMember(bot);
 
         assertFalse(ExpeditionBots.committed(bot));
+    }
+
+    // ── the door (1.6.2 b120): a held bot is never stranded ─────────────────
+
+    @Test
+    void aBotIsLetGoWhenTheRegistrationWindowExpires() {
+        Character leader = player(LEADER, "Josh");
+        Character bot = altOf(leader, 800, "Clock4");
+        party(leader, bot);
+        Expedition exped = expedition(leader, ExpeditionType.ZAKUM, 0);
+        ExpeditionBots.autoJoin(leader, exped);
+        assertTrue(ExpeditionBots.committed(bot), "held while the window is open");
+
+        exped.expireRegistration(); // the timer's body, without waiting five minutes
+
+        assertFalse(ExpeditionBots.committed(bot), "the window lapsed: the bot is free again");
+        verify(altar.getChannelServer()).removeExpedition(exped);
+    }
+
+    @Test
+    void aBotHeldWhileTheLeaderCannotStartIsLetGoWhenTheWindowLapses() {
+        Character leader = player(LEADER, "Josh");
+        Character bot = altOf(leader, 810, "Clock4");
+        party(leader, bot);
+        Expedition exped = expedition(leader, ExpeditionType.ZAKUM, 0);
+        ExpeditionBots.autoJoin(leader, exped);
+        assertTrue(exped.getMemberList().size() < exped.getMinSize(), "the size check would refuse tonight");
+        assertTrue(ExpeditionBots.committed(bot), "so he waits at the altar - for the window, not forever");
+
+        exped.expireRegistration();
+
+        assertFalse(ExpeditionBots.committed(bot));
+        assertFalse(ExpeditionBots.inRun(bot));
+    }
+
+    @Test
+    void aBotTheRunLeftBehindIsFreeOnceTheRunStarts() {
+        Character leader = player(LEADER, "Josh");
+        Character bot = altOf(leader, 820, "Clock4");
+        party(leader, bot);
+        Expedition exped = expedition(leader, ExpeditionType.ZAKUM, 0);
+        ExpeditionBots.autoJoin(leader, exped);
+        assertTrue(ExpeditionBots.committed(bot));
+
+        exped.finishRegistration(); // the run began; registerExpeditionTeam left him out (he is in no instance)
+
+        assertFalse(ExpeditionBots.committed(bot), "not registering and not inside: nothing holds him");
+        exped.dispose(true);
+        assertFalse(ExpeditionBots.inRun(bot));
+    }
+
+    @Test
+    void aBotAddedToThePartyAfterTheExpeditionWasMadeJoinsAtTheStart() {
+        Character leader = player(LEADER, "Josh");
+        Expedition exped = expedition(leader, ExpeditionType.ZAKUM, 0);
+        Character bot = altOf(leader, 830, "Clock4");
+        party(leader, bot); // the invite lands after the expedition exists
+
+        System.setProperty("solomapling.enabled", "true"); // the hook that carries autoJoin into start()
+        System.setProperty("solomapling.template-id", "9100000");
+        try (MockedStatic<Server> servers = mockStatic(Server.class)) {
+            servers.when(Server::getInstance).thenReturn(mock(Server.class));
+            exped.start(); // Expedition.start re-runs autoJoin before it closes registration
+        } finally {
+            System.clearProperty("solomapling.enabled");
+            System.clearProperty("solomapling.template-id");
+        }
+
+        assertTrue(exped.hasMember(830), "the start step is a party-change boundary too");
+        assertTrue(exped.getMembers().containsValue("Clock4"));
+    }
+
+    @Test
+    void theStartNamesEachRegisteredBotThatIsNotAtTheAltarAndNothingElse() {
+        System.setProperty(ExpeditionDoor.PROPERTY, "true");
+        try {
+            Character leader = player(LEADER, "Josh");
+            Character here = altOf(leader, 840, "Here");
+            Character away = altOf(leader, 841, "Away");
+            party(leader, here, away);
+            Expedition exped = expedition(leader, ExpeditionType.ZAKUM, 0);
+            assertEquals(List.of("Here", "Away"), ExpeditionBots.autoJoin(leader, exped), "both were at the altar");
+            when(storage.getCharacterById(840)).thenReturn(here);
+            when(storage.getCharacterById(841)).thenReturn(away);
+
+            MapleMap town = mock(MapleMap.class);
+            when(town.getId()).thenReturn(100000000);
+            when(away.getMap()).thenReturn(town); // it wandered off while the leader was gathering people
+
+            ExpeditionBots.warnNotAtTheAltar(exped);
+
+            verify(leader).dropMessage(6, "[Expedition] Away is not at the altar and will not join.");
+            verify(leader, never()).dropMessage(6, "[Expedition] Here is not at the altar and will not join.");
+        } finally {
+            System.clearProperty(ExpeditionDoor.PROPERTY);
+        }
+    }
+
+    @Test
+    void withTheDoorShutTheLeaderHearsNothingAboutIt() {
+        Character leader = player(LEADER, "Josh");
+        Character bot = altOf(leader, 850, "Clock4");
+        party(leader, bot);
+        Expedition exped = expedition(leader, ExpeditionType.ZAKUM, 0);
+        ExpeditionBots.autoJoin(leader, exped); // storage knows nobody: it would be named if the door were open
+
+        ExpeditionBots.warnNotAtTheAltar(exped);
+
+        verify(leader, never()).dropMessage(eq(6), contains("is not at the altar"));
+    }
+
+    @Test
+    void aDismissedAltLeavesItsExpeditionAndAVanishedOneLeavesNothingElse() {
+        System.setProperty(ExpeditionDoor.PROPERTY, "true");
+        try {
+            Character leader = player(LEADER, "Josh");
+            Character alt = altOf(leader, 860, "Alt");
+            Channel channel = mock(Channel.class);
+            client.Client client = mock(client.Client.class);
+            when(alt.getClient()).thenReturn(client);
+            when(client.getChannelServer()).thenReturn(channel);
+            Expedition exped = expedition(leader, ExpeditionType.ZAKUM, 0);
+            exped.addMemberInt(alt);
+            when(channel.getExpedition(ExpeditionType.ZAKUM)).thenReturn(exped);
+
+            soloMapling.ArtificialPlayer.BotEventExit.leave(alt); // what a dismiss did before b120
+            assertTrue(exped.contains(alt), "confirmed: leaving an event never touched the member list");
+
+            ExpeditionDoor.leaveExpedition(alt);
+
+            assertFalse(exped.contains(alt), "no ghost in the member list, no boss-log entry in its name");
+        } finally {
+            System.clearProperty(ExpeditionDoor.PROPERTY);
+        }
+    }
+
+    @Test
+    void withTheDoorShutADismissedAltStillLingers() {
+        Character leader = player(LEADER, "Josh");
+        Character alt = altOf(leader, 861, "Alt");
+        Channel channel = mock(Channel.class);
+        client.Client client = mock(client.Client.class);
+        when(alt.getClient()).thenReturn(client);
+        when(client.getChannelServer()).thenReturn(channel);
+        Expedition exped = expedition(leader, ExpeditionType.ZAKUM, 0);
+        exped.addMemberInt(alt);
+        when(channel.getExpedition(ExpeditionType.ZAKUM)).thenReturn(exped);
+
+        ExpeditionDoor.leaveExpedition(alt);
+
+        assertTrue(exped.contains(alt), "the switch is off: today's behaviour, unchanged");
     }
 }

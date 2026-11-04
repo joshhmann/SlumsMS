@@ -1,0 +1,68 @@
+# Ticket 130 boss lane, branch 164-bossrows: Scarga (1.6.4).
+#
+# Read only when the server runs with -Dslums.mechanics.boss=true (off by default). One room, one map, and the only row
+# in this batch whose fight needs TWO reactors clicked before it is whole - this is the row that made hitReactors a list.
+#
+# What OUR scripts say the room is:
+#  - the gate is the script's own: 6-30 players, levels 100-255, one lobby (ScargaBattle.js:29-30,41);
+#  - 551030200 has no boss of its own: Map.wz/Map/Map5/551030200.img.xml holds NPC 9201134 and reactors 5511000 and
+#    5511001, nothing else. Both are act()-based (scripts/reactor/5511000.js, 5511001.js) so a bot's click reaches them
+#    (Reactor.java:242-246), and each summons its own half 3.2 s later: 5511000 -> 9420542, 5511001 -> 9420547;
+#  - the two halves are separate revive chains: Mob.wz/9420542.img.xml -> 9420543 -> 9420544, and Mob.wz/9420547.img.xml
+#    -> 9420548 -> 9420549. 9420544 and 9420549 are what isScarga tests (ScargaBattle.js:192-195): the room counts a
+#    death only for those two ids;
+#  - the clear is clearPQ -> setEventCleared(SCARGA) (ScargaBattle.js:187-190) after BOTH last forms have died
+#    (:197-210: defeatedBoss == 1, then bumped to 2). "defeatedBoss" is seeded 0 at :99 and is a counter, so the row
+#    does NOT clear on it -> instance: true. That matters: with a value clear, one half dying would read as a clear.
+#
+# The two clicks and the order between them are the point of this row. The solver clicks 5511000 and 5511001 once each,
+# in this order, and does not stop after the first because the first half's boss is standing: that is precisely the bug
+# the fail-before test (aRoomThatOpensOnlyHalfItsFightIsNeverCalledCleared) pins - half a room is never a clear.
+#
+# The wz facts are from /root/work/SlumsMS-170-evan/wz, which is not version-pinned to this branch (docs/PROVENANCE.md).
+id: scarga
+name: Scarga (expedition)
+kind: BOSS
+eventScript: ScargaBattle
+recruitMap: 551030100
+exitMap: 551030100
+minPlayers: 6
+maxPlayers: 30
+minLevel: 100
+maxLevel: 255
+timeLimitMinutes: 60
+sources:
+  - "scripts/event/ScargaBattle.js (ours, the truth): minPlayers 6 / maxPlayers 30, levels 100-255 (:29-30), entryMap 551030200 and exitMap 551030100 (:31-32), clearMap 551030100 (:33), minMapId = maxMapId = 551030200 (:36-37), eventTime 60 (:39), maxLobbies 1 (:41), defeatedBoss seeded 0 (:99), clearPQ (:187-190), isScarga = 9420544 || 9420549 (:192-195), monsterKilled (:197-210)"
+  - "scripts/reactor/5511000.js and scripts/reactor/5511001.js - each act() summons its own half with summonBossDelayed(9420542 | 9420547, 3200, ...), guarded by a getMonsterById null check; act()-based, so Reactor.java:242-246 sends a bot's click to them"
+  - "Map.wz/Map/Map5/551030200.img.xml (dump /root/work/SlumsMS-170-evan/wz): the map's life is NPC 9201134 and reactors 5511000 + 5511001, no mobs. Mob.wz/9420542.img.xml revive/0 = 9420543 -> 9420544, Mob.wz/9420547.img.xml revive/0 = 9420548 -> 9420549"
+  - "BotStory 81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364, agent-bosses/boss-rules.json scarga: targetPriority names the two last forms and neverTargetFakes; only that reading of the room was consulted, and our script states the chain"
+stages:
+  - stage: 1
+    map: 551030200
+    name: Scarga
+    solver: boss-phases
+    # both reactors, once each, in this order: 5511000 brings Targa's half, 5511001 brings Scarlion's, and neither half
+    # can clear anything on its own.
+    hitReactors: [5511000, 5511001]
+    # the first half arrives 3.2 s after the first click and the second 3.2 s after the second; 60 s is a policy number
+    # (two clicks, two summons and a respawn animation, with margin), not a WZ one.
+    spawnWaitSeconds: 60
+    mobs:
+      - 9420542
+      - 9420543
+      - 9420544
+      - 9420547
+      - 9420548
+      - 9420549
+    objectives:
+      - id: targa
+        kind: DEFEAT
+        mob: 9420544
+        note: Targa's last form, the half 5511000 brings; isScarga counts it (ScargaBattle.js:192-195)
+      - id: scarlion
+        kind: DEFEAT
+        mob: 9420549
+        note: Scarlion's last form, the half 5511001 brings; the clear needs both (:197-210)
+    # ScargaBattle.js:197-210 clears after both last forms; defeatedBoss is a counter, so the instance flag is the clear.
+    clear:
+      instance: true

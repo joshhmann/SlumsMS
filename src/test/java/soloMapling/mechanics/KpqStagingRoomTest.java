@@ -39,6 +39,7 @@ class KpqStagingRoomTest {
 
     @Test
     void askingForNoBotsSpawnsNothingInsteadOfThrowing() {
-        assertTrue(KpqStaging.spawnBots(mock(server.maps.MapleMap.class), 0, new java.util.ArrayList<>()).isEmpty());
+        assertTrue(KpqStaging.spawnBots(mock(server.maps.MapleMap.class), 0, new java.util.ArrayList<>(),
+                KpqStaging.LAKELIS, 30, 35).isEmpty());
     }
 }

@@ -1,0 +1,68 @@
+# Ticket 164 Cafe PQ, area 1: one stage, the whole area's coupons. Our scripts first.
+# Format: docs/tickets/130-bots-play-mechanics.md, "Stage data format". Loaded by soloMapling.mechanics.StageData.
+#
+# The six areas are six SEPARATE events (scripts/event/CafePQ_1.js .. _6.js), which is why they are six rows here: the
+# script skeleton is identical and only the maps and the coupon count differ. Each row is its own content id but they
+# share one switch (-Dslums.mechanics.cafepq on top of -Dslums.mechanics): they are one grind loop behind six doorways,
+# and six flags would be six ways to be half-on. REPORT-opq.md, "Cafe PQ", says what each row does not cover.
+#
+# The server's own scripts are the truth:
+#   scripts/event/CafePQ_1.js (minPlayers 3 / maxPlayers 6, minLevel 21 / maxLevel 255, eventTime 45, entryMap
+#   190000000, recruitMap and exitMap 193000000, eventMaps 190000000, 190000001, 190000002) and scripts/npc/1052013.js (the Computer: the front
+#   door on 193000000, and - inside an instance - the NPC that checks haveItem(4001007, couponsNeeded), PAYS the party
+#   the same number of coupons back (a positive gainItem) and calls eim.clearPQ()).
+#   Nothing writes an event property on clear: the instance's own flag is the whole signal.
+id: cafepq1
+name: Cafe PQ, area 1
+kind: PQ
+eventScript: CafePQ_1
+# The Computer on 193000000 is both the door and the closer (scripts/npc/1052013.js:39-63)
+entryNpc: 1052013
+recruitMap: 193000000
+exitMap: 193000000
+# The script's own gate, copied from it: CafePQ_1.js:27-31,38. cosmic_agents and BotStory carry no Cafe PQ constants.
+minPlayers: 3
+maxPlayers: 6
+minLevel: 21
+maxLevel: 255
+timeLimitMinutes: 45
+flag: slums.mechanics.cafepq
+sources:
+  - "scripts/event/CafePQ_1.js: ours, the truth: the area's maps (:36), the coupon count (:39), the drop per kill table (:251-259), and clearPQ (:239-249), which sets the instance's flag and nothing else"
+  - "scripts/npc/1052013.js:56-63 - the Computer checks haveItem(4001007, couponsNeeded) and then calls eim.clearPQ(). :59 is cm.gainItem(4001007, couponsNeeded), a POSITIVE quantity: the NPC pays the party instead of charging it, so this row never makes the bots hand the coupons over"
+  - "The maps are the script's eventMaps, not a WZ band: our Map.wz confirms each one exists and that the entry map is where playerEntry warps the party (CafePQ_1.js:149-152)"
+stages:
+  - stage: 1
+    map: 190000000
+    name: 190000000 - 400 coupons for the Computer
+    npc: 1052013
+    solver: cafepq-coupons
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: pools the area's coupons and talks to the Computer once he holds them all
+      - id: collector
+        who: NON_LEADER
+        min: 0
+        max: party-1
+        note: fights the area's monsters and drops its coupons by the leader
+    items:
+      - id: 4001007
+        cleanup: true
+        name: Golden Maple Leaf Coupon
+    objectives:
+      - id: coupons
+        kind: COLLECT
+        role: all
+        item: 4001007
+        count: 400
+        note: "1, 2 or 5 coupons a kill (level >65 / >40 / else); the script spawns them by hand on the floor at each kill (CafePQ_1.js:261-277)"
+      - id: pool
+        kind: GIVE_TO_LEADER
+        role: collector
+        item: 4001007
+        count: 1
+    clear:
+      instance: true

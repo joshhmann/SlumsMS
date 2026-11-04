@@ -45,16 +45,18 @@ A piece of **content** (PQ, boss, JQ, expedition) is an ordered list of **stages
 |---|---|---|
 | map, npc | where it happens, the stage's NPC | 103000800, Cloto 9020001 |
 | **roles** | who does what; `who: LEADER / NON_LEADER / ANY`, `min`/`max` as a number or `party` / `party-1` | `leader` (1), `answerer` (party-1) |
-| **objectives** | per role, in order: TALK_NPC, KILL_FOR_ITEM, COLLECT, HAND_IN, GIVE_TO_LEADER, ANSWER, OCCUPY_POSITION, HIT_REACTOR, REACH, DEFEAT, ENTER_PORTAL, WAIT | ask -> farm coupons (count `answer`) -> hand in -> give pass to leader; leader hands in `party-1` passes |
+| **objectives** | per role, in order: TALK_NPC, KILL_FOR_ITEM, COLLECT, PLACE_ITEM, HAND_IN, GIVE_TO_LEADER, ANSWER, OCCUPY_POSITION, HIT_REACTOR, REACH, DEFEAT, ENTER_PORTAL, WAIT. A `PLACE_ITEM` names `item`, `count` and either a `reactor` (WZ name like `scar1`, or a numeric reactor id) or an `at` point: it drops the stack inside that reactor's box, because `MapleMap.activateItemReactors` matches the reactor's item **and** quantity | ask -> farm coupons (count `answer`) -> hand in -> give pass to leader; leader hands in `party-1` passes |
 | **positions** | rectangles to stand on / hang from (script coordinates), `rope: true` for ropes | (KPQ 2-4: the ropes and platforms from Cloto's script) |
 | **items** | items used, `cleanup` when the event takes them back | coupon 4001007, pass 4001008 |
 | **answers** | the puzzle's answer table, mirrored from our script | the 7 Cloto questions (10, 35, 20, 25, 25, 30, 8) |
 | **phases** | boss HP bands (100 -> 0, no overlap) and what the party does in each | (bosses only) |
-| **clear** | the event property the stage script sets on clear | `1stageclear` |
+| **clear** | the event property the stage script sets on clear, and `equals:` when the script writes the property before it means anything (OPQ writes `statusStg0..8 = -1` at setup). `clear: { instance: true }` is the other form: a stage whose script writes **no** property and only calls `eim.clearPQ()`, so the clear is the instance's own flag (`EventInstanceManager.isEventCleared()`, `StageView.eventCleared()`) | `1stageclear`, or `instance: true` |
 | **solver** | which stage solver plays it | `question-coupons` |
 
-Content also carries players/levels/time limit, `sources:` (required: where the data was checked from, with credit)
-and optional `tiers:`.
+Content also carries players/levels/time limit, `sources:` (required: where the data was checked from, with credit),
+optional `tiers:`, and an optional `flag:` - the content's own system property, on top of `-Dslums.mechanics`, so a row
+that covers only part of a party quest (Orbis PQ: `slums.mechanics.opq`) cannot be switched on by the flag that switches
+Kerning PQ on. `Mechanics.enabledFor(Content)` is the gate; a row without `flag:` answers to `-Dslums.mechanics` alone.
 
 **The server is the truth.** A solver never trusts the YAML answer table at run time: it reads the live answer from
 the event instance (Cloto's `eim.gridCheck` entry, the `stg2Property` combination index, OPQ's reactor state). The
@@ -439,6 +441,436 @@ proven on TEST: needs a t-mx-1/t-mx-2 run and a lobby run's STALL lines.
 
 Each phase stays behind `-Dslums.mechanics` (on TEST, off in the release conf) until the owner says go.
 
+## Boss lane: the death count (1.6.4, branch `164-bossfight`)
+
+Real expeditions are a path of their own. `GuildBossRuns` stays exactly as it is (a roll with the bots logged out);
+the fight a human-led party actually enters is driven by `soloMapling/mechanics/` and, on this branch, by
+`ExpeditionDeathCount`.
+
+Phase 1 of the boss lane is the per-instance death budget, ported from BotStory `server/expeditions/ExpeditionDeathCount.java`
+at `81a3b1df` (see `docs/PROVENANCE.md`):
+
+- one counter per event instance, armed from `-Dslums.bossfight.deathcount` (boolean, **off**) with
+  `-Dslums.bossfight.deathcount.cap` (int, default 10) and a per-boss override
+  `-Dslums.bossfight.deathcount.cap.<type>` (e.g. `.zakum`). No config.yaml key and no store: the count lives on the
+  instance and dies with it;
+- only humans count (`Character.isBot()` / `isOwnedAlt()` deaths are free), so bots can die and be revived without
+  spending the party's budget;
+- the death that spends the last one ends the run: a line to the party, then the script's own end path
+  (`scheduledTimeout`) at 1500 ms so the death animation is seen, and a fallback that moves everybody to the map's
+  return map and disposes the instance if the script does not;
+- with the switch off nothing is armed and the death path is what it is today.
+
+No client packet: BotStory has a `DEATH_COUNT` opcode because its client is patched; stock v83 has none, so the line
+is chat (type 5) and the server log. Tests: `ExpeditionDeathCountTest` (the counter) and
+`ExpeditionDeathCountRunTest` (a real `EventInstanceManager` and `playerKilled`), the latter written failing first.
+
+## Boss lane: pause for revive (1.6.4, branch `164-opq`)
+
+The owner settled the open question of what a human death does to a boss run (2026-11-02): **hold the run for a revive,
+do not abort it**. The scripts unregister a dead character (`scripts/event/ZakumBattle.js:140-160`,
+`scripts/event/HorntailBattle.js:140-160`) so it can revive and walk back in, and `Orchestrator.memberLost` treated that
+as a member leaving - for a six-member expedition that is the `minPlayers` abort, i.e. one death ended everybody's run.
+
+- `RevivePause` (`soloMapling/mechanics/RevivePause.java`) carries the rule: `-Dslums.bossfight.revivepause`
+  (**default off** since round 9: every switch is off unless a brief says otherwise, and the release conf carries the
+  `=true` line), `-Dslums.bossfight.revivepause.ms` (default 300000) and a per-row override
+  `-Dslums.bossfight.revivepause.ms.<row id>`.
+- A `kind: BOSS` run whose member leaves records a `RunState.Waiter` (who, why, where it belonged in the list, when the
+  window closes) and stops: `tick` advances no stage, warps nobody, and puts a `Wait` naming that member in every bot's
+  slot. The member's return - `StageView.registered(id)`, which asks the instance, not the run's member list - ends the
+  pause and restores its place and its role claims; the stage clock gives the paused time back.
+- The window expiring ends the run through the ordinary `abort`, with a line that says it was the revive window and not a
+  solver failure. The death cap still wins: `EventInstanceManager.endForDeathCount` ends the instance and
+  `MechanicsRuns.tick` aborts on that before the orchestrator is asked.
+- Party quests keep today's rule on purpose. A KPQ or OPQ run whose member leaves still ends, because a stranger walking
+  off is not a revive.
+- The engine learns one read, `StageView.registered(int)` (and `StageView.nameOf(int)` for the log line), because a
+  paused run has already removed the member from `members()`.
+
+Tests: `RevivePauseTest` (5) - held then resumed, the switch off is today's abort, the window expiring, the death cap's
+end winning, and a PQ still ending on a member loss. Nothing about `BotDeaths.protectedFromDeath` changed: bots still do
+not die in an instance, which stays an open design question.
+
+## Boss lane phases A1-A2: the run and the Zakum phases (1.6.4, branch `164-bossfight`)
+
+The real fight is a `kind: BOSS` content row driven by the same engine as KPQ: `Orchestrator` is the group brain,
+`RoleClaims` the roles, `StageView` the only read of the instance.
+
+- **A1, the seam.** `EventManager.startInstance(int, Expedition, Character)` calls
+  `MechanicsRuns.onInstanceStarted(eim, true)` after `eim.startEvent()` - the expedition's members are warped by the
+  script's `playerEntry` during it, so an earlier call drives nobody. One entry point serves the party quests too; the
+  content row's `kind` decides the switch: `kind: PQ` behind `-Dslums.mechanics`, `kind: BOSS` behind
+  `-Dslums.mechanics.boss` (**off**). No row for the script is not an error: one bot-log line and the expedition is left
+  to its humans. `GuildBossRuns` never reaches it.
+- **A2, `boss-phases` + `content/zakum.yaml`.** `BossTargetRules` (ported from BotStory `81a3b1df`) orders a member's
+  targets; `BossPhasesSolver` returns one `SolverStep.Fight` whose `mobIds` are an ordered candidate list, so a part the
+  member cannot reach falls through to the next instead of stalling it (widening `Fight` kept the single-id constructor,
+  so `kpq.yaml` is untouched). The rung is: the eight arms `8800003-8800010` while any is alive and never the body, then
+  the body `8800000`/`8800001`/`8800002`; a fake part is never a candidate; nothing standing but the map's own life is
+  `WAITING_FOR_SUMMON` - the human leader clicks the Eye of Fire altar (`scripts/reactor/2111001.js:28`) and the solver
+  waits (a `Wait`, so the run cannot abort on it).
+- **Clear is a property value.** `ZakumBattle.js:101` writes `defeatedBoss=0` at setup, so presence would clear the
+  room on its first tick. `clear:` gained `equals:` (presence stays the default for `kpq.yaml`); Zakum clears on
+  `defeatedBoss: 1`, which the script sets when `8800002` dies. One stage, one map, no `nextPortal`.
+- **The room is the expedition's, not the run's.** `MechanicsRuns.closeInstance` never ends an instance for a BOSS row
+  (chests still to spawn or loot); the script's `end()`/`dispose()` does. If the kill target `8800002` is absent at
+  runtime - it is the map's own WZ life, with no spawn site in our scripts or server code - the solver returns
+  `SolverStep.Abandon` and the orchestrator ends the run with that reason instead of fighting arms until the budget runs
+  out.
+- **Known, reported, not changed:** a human death unregisters (`ZakumBattle.js:140-160`) and `memberLost` aborts the
+  run, so one human death ends the bots' run. That is the owner's call, not this phase's.
+
+## Boss lane phase B: Horntail, three rooms (1.6.4, branch `164-bossfight`)
+
+Our Horntail, not BotStory's draft: three stages in `content/horntail.yaml`, all `solver: boss-phases`, each clearing on
+the script's own property (`defeatedHead` 1 then 2, then `defeatedBoss` 1 - `HorntailBattle.js:237-238`, `:187-194`).
+
+- **The rooms are entered by map id.** The door script is `scripts/portal/hontale_BR.js` but its WZ portal name is not in
+  the repo, and `StepExecutor` stalls silently on a wrong name. `SolverStep.WarpTo(mapId)` (boss rows only; emitted
+  before anything else when the member stands on another map) warps into the event instance's own map and logs one
+  line. It only ever moves across maps, so nothing is teleported inside a fight.
+- **Room 1 and 2** (`240060000`, `240060100`) hold nothing until a human touches reactor `2408003`, which spawns the fake
+  body, sets `summoned` and spawns the head `8810000` / `8810001` (`2408003.js:35,40,43`). The stage names
+  `summonProperty: summoned`, so no head is fought before the touch.
+- **Room 3** (`240060200`) is empty until reactor `2401000` is hit, which calls `MapleMap.spawnHorntailOnGroundBelow`:
+  intro `8810026`, body `8810018`, parts `8810002-8810009` (`MapleMap.java:4908-4954`), and restarts the timer to 60
+  minutes. That reactor sets no property, so the stage names none: an empty room is a `Wait`, which is the same
+  behaviour driven by the room itself.
+- **Parts before the body, add family absent.** A part's damage and heal are forwarded to the body
+  (`MapleMap.java:4939-4947`), so the eight parts come first and the body is only offered once none is left. The add
+  family `8810019-8820023` is not in our scripts or server code and is not stage data; the corpse parts
+  `8810010-8810017` and the intro `8810026` are never a role (`LiveStageView.partRole`).
+- **`summonProperty` is data now.** A stage names the property that says its parts were summoned (null = no gate).
+  Zakum names it; Horntail names none. The old `killTarget` field is gone (`164-bossrows`): nothing read it, and what
+  it was meant to say - "the room may legitimately stand empty until the boss arrives" - is now `spawnWaitSeconds`
+  (see the next section).
+- **Two facts settled while doing this.** `exitMap` means "where a run ended by us sends a member"
+  (`MechanicsRuns.endInstance`), so Zakum's row now says `211042400` - the script sends everyone there itself
+  (`ZakumBattle.js:159-162`) - and `minPlayers` is the script's own gate (Zakum 6, Horntail 6), because bots join as
+  party members and the gate is about the party, not about who leads it.
+- **A latent ordering bug surfaced.** Content rows are read in file-name order, and two tests took "the first row" to
+  mean KPQ; they now look the row up by id. Nothing in production depended on the order.
+
+## Boss lane: the attack floor and the per-stage clock (1.6.4, branch `164-bossfight`)
+
+Two items the owner took from ticket 176 C's b087 gate and from phase B's risk list.
+
+- **The damage floor** (`-Dslums.bossfight.damagefloor`, **off**). A bot ranks its attacks by the average line, which
+  is blind to a high-WDEF target: the skill with the top average can bottom out at the formula's floor (1, the clamp in
+  `BotCombatFormula.clamp`) while the other attack still does real damage. `BotCombatFormula.estimateMinimumDamage`
+  reads the same `Range` at its floor - no second damage model, no crit input (a crit only raises a line) - and
+  `BotSkillChoice.choose` gains a floor overload: with the switch on, a boss always prefers the higher floor, and an
+  ordinary mob only when the rule's own pick would do nothing, so a pack is unaffected. Off means the measurement is
+  never taken (`BotAttackDriver.minimumPerMob` is only called behind `BotSkillChoice.floorOn()`), which is byte for
+  byte today's behaviour. Semantics from BotStory `AgentAttackPlanScoringPolicy` (`81a3b1df`), credited in
+  `docs/PROVENANCE.md`.
+- **The per-stage clock.** A boss row's budget was the row's `timeLimitMinutes` counted from stage 1, but each boss
+  room has its own clock - Horntail's body room restarts the script's timer to 60 minutes when its reactor is hit
+  (`scripts/reactor/2401000.js:33`). `MechanicsModel.Stage` now carries its own `timeLimitMinutes` (0 = the row's),
+  parsed from the stage block, and `Orchestrator.budgetFor` counts a `kind: BOSS` run's spent time from
+  `RunState.stageStartedMs()`. Horntail's rooms carry 120, 120 and 60. PQ rows are untouched: they still use the row's
+  budget from the run's start.
+
+## Boss lane: the review round (1.6.4, branch `164-bossfight`)
+
+Five defects found reviewing A1-B; all fixed on the same branch, switches unchanged.
+
+- **The body is a chain, not one id.** `8800002` is `MobId.ZAKUM_3`, the third *phase* of the body, not map life, so
+  "no `8800002` on the map" is the normal state for the first half of the fight. Where the chain lives matters, because
+  a reader looking for it in Java finds nothing: it is WZ data - `Mob.wz/8800000.img.xml` `revive` 0 = `8800001`,
+  `8800001` revive `8800002`, `8800002` none - consumed by `Monster.killBy` (`Monster.java:899-973`: `:903`
+  `final List<Integer> toSpawn = this.getRevives();`, `:924-933` spawns the next phase on the revive map). The map code
+  contributes one thing only: the last arm's death un-fakes the body `8800000` (`MapleMap.java:1785-1810`, the un-fake
+  at `:1803-1804`). `makeMonsterReal` spawns no body phase. The old rule ("the script's kill target is missing while arms stand → abandon") therefore ended every Zakum
+  run at the summon. Now the candidates are the eight arms in data order and then the body family in the order its
+  phases wake (`8800000`, `8800001`, `8800002`), never a body phase while an arm is up, whichever phase is standing;
+  `Abandon` only when, after the summon, the room has carried no arm and no body phase of any id for a 30 s grace
+  (`BossPhasesSolver.NOTHING_TO_HIT_GRACE_MS`), and the line names the ids it saw.
+- **A warp must confirm its landing.** `StepExecutor.warp` now checks `bot.getMapId()` after the change, retries on the
+  existing 2 s latch up to `WARP_TRIES` (3), and then logs the bot, the wanted map and the map it is really on and ends
+  the run; a `WarpTo` naming any map other than the current stage's is refused with one line as a solver bug.
+- **A bot opens Horntail's body room.** `2401000` is a click (`2401000.js:26-33`), so a bot-only party used to burn its
+  budget in an empty room. A stage may now name `hitReactors:` (a list since `164-bossrows`, when Scarga needed two), and with no part
+alive the solver returns
+  `SolverStep.HitReactor(id)`; `StepExecutor` walks to the reactor and clicks it with the bot's own client, the way
+  `ReactorHitHandler` does for a player. The reactor's own "no `8810026` yet" guard makes a repeat harmless.
+- **A silently unarmed instance is visible.** The four script-supplied-`EventInstanceManager` overloads in
+  `EventManager` never arm a run; when one starts a script a `kind: BOSS` row matches they now print one line, once per
+  instance, instead of failing quietly.
+- **A stranger's mob stays the stranger's.** Pinned by test: an alt inside a PQ instance does not take a mob a real
+  player outside the party is hitting (`OwnedAltCombat.strangers`), on top of the two existing controls.
+
+## Boss lane: seven single-room rows and the spawn wait (1.6.4, branch `164-bossrows`)
+
+Seven `kind: BOSS` rows landed in one branch, every one of them one stage on one map clearing on `clear: { instance:
+true }`, because none of their scripts writes a property a row could compare: `dunas` (TD Battle 2), `aufheben` (3),
+`oberon` (4), `bergamot` (1), `nibelung` (5), `maha`, `castellan`. Per-row script/gate/map/target/spawn/clear detail is in
+`REPORT-bossrows.md`, the credits in `docs/PROVENANCE.md`.
+
+- **Why they used to abandon themselves in 30 s.** The abandon branch fires when the room has carried no `ARM` and no
+  `BODY` part for `NOTHING_TO_HIT_GRACE_MS`, and `LiveStageView.partRole` gives every non-Zakum/Horntail id the role
+  `ADD` - so `nothingToHit()` was true from tick one in all seven rooms, whose boss is the map's own life (or, for
+  Castellan, the script's `setup()` spawn). The fix is row data, not a wider grace: a stage may now say
+  `spawnWaitSeconds:`, and `BossPhasesSolver.allowedEmptyMs` allows `max(30 s, that)`. Zero (the default) is exactly the
+  old behaviour, so a genuinely dead instance still ends at the grace instead of burning its clock. The fail-before
+  pair is `BossPhasesSolverTest.aRoomThatDeclaresItsSpawnWaitIsNotAbandonedAtTheGrace` /
+  `aRoomWithNoDeclaredSpawnWaitStillAbandonsAtTheGrace`, and the whole-run version is
+  `RowRunSimulationTest.aDunasRoomThatStandsEmptyForFortyFiveSecondsIsNotAbandonedAtThirty`.
+- **`killTarget` is gone.** Deleting it beat wiring it in: ordering could only duplicate `mobs:` order, and "the id whose
+  death is the clear" is what `clear:` already says, so wiring it would have been a third spelling of one fact plus the
+  second dead field the ticket forbids. The temporal part of what it meant is `spawnWaitSeconds`.
+- **A chain is one stage, in revive order.** `bergamot` (`7220003 -> 7220004 -> 7220005`), `nibelung`
+  (`8220013 -> 8220014 -> 8220015`) and `castellan` (`9400408 -> 9400409`) list every form in the stage that holds them:
+  the scripts have one room and no per-form property, so a stage boundary would invent a room the server does not have,
+  and the solver must never look for a form its predecessor has not woken. `Monster.killBy`
+  (`Monster.java:903-963`) is what spawns the next one, from WZ `info/revive`.
+- **Who can start one.** The five TD rows are portal + party (`scripts/portal/TD_Boss_enter.js`), so a human party
+  leader's click is enough. `maha` is a quest instance for one character (`scripts/quest/21401.js:23-24`), hence
+  `minPlayers 1 / maxPlayers 1` and a level bar (120) read from `Quest.wz/Check.img.xml` because the script declares
+  none. `castellan` needs the NPC's expedition and a bot cannot lead an expedition, so that row only ever runs when a
+  human made the expedition - recorded, not worked around.
+- **The switch still decides.** `kind` is what `MechanicsRuns.onInstanceStarted` tests against
+  `-Dslums.mechanics.boss`, not which `startInstance` overload called it, so a portal-entered party instance of a boss
+  script is armed by the same flag: `BossRunSeamTest.aTdBattleInstanceStaysInertWhileTheBossSwitchIsOff` and
+  `...ArmsARunForItsBotsWhenTheSwitchIsOn` pin both sides.
+
+## Boss lane: the reactor rooms, and the two rows that wait on a primitive (1.6.4, branch `164-bossrows`)
+
+Round two of the same lane added seven more `kind: BOSS` rows - `papulatus`, `krexel`, `showa`, `balrog`, `scarga`,
+`elemental`, `pinkbean` - and changed one field. Per-row script/gate/map/target/spawn/clear detail is in
+`REPORT-bossrows.md`, the credits in `docs/PROVENANCE.md`.
+
+- **`hitReactors` is a list, not one id.** Scarga's room needs `5511000` and `5511001`, and the row - not the solver -
+  decides which is clicked first, so `Stage.hitReactor()` became `Stage.hitReactors()`. The scalar spelling was
+  **removed** rather than kept beside it (one fact, one spelling); `content/horntail.yaml` is the only other row that
+  used it and now reads `hitReactors: [ 2401000 ]`. The double-click hazard is why the list is clicked once per stage:
+  the reactor scripts are unguarded (`scripts/reactor/2201004.js:22-29` spawns on every `act()`), so a second click is a
+  second boss. The solver clicks the first one while the room is empty, then the rest even though the first reactor's
+  boss is standing - that is Scarga, where Targa answering must not stop Scarlion's click.
+  Fail-before: `BossPhasesSolverTest.aRoomThatOpensOnlyHalfItsFightIsNeverCalledCleared` (one reactor, one chain, then an
+  empty room that abandons and never says `Done`) and `bothOfScargasReactorsAreClickedBeforeEitherHalfIsFought`.
+- **A click costs the other members one idle tick.** On the tick the click is emitted the room is still empty for
+  everybody else, so they take the solver's 500 ms `Wait`. That is honest idling, not a stall, and the reactor rows'
+  simulation assertion is therefore "nobody waits once the fight has started"
+  (`RowRunSimulationTest.assertOpenedRoomClear`) instead of the `waits == 0` the populated rooms keep.
+- **Pink Bean keeps its property clear.** `defeatedBoss == 1` is written by `monsterKilled` after the fifteenth junior
+  kill (`PinkBeanBattle.js:261`), so the equality first becomes true exactly at the clear. The five statues
+  `8820019`-`8820023` and the decoy `8820000` are not in `mobs:` at all, and the simulation asserts no statue reaches a
+  `Fight` step.
+- **Two rooms were refused rather than faked.** `latanica` needs a primitive that does not exist: the only entrance is
+  portal `captinsg00`, which refuses a player without item `4000381` (`scripts/portal/captinsg00.js:4`), and `ItemUse`
+  is evaluated inside a stage, i.e. only after the gate that needs the item. `delli` needs a survive-the-timer
+  objective: `DelliBattle.js:119-123` clears when its own 6-minute timer expires, and killing the friendly `9300162`
+  ends the instance (`:194-198`), so a `boss-phases` row would spend six minutes killing trash that is not the win
+  condition and could end the run with one stray hit. `latanica`'s primitive was built in round three (below); `delli`
+  is not ours - `164-opq` @ `ac08ce380` ships `DelliHoldSolver` + `content/dellibattle.yaml` + `DelliBattleSolversTest`
+  for exactly that room, and two spellings of "won by staying alive" is worse than one. What *is* provable here was
+  pinned instead: `RowRunSimulationTest.aFriendlyMobTheRowDoesNotListNeverBecomesATarget`.
+
+## Boss lane: a door the row can name, and five quest spawns (1.6.4, branch `164-bossrows`)
+
+Round three built the entry-item primitive round two refused to fake, shipped `latanica` on it, then added the five
+quest-gated bosses: `latanica`, `magnus`, `nwill`, `nlucid`, `nverus`, `ndarknell` - twenty-two `kind: BOSS` rows in
+all. Per-row script/gate/map/target/spawn/clear detail is in `REPORT-bossrows.md`, the credits in
+`docs/PROVENANCE.md`. The primitive is additive: no new `SolverStep`, no portal special-cased, nothing changed in
+`Orchestrator`, `StageView` or the PQ engine.
+
+- **`entryItems:` - a door the run can see it is not through.** A stage may declare the items the run must have in hand
+  before its first step. `captinsg00.js:4` is the only place that asks for `4000381` and the instance never asks again,
+  so `latanica.yaml` declares it and `BossPhasesSolver` turns a run without it into
+  `Wait(1_000, "the run has no entry item [4000381] in hand, so stage 1 cannot be entered: Capt. Latanica")` - no `EnterPortal`, no reactor click, no `Fight`, and (importantly)
+  no `Abandon`: a dry run is not a dead room. It is one member's item, not everyone's, because the portal asks the player
+  who walks through and the item is not consumed. The check reads `StageView.itemCount`, so a collect step earlier in
+  the same stage would satisfy it - the primitive is "what must be in hand", not "when it was picked up".
+  Fail-before: `BossPhasesSolverTest.aDoorItemTheRunDoesNotHoldIsAWaitThatNamesItAndTouchesNothingElse` and, whole-run,
+  `RowRunSimulationTest.aRunWithoutTheWhiteEssenceWaitsAtLatanicasDoorAndNeverEnters`.
+- **A survive-the-stage objective was built and then reverted.** The same round carried `ObjectiveKind.SURVIVE` plus a
+  stage-level `neverTargets`, so `boss-phases` could hold Delli's room for the script's own clock and keep the friendly
+  `9300162` out of every `Fight`. It worked and is gone: `164-opq` @ `ac08ce380` owns that room as `DelliHoldSolver`,
+  which names the server's clock instead of keeping one. This branch carries no `SURVIVE`, no `neverTargets`, no
+  `delli.yaml` and no Delli test - the revert is recorded in `REPORT-bossrows.md` so nobody re-adds it by hand.
+- **The five quest instances are a precondition, not a gate.** `31166` (Magnus), `31162` / `31161` / `31164` / `31163`
+  (Will, Lucid, Verus, Darknell) are quest states checked by the expedition recruiters and, for bots, by
+  `ExpeditionBots.memberQuest` (skipped with reason `quest`); no instance script re-checks them and no run writes them.
+  The rows ship: a human with the quest gets a working boss, and one without is refused at the recruiter where they can
+  see it. Their simulated halves are the five 5 s spawn tests; the entry half is unproven by construction, because
+  `StageView` cannot see a quest state - said so in `REPORT-bossrows.md` instead of pretending.
+- **The 5 s spawn is inside the grace, so no row declares a wait.** `MagnusBattle.js:91-92`, `NWillBattle.js:116-117`,
+  `NLucidBattle.js:115-116`, `NVerusBattle.js:116-117` and `NDarknellBattle.js:116-117` spawn their only target five
+  seconds after setup, against a 30 s grace: a `spawnWaitSeconds` there would hide a regression rather than describe
+  the room.
+
+- **A row-data integrity test backs every number in the rows.** `ContentRowWzIntegrityTest` reads every row that
+  `content/index.txt` names and checks each id against the dump: the stage map is a `Map.wz` map, every `mobs` id is a
+  `Mob.wz/<id>.img.xml`, every `hitReactors` id is a `Reactor.wz` entry, every `entryItems` id is in `Item.wz`, and no
+  stage declares a negative `spawnWaitSeconds`. It uses `-Dwz-path`/`wz` through `WzTestData`, so it skips where the
+  dump is absent and the suite stays green. Against the 170-evan dump it checked 38 rows, 59 maps, 89 mobs, 7 reactors
+  and 1 door item, and found no typo.
+- **GuardianNex ships as six rows, because row selection learned to read the instance.** Six caves
+  (`240070010 + 10 * n`), one script (`GuardianNex.js`, `minPlayers 1`, 15 min, single-character `startInstance`), and
+  the cave is chosen by which of quests `3719/3724/3730/3736/3742/3748` the player has active
+  (`scripts/portal/TD_neo_inTree.js:8-18`). Six rows are the honest form, and they only work because
+  `MechanicsRuns.contentFor(String, Collection<Integer>)` now resolves a shared event script by the map the instance was
+  built on (`EventInstanceManager.instanceMapIds()`, over the ids the script itself asked for): one row for a script
+  still wins outright, several mean the map decides, and no evidence means no row and one log line instead of the wrong
+  cave. Fail-before: `BossRunSeamTest.aScriptWithSeveralRowsIsSelectedByTheMapTheInstanceWasBuiltOn` (two synthetic
+  rows, the second one's map armed the first row before the change). The quest is a precondition and never written.
+- **Two content defects belong to the maps, not to a row.** `CygnusBattle` (`271040100` holds only NPC `2143004`) and
+  `VonLeonBattle` (`211070100` holds only NPC `2161005`) spawn nothing; the chains only continue in
+  `MapleMap.afterBossKilled` (`8850000`-`8850003` -> `8850011` -> `8850012`; `8840000` -> `8847777`), so the first link
+  is never placed. The working path today is `RebirthBosses` + `RebirthBossRuns.fight` (`:591`, spawn `:605`). Evidence
+  and line numbers in `REPORT-bossrows.md`.
+
+## The expedition door: one switch, four questions (branch `164-bossrows`, `-Dslums.exped.door`)
+
+Bots already get inside a boss expedition without any of this: the follower walks its leader to the altar, the leader
+talks to the recruiter, `ExpeditionBots.autoJoin` registers the bot, and `playerEntry` warps it in. What this round
+answers is the door around that, default off, one switch.
+
+- **A held bot is never stranded - checked, no leak.** `Expedition.dispose` always ends with
+  `ExpeditionBots.release(this)` (`Expedition.java:149-159`) and all three exits land there: the registration timer
+  (`scheduleRegistrationEnd` -> `expireRegistration`, `:133-147`), the leader never starting (same timer), the run
+  ending (`EventInstanceManager.disposeExpedition`, `:1387-1401`). The timer body moved out of its lambda so the
+  routes can be called in a test; three tests in `ExpeditionBotsTest` now pin them.
+- **A party change while registering - already covered.** `Expedition.start()` re-runs `autoJoin` inside
+  `if (registering)` (`Expedition.java:198-202`), and every recruiter step re-runs it
+  (`AbstractPlayerInteraction.getExpedition`, `:1205-1215`); no third hook was added.
+  `aBotAddedToThePartyAfterTheExpeditionWasMadeJoinsAtTheStart` pins it, and needs `solomapling.enabled` +
+  `solomapling.template-id` or the hook does nothing (`MapleRootSolo.java:16-18`).
+- **Who is not coming.** `ExpeditionBots.warnNotAtTheAltar` gives the leader one line per bot it registered that is not
+  standing on the recruiting map - `[Expedition] Clock4 is not at the altar and will not join.` - and never warps it:
+  a bot walking to the altar is follower travel, and a faked warp would be a second answer to the same question.
+- **A dismissed alt leaves the member list.** `BotEventExit.leave` (`:23-27`) never touched `Expedition.members`, so a
+  dismissed alt stayed a member until the channel disposed the expedition. `ExpeditionDoor.leaveExpedition` is called
+  from `OwnedAltService.finish` (`:328`), which dismiss, dismiss-all, login and disconnect all pass through.
+
+## Run chatter (1.7.0, branch `164-run-chatter`)
+
+The owner asked (2026-11-03): "outcomes once bots exit out they say things like woo we beat or dang we tried but failed".
+When a run ends, the bots that played it say something about how it went. Switch `-Dslums.mechanics.chatter`
+(**default on**; `=false` records nothing and a run ends as silently as before). Chat only.
+
+- **The run never speaks.** `MechanicsRuns.finish` writes the run's `RunOutcome` (below); `RunChatter.onOutcome` is a listener of
+  it, and `RunChatter.plan` reads that record and nothing else. It picks who speaks and what, and leaves one
+  `BotRunOutcome.Pending` in each speaker's `BotSM.runOutcome()` slot (a field on the bot, so it dies with the brain).
+  The bot says it from its own macro tick (`BotSM.updateState`, RUNNING: every bot type runs it) through
+  `SocialCommands.tryAmbientSpeak`, the ambient path `BotAmbientSpeak` already is: only where a real player can see the
+  map, inside `BotChatTuning.allowAmbient` (per-map gap, world lines a minute), through the say-do, `SpeechGuard` and
+  `RepeatGuard` nets. A refused line stays for the next tick; a line unsaid after `BotRunOutcome.TTL_MS` (2 min) is dropped.
+  Said once per run; a bot in two runs in a row gets a line for each (a later line replaces an unsaid earlier one).
+- **Who speaks.** The leader when it is a bot, plus one other bot at random: two at most (`RunChatter.MAX_SPEAKERS`), the
+  burst size `LevelUpGz` (0 to 2) and `BotChatter` (a pair) already use, and about what `allowAmbient` lets through a map.
+  A human leader speaks for himself: two random bots answer. The two get different lines (`RepeatGuard` drops a repeat).
+  **Owned alts never speak**: they are not in the population registry and have no macro tick, and their only voice is
+  `OwnedAltCompanion.say`, party chat to the owner; a public line would give an alt away.
+- **Which ends speak** (`RunState.ending()`): WON when the last stage to play cleared (`markCleared`, any later end of that
+  run included). LOST only through `RunState.fail`, called by `Orchestrator.fail` for the stage clock running out, a solver's
+  `Abandon`, an NPC whose script failed three times in a row, and `LiveStageView.endRun` (a bot that cannot be put in its
+  room). Every other end is SILENT: a GM stop or yield, the party falling below its minimum, the leader leaving, a member
+  lost and the revive window running out, the event closing, roles unfilled, an exception, shutdown, and a run that never
+  started. Not told apart, so silent: a wipe in a boss room (the scripts unregister a dead member, so it reads as a member
+  lost) and a script timer ending the instance (reads as "the event ended").
+- **Lines.** `BotDialoguePack/RunOutcomeDialogue.yaml`: `WinPq`, `WinBoss`, `LossPq`, `LossBoss`, ten lines each, with
+  `{CONTENT}` filled when the run ends: "Kerning PQ", "Ludi PQ", "Orbis PQ" (the names `LifePq` and LFG use), otherwise the
+  row's `name:` without its qualifier ("Zakum (expedition)" -> "Zakum", "Henesys Party Quest" -> "Henesys PQ").
+- Tests: `RunEndingTest`, `RunChatterTest`, `RunChatterRunsTest`, `BotRunOutcomeTest`, `BotRunOutcomeTickTest`.
+
+## Real-run quota and the run outcome record (1.7.0 phase 2, branch `164-realruns`; `SIMULATED-RUNS-PLAN.md`)
+
+Owner (2026-11-03): runs with bots and no human stay real "if we can prove that works without a human", and when PQ
+difficulties and several parties arrive, "maybe 1 or 2 runs can have real bots running through while other runs are simulated".
+This is the quota half, shipped **inert**, and the record every run's end writes.
+
+- **Switch** `-Dslums.mechanics.realruns=N`, read on every ask. Unset, empty, unparsable or negative: unlimited, which is the
+  behaviour before this existed (every bot-only run admitted, **no lease made**). `0` admits no bot-only run; `N` admits that
+  many at once, world-wide.
+- **Who is counted** (`RealRunPool.Origin`): only a run no human is in and nobody asked to watch: Kerning's bot lobby
+  (`KPQ_LOBBY`), the content lobbies (`CONTENT_LOBBY`) and a bot-only party that reached an event some other way
+  (`BOT_INSTANCE`; no production path does). A player's party or expedition (`HUMAN_PARTY`, `HUMAN_EXPEDITION`) and a GM's or
+  QA's staged run (`STAGED`) are always real, never counted, never refused.
+- **Where it asks** (before anything is made: no party, no word with Lakelis, no spawned bot): `KpqLobby.tick` after the party
+  is picked, `ContentLobby.tickRow` before `KpqStaging.start` spawns, `MechanicsRuns.onInstanceStarted` for a party with no
+  human in it. `KpqStaging.start` has an `Admission`-taking overload; the old signature is the staged default. A refused run
+  is not made, says so in the lobby's own one-line shape ("... lobby: no run on channel N: the real-run pool is full (1 of 1
+  held: kpq (KPQ_LOBBY) 12 min)") once per content and origin per ten minutes, and does not back the channel off.
+- **Release**: in `MechanicsRuns.finish`, in a `finally`, on every end (cleared, clock, event closed, exception, stop, yield,
+  shutdown, leader or members gone); the starts that never get that far (a run that ends at its start, a second run on one
+  instance, a throw, a refusing scheduler) release where they stop. A lease is never promoted or demoted mid-run, never
+  evicted when the quota is lowered, and as a backstop expires, loudly, after the run's own clock plus the after-clear
+  budget plus two minutes.
+- **Not built** (phase 2 scheduling): which content gets a free place (rotation), the "below five real samples, wait rather
+  than fake" rule, and the simulated run itself. `RunOutcome.Mode.SIMULATED` is reserved; nothing makes one.
+- **The outcome record.** Every run that ends - cleared, failed, stopped, or refused at its start - writes one `RunOutcome`
+  through `RunOutcomes.record`, called from `MechanicsRuns` and nothing else: run id, instance, content id and name, kind,
+  tier, `WON` / `LOST` / `ABANDONED` (the chatter's WON / LOST / SILENT), the reason, mode (`REAL`), origin, start, end,
+  stage reached and to play, each participant's id, kind (`PLAYER` / `BOT` / `OWNED_ALT`) and leader flag as the run
+  started, and whether a human was in at the start and at the end. It is kept in memory (the last 500), logged as one
+  `[Mechanics] outcome ...` line and handed to listeners (`RunOutcomes.listen`); the run chatter is one. **Not durable
+  yet**: the ring is lost on restart; the durable table is a numbered migration with its rollback, not written.
+- Tests: `RealRunPoolTest`, `MechanicsRunsPoolTest`, `RealRunAdmissionSitesTest`, `RunOutcomeTest`.
+
+### Simulated runs and rotation (same branch, second half)
+
+A bot-only run the pool refuses is **simulated instead of dropped**, behind the same switch: with `realruns` unset nothing is
+ever refused, so nothing is ever simulated (pinned with warm samples in hand). Switches: `-Dslums.mechanics.simruns=N`
+(simulated runs in flight, default 8; `0` = a refused run is simply not made), `-Dslums.mechanics.simfloor=N` (real runs a
+simulation needs, default 5, never below 1).
+
+- **What a simulated run is.** `SimulatedRuns.tryStart`, called by `KpqLobby.tick` and `ContentLobby.tickRow` where they used to
+  only log the refusal. No `EventInstanceManager`, no party, no word with Lakelis, no spawned bot, no `MechanicsHold`, no brain
+  stopped, no map kept at full physics, no tick: one scheduled task and one `RunOutcome` with `Mode.SIMULATED`, written after
+  the sampled duration. The bots' win and loss lines read that record like any other's. It **holds nobody**: it only names its
+  bots so no lobby puts them in a second run meanwhile (`SimulatedRuns.busy`, read by `KpqLobby.free`), and a bot that has
+  logged out by the end simply says nothing. Kerning names the bots its lobby picked; a content-lobby row has none standing at
+  its door, so the run borrows idle population bots of the row's level band (online, running, in no party or event, not an
+  owned alt, not held) and, with none, waits.
+- **It samples, it never invents.** `RunSamples` keeps the last 20 real runs per content and tier: `REAL`, `WON` or `LOST`, no
+  human, started by a lobby (not a GM's or QA's staged run, not a human's). Win or lose with the share of wins they had, then
+  the duration, stage and reason of one that ended that way. **Fewer than the floor: it waits** - `WAITING_FOR_SAMPLES`, the
+  lobby asks again next tick, nothing is made and nothing is faked. A simulated run is never a sample. Memory only: after a
+  restart every key is below the floor until played for real.
+- **Rotation.** A free place goes to the stalest content and tier that has asked in the last three minutes (last real pass
+  oldest; never real is oldest; ties: content id, then tier, so arrival order never matters). Real passes are a lease granted
+  or a human's or GM's run (`RealRunPool.notePass`). A staler key outranking the asker is why a free place can still be
+  refused ("a place is free but opq has waited longer for a real run"); the asker then simulates or waits. A cold content has
+  never been real, so it is first in line: waiting for samples is how it gets its real pass.
+- **Never promoted, never demoted.** A simulated run is simulated from its start to its end; a place freeing up does not touch
+  it, and a real run keeps its place whatever happens. A run with a human in it is never simulated (`NOT_ALLOWED`) and
+  never reaches the pool; `MechanicsRuns.stopAll` (`!mechanics stop`, QA) ends simulated runs too, recorded `ABANDONED`, which no
+  bot talks about.
+- **What a simulated run does NOT do, said loudly.** It makes no item, no mesos, gives no EXP and no quest point, fires no
+  achievement, writes no social memory and casts no trend vote. **It never touches the boss log: no `bosslog_*` attempt, no
+  completion, no leaderboard row, no daily or weekly entry used or refunded.** A player's entry quota and the public boss
+  board are only ever moved by a real run. (No party quest touches the boss log anyway; a boss row has no lobby, so no
+  simulated boss run exists. `BOT_INSTANCE`, the one site that can refuse a run whose instance already exists, is not
+  simulated: there is nothing to simulate, the instance is already there, and the refusal leaves it to its humans.) The only
+  trace of a simulated run is its `RunOutcome` (mode `SIMULATED`, with the real runs it was sampled from), one
+  `[Mechanics] simulated run ...` log line and the bots' chat.
+- **Unproven**: nothing ran on a server; the lobbies' scans, scheduler and chatter are proven against mocks and the real
+  tick/stop paths. The outcome ring and the samples are memory only. CPU/GC cost of a held run versus a pool of leases was not
+  measured. A content-lobby simulated run names population bots it never asked (their bags and lives are untouched, but they
+  will say "we beat Orbis PQ" wherever they stand: owner's call whether that is acceptable, or whether they should be
+  `away`). Tiers are always `NORMAL` on this base (`MechanicsRuns.begin` hard-codes it), so the tier half of the keys is
+  untested against real tiers.
+- Tests: `RealRunRotationTest`, `RunSamplesTest`, `SimulatedRunsTest`, `SimulatedRunSitesTest`.
+
+## Engine seams for the last party quests (1.6.4, branch `164-seams`; details and evidence in `REPORT-seams.md`)
+
+Row keys and steps these add to the stage data format (all optional; a row without them loads and runs as before):
+
+- `branches:` on a stage - `{when: {eventProperty[, equals] | reactor, state}, goto: N | end}`, first match wins (Pre-Horntail).
+- `onTimeLimit: end | advance` with a stage's own `timeLimitMinutes` - what the run does when that stage's clock runs out.
+- `queue:` - `{register: [answers], join: [answers], closedProperty, closedEquals, waitMinutes}`: the content is entered
+  through the event's world queue (Guild Quest), watched from the moment the world starts the instance, armed when the
+  join window closes.
+- `composition:` - seats the party must fill (`{id, min, minLevel, maxLevel, note}`): Guild Quest's maze needs one member of
+  level 30 or below. A fact about the party like `minPlayers`: the run refuses to start without it, and a high-level member
+  never stands in.
+- Steps: `HitReactorByOid`, `EquipItem` (through `BotGear`: verify it is worn, `Wait` naming the item if not held),
+  `UnequipItem` (the explicit half of a sacrifice).
+- A population bot's reactor script has a player behind its client (`BotClient.forScripts`): scripts only, never for a packet.
+
 ## QA plan
 
 - **Unit:** every content YAML loads clean; answers/rectangles/items are re-read from our scripts and compared
@@ -459,3 +891,75 @@ Each phase stays behind `-Dslums.mechanics` (on TEST, off in the release conf) u
 2. Ragequit: allowed to sink a run that a real player is in, or only bot-only runs?
 3. World cap on concurrent bot-only PQ runs (CPU), and PQ hours.
 4. Should bots ever take a stage's leader role when a real player is in the party?
+
+## Expedition policy: a bot captain, and an alt that counts (branch `164-expedpolicy`, 1.6.4)
+
+Owner, 2026-11-03: "a bot may be an expedition captain", "an owned alt may follow its owner into any expedition the
+owner is a member of", "it should count as party". Two switches, both defaulting on because the owner said yes:
+
+| switch | default | what it changes |
+| --- | --- | --- |
+| `-Dslums.exped.botcaptain` | **on** | a bot-led expedition registers its party's bots, and a bot captain can open the run |
+| `-Dslums.exped.altfollow` | **on** | an owned alt joins an expedition its owner is a member of, whoever leads it |
+
+- **Who leads.** `ExpeditionBots.preferredLeader` (`EventManager.startInstance`, `EventManager.java:455-460`) runs
+  before the instance is made, so the setup script's channel, the instance's leader and every later
+  `expedition.getLeader()` all see the same person. A real player always outranks a bot: the run moves to the human
+  and the log says which rule decided (`a real player outranks a bot, so <human> leads instead of <bot>`). Only
+  expedition members can be promoted - a human in the bot's party who never registered has nothing to lead, and the
+  bot captain's door answers `HUMAN_LEADS` instead of starting without him.
+- **The bot captain's door.** Nothing in the tree creates an expedition except an NPC script
+  (`AbstractPlayerInteraction.createExpedition`, call sites in `scripts/npc/2030013.js` and friends), so a bot captain
+  has no door unless we give it one: `ExpeditionBots.startAsCaptain(captain, type)` is the three steps the recruiter
+  takes - create, register, set `leader`/`channel`, `EventManager.startInstance` - and the script name comes from
+  `RebirthBosses.Boss`, the tree's own type-to-script table. A type with no entry there answers `NO_SCRIPT`.
+- **The alt counts.** `Expedition.members` is the only membership record; `getMemberList()` (the recruiters' size
+  gate), `getActiveMembers()` (broadcasts and the boss log), and the max-size check all read it, so an admitted alt
+  counts exactly like a party bot. `ExpeditionBots.skip` was the only place that excluded it, and that is the rule
+  this changes: an owned alt is admitted when its owner is a member of that expedition. A bot that merely follows
+  someone (a population bot) is not an owned alt and keeps the 1.6.0 rule. Deliberately unchanged: a bot never
+  displaces a human leader, and a dead/banned/out-of-band bot is still skipped.
+
+### The alt counts: `-Dslums.exped.altfollow`
+
+1.6.0 admitted only the leader's own bots (its companion or its `@botme` alt); an alt was skipped with reason
+`owner` unless its owner led the expedition. The owner's answer changes the rule: an **owned alt** is admitted when
+**its owner is a member** of that expedition, whoever leads it. A population bot's "owner" is only whoever it
+follows, so it keeps the 1.6.0 rule; an alt whose owner is not a member, or whose owner logged off (`ownerId == -2`),
+is still skipped.
+
+Counts, audited (`Expedition.java`): `members` (a map id → name) is the single membership record. `getMemberList()`
+is what the recuiters' `size() < getMinSize()` gate reads (`scripts/npc/2030013.js:182-187`), `getActiveMembers()` is what
+`broadcastExped` and `registerExpeditionAttempt` walk, and `getMaxSize()` is compared against `members.size()` in
+`addMember`/`addMemberInt`. All three include a bot the moment it is registered, so an admitted alt counts exactly
+like a party bot - there was no count to change, only the rule that kept it out. A bot resolves as "active" through
+`Character.isPresentInWorld()` (`Character.java:532-534`), which is true for a bot standing on a map. One count that
+does deliberately exclude bot-kind members is left alone: `RebirthBossRuns.helperOk` keeps owned alts out of the
+rebirth helper pool (`!c.isOwnedAlt()`), because helpers are population bots hired for a fight, not party members.
+
+## Expedition policy: the one caller of a bot captain (1.6.4, branch `164-expedpolicy`)
+
+A bot captain was refused by `ExpeditionBots.autoJoin` and had no way to answer a recruiter's door (`scripts/npc/2030013.js:150-216`
+is a player conversation), so `ExpeditionBots.startAsCaptain` - the capability - was unreachable in game and would have
+shipped as dead code. `!mechanics boss TYPE [bots]` is now its **only** caller.
+
+**In 1.6.4 a bot-captained run is reachable only by that command.** `-Dslums.exped.botcaptain` (on by default) governs
+whether a bot *may* captain a party whose leader is a bot; it does **not** make bots open boss rooms on their own. There
+is no scheduler, no lobby tick and no autonomous trigger of any kind - the command is the trigger, because a bot that
+opens boss rooms by itself is bot farming, which the owner has not asked for and which needs an economy decision first.
+
+- **What the command does** (`client/command/commands/gm3/MechanicsCommand.java:243-258`, `soloMapling/mechanics/BossStaging.java`):
+  reads the type (`ExpeditionType.valueOf`, case-insensitive), spawns `bots` bots (the row's `minPlayers` when omitted,
+  capped at `maxPlayers`) on that row's recruit map at `max(minLevel, 30)..+5`, makes the **first bot** the party leader,
+  fills the party, and calls `ExpeditionBots.startAsCaptain(captain, type)`. On anything but `STARTED` the spawned bots
+  are taken out again (`KpqStaging.cleanup`) so a refusal leaves no loose party behind.
+- **Every answer is printed, never swallowed:** `STARTED`, `HUMAN_LEADS`, `ROOM_TAKEN`, `NO_SCRIPT`, `TOO_FEW`,
+  `SWITCH_OFF`, `REFUSED`, each with a sentence (`BossStaging.sentence`), and logged as `[Mechanics] ...`.
+- **Clean refusals:** `-Dslums.mechanics.boss` off answers `SWITCH_OFF` before any bot spawns (the command's
+  `Mechanics.enabled()` guard deliberately does not swallow `boss`, so the message names the right switch); a type with
+  no content row answers `NO_SCRIPT`; a room already held answers `ROOM_TAKEN`; a human in the party answers
+  `HUMAN_LEADS` - a bot never overrides a human.
+- **Tests** (`src/test/java/soloMapling/mechanics/BossStagingTest.java`, 6): the command reaches `STARTED` and the
+  script's `leader`/`channel`/`startInstance` are set; a human in the party answers `HUMAN_LEADS` through the command;
+  the boss switch off refuses with the switch named and nothing started; a rowless type answers `NO_SCRIPT`; a refused
+  start leaves `spawned()` empty; every `Door` value has a sentence.

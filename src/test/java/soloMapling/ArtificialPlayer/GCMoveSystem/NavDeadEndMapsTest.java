@@ -1,5 +1,6 @@
 package soloMapling.ArtificialPlayer.GCMoveSystem;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -15,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import testutil.PropsRestored;
 
 /**
  * b109: the 12 maps the Website lane's dead-end check listed with unhandled pits on TEST (2026-10-31, graph v69),
@@ -32,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <li>Swim maps 230030001 and 230040400: swimmers do not use the ground graph; the map export marks them swim.</li>
  * </ul>
  */
+@ExtendWith(PropsRestored.class)
 class NavDeadEndMapsTest {
 
     @TempDir

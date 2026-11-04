@@ -169,6 +169,9 @@ t-cv-1,t-cv-2,t-cv-3,t-cv-4,t-cv-5,t-cv-6,t-cv-7,t-cv-8,t-cv-9,t-cv-10,t-cv-11,t
 t-sl-1	src/main/java/soloMapling/qa/CosmeticScenarios.java	stages scenario sl-1
 t-rv-1,t-rv-2,t-rv-3,t-rv-4,t-gw-1,t-gw-2,t-gw-3,t-gw-4,t-rm-1,t-rm-2,t-rm-3,t-rm-4	src/main/java/soloMapling/qa/DramaScenarios.java	stages scenario gw-1, gw-2, gw-3, gw-4, rm-1, rm-2, rm-3, rm-4, rv-1, rv-2, rv-3, rv-4
 t-ex-1	src/main/java/soloMapling/qa/ExpeditionScenarios.java	stages scenario ex-1
+t-ex-2	src/main/java/soloMapling/qa/BossRunScenarios.java	stages scenario ex-2 (no alt needed: the GM and party bots)
+t-ex-2	src/main/java/soloMapling/mechanics/content/zakum.yaml	the Zakum row the expedition fight is played from
+t-ex-2	-Dslums.mechanics.boss=true	the fight needs the boss lane on; with it off ex-2 reads EX2 BASELINE and the check SKIPs
 t-fh-1,t-fh-2	src/main/java/soloMapling/qa/FishingScenarios.java	stages scenario fh-1, fh-2
 t-gs-1	src/main/java/soloMapling/qa/GossipScenarios.java	stages scenario gs-1
 t-gu-1,t-gu-3,t-gu-4,t-gu-5,t-gu-8,t-gu-2,t-gu-6,t-pb-1	src/main/java/soloMapling/qa/GuildScenarios.java	stages scenario gu-1, gu-2, gu-3, gu-4, gu-5, gu-6, gu-8, pb-1
@@ -223,3 +226,9 @@ t-ng-10	tools/economy/gen_bridge_drops.py	bridge SQL and guide generator
 t-ng-10	src/main/java/soloMapling/qa/GearProgressionScenarios.java	hands-on guide, source, equip and combat checklist
 t-ng-10	src/main/java/soloMapling/autoqa/ProbesGear.java	read-only source rate probe
 t-ng-10	-Dslums.gear.bridge=true	normal guide and source proof are off by default
+t-ex-2	src/main/java/soloMapling/mechanics/content/zakum-chaos.yaml	the Chaos Zakum row (same altar, one instance id over)
+t-mx-1,t-mx-2,t-mx-3,t-mx-4,t-mx-5,t-mx-6	src/main/java/soloMapling/mechanics/content/cwkpq.yaml	the Crimsonwood Keep row: four rooms, the counting door and the host's summon chain
+t-mx-1,t-mx-2,t-mx-3,t-mx-4,t-mx-5,t-mx-6	src/main/java/soloMapling/mechanics/content/nwill.yaml	the Hard Will row: one room, the script's 5 s spawn, the instance's own clear flag
+t-mx-1,t-mx-2,t-mx-3,t-mx-4,t-mx-5,t-mx-6	src/main/java/soloMapling/mechanics/content/nlucid.yaml	the Hard Lucid row: one room, the script's 5 s spawn, the instance's own clear flag
+t-mx-1,t-mx-2,t-mx-3,t-mx-4,t-mx-5,t-mx-6	src/main/java/soloMapling/mechanics/content/ndarknell.yaml	the Hard Darknell row: one room, the script's 5 s spawn, the instance's own clear flag
+t-mx-1,t-mx-2,t-mx-3,t-mx-4,t-mx-5,t-mx-6	src/main/java/soloMapling/mechanics/content/nverus.yaml	the Hard Verus Hilla row: one room, the script's 5 s spawn, the instance's own clear flag

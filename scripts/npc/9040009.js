@@ -107,7 +107,7 @@ function action(mode, type, selection) {
                     cm.mapMessage(5, "Please wait while the combination is revealed.");
                     var delay = 5000;
                     for (var i = 0; i < combo.length; i++) {
-                        cm.getPlayer().getMap().getReactorByOid(combo[i]).delayedHitReactor(cm.getClient(), delay + 3500 * i);
+                        cm.getPlayer().getMap().getReactorByOid(combo[i]).delayedHitReactor(cm.getActingClient(), delay + 3500 * i);
                     }
                     eim.setProperty("stage1status", "display");
                     eim.setProperty("stage1combo", "");

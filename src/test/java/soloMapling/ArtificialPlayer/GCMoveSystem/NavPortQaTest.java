@@ -1,5 +1,6 @@
 package soloMapling.ArtificialPlayer.GCMoveSystem;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -9,8 +10,10 @@ import soloMapling.WzTestData;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import testutil.PropsRestored;
 
 /* t-nn-1's replay (NavPortQa.swimWall) with the swim navigator as the server has it by default (on). */
+@ExtendWith(PropsRestored.class)
 class NavPortQaTest {
 
     @TempDir

@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer.BotLifeSystem;
 
 import client.Character;
 import client.Job;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 import soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
@@ -16,8 +17,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision.*;
+import testutil.PropsRestored;
 
 /** 1.6.0 S8: the runtime plans between the goal refresh and the scorer, shows the plan, and re-plans only on change. */
+@ExtendWith(PropsRestored.class)
 class LifeRuntimePlanTest {
     @Test
     void aThirdJobBotPlansItsFourthJobAndTheNextStepGetsTheBonus() {

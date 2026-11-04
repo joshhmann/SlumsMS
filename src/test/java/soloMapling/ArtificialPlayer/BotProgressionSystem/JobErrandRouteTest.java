@@ -3,6 +3,7 @@ package soloMapling.ArtificialPlayer.BotProgressionSystem;
 import client.BotClient;
 import client.Character;
 import client.Job;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -19,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import testutil.PropsRestored;
 
 /**
  * b266: JobErrandTest replaces the mover, so it proves the errand's logic but never that a real route to an
@@ -26,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * ship. These tests run the real planner and the real {@code Mover.LIVE} gate, and pin the fare arithmetic that
  * decides it where the world graph is not available.
  */
+@ExtendWith(PropsRestored.class)
 class JobErrandRouteTest {
 
     private static final int HENESYS = 100000000;

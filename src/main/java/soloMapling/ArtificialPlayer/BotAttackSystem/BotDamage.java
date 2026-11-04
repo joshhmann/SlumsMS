@@ -445,6 +445,19 @@ public final class BotDamage {
             return out;
         }
 
+        /* The damage one mob of these stats is guaranteed to take: no crit, every line at its floor. */
+        public double minimumPerMob(MonsterStats mob, int lines) {
+            double elementMultiplier = elementMultiplier(mob::getEffectiveness);
+            Range range = BotCombatFormula.against(base, hit.kind(), attacker.level(),
+                    new Defender(mob.getLevel(), mob.getPDDamage(), mob.getMDDamage(), elementMultiplier));
+            double line = BotCombatFormula.estimateMinimumDamage(range);
+            if (shadowShare <= 0) {
+                return line * lines;
+            }
+            int mainLines = lines - lines / 2;
+            return line * mainLines + line * shadowShare / 100.0 * (lines - mainLines);
+        }
+
         /* The average damage one mob of these stats takes from this swing's lines, crits included. */
         public double expectedPerMob(MonsterStats mob, int lines) {
             double elementMultiplier = elementMultiplier(mob::getEffectiveness);

@@ -518,4 +518,103 @@ public interface QaWorld {
     default List<String> v83Step(Character gm, String feature, String step) {
         return List.of("this world cannot run " + feature + " " + step);
     }
+
+    // ---- 1.6.4 ex-2: the Zakum altar, entered through the real expedition ----
+
+    /**
+     * One character as {@code ex-2} finds it: where it stands, what holds it ({@code MechanicsHold}, its expedition
+     * run), the mob its fight has in hand ({@code targetOid}, its mob id and name), whether a swing from where it
+     * stands would reach that mob at all ({@link soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver#canSwingFrom}),
+     * and what it has landed: {@code landed} swings, {@code damage} the sum of their reported damage. {@code doing} is
+     * the last mechanics-run line that names it, or {@code -}.
+     */
+    record Ex2Seen(int charId, String name, String kind, int mapId, boolean held, boolean inRun,
+                   int targetOid, int targetMobId, String targetName, boolean canSwing,
+                   long landed, long damage, String doing) {
+    }
+
+    /** ex-2: what these bots and alts are doing right now, in the order asked. */
+    default List<Ex2Seen> ex2See(Character gm, List<Integer> charIds) {
+        return List.of();
+    }
+
+    /** ex-2: the mobs standing on the GM's map as {@code id:hp/maxHp ...}, or why that map is not the altar. */
+    default String ex2Parts(Character gm) {
+        return "this world cannot list the altar's mobs";
+    }
+
+    /**
+     * ex-2: makes this channel's Zakum expedition the way Adobis does it - a channel expedition, the party's bots and
+     * the GM's companions joining it ({@link soloMapling.ArtificialPlayer.BotPartySystem.ExpeditionBots#autoJoin}), then
+     * {@code EventManager.startInstance} on {@code ZakumBattle}, which registers and warps everyone standing on the
+     * recruiting map. False when it could not start (another channel expedition in progress, no event manager).
+     */
+    default boolean ex2StartZakum(Character gm) {
+        return false;
+    }
+
+    /**
+     * ex-2: opens the Eye of Fire the way a player's click does - the same call
+     * {@link soloMapling.mechanics.StepExecutor} makes ({@code reactor.hitReactor(client)}) - against the GM's client.
+     * Returns what happened as one line; never throws, and never pretends a swing that did not happen.
+     */
+    default String ex2Altar(Character gm) {
+        return "this world cannot open the altar";
+    }
+
+    /**
+     * ex-2: the mechanics run on the GM's instance as {@code stage=<n> cleared=<b> ended=<reason|-> events=<k>}, then
+     * {@code |}-separated, its last lines (the {@code Abandon}, {@code gave up} and {@code could not be put in map}
+     * ones). {@code no run} when no run is driving this instance.
+     */
+    default String ex2Run(Character gm) {
+        return "no run";
+    }
+
+    /** ex-2: true while this channel has a Zakum expedition (registered or in progress). */
+    default boolean ex2HasExpedition(Character gm) {
+        return false;
+    }
+
+    /** ex-2: how many characters are registered in the channel's Zakum expedition (0 when there is none). */
+    default int ex2ExpeditionSize(Character gm) {
+        return 0;
+    }
+
+    /** ex-2: the minimum the recruiter's "Start the fight!" asks for on this server. */
+    default int ex2MinSize(Character gm) {
+        return 0;
+    }
+
+    /** ex-2: true once the GM is inside the event instance the recruiter started. */
+    default boolean ex2Started(Character gm) {
+        return false;
+    }
+
+    /** ex-2: the GM's channel id, for the log header. */
+    default int ex2Channel(Character gm) {
+        return 0;
+    }
+
+    /**
+     * ex-2: puts the GM's own owned alt {@code name} on the map beside him and in his party, through the real
+     * {@code @botme} path ({@link soloMapling.companions.OwnedAltService#summon}). Its character id, or -1 with the
+     * refusal in a yellow message. Dismissed with {@link #ex2DismissAlt}.
+     */
+    default int ex2StageAlt(Character gm, String name) {
+        return -1;
+    }
+
+    /** ex-2: sends the staged alt home. Best effort: a run that already logged it out leaves nothing to do. */
+    default void ex2DismissAlt(Character gm, String name) {
+    }
+
+    /** ex-2: ends the channel's Zakum expedition and the instance it started, whoever is still inside. */
+    default void ex2EndExpedition(Character gm) {
+    }
+
+    /** ex-2: the boss-fight switches this server was started with, so a run with each setting is labelled. */
+    default String ex2Switches() {
+        return "unset";
+    }
 }

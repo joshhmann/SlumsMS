@@ -1,0 +1,95 @@
+# Ticket 164 Pirate PQ stage data ("the Lord Pirate's ship"): six maps, one stage, a chain of doors. Our scripts first.
+# Format: docs/tickets/130-bots-play-mechanics.md, "Stage data format". Loaded by soloMapling.mechanics.StageData.
+#
+# The row is gated on its OWN switch (-Dslums.mechanics.piratepq=true as well as -Dslums.mechanics=true), so every other
+# lane is untouched. REPORT-opq.md, "Pirate PQ", says what it does not cover.
+#
+# The server's own scripts are the truth:
+#   scripts/event/PiratePQ.js (minPlayers 3 / maxPlayers 6, minLevel 55 / maxLevel 255, eventTime 4 minutes, entryMap
+#   925100000, exitMap 925100700, recruitMap 251010404, clearMap 925100600, minMapId 925100000 / maxMapId 925100500;
+#   setup initialises stage2/2a/2b/3a/3b/4/5, curStage, grindMode, openedChests, openedBoxes; clearPQ at :337-344 writes
+#   no property), scripts/npc/2094002.js (the guide: the three medals), scripts/npc/2094001.js:45-58 (the rescued leader
+#   clears the quest), scripts/portal/davy_next0..4.js (the five passages and their gates), and
+#   scripts/reactor/2519000..2519003.js (the four doors).
+id: piratepq
+name: Pirate PQ
+kind: PQ
+eventScript: PiratePQ
+# The guide 2094002 stands in the recruit map's bar too; the front door is the NPC a leader talks to on 251010404.
+entryNpc: 2094002
+recruitMap: 251010404
+# Where a member is sent when a run WE end ends; 2094001.js's own giveEventReward warps to 251010404 after the clear.
+exitMap: 925100700
+# The script's own gate, copied from it: PiratePQ.js:29-39. The timer is FOUR minutes at setup and every stage restarts
+# it (changedMapInside, :241-268: six minutes each, eight for the boss), so timeLimitMinutes below is the whole run's.
+minPlayers: 3
+maxPlayers: 6
+minLevel: 55
+maxLevel: 255
+timeLimitMinutes: 40
+flag: slums.mechanics.piratepq
+sources:
+  - "scripts/event/PiratePQ.js: ours, the truth: the gates (:29-39), the stage order (:241-268), the exclusives (:73-76) and clearPQ (:337-344), which sets the instance's flag and nothing else"
+  - "The six maps are the script's own: 925100000 the deck, 925100100 the medals, 925100200 the guards, 925100300 the captains, 925100400 the four doors, 925100500 the Lord Pirate. Each passage is scripts/portal/davy_next0..4.js and each one names its own gate"
+  - "The doors are item reactors 2519000..2519003, one Old Metal Key 4001117 each, quantity 1 (Reactor.wz/2519000..2519003.img.xml: type 100, state 1); the boss map's own life is 2094002 plus reactor 2516000 (Map.wz/Map/Map9/925100500.img.xml)"
+  - "cosmic_agents and BotStory carry no Pirate PQ definition: the ids here were read from our scripts and our WZ, never from upstream"
+stages:
+  - stage: 1
+    map: 925100000
+    name: The Lord Pirate's ship, from the deck to the rescue
+    npc: 2094001
+    solver: pirate-quest
+    maps: [925100100, 925100200, 925100300, 925100400, 925100500]
+    mobs: [9300114, 9300115, 9300116]
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: hands the three medals to the guide and, at the end, talks the rescued leader into the clear
+      - id: collector
+        who: NON_LEADER
+        min: 0
+        max: party-1
+        note: fights, pools medals and keys on the leader, and drops keys on the doors
+    items:
+      - id: 4001120
+        cleanup: true
+        name: Rookie Medal
+      - id: 4001121
+        cleanup: true
+        name: Rising Medal
+      - id: 4001122
+        cleanup: true
+        name: Veteran Medal
+      - id: 4001117
+        cleanup: true
+        name: Old Metal Key
+    objectives:
+      - id: medals
+        kind: KILL_FOR_ITEM
+        role: all
+        mob: 9300114
+        item: 4001120
+        count: 20
+        note: "three sets of twenty, in the guide's order (2094002.js:47-78); the medal per set is the map's own drop"
+      - id: pool
+        kind: GIVE_TO_LEADER
+        role: collector
+        item: 4001120
+        count: 1
+      - id: hand-medals
+        kind: HAND_IN
+        role: leader
+        npc: 2094002
+        item: 4001120
+        count: 20
+      - id: doors
+        kind: PLACE_ITEM
+        role: all
+        reactor: "2519000"
+        item: 4001117
+        count: 1
+        note: "and 2519001..2519003, one key each; davy_next4.js opens only when all four are open and the map is empty"
+    clear:
+      instance: true

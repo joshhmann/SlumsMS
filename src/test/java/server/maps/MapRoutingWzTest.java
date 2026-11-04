@@ -1,5 +1,6 @@
 package server.maps;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import soloMapling.WzTestData;
@@ -32,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
+import testutil.PropsRestored;
 
 /**
  * s-maproute against the real Map.wz (skips without {@code wz/}).
@@ -42,6 +44,7 @@ import static org.mockito.Mockito.mock;
  * {@code Character.loadCharFromDB} let {@code MapManager} return null and NPE at {@code ret.map.getPortal(...)}. The
  * two tests below assert the moved behaviour: no exception, and the fallback map the login lands on.
  */
+@ExtendWith(PropsRestored.class)
 class MapRoutingWzTest {
 
     private static final int FOUNTAIN_SQUARE = 410000300;

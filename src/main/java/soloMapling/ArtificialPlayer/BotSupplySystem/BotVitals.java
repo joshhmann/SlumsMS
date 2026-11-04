@@ -77,7 +77,9 @@ public final class BotVitals {
             // 1.6.0 world events: on an invasion map a heavy hit (under half its max HP left) may kill too
             boolean lethal = bot.getHp() - damage <= 0
                     || soloMapling.worldevents.WorldEvents.swarmed(bot, (long) bot.getHp() - damage);
-            if (lethal && soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.rollsDeath(bot)) {
+            // 1.6.4: in an event instance a mortal bot dies outright, like a player; the roll is the open world's rule
+            if (lethal && (soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.diesOutright(bot)
+                    || soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.rollsDeath(bot))) {
                 soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.die(bot); // 1.5.0 rc3: a rare real death
                 return;
             }
@@ -469,9 +471,20 @@ public final class BotVitals {
     // Through the character's own stat path, so the party HP bar and the stored row see it; no packet reaches
     // the bot's headless client.
     static void setHp(Character bot, int hp) {
-        if (hp != bot.getHp()) {
+        if (hp != bot.getHp() && !revivesACorpse(bot, hp)) {
             bot.updateHp(hp);
         }
+    }
+
+    /*
+     * 1.6.4: a dead bot stays dead. Its HP is 0 and its brain is stopped, but a regen carry (OffscreenSupplies), a heal
+     * hand-out (BotPartySupport.castHeal) or a potion path can still call in with a positive number - and a bot healed
+     * from 0 would stand up while BotDeaths still has it down (no hits, no acting, no run driving it). The one thing
+     * that takes it out of that state is a resurrection, which goes through Character.applyHpMpChange and then
+     * BotDeaths.revived, so it never comes here.
+     */
+    private static boolean revivesACorpse(Character bot, int newHp) {
+        return newHp > 0 && bot.getHp() <= 0 && soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.isDead(bot.getId());
     }
 
     static void setMp(Character bot, int mp) {
@@ -481,6 +494,9 @@ public final class BotVitals {
     }
 
     static void setHpMp(Character bot, int hp, int mp) {
+        if (revivesACorpse(bot, hp)) {
+            return; // see setHp: only a resurrection brings a corpse back
+        }
         if (hp != bot.getHp() || mp != bot.getMp()) {
             bot.updateHpMp(hp, mp);
         }

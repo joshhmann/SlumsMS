@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer.BotLifeSystem;
 
 import client.Character;
 import client.Job;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 import soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
@@ -14,7 +15,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision.*;
+import testutil.PropsRestored;
 
+@ExtendWith(PropsRestored.class)
 class LifeRuntimeTest {
     @Test void realSupplyNeedAutomaticallyProducesAQueuedRestockAndDoesNotRescoreEveryTick() {
         String enabled = System.getProperty("slums.botlife.enabled");

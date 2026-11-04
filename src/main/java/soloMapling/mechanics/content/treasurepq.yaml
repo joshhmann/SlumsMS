@@ -1,0 +1,62 @@
+# Ticket 164 Treasure PQ stage data ("the treasure room"). Our scripts first; the shape is the shortest PQ in the tree.
+# Format: docs/tickets/130-bots-play-mechanics.md, "Stage data format". Loaded by soloMapling.mechanics.StageData.
+#
+# Off its own switch (-Dslums.mechanics.treasurepq=true on top of -Dslums.mechanics=true). REPORT-opq.md, "Treasure PQ".
+#
+#   scripts/event/TreasurePQ.js:25-37 gates (4-6 players, level 140-255, 45 minutes, entryMap 674030000, exitMap and
+#   recruitMap 674030100, clearMap 674030300, minMapId/maxMapId 674030000-674030300), :59-62 the one exclusive
+#   (4032118), :115-125 setup (shuffles the map's reactors and writes statusStg1 = "0", which nothing reads),
+#   :232-237 clearPQ (setEventCleared and a ten-second schedule to the bonus map - no property), :239-252 monsterKilled
+#   (the only monster it watches is 9400589), scripts/reactor/6741001.js (act() spawns 9400589, the map's only source
+#   of monsters), scripts/portal/guyfawkes0_floor.js (the floor portal into 674030000).
+id: treasurepq
+name: Treasure PQ
+kind: PQ
+eventScript: TreasurePQ
+# The front door: scripts/npc/9220018.js:50-80, the only NPC on 674030100 that starts this event (MV's Lair).
+entryNpc: 9220018
+recruitMap: 674030100
+exitMap: 674030100
+minPlayers: 4
+maxPlayers: 6
+minLevel: 140
+maxLevel: 255
+timeLimitMinutes: 45
+flag: slums.mechanics.treasurepq
+sources:
+  - "scripts/event/TreasurePQ.js is ours and is the truth: the gates (:25-37), the exclusive item (:59-62) and clearPQ (:232-237), which sets the instance's flag and nothing else"
+  - "the front door is scripts/npc/9220018.js:50-80 (cm.getEventManager(\"TreasurePQ\"), getEligibleParty, startInstance); entryNpc is it because a bot starts events by talking, not by pressing a button"
+  - "scripts/reactor/6741001.js is the whole summon - act() spawns 9400589 - and scripts/event/TreasurePQ.js:244-252 clears on that monster's death alone"
+  - "one map: 674030000 is both entryMap and the only map with monsters (respawnStages re-spawns it every 15 s, :131-134); the bonus map 674030300 is warped to by clearPQ's own schedule, not by the row"
+  - "cosmic_agents and BotStory carry no Treasure PQ definition: the ids here were read from our scripts, never from upstream"
+stages:
+  - stage: 1
+    map: 674030000
+    name: The chest that holds a monster
+    solver: treasure-chest
+    mobs: [9400589]
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: no NPC and no hand-in anywhere in this event; the leader is only the member whose loss ends the run
+      - id: raider
+        who: NON_LEADER
+        min: 0
+        max: party-1
+        note: hits the chest and kills what it summons
+    items:
+      - id: 4032118
+        cleanup: true
+        name: Treasure Key
+    objectives:
+      - id: summon
+        kind: KILL_FOR_ITEM
+        role: all
+        mob: 9400589
+        item: 4032118
+        count: 1
+        note: "documentation of the one monster the event watches; the clear is the instance flag, not this count"
+    clear:
+      instance: true

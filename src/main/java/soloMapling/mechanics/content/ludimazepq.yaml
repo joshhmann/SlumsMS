@@ -1,0 +1,80 @@
+# Ticket 164 LudiMaze PQ ("the maze"): one stage over sixteen maps, the passages read from the client, not assumed.
+# Format: docs/tickets/130-bots-play-mechanics.md, "Stage data format". Loaded by soloMapling.mechanics.StageData.
+#
+# Gated on its OWN switch (-Dslums.mechanics.ludimazepq=true as well as -Dslums.mechanics=true), so the Kerning, Orbis,
+# Ludi, Henesys and Cafe lanes are untouched. REPORT-opq.md, "LudiMaze PQ", lists what this row does not cover.
+#
+# The server's own script is the truth: scripts/event/LudiMazePQ.js - minPlayers 3 / maxPlayers 6 (:27), minLevel 51 /
+# maxLevel 255 (:28), entryMap 809050000 (:29), exitMap 809050017 (:30), recruitMap 220000000 (:31), clearMap
+# 809050016 (:32), eventTime 15 minutes (:37). playerEntry (:144-150) warps each member to 809050000 + rand(0..14): a
+# party starts SPLIT, on up to fifteen different maps, and a stage that would gather them is defeating the PQ.
+id: ludimazepq
+name: LudiMaze Party Quest
+kind: PQ
+eventScript: LudiMazePQ
+# The front door is Rolly on 220000000 (scripts/npc/9103001.js:25-28,55,77: getEventManager("LudiMazePQ") and
+# startInstance from that NPC), the same NPC every Ludi PQ shares.
+entryNpc: 9103001
+recruitMap: 220000000
+exitMap: 809050017
+minPlayers: 3
+maxPlayers: 6
+minLevel: 51
+maxLevel: 255
+timeLimitMinutes: 15
+flag: slums.mechanics.ludimazepq
+sources:
+  - "scripts/event/LudiMazePQ.js: ours, the truth: the gates (:27-32,37), playerEntry's random start map (:144-150), shuffleReactors over every maze map (:120-127), and clearPQ (:226-231), which sets the instance's flag and warps to 809050016 and nothing else"
+  - "scripts/npc/9103000.js:57-73 - the exit's NPC: it refuses while !isEventTeamTogether(), wants haveItem(4001106, 30), removeAll(4001106), giveEventPlayersExp(50 * qty) and clearPQ()"
+  - "scripts/reactor/8098000.js: the summoner every maze map but three carries; its monsters drop the passes"
+  - "Map.wz/Map/Map8/8090500*.img.xml: the passages are pt 2 portals t000..t003 and their targets are FIXED - 8090500NN leads to NN+4, NN+7 and NN+12 modulo fifteen, and only 809050008's t001 reaches the goal map 809050015. shuffleReactors moves reactors, not portals, so this is a static graph and the solver searches what the party has seen rather than assuming a layout"
+  - "scripts/npc/9103001.js:25-28,55,77 - Rolly on 220000000: getEventManager(\"LudiMazePQ\") and startInstance"
+  - "The maze maps carry no monsters of their own (Map.wz/Map/Map8/8090500*.img.xml has no life entries): every monster comes from scripts/reactor/8098000.js, which is why the row's mobs are that script's ids"
+  - "cosmic_agents Kiwiism/cosmic_agents 3c7e09435 capabilities/partyquest/lmpq: read for the representation only (a sixteen-room maze with one goal); its arm layout is its own instance's and is not copied"
+stages:
+  - stage: 1
+    map: 809050000
+    name: The maze, and thirty passes at the exit
+    npc: 9103000
+    solver: ludimaze
+    # playerEntry drops each member on one of fifteen maps: all of them are this stage's own ground
+    maps: [809050001, 809050002, 809050003, 809050004, 809050005, 809050006, 809050007, 809050008, 809050009,
+           809050010, 809050011, 809050012, 809050013, 809050014, 809050015]
+    mobs: [9400209, 9400210, 9400211, 9400212, 9400213, 9400214, 9400215, 9400216, 9400217, 9400218]
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: farms like everyone, then gives the thirty passes to the exit's NPC once the whole party stands there
+      - id: collector
+        who: NON_LEADER
+        min: 0
+        max: party-1
+        note: farms the maze's monsters and walks the passages; a member that holds enough carries them to the exit
+    items:
+      - id: 4001106
+        cleanup: true
+        name: Ludibrium Maze Fragment
+    objectives:
+      - id: passes
+        kind: KILL_FOR_ITEM
+        role: all
+        mob: 9400217
+        item: 4001106
+        count: 30
+        note: "the reactor 8098000 summons them (9400209/10 on the three maps without it, 9400217 - the distance from 809050005 - elsewhere); 9103000.js:62 wants thirty in the leader's hand"
+      - id: pool
+        kind: GIVE_TO_LEADER
+        role: collector
+        item: 4001106
+        count: 1
+      - id: hand-passes
+        kind: HAND_IN
+        role: leader
+        npc: 9103000
+        item: 4001106
+        count: 30
+    # no property: 9103000 calls clearPQ(), which only sets the instance's flag (LudiMazePQ.js:226-231)
+    clear:
+      instance: true

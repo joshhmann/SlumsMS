@@ -1,0 +1,60 @@
+# Ticket 130 boss lane, branch 164-bossrows: Pink Bean (1.6.4).
+#
+# Read only when the server runs with -Dslums.mechanics.boss=true (off by default). One room, six killable statues, and
+# the clearest clear in the batch: the script writes defeatedBoss on the last kill.
+#
+# What OUR scripts say the room is:
+#  - the gate is the script's own: 6-30 players, levels 120-255, one lobby (PinkBeanBattle.js:27-28,40);
+#  - 270050100 holds the five statue forms as map life plus reactors 2708000/2709000; the boss itself is script spawn:
+#    setup puts a FAKE 8820000 down as the room's centrepiece (:98-116, :116) and afterSetup schedules startWave one
+#    second later (:93-96), which is :306-313: spawnJrBoss (:233-256) kills the statue 8820019 and spawns 8820002;
+#  - the order is the script's, not the row's guess: killing a jr boss spawns the next one (:259-304), 8820002 through
+#    8820006, five kills' worth of statues, and after the fifteenth jr-boss death noJrBossesLeft (:229, :261-264) spawns
+#    8820001 - the Pink Bean the script actually clears on (isPinkBean, :219);
+#  - the clear is clearPQ -> setEventCleared(PINKBEAN) (:214-217) and the script writes defeatedBoss 1 in the same
+#    monsterKilled call (:261), so a value clear on defeatedBoss == 1 is exact and cannot fire early.
+#  - NEVER TARGETED, and left out of mobs on purpose: the fake 8820000 (:116 - a script artefact, never made real here),
+#    the statues 8820019-8820023 (they are the room's spawners; the script kills 8820019 itself at :233-256) and the
+#    corpses 8820024-8820027 that the jr forms revive into (Mob.wz/8820003.img.xml revive/0 = 8820024 and so on). Listing
+#    none of them is what keeps isFake() and MobId.isDeadHorntailPart out of this row's Fight targets.
+#
+# The wz facts are from /root/work/SlumsMS-170-evan/wz, which is not version-pinned to this branch (docs/PROVENANCE.md).
+id: pinkbean
+name: Pink Bean (expedition)
+kind: BOSS
+eventScript: PinkBeanBattle
+recruitMap: 270050000
+exitMap: 270050300
+minPlayers: 6
+maxPlayers: 30
+minLevel: 120
+maxLevel: 255
+timeLimitMinutes: 140
+sources:
+  - "scripts/event/PinkBeanBattle.js (ours, the truth): minPlayers 6 / maxPlayers 30, levels 120-255 (:27-28), entryMap 270050100 and exitMap 270050300 (:30-31), minMapId 270050100 / maxMapId 270050300 (:35-36), eventTime 140 (:38), maxLobbies 1 (:40), afterSetup schedules startWave (:93-96), fake 8820000 (:116), defeatedBoss seeded 0 (:101), clearPQ (:214-217), isPinkBean = 8820001 (:219), noJrBossesLeft (:229), spawnJrBoss (:233-256), monsterKilled: fifteenth jr kill -> spawn 8820001, its death -> defeatedBoss 1 + clearPQ (:259-304), startWave (:306-313)"
+  - "Map.wz/Map/Map2/270050100.img.xml (dump /root/work/SlumsMS-170-evan/wz): the map's life is statues 8820019-8820023, the heal NPC and reactors 2708000/2709000, and NOT 8820000 - that one is the script's fake. Mob.wz/8820003.img.xml revive/0 = 8820024, 8820004 -> 8820025, 8820005 -> 8820026, 8820006 -> 8820027 (all corpses), Mob.wz/8820002.img.xml revive/0 = 8820019 (the statue the next wave kills)"
+  - "BotStory 81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364, agent-bosses/boss-rules.json pinkbean: targetPriority ends at 8820001 and neverTargetFakes is set. Only that reading was consulted; the fifteen-kill gate is our script's own"
+stages:
+  - stage: 1
+    map: 270050100
+    name: Pink Bean
+    solver: boss-phases
+    # the room's boss is spawned by startWave one second after setup, so the first statue form may not be there on the
+    # instance's first tick. 60 s is a policy number (a spawn plus a death animation, with margin), not a WZ one.
+    spawnWaitSeconds: 60
+    mobs:
+      - 8820002
+      - 8820003
+      - 8820004
+      - 8820005
+      - 8820006
+      - 8820001
+    objectives:
+      - id: boss
+        kind: DEFEAT
+        mob: 8820001
+        note: the real Pink Bean, spawned by the fifteenth jr-boss death; its death is the script's clear
+    # PinkBeanBattle.js:261 writes defeatedBoss 1 in the same monsterKilled call that clears.
+    clear:
+      eventProperty: defeatedBoss
+      equals: 1

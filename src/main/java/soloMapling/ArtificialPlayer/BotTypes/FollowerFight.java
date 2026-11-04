@@ -5,6 +5,7 @@ import constants.id.MapId;
 import server.life.Monster;
 import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
+import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile;
 import soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning;
 import soloMapling.ArtificialPlayer.BotGrindSystem.Approach;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
@@ -52,6 +53,20 @@ final class FollowerFight {
     static final long STALL_MS = 10_000;
     static final long GIVE_UP_MS = 15_000;
 
+    /**
+     * 1.6.4 boss lane (ticket 130, fix 2): {@code -Dslums.bossfight.reach}, <b>off by default</b> (round 9: a switch is
+     * off unless a brief says otherwise, and the release conf carries the on line). Turned on, a target it cannot get
+     * into its own swing's reach of - a boss part hovering over a platform, one sealed off the walk - is passed over
+     * instead of costing {@link #STALL_MS} of standing still and {@link #GIVE_UP_MS} of skipping. Only boss parts are
+     * checked, so grinding and party quests pay one {@code isBoss()}/{@code hasBossMechanics} test per candidate and no
+     * walk.
+     */
+    static final String REACH_SWITCH = "slums.bossfight.reach";
+
+    static boolean reachGateOn() {
+        return Boolean.getBoolean(REACH_SWITCH);
+    }
+
     /** Per follower: what the fight remembers between ticks (the shared approach's last walk, a stalled target). */
     private static final class State {
         int lastMoveX = Integer.MIN_VALUE;
@@ -90,7 +105,7 @@ final class FollowerFight {
             return null;
         }
         if (instanceFight(bot, leader, map)) {
-            return nearest(map, at);
+            return nearest(bot, map, at);
         }
         if (!inLeadersParty(bot, leader)) {
             return null;
@@ -107,12 +122,26 @@ final class FollowerFight {
                 || inLeadersPq(bot, leader);
     }
 
-    private static Monster nearest(MapleMap map, Point at) {
+    private static Monster nearest(Character bot, MapleMap map, Point at) {
         Monster best = null;
         double bestSq = Double.MAX_VALUE;
+        boolean reachGate = reachGateOn();
+        BotAttackProfile profile = null;
         for (Monster m : map.getAllMonsters()) {
             if (m == null || !m.isAlive() || m.getPosition() == null || !BotAttackDriver.botMayTarget(m)) {
                 continue;
+            }
+            // fix 2: a boss part it can never get into its swing's reach of costs STALL_MS of standing still and
+            // GIVE_UP_MS of skipping. The check runs for boss parts only and the swing profile is built once per tick
+            // and only when a boss part comes up, so ordinary mobs rank as they always did at the cost they always had;
+            // a part that fails falls through to the next-nearest in the same pass.
+            if (reachGate && isBossPart(m)) {
+                if (profile == null) {
+                    profile = BotAttackDriver.primaryAttack(bot);
+                }
+                if (!canGetInReach(map, at, m, profile)) {
+                    continue;
+                }
             }
             double d = at.distanceSq(m.getPosition());
             if (d < bestSq) {
@@ -121,6 +150,29 @@ final class FollowerFight {
             }
         }
         return best;
+    }
+
+    /** A boss or one of its parts: the big, multi-part mobs whose position is not where the bot has to stand to hit. */
+    static boolean isBossPart(Monster m) {
+        return m != null && (m.isBoss() || MapleMap.hasBossMechanics(m.getId()));
+    }
+
+    /**
+     * Whether the follower can get into its own swing's reach of {@code m}, by the attack driver's own tests: the swing's
+     * box from where it stands ({@link BotAttackDriver#canSwingFrom}, which is the padded reach <em>and</em>
+     * {@link BotAttackDriver#onAttackableSurface}, the ledge rule the swing itself applies), else the
+     * nav planner's route to it ({@link BotAttackDriver#pathCost}, the cost {@link BotAttackDriver#costTo} ranks by) -
+     * {@link GCMovement#UNREACHABLE} when no walk gets there (a part hovering over a platform, or sealed off).
+     */
+    static boolean canGetInReach(MapleMap map, Point at, Monster m, BotAttackProfile profile) {
+        Point mp = m == null ? null : m.getPosition();
+        if (mp == null) {
+            return false;
+        }
+        if (profile != null && BotAttackDriver.canSwingFrom(map, at, m, profile.reachX, profile.reachY)) {
+            return true;
+        }
+        return BotAttackDriver.pathCost.ms(map, at, mp) != GCMovement.UNREACHABLE;
     }
 
     private static boolean skipped(State s, int oid, long now) {

@@ -1,11 +1,13 @@
 package soloMapling.Environment;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import server.maps.Foothold;
 import server.maps.FootholdTree;
 
 import java.awt.Point;
 import java.util.List;
+import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -16,6 +18,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * the health sweep's FLOATING and SUNK (24 of 2,502 bots on the test server, 2026-10-24).
  */
 class PlatformGroundTest {
+
+    /**
+     * The spawner's scattering is a shared unseeded generator in production; every test here pins it. Without this the
+     * sample was the JVM's luck, and one spawn in a few hundred thousand landed exactly on the seam between two
+     * footholds - where the two ways of asking for the level disagree.
+     */
+    @AfterEach
+    void unpinTheGenerator() {
+        PlatformSpawner.useRandom(null);
+    }
 
     private static FootholdTree ground(int[]... footholds) {
         FootholdTree tree = new FootholdTree(new Point(-30000, -30000), new Point(30000, 30000));
@@ -39,6 +51,7 @@ class PlatformGroundTest {
         assertEquals(30, band.getYAtX(150), 1.0, "350 px along an 80-over-400 slope");
         assertEquals(20, band.getYAtX(200), 1.0);
 
+        PlatformSpawner.useRandom(new Random(3));
         for (Point spawn : PlatformSpawner.findUnoccupiedPoints(band, List.of(), 8)) {
             assertEquals(spawn.y, groundY(slope, spawn.x), 1.0, spawn + " is off the slope");
         }
@@ -55,9 +68,40 @@ class PlatformGroundTest {
         assertEquals(300, band.getYAtX(-400));
         assertEquals(250, band.getYAtX(400), "the right half is on the 250 level, not the band's 300");
 
+        PlatformSpawner.useRandom(new Random(5));
         for (Point spawn : PlatformSpawner.findUnoccupiedPoints(band, List.of(), 8)) {
             assertEquals(spawn.y, groundY(steps, spawn.x), 1.0, spawn + " is off its level");
         }
+    }
+
+    /**
+     * The flake, pinned. x=0 is where the 300 level and the 250 level touch, and at that one pixel the recorded height's
+     * settle (300) and a drop from above (250) disagree - so a spawn there is a coin toss nobody can see. The spawner
+     * nudges one pixel inside a level, and the level that follows is the recorded height's own.
+     */
+    @Test
+    void aSpawnThatDrawsTheSeamBetweenTwoLevelsLandsOnePixelInsideALevel() {
+        FootholdTree steps = ground(new int[]{-400, 300, 0, 300}, new int[]{0, 250, 400, 250});
+        Platform band = new Platform(-400, 400, List.of(new Point(-400, 300), new Point(400, 300)),
+                Platform.Type.FLAT, steps);
+
+        PlatformSpawner.useRandom(seedThatDraws(800, 400)); // the draw that would have put the spawn at x=0
+
+        Point spawn = PlatformSpawner.findUnoccupiedPoint(band, List.of());
+
+        assertEquals(1, spawn.x, "the seam at x=0 is a tie-break, not a level: the spawn sits one pixel inside one");
+        assertEquals(250, spawn.y, "and it is the level under that pixel, not the band's recorded 300");
+        assertEquals(spawn.y, groundY(steps, spawn.x), 1.0, spawn + " is off its level");
+    }
+
+    /** A seed whose first draw of {@code nextInt(width)} is {@code want}: the sample the flake was made of. */
+    private static Random seedThatDraws(int width, int want) {
+        for (int seed = 0; seed < 100_000; seed++) {
+            if (new Random(seed).nextInt(width) == want) {
+                return new Random(seed);
+            }
+        }
+        throw new AssertionError("no seed of the first 100000 draws x=" + want + " of " + width);
     }
 
     @Test
@@ -67,6 +111,7 @@ class PlatformGroundTest {
         Platform platform = new Platform(-200, 200, List.of(new Point(-200, 104), new Point(200, 24)),
                 Platform.Type.SLOPED, slope);
 
+        PlatformSpawner.useRandom(new Random(7));
         for (Point spawn : PlatformSpawner.findUnoccupiedPoints(platform, List.of(), 4)) {
             assertEquals(spawn.y, groundY(slope, spawn.x), 1.0, spawn + " is off the slope");
         }
@@ -81,6 +126,7 @@ class PlatformGroundTest {
         assertEquals(150, platform.getYAtX(-100));
         assertEquals(150, platform.getYAtX(37));
         assertEquals(150, platform.getYAtX(100));
+        PlatformSpawner.useRandom(new Random(9));
         for (Point spawn : PlatformSpawner.findUnoccupiedPoints(platform, List.of(), 4)) {
             assertEquals(150, spawn.y);
         }

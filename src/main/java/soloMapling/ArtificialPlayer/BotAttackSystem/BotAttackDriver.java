@@ -69,6 +69,21 @@ public final class BotAttackDriver {
     // botId -> epoch-ms of its last swing, kept only while the !qa attack log is on (its "gap" field: the cadence a
     // viewer sees, swing to swing).
     private static final Map<Integer, Long> lastSwingAtByBot = new ConcurrentHashMap<>();
+
+    /**
+     * ex-2: the last swing a bot committed, as the QA sampler reads it - the mob it was aimed at, that swing's
+     * reported damage, how many swings it has made and their total. Recorded only while the {@code ATTACK} QA topic is
+     * on (the same block that writes the {@code ATTACK} line), so it costs nothing on a server nobody is watching.
+     */
+    public record QaSwing(int mobOid, int mobId, Monster monster, int damage, int swings, long damageTotal, long atMs) {
+    }
+
+    private static final Map<Integer, QaSwing> qaLastSwingByBot = new ConcurrentHashMap<>();
+
+    /** ex-2: what this bot last swung at, or null when it has not swung with QA watching. Read-only. */
+    public static QaSwing qaLastSwing(int botId) {
+        return qaLastSwingByBot.get(botId);
+    }
     /*
      * 1.6.1 ticket 13 (owned alts): mobs a bot may swing at, per bot. An owned alt fights only mobs that are not a
      * stranger's (OwnedAltCombat), and that holds for every mob an AoE catches, not only the one it walked to. Empty for
@@ -336,8 +351,13 @@ public final class BotAttackDriver {
                 BotAttackProfile singleReady = ready(bot, single, now);
                 boolean sloppy = java.util.concurrent.ThreadLocalRandom.current().nextDouble()
                         < BotHabits.of(bot.getId()).sloppyNow();
+                // 1.6.4 boss lane: with the floor switch on, weigh the two attacks' guaranteed damage as well. Off by
+                // default, and read before the measurement, so a server that does not want it pays nothing for it.
+                boolean floorOn = BotSkillChoice.floorOn();
+                double singleFloor = floorOn ? minimumPerMob(bot, singleReady, weapon, nearest) : 0.0;
+                double aoeFloor = floorOn ? minimumPerMob(bot, packAttack, weapon, nearest) : 0.0;
                 BotSkillChoice.Pick pick = BotSkillChoice.choose(packAttack != null, inReach, nearest.isBoss(),
-                        BotCombatTuning.aoeMinMobs(), singleReady != null, sloppy);
+                        BotCombatTuning.aoeMinMobs(), singleReady != null, sloppy, singleFloor, aoeFloor, floorOn);
                 useAoe = pick.aoe();
                 if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.COMBAT)) {
                     soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.COMBAT, bot.getMapId(), "CHOICE " + bot.getName()
@@ -433,6 +453,12 @@ public final class BotAttackDriver {
         BotAranCombo.afterStrike(bot, skillId, targets.size() * Math.max(1, plan.shots()));
         if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.ATTACK)) { // !qa bk-1
             Long last = lastSwingAtByBot.put(bot.getId(), now);
+            Monster first = targets.isEmpty() ? null : targets.get(0);
+            QaSwing before = qaLastSwingByBot.get(bot.getId());
+            qaLastSwingByBot.put(bot.getId(), new QaSwing(
+                    first == null ? 0 : first.getObjectId(), first == null ? 0 : first.getId(), first, reported,
+                    before == null ? 1 : before.swings() + 1, (before == null ? 0 : before.damageTotal()) + reported,
+                    now));
             soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.ATTACK, bot.getMapId(), bot.getName() + " "
                     + bot.getJob() + " skill " + skillId + " lv " + skillLevel + " route " + route + " action "
                     + plan.action() + " facing " + (plan.facingLeft() ? "left" : "right") + " speed " + plan.speed()
@@ -499,6 +525,20 @@ public final class BotAttackDriver {
      * the profile's default capped at the skill's maximum, since a level past it names an effect the
      * viewer's client does not have (MapleRoot's custom 4th-job skills stop at 10, below the default).
      */
+    /**
+     * The damage one mob of these stats is guaranteed to take from this attack: its floor after the mob's defence,
+     * no crit ({@link BotDamage.Swing#minimumPerMob}). Only called when {@code -Dslums.bossfight.damagefloor} is on,
+     * and 0 when there is nothing to weigh.
+     */
+    static double minimumPerMob(Character bot, BotAttackProfile profile, WeaponType weapon, Monster mob) {
+        if (bot == null || profile == null || mob == null || mob.getStats() == null) {
+            return 0.0;
+        }
+        BotDamage.Swing swing = BotDamage.swing(bot, profile.skillId, packetLevel(bot, profile), profile.route, weapon,
+                1, false);
+        return swing.minimumPerMob(mob.getStats(), Math.max(1, profile.numDamage));
+    }
+
     public static int packetLevel(Character bot, BotAttackProfile profile) {
         if (profile.skillId == 0) {
             return 0;

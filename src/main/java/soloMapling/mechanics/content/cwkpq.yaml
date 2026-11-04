@@ -1,0 +1,159 @@
+# Ticket 164, Crimsonwood Keep PQ. Our scripts are the truth; the map's portal and reactor names were read from
+# /root/work/SlumsMS-152-maps/wz/Map.wz/Map/Map6/ (WZ is not in this tree).
+#
+#   scripts/event/CWKPQ.js:26-39 gates (6-30 players, level 90-255, entry 610030100, recruit/exit/clear 610030020,
+#   eventTime 2 = the FIRST stage's timer only, maxLobbies 1); :150-172 seeds glpq1..6 and glpq_f0..7.
+#   Every exit is a portal script that refuses until its own flag is set: glpqPortal2.js:4 (counts), glpqPortal3.js:4
+#   (glpq3 + glpq3_p), glpqPortal4.js:4 (glpq4), glpqPortal5.js:4 (glpq5), glpqPortal6.js:4 (glpq6 == 3).
+#
+# FOUR of the keep's rooms are modelled, and the order here is the flags' order, not the maps' walk (the orchestrator
+# warps between a row's stages, so the row lists the rooms a party must earn). The flames say why they are not here.
+id: cwkpq
+name: Crimsonwood Keep PQ
+kind: PQ
+eventScript: CWKPQ
+# scripts/npc/9201113.js is the front door on the recruit map (610030020); the keep's own scripts name it as the host.
+entryNpc: 9201113
+recruitMap: 610030020
+exitMap: 610030020
+minPlayers: 6
+maxPlayers: 30
+minLevel: 90
+maxLevel: 255
+# 20 minutes, not the script's eventTime of 2: that two-minute clock is the FIRST stage's only (CWKPQ.js:37), and the
+# event restarts it per room - :283-288 gives the Relic room 20 minutes, :288-292 an hour for the next and a minute for
+# the host (see the timers table in REPORT-opq.md). A row's budget is the whole run, so the room timers are the data.
+timeLimitMinutes: 20
+flag: slums.mechanics.cwkpq
+sources:
+  - "scripts/event/CWKPQ.js:26-39 gates, :150-172 the flag seeds, :283-292 the per-room timers"
+  - "scripts/reactor/6109016.js..6109020.js (glpq4, act(), unguarded to five) and 6109003/6109004/6109005..6109009 (glpq3, glpq5)"
+  - "scripts/portal/glpqPortal2/3/4/5/6.js are the exits and each states its own gate"
+  - "scripts/npc/9201115.js:28-94 is the last room: glpq6 0->1->2->3 and clearPQ()"
+  - "map names from /root/work/SlumsMS-152-maps/wz/Map.wz/Map/Map6/ (610030300/500/600); WZ is deliberately not in this tree"
+stages:
+  - stage: 1
+    map: 610030400
+    name: The five job sigils
+    solver: cwkpq-sigils
+    nextPortal: next00
+    roles:
+      - id: signer
+        who: ANY
+        min: 1
+        max: party
+        note: one member per sigil, round robin over the party's own ids; the scripts never check the hitter's job
+    objectives:
+      - id: sigil1
+        kind: HIT_REACTOR
+        role: all
+        reactor: "6109016"
+      - id: sigil2
+        kind: HIT_REACTOR
+        role: all
+        reactor: "6109017"
+      - id: sigil3
+        kind: HIT_REACTOR
+        role: all
+        reactor: "6109018"
+      - id: sigil4
+        kind: HIT_REACTOR
+        role: all
+        reactor: "6109019"
+      - id: sigil5
+        kind: HIT_REACTOR
+        role: all
+        reactor: "6109020"
+    clear:
+      eventProperty: glpq4
+      equals: "5"
+  - stage: 2
+    map: 610030300
+    name: The door that counts five
+    solver: cwkpq-door
+    nextPortal: next00
+    roles:
+      - id: passer
+        who: ANY
+        min: 1
+        max: party
+        note: a passer is warped back onto the same map, so one member can pass more than once
+    objectives:
+      - id: sigils
+        kind: HIT_REACTOR
+        role: all
+        reactor: "6109003"
+      - id: door
+        kind: ENTER_PORTAL
+        role: all
+        note: "glpqPortal2.js:11 counts each passer into glpq3_p and refuses past five"
+    clear:
+      # glpqPortal3.js:4 is the exit's own condition; glpq3 is the reactors' half and the solver keeps it up
+      eventProperty: glpq3_p
+      equals: "5"
+  - stage: 3
+    map: 610030500
+    name: The Relic of Mastery
+    solver: cwkpq-sigils
+    nextPortal: next00
+    roles:
+      - id: restorer
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: weapon0
+        kind: HIT_REACTOR
+        role: all
+        reactor: "6109005"
+      - id: weapon1
+        kind: HIT_REACTOR
+        role: all
+        reactor: "6109006"
+      - id: weapon2
+        kind: HIT_REACTOR
+        role: all
+        reactor: "6109007"
+      - id: weapon3
+        kind: HIT_REACTOR
+        role: all
+        reactor: "6109008"
+      - id: weapon4
+        kind: HIT_REACTOR
+        role: all
+        reactor: "6109009"
+    clear:
+      eventProperty: glpq5
+      equals: "5"
+  - stage: 4
+    map: 610030800
+    name: The host, the Master Guardians and the four Twisted Masters
+    solver: cwkpq-boss
+    npc: 9201115
+    mobs: [9400594, 9400582, 9400590, 9400591, 9400592, 9400593]
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: "9201115.js answers the leader's talk; the others only fight"
+      - id: fighter
+        who: NON_LEADER
+        min: 1
+        max: party-1
+    objectives:
+      - id: guardians
+        kind: DEFEAT
+        role: all
+        note: "glpq6 0 -> 1 spawns ten 9400594 and twenty 9400582 (9201115.js:38-49)"
+      - id: masters
+        kind: DEFEAT
+        role: all
+        note: "glpq6 1 -> 2 spawns 9400590 Margana, 9400591 Red Nirg, 9400592 Rellik, 9400593 Hsalf (9201115.js:55-68)"
+      - id: host
+        kind: TALK_NPC
+        role: leader
+        npc: 9201115
+    clear:
+      # clearPQ() is reached only through glpq6 == 3 (9201115.js:80-91) and sets the instance's own flag
+      instance: true

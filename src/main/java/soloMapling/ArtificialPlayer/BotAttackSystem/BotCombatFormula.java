@@ -291,6 +291,15 @@ public final class BotCombatFormula {
         return r.average() * (1.0 + c.chance() * (c.factor() - 1.0));
     }
 
+    /*
+     * The guaranteed line: the range's own floor after the target's defence, no crit (a crit only ever raises a line,
+     * so there is no crit input here). Against a high-WDEF target this - not the average - is what the attack can
+     * promise, and it is the floor {@link #clamp} keeps at 1 (1.6.4 boss lane, ticket 130 phase 5 phase 2).
+     */
+    public static double estimateMinimumDamage(Range r) {
+        return r.min();
+    }
+
     private static Range clamp(long min, long max) {
         long hi = Math.max(1, Math.min(MAX_LINE, max));
         long lo = Math.max(1, Math.min(hi, min));

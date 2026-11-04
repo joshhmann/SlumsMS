@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer;
 
 import client.BotClient;
 import client.Character;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,7 +15,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import testutil.PropsRestored;
 
+@ExtendWith(PropsRestored.class)
 class PlayerWealthIndexTest {
 
     private static final long DAY = 86_400_000L, HOUR = 3_600_000L;

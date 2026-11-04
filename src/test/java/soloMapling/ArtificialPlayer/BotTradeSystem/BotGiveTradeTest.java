@@ -5,6 +5,7 @@ import client.Character;
 import client.Client;
 import client.inventory.InventoryType;
 import client.inventory.Item;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,12 +24,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import testutil.PropsRestored;
 
 /**
  * 1.6.2 ticket 99: a companion hands things over through a normal trade window at a person's pace (nutnnut/Cosmic
  * BotTradePacing): invite, wait for the accept, one item a beat, the window line, wait for Trade, a longer beat,
  * confirm. A headless recipient (a sibling alt) has its accept and Trade pressed with the same beats.
  */
+@ExtendWith(PropsRestored.class)
 class BotGiveTradeTest {
 
     /** A hand-cranked clock: steps run in time order; {@link #now} is the time of the running step. */

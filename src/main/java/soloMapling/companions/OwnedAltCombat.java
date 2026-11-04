@@ -27,6 +27,9 @@ import java.util.concurrent.ConcurrentHashMap;
  *       holds for every mob its area attacks catch (BotAttackDriver's per-bot filter).</li>
  *   <li><b>By its owner</b>: only mobs within {@link #LEASH_X_PX} px across of the owner - or, for an alt holding a
  *       whole-map lane (1.6.3 s-lanes), of its lane.</li>
+ *   <li><b>In an event instance</b> (1.6.4 boss lane): the party's fight itself, wherever on the map it stands
+ *       ({@link #withinLeash}). A boss' arms are far outside the owner box; an alt that kept to it stood through the
+ *       fight.</li>
  * </ul>
  */
 public final class OwnedAltCombat {
@@ -39,6 +42,19 @@ public final class OwnedAltCombat {
     /** How far across from the owner an alt goes for a mob. */
     static final int LEASH_X_PX = 650;
     static final int LEASH_Y_PX = 250;
+
+    /**
+     * 1.6.4 boss lane (ticket 130): {@code -Dslums.altfight.instanceleash}, <b>off by default</b> (round 9: a switch is
+     * off unless a brief says otherwise, and the release conf carries the on line). Turned on, an event instance reads
+     * the leash as the party's own engagement rule instead of the box around the owner: on the Zakum altar its arms
+     * stand far outside {@link #LEASH_X_PX} px and the alt otherwise stands still while its owner fights them. Outside
+     * an instance the box is exactly what it always was, switch or no switch.
+     */
+    public static final String INSTANCE_LEASH_SWITCH = "slums.altfight.instanceleash";
+
+    static boolean instanceLeashOn() {
+        return Boolean.getBoolean(INSTANCE_LEASH_SWITCH);
+    }
 
     // character id (owner or alt) -> mob object id -> when it last touched them
     private static final Map<Integer, Map<Integer, Long>> touchedBy = new ConcurrentHashMap<>();
@@ -196,7 +212,19 @@ public final class OwnedAltCombat {
                                  long now) {
         // audit (report A2): the owner leash holds for every mob a swing catches, area attacks included, not only for
         // the target it picks
-        return byOwner(m, owner, alt) && mayHit(m, map, party, now) && engaged(m, owner, alt, party, now);
+        return withinLeash(m, owner, alt) && mayHit(m, map, party, now) && engaged(m, owner, alt, party, now);
+    }
+
+    /**
+     * Where an alt's fights are kept near. Outside an event instance that is the owner leash ({@link #byOwner}, the
+     * {@link #LEASH_X_PX} px box); inside one (a boss room, a PQ stage) it is the party's own engagement rule
+     * ({@link #engaged}), which is what "the party's fight" already means - a boss' arms stand far outside the box and
+     * an alt that kept to it stood still through the whole fight (ticket 130 boss lane). Requirement: the mob is still
+     * checked against {@link #mayHit} and {@link #engaged}, so an instance never makes a quiet mob the alt's.
+     * {@code -Dslums.altfight.instanceleash=true} turns the instance rule on; unset, the box applies everywhere.
+     */
+    static boolean withinLeash(Monster m, Character owner, Character alt) {
+        return byOwner(m, owner, alt) || (instanceLeashOn() && alt != null && alt.getEventInstance() != null);
     }
 
     /** The mob is within the owner leash ({@link #LEASH_X_PX} across, {@link #LEASH_Y_PX} up or down). */
@@ -250,7 +278,7 @@ public final class OwnedAltCombat {
             if (mp == null || !m.isAlive() || !BotAttackDriver.botMayTarget(m)) {
                 continue;
             }
-            if (!byOwner(m, owner, alt)) {
+            if (!withinLeash(m, owner, alt)) {
                 continue;
             }
             if (!engaged(m, owner, alt, party, now) || skip.test(m) || !BotAttackDriver.onAttackableSurface(map, at, m)

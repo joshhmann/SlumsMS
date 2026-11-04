@@ -395,7 +395,7 @@ public class CommandsExecutor {
             addCommand("decideshadow", 3, client.command.commands.gm3.DecideShadowCommand.class); // 1.6.0 chat-model shadow run
         }
         if (soloMapling.mechanics.Mechanics.enabled()) {
-            // 1.7.0 ticket 130: bots play the mechanics (KPQ stage 1 in phase 1); TEST only, off without the flag
+            // 1.6.4 ticket 130: bots play the mechanics (KPQ stage 1 in phase 1); TEST only, off without the flag
             addCommand(new String[]{"mechanics", "mech"}, 3, client.command.commands.gm3.MechanicsCommand.class);
         }
         addCommand("editShop", 2,  EditShopCommand.class);

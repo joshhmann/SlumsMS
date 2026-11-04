@@ -1,0 +1,1730 @@
+# Ticket 164 Pre-Zakum PQ - GENERATED, do not hand-edit. Thirty rooms on a hub, walked once.
+# The walk is the row: the maze is a hub (280010000) with fifteen numbered doors and a wing (280011000) behind two of
+# them, and every room's doors are published in its own WZ portal block (pt-1 portals; the hub's are in01..in15). So
+# each stage is one room and its clear is the map the party walks into next - the solver leaves through whichever door
+# on its map leads there (SolverStep.EnterPortalTo), which is why no route is written in Java. The hub therefore
+# appears once per return, because walking back through it is what the party actually does.
+# Chests: reactordrops gives 2112012/2112005 -> 4001015 (the key), 2112004/2112011 -> 4001016 (the ore) and
+# 2112014 -> 4001018 (the document), all at chance 1. A chest yields on its fourth and fifth hit and is inert for ever
+# after (Reactor.java:246-315), which is why the solver hits until the reactor answers -1 instead of counting.
+# The hand-in is the last stage: scripts/npc/2032002.js:71-77 wants 4001018 and :121-127 clears either way - the thirty
+# keys only change the message and the reward, and there is no damage, DPS or party-size check anywhere in that file.
+# Client maps: all thirty exist in Map.wz (280010000-280010150 step ten, plus 011/031/041/071/081/091/101 and
+# 280011000-280011006); tools/ops/map-integrity is clean over every id below.
+id: zakumpq
+name: Pre-Zakum PQ
+kind: PQ
+eventScript: ZakumPQ
+entryNpc: 2030008
+recruitMap: 211042300
+exitMap: 280010000
+minPlayers: 1
+maxPlayers: 6
+minLevel: 50
+maxLevel: 255
+timeLimitMinutes: 30
+flag: slums.mechanics.zakumpq
+sources:
+  - "scripts/event/ZakumPQ.js gates (:26-39) and clearPQ (:253-256); the instance is PreZakum+<lobby> (:115)"
+  - "scripts/npc/2030008.js:73 starts it; 2030013.js:96-112 is the expedition variant"
+  - "scripts/npc/2032002.js:67-127 is the hand-in: 4001018 required, the thirty keys optional"
+  - "the doors are the mine maps' own pt-1 portal blocks; the chest ids and their drops are reactordrops, chance 1"
+stages:
+  - stage: 1
+    map: 280010000
+    name: "the hub: Adobis's cave"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010110
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010110
+  - stage: 2
+    map: 280010110
+    name: "mine room 280010110"
+    solver: zakum-mines
+    hitReactors: [2112004]
+    maps:
+      - 280010000
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010000
+  - stage: 3
+    map: 280010000
+    name: "the hub: Adobis's cave"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010140
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010140
+  - stage: 4
+    map: 280010140
+    name: "mine room 280010140"
+    solver: zakum-mines
+    hitReactors: [2112004]
+    maps:
+      - 280010000
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010000
+  - stage: 5
+    map: 280010000
+    name: "the hub: Adobis's cave"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010130
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010130
+  - stage: 6
+    map: 280010130
+    name: "mine room 280010130"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010000
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010000
+  - stage: 7
+    map: 280010000
+    name: "the hub: Adobis's cave"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010010
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010010
+  - stage: 8
+    map: 280010010
+    name: "mine room 280010010"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010011
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010011
+  - stage: 9
+    map: 280010011
+    name: "mine room 280010011"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010070
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010070
+  - stage: 10
+    map: 280010070
+    name: "mine room 280010070"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010071
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010071
+  - stage: 11
+    map: 280010071
+    name: "mine room 280010071"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280011000
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280011000
+  - stage: 12
+    map: 280011000
+    name: "the ore wing's door"
+    solver: zakum-mines
+    maps:
+      - 280011002
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280011002
+  - stage: 13
+    map: 280011002
+    name: "mine room 280011002"
+    solver: zakum-mines
+    hitReactors: [2112004]
+    maps:
+      - 280011000
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280011000
+  - stage: 14
+    map: 280011000
+    name: "the ore wing's door"
+    solver: zakum-mines
+    maps:
+      - 280011003
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280011003
+  - stage: 15
+    map: 280011003
+    name: "mine room 280011003"
+    solver: zakum-mines
+    hitReactors: [2112004]
+    maps:
+      - 280011000
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280011000
+  - stage: 16
+    map: 280011000
+    name: "the ore wing's door"
+    solver: zakum-mines
+    maps:
+      - 280011001
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280011001
+  - stage: 17
+    map: 280011001
+    name: "mine room 280011001"
+    solver: zakum-mines
+    maps:
+      - 280011000
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280011000
+  - stage: 18
+    map: 280011000
+    name: "the ore wing's door"
+    solver: zakum-mines
+    maps:
+      - 280011004
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280011004
+  - stage: 19
+    map: 280011004
+    name: "mine room 280011004"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280011000
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280011000
+  - stage: 20
+    map: 280011000
+    name: "the ore wing's door"
+    solver: zakum-mines
+    maps:
+      - 280011006
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280011006
+  - stage: 21
+    map: 280011006
+    name: "mine room 280011006"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280011000
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280011000
+  - stage: 22
+    map: 280011000
+    name: "the ore wing's door"
+    solver: zakum-mines
+    maps:
+      - 280011005
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280011005
+  - stage: 23
+    map: 280011005
+    name: "mine room 280011005"
+    solver: zakum-mines
+    hitReactors: [2112014]
+    maps:
+      - 280011000
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280011000
+  - stage: 24
+    map: 280011000
+    name: "the ore wing's door"
+    solver: zakum-mines
+    maps:
+      - 280010071
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010071
+  - stage: 25
+    map: 280010071
+    name: "mine room 280010071"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010070
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010070
+  - stage: 26
+    map: 280010070
+    name: "mine room 280010070"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010011
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010011
+  - stage: 27
+    map: 280010011
+    name: "mine room 280010011"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010010
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010010
+  - stage: 28
+    map: 280010010
+    name: "mine room 280010010"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010000
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010000
+  - stage: 29
+    map: 280010000
+    name: "the hub: Adobis's cave"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010020
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010020
+  - stage: 30
+    map: 280010020
+    name: "mine room 280010020"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010000
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010000
+  - stage: 31
+    map: 280010000
+    name: "the hub: Adobis's cave"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010030
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010030
+  - stage: 32
+    map: 280010030
+    name: "mine room 280010030"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010031
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010031
+  - stage: 33
+    map: 280010031
+    name: "mine room 280010031"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010030
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010030
+  - stage: 34
+    map: 280010030
+    name: "mine room 280010030"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010000
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010000
+  - stage: 35
+    map: 280010000
+    name: "the hub: Adobis's cave"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010040
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010040
+  - stage: 36
+    map: 280010040
+    name: "mine room 280010040"
+    solver: zakum-mines
+    maps:
+      - 280010041
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010041
+  - stage: 37
+    map: 280010041
+    name: "mine room 280010041"
+    solver: zakum-mines
+    hitReactors: [2112011]
+    maps:
+      - 280010050
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010050
+  - stage: 38
+    map: 280010050
+    name: "mine room 280010050"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010041
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010041
+  - stage: 39
+    map: 280010041
+    name: "mine room 280010041"
+    solver: zakum-mines
+    hitReactors: [2112011]
+    maps:
+      - 280010040
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010040
+  - stage: 40
+    map: 280010040
+    name: "mine room 280010040"
+    solver: zakum-mines
+    maps:
+      - 280010000
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010000
+  - stage: 41
+    map: 280010000
+    name: "the hub: Adobis's cave"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010060
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010060
+  - stage: 42
+    map: 280010060
+    name: "mine room 280010060"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010000
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010000
+  - stage: 43
+    map: 280010000
+    name: "the hub: Adobis's cave"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010080
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010080
+  - stage: 44
+    map: 280010080
+    name: "mine room 280010080"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010081
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010081
+  - stage: 45
+    map: 280010081
+    name: "mine room 280010081"
+    solver: zakum-mines
+    maps:
+      - 280010080
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010080
+  - stage: 46
+    map: 280010080
+    name: "mine room 280010080"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010000
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010000
+  - stage: 47
+    map: 280010000
+    name: "the hub: Adobis's cave"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010090
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010090
+  - stage: 48
+    map: 280010090
+    name: "mine room 280010090"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010091
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010091
+  - stage: 49
+    map: 280010091
+    name: "mine room 280010091"
+    solver: zakum-mines
+    hitReactors: [2112004]
+    maps:
+      - 280010090
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010090
+  - stage: 50
+    map: 280010090
+    name: "mine room 280010090"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010000
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010000
+  - stage: 51
+    map: 280010000
+    name: "the hub: Adobis's cave"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010100
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010100
+  - stage: 52
+    map: 280010100
+    name: "mine room 280010100"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010101
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010101
+  - stage: 53
+    map: 280010101
+    name: "mine room 280010101"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010100
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010100
+  - stage: 54
+    map: 280010100
+    name: "mine room 280010100"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010000
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010000
+  - stage: 55
+    map: 280010000
+    name: "the hub: Adobis's cave"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010120
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010120
+  - stage: 56
+    map: 280010120
+    name: "mine room 280010120"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010000
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010000
+  - stage: 57
+    map: 280010000
+    name: "the hub: Adobis's cave"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010150
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010150
+  - stage: 58
+    map: 280010150
+    name: "mine room 280010150"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010000
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010000
+  - stage: 59
+    map: 280010000
+    name: "the hub: Adobis's cave"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      instance: true

@@ -82,6 +82,18 @@ final class LiveStageView implements StageView {
         return List.copyOf(present);
     }
 
+    /** The instance's own players, whether or not the run still counts them as members (a paused run does not). */
+    @Override
+    public boolean registered(int characterId) {
+        return chars.containsKey(characterId);
+    }
+
+    @Override
+    public java.util.Optional<String> nameOf(int characterId) {
+        Character c = chars.get(characterId);
+        return c == null ? java.util.Optional.empty() : java.util.Optional.ofNullable(c.getName());
+    }
+
     @Override
     public String roleOf(int characterId) {
         return run.roleOf(characterId);
@@ -97,9 +109,112 @@ final class LiveStageView implements StageView {
     }
 
     @Override
+    public java.util.Map<String, Integer> portalsOn(int mapId) {
+        server.maps.MapleMap target = mapInstance(mapId);
+        if (target == null) {
+            return java.util.Map.of();
+        }
+        java.util.Map<String, Integer> out = new java.util.LinkedHashMap<>();
+        for (server.maps.Portal p : target.getPortals()) {
+            // only portals that lead somewhere: a spawn point (type 0) and a hidden one (type 1) are not exits
+            if (p != null && p.getName() != null && !p.getName().isBlank() && p.getTargetMapId() != -1
+                    && p.getTargetMapId() != 999999999) {
+                out.putIfAbsent(p.getName(), p.getTargetMapId());
+            }
+        }
+        return out;
+    }
+
+    /** This instance's own copy of a map, or null when the instance does not hold that map. */
+    private server.maps.MapleMap mapInstance(int mapId) {
+        if (eim == null || mapId <= 0) {
+            return null;
+        }
+        try {
+            return eim.getMapInstance(mapId);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    @Override
     public int mapOf(int characterId) {
         Character c = chars.get(characterId);
         return c == null ? -1 : c.getMapId();
+    }
+
+    /**
+     * The boss parts standing on the stage map (ticket 130 phase 5). A part counts as fought by a human when a real
+     * player of the run is alive on the stage: this tree keeps no per-part damage ledger a rule could read, so "a human
+     * is in the fight at all" stands in for BotStory's engaged test (see the ticket's assumptions).
+     */
+    @Override
+    public List<BossTargetRules.Part> bossParts() {
+        if (map == null) {
+            return List.of();
+        }
+        List<Integer> listed = stage().mobs();
+        boolean humanIn = present.stream().anyMatch(m -> !m.bot() && alive(m.characterId()));
+        List<BossTargetRules.Part> out = new ArrayList<>();
+        for (Monster m : map.getAllMonsters()) {
+            if (m == null || !m.isAlive()) {
+                continue;
+            }
+            BossTargetRules.Role role = partRole(m.getId(), listed);
+            if (role == null) {
+                continue;
+            }
+            out.add(new BossTargetRules.Part(m.getId(), role, m.isFake(), role == BossTargetRules.Role.ADD || humanIn,
+                    m.isBuffed(client.status.MonsterStatus.WEAPON_IMMUNITY),
+                    m.isBuffed(client.status.MonsterStatus.MAGIC_IMMUNITY), 0));
+        }
+        return out;
+    }
+
+    @Override
+    public BossTargetRules.Member fighterOf(int characterId) {
+        Character c = chars.get(characterId);
+        soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile profile =
+                c == null ? null : soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver.primaryAttack(c);
+        if (profile == null) {
+            return new BossTargetRules.Member(false, true);
+        }
+        return new BossTargetRules.Member(profile.route == soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile.Route.MAGIC,
+                profile.route == soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile.Route.CLOSE);
+    }
+
+    /** The event's own instance of another map (a boss run's next room), or null when the instance has none. */
+    /** Ends the run from outside the orchestrator's tick (a member that could not be put into its room), with a note. */
+    void endRun(String why) {
+        run.note(run.startedMs(), "abort: " + why);
+        run.fail(why); // a bot that cannot reach its room is a run that tried and failed
+    }
+
+    MapleMap mapFor(int mapId) {
+        return eim.isEventDisposed() ? null : eim.getMapInstance(mapId);
+    }
+
+    /**
+     * The fight's role of a live monster: a part that shields the body, the body itself, an add the stage lists, or
+     * null (not this fight). Zakum's arms are 8800003-8810010 and its body 8800000-8800002; Horntail's parts are
+     * 8810002-8810009 under its body 8810018, its two pre-heads 8810000/8810001 are the single target of the first two
+     * rooms, and its corpse parts 8810010-8810017 and its summon animation 8810026 are never a target.
+     */
+    static BossTargetRules.Role partRole(int mobId, List<Integer> listed) {
+        if (constants.id.MobId.isDeadHorntailPart(mobId) || mobId == constants.id.MobId.SUMMON_HORNTAIL) {
+            return null;
+        }
+        if (constants.id.MobId.isAnyZakumArm(mobId)
+                || (mobId >= constants.id.MobId.HORNTAIL_HEAD_A && mobId <= constants.id.MobId.HORNTAIL_TAIL)) {
+            return BossTargetRules.Role.ARM;
+        }
+        if (constants.id.MobId.isAnyZakumBody(mobId)
+                || mobId == constants.id.MobId.HORNTAIL_PREHEAD_LEFT
+                || mobId == constants.id.MobId.HORNTAIL_PREHEAD_RIGHT
+                || mobId == constants.id.MobId.HORNTAIL) {
+            return BossTargetRules.Role.BODY;
+        }
+        return listed.contains(mobId) ? BossTargetRules.Role.ADD : null;
     }
 
     @Override
@@ -157,6 +272,34 @@ final class LiveStageView implements StageView {
     }
 
     @Override
+    public int floorItemsOn(int mapId, int itemId, int forCharacterId) {
+        return floorDrops(this, mapId == stage().mapId() ? map : mapInstance(mapId), itemId, forCharacterId).size();
+    }
+
+    @Override
+    public int mobsAliveOn(int mapId, int mobId) {
+        server.maps.MapleMap on = mapId == stage().mapId() ? map : mapInstance(mapId);
+        if (on == null) {
+            return 0;
+        }
+        int n = 0;
+        for (server.life.Monster m : on.getAllMonsters()) {
+            if (m != null && m.isAlive() && m.getId() == mobId) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    @Override
+    public Optional<int[]> npcPositionOn(int mapId, int npcId) {
+        server.maps.MapleMap on = mapId == stage().mapId() ? map : mapInstance(mapId);
+        NPC npc = on == null ? null : on.getNPCById(npcId);
+        Point p = npc == null ? null : npc.getPosition();
+        return p == null ? Optional.empty() : Optional.of(new int[]{p.x, p.y});
+    }
+
+    @Override
     public List<Integer> wrongTriesLeft(int characterId) {
         return run.wrongTriesLeft(characterId);
     }
@@ -166,6 +309,89 @@ final class LiveStageView implements StageView {
         NPC npc = map == null ? null : map.getNPCById(npcId);
         Point p = npc == null ? null : npc.getPosition();
         return p == null ? Optional.empty() : Optional.of(new int[]{p.x, p.y});
+    }
+
+    @Override
+    public java.util.List<NpcPlacement> npcPlacements(int npcId) {
+        if (map == null || npcId <= 0) {
+            return java.util.List.of();
+        }
+        java.util.List<NpcPlacement> found = new java.util.ArrayList<>();
+        for (MapObject o : map.getMapObjectsInRange(new Point(0, 0), Double.POSITIVE_INFINITY,
+                List.of(MapObjectType.NPC))) {
+            if (o instanceof NPC npc && npc.getId() == npcId) {
+                found.add(new NpcPlacement(npc.getObjectId(), npc.getPosition().x, npc.getPosition().y));
+            }
+        }
+        return found;
+    }
+
+    @Override
+    public boolean eventCleared() {
+        return eim != null && eim.isEventCleared();
+    }
+
+    @Override
+    public int reactorState(String name) {
+        server.maps.Reactor reactor = map == null || name == null ? null : map.getReactorByName(name);
+        return reactor == null ? -1 : reactor.getState();
+    }
+
+    @Override
+    public int reactorState(int reactorId) {
+        server.maps.Reactor reactor = map == null ? null : map.getReactorById(reactorId);
+        return reactor == null ? -1 : reactor.getState();
+    }
+
+    @Override
+    public boolean wearing(int characterId, int itemId) {
+        Character c = character(characterId);
+        return c != null && soloMapling.ArtificialPlayer.BotGearSystem.BotGear.wearing(c, itemId);
+    }
+
+    @Override
+    public Optional<String> cannotWear(int characterId, int itemId) {
+        Character c = character(characterId);
+        return c == null ? Optional.empty()
+                : Optional.ofNullable(soloMapling.ArtificialPlayer.BotGearSystem.BotGear.cannotWear(c, itemId));
+    }
+
+    @Override
+    public List<ReactorPlacement> reactorsOn(int mapId) {
+        server.maps.MapleMap on = mapId == stage().mapId() ? map : mapInstance(mapId);
+        if (on == null) {
+            return List.of();
+        }
+        List<ReactorPlacement> out = new java.util.ArrayList<>();
+        for (MapObject o : on.getReactors()) {
+            if (o instanceof server.maps.Reactor r) {
+                Point at = r.getPosition();
+                out.add(new ReactorPlacement(r.getObjectId(), r.getId(), r.getName() == null ? "" : r.getName(),
+                        r.getState(), at == null ? 0 : at.x, at == null ? 0 : at.y));
+            }
+        }
+        return out;
+    }
+
+    @Override
+    public int reactorStateByOid(int objectId) {
+        server.maps.Reactor reactor = map == null ? null : map.getReactorByOid(objectId);
+        return reactor == null ? -1 : reactor.getState();
+    }
+
+    @Override
+    public int reactorEventState(String name) {
+        server.maps.Reactor reactor = map == null || name == null ? null : map.getReactorByName(name);
+        return reactor == null ? -1 : reactor.getEventState();
+    }
+
+    @Override
+    public java.awt.Rectangle area(int index) {
+        if (map == null || index < 0) {
+            return null;
+        }
+        List<java.awt.Rectangle> areas = map.getAreas();
+        return index < areas.size() ? areas.get(index) : null;
     }
 
     @Override
@@ -198,7 +424,10 @@ final class LiveStageView implements StageView {
 
     /**
      * Drops of {@code itemId} on the map that this member may take: its own, a monster's drop by the game's party
-     * loot rule (a pass a fellow member's kill left), or a hand-over made for it.
+     * loot rule (a pass a fellow member's kill left), or a hand-over made for it. {@code itemId} 0 means "anything
+     * on the floor", mesos included: OPQ stage 3 ("storage") clears only when the map holds no monster <em>and no
+     * item at all</em> ({@code scripts/npc/2013001.js:920010300} "cm.getMap().countItems() == 0", and
+     * {@code MapleMap.countItems()} counts every {@code MapItem}), so the party must sweep mesos up too.
      */
     static List<MapItem> floorDrops(StageView view, MapleMap map, int itemId, int forCharacterId) {
         List<MapItem> out = new ArrayList<>();
@@ -207,7 +436,8 @@ final class LiveStageView implements StageView {
         }
         for (MapObject o : map.getMapObjectsInRange(new Point(0, 0), Double.POSITIVE_INFINITY,
                 List.of(MapObjectType.ITEM))) {
-            if (o instanceof MapItem mi && !mi.isPickedUp() && mi.getMeso() == 0 && mi.getItemId() == itemId
+            if (o instanceof MapItem mi && !mi.isPickedUp()
+                    && (itemId > 0 ? mi.getMeso() == 0 && mi.getItemId() == itemId : mi.getMeso() > 0 || mi.getItemId() > 0)
                     && mayTake(view, forCharacterId, mi)) {
                 out.add(mi);
             }

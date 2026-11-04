@@ -1,0 +1,63 @@
+# Ticket 130 boss lane, branch 164-bossrows: GuardianNex, cave 1 of six (1.6.4).
+#
+# Read only when the server runs with -Dslums.mechanics.boss=true (off by default). One map, one fight, and the clear is
+# the script's own clearPQ(): GuardianNex.js writes no event property the row could read.
+#
+# What OUR scripts say the room is:
+#  - ONE script, SIX caves. GuardianNex.js:1-6 declares minPlayers 1, a 15-minute timer, exitMap 240070000, eventMap
+#    240070010 and eventBossIds [7120100, 7120101, 7120102, 8120100, 8120101, 8140510]. setup() (:10-19) builds
+#    instance "Nex_" + lobbyId and resets the cave that lobby names, eventMap + 10 * lobbyId; playerEntry (:25-28) warps
+#    the player to that same cave. So the six rows differ in exactly one number, and the instance's own map is what tells
+#    them apart - which is why MechanicsRuns.contentFor(eventScript, instanceMapIds) exists (see the row id comment).
+#  - entry is a portal plus a quest, and the quest picks the cave: scripts/portal/TD_neo_inTree.js:8-9 lists quests
+#    [3719, 3724, 3730, 3736, 3742, 3748] against mobs [7120100, 7120101, 7120102, 8120100, 8120101, 8140510], takes the
+#    first one the player has ACTIVE (:11-13), refuses if that quest already has progress on the mob (:13-16), and calls
+#    nex.startInstance(i, player) (:18) - a single-character instance, so minPlayers 1 / maxPlayers 1. The quest ladder is
+#    Quest.wz/Check.img.xml 3719 -> lvmin 70, 3724 -> 73, 3730 -> 77, 3736 -> 81, 3742 -> 85, 3748 -> 90, NPC 2082004.
+#    The row can state this cave's level (minLevel 70); it cannot express "quest 3719 active" - no run writes quest
+#    state - so a starter without it is refused at the portal, where the player sees it, not silently mid-fight.
+#  - the fight is one monster: 7120100 is the map's own life (Map.wz/Map/Map2/240070010.img.xml, the map's only life entry,
+#    mobTime -1 at 277,379). Nothing in scripts/ or src/ spawns it, so the room does not wait on an arrival
+#    (no spawnWaitSeconds) and Mob.wz/7120100.img.xml has no info/revive: one form.
+#  - the clear is monsterKilled -> clearPQ -> eim.setEventCleared() with no property (GuardianNex.js:99-103 and :94-97);
+#    this cave's id is the only thing isTheBoss there accepts. The script's own timeout (:31-40) exits and disposes.
+id: guardiannex1
+name: GuardianNex, cave 1
+kind: BOSS
+# the same event script as the other five caves: the arming seam picks the row whose stage is the map the instance was
+# built on, and arms nothing when it cannot tell (MechanicsRuns.contentFor(String, Collection<Integer>)).
+eventScript: GuardianNex
+recruitMap: 240070000
+minPlayers: 1
+maxPlayers: 1
+minLevel: 70
+maxLevel: 255
+timeLimitMinutes: 15
+exitMap: 240070000
+sources:
+  - "scripts/event/GuardianNex.js (ours, the truth): minPlayers 1 (:1), timeLimit 15 (:2), exitMap 240070000 (:4),
+    eventMap 240070010 (:5), eventBossIds (:6), setup resets eventMap + 10 * lobbyId (:10-19), playerEntry warps to the
+    same cave (:25-28), scheduledTimeout exits and disposes (:31-40), clearPQ sets only the instance's flag (:94-97),
+    monsterKilled (:99-103)"
+  - "scripts/portal/TD_neo_inTree.js:8-9 - the cave is chosen by which of quests [3719, 3724, 3730, 3736, 3742, 3748]
+    the player has active, matched to mobs [7120100, 7120101, 7120102, 8120100, 8120101, 8140510]; :13-16 refuses a
+    quest that already has progress on its mob; :18 em.startInstance(i, player), one character"
+  - "Quest.wz/Check.img.xml imgdir 3719 (dump /root/work/SlumsMS-170-evan/wz): npc 2082004, lvmin 70; the level
+    ladder across the six is 70/73/77/81/85/90"
+  - "Map.wz/Map/Map2/240070010.img.xml (same dump): the map's only life entry is 7120100, mobTime -1, at (277,379);
+    Mob.wz/7120100.img.xml has no info/revive"
+  - "No upstream BotStory recording covers this boss; nothing here comes from one"
+stages:
+  - stage: 1
+    map: 240070010
+    name: GuardianNex, cave 1
+    solver: boss-phases
+    mobs:
+      - 7120100
+    objectives:
+      - id: boss
+        kind: DEFEAT
+        mob: 7120100
+        note: the only monster in the cave; its death is the script's clearPQ
+    clear:
+      instance: true

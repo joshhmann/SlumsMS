@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer;
 
 import client.BotClient;
 import client.Character;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,12 +29,14 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import testutil.PropsRestored;
 
 /**
  * Owner report 2026-10-24, the other half: personal space kept shoving a chatting bot away from the player. While a
  * bot holds a chat, personal space may only clear a partner (step to 15-30 px) and must never push it away from the
  * player because a third character crowded in.
  */
+@ExtendWith(PropsRestored.class)
 class PersonalSpaceChatTest {
 
     private MapleMap map;

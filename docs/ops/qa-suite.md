@@ -253,6 +253,31 @@ recruiter's member quest, and has a boss-log entry left; never past the maximum.
 <type>: owner|map|level|quest|quota|busy|full`. In game: party with your bots, talk to Adobis, make the expedition,
 and the yellow lines say `[Expedition] <bot> joined with you.`; inside, the followers fight next to you.
 
+## ex-2: a GM and party bots fight Zakum in the real expedition (1.6.4)
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `ex-2 [your alt's name]` | Warps you (level 50+, no party or leading one) to Adobis's map 211042400, stages 4 follower bots, summons your own alt (make one with `!qa do alts`) into your party when you name one, then makes the channel's Zakum expedition and starts `ZakumBattle`'s instance the way the recruiter does - which registers and warps everyone standing there to 280030000. Once two of you are in the room it clicks the Eye of Fire (reactor 2111001) with the same call `StepExecutor` uses. Samples once a second for 90 s and up to 150 s, then stops. Expedition, instance, alt and bots are undone at `!qa stop`. Runs 4 minutes | `EX2 START members=<n> bots=<n> alt=<name> mechanics=<b> slums.mechanics.boss=<v> ...`, per member per second `EX2 SEEN t=<s> <name> <kind> map=<id> held=<yes/no> run=<yes/no> target=<oid>/<mob> <mob name> reach=<yes/no> swings=<n> dmg=<n> doing=<run line>`, every 10 s `EX2 PARTS t=<s> <id:hp/maxHp ...>` and `EX2 RUN t=<s> stage=<n> cleared=<b> ended=<reason\|-> events=<k> \| <lines>`, `EX2 ALTAR t=<s> hit reactor 2111001 as <you>, <n> mob(s) on the map now`, then `EX2 PASS cleared ...`, `EX2 FAIL <reason>`, `EX2 END still fighting ...` or `EX2 BASELINE boss=off ...` |
+
+Run it twice from the same build: once with `-Dslums.mechanics.boss=true -Dslums.bossfight.damagefloor=true
+-Dslums.bossfight.deathcount=true` and once without, and compare the `EX2 SEEN swings/dmg` totals and the verdict. The
+`EX2 START` line records the switches, so the two logs label themselves. On a build that does not know a switch the
+value reads `unset`; `EX2 BASELINE` means `slums.mechanics.boss` was off, which is a comparable run, not a verdict.
+
+The alt is optional: with no name the run stages you and the follower bots only, which is exactly what auto-QA can
+make (it cannot create a named alt). That is how `t-ex-2` proves the room on every build: it runs `ex-2` with no
+argument, waits for the `EX2 CHECK` line, and asserts the things a regression would break - `members=<reached>/<staged>`
+equal and at least 2, a boss mob id targeted, `reach=yes` (a swing from where the bot stood could reach it),
+`swings>0`, `dmg>0`, `altar=yes`, and `lacks("Abandon")` / `lacks("could not be put in map")` over the whole log. The
+`EX2 CHECK` line is written in both switch settings, so a run with the lane off still reads honestly (`boss=no`,
+`swings=0`, then `EX2 BASELINE`); `t-ex-2` SKIPs in that setting rather than passing on a baseline, which is why
+`tools/ops/autoqa-proof` prints `needs -Dslums.mechanics.boss=true on the server for t-ex-2`. A release run therefore
+has to carry that switch, as it already carries `-Dslums.mechanics=true` for t-mx-1 to t-mx-6.
+
+Owner 2026-11-02 (ticket 130 follow-up): `ex-1` stops at "the expedition exists". `ex-2` is the one that proves a fight
+happens at all, and its log is what the boss lane is judged on from the outside - target, reach, damage, and the run's
+own `Abandon`/`gave up` lines.
+
 ## nx-1: buy a 10k NX code for 50m (1.6.0)
 
 | Test | What it stages | What to look for |
@@ -1211,7 +1236,8 @@ Tests: `GroundingAsSentTest` (synthetic grounding, sent positions), `ChatQuality
 
 ### Proving one fix between merge times (ticket 164 b223)
 
-Auto-QA has 186 checks; a fix touches a handful of files. `tools/ops/autoqa-proof` turns the second into the first:
+Auto-QA has 190 checks (the count is read from `AutoQaCatalog.java`, never written into the tool); a fix touches a
+handful of files. `tools/ops/autoqa-proof` turns the second into the first:
 it reads the coverage map and prints, for the files a branch changed, the check ids that prove them, ending in a line
 you can paste.
 
@@ -1233,7 +1259,7 @@ auto-QA proof for 8c42275d9^..591127f79: 10 files
   src/test/java/soloMapling/autoqa/Probes164Test.java                                  unit test only (the suite covers it)
   ...
 
-checks: 9 of 186
+checks: 9 of 190
   t-bc-1
   t-bt-2
   t-gr-1
@@ -1252,13 +1278,20 @@ anything itself: it touches no server, and `tools/ops/autoqa-run` is still the o
 (`mapletest`, 192.168.0.111; `SLUMS_TEST_HOST` overrides).
 
 What it says, per file: the checks it reaches, `docs` (a markdown file or `docs/`), `unit test only (the suite covers
-it)`, `every check (runner/platform file)` for the auto-QA runner itself, or `no check covers this file`. Three
+it)`, `every check (engine file: all of them run on it)` for a file the auto-QA engine itself is built from, or `no check covers this file`. Three
 verdicts come in whole-change form:
 
 - `docs only, no proof run needed` — nothing to queue.
 - `tests only, no auto-QA run needed (the unit suite is the proof)` — the same.
 - `no check covers this change: run the unit suite, then decide by hand`, exit code 3 — a tool, a data file or a
   script no check proves. Look at the check list for the nearest neighbour, or add a check (above) and a map row.
+
+When an engine file changes, the whole-change answer says so instead of replacing the branch: `checks: every check
+(190) - 3 changed files change the engine they all run on:`, then those files, then the 190 ids grouped as ranges
+(`t-mx-1..t-mx-6`) so a reader can still run the subset they care about, then `tools/ops/autoqa-run all`. Before that
+fix the tool answered `every check (186)` from a literal, which was both a stale number and the one answer that told
+a reader nothing about the branch. The count and the map's ids are cross-checked on every run: a map naming a check
+the catalogue does not declare, or a catalogue declaring one twice, is an error and no number is printed.
 
 Two more lines matter: `needs -Dslums.mechanics=true on the server for t-mx-1, ...` (the KPQ checks refuse and SKIP
 without the flag) and `manual-only, needs a person and a real client` for the ids in
@@ -1276,7 +1309,9 @@ matches at least one file in the worktree, the `-` rows are exactly the release 
 and `t-mx-2`, no path key claims `tools/release/*` or a docs page, and the printed id list still parses as a
 selector for `AutoQaService.select` / `tools/ops/autoqa-run`. So adding a check without a map row fails the build.
 `tools/ops/test_autoqa_proof.py` covers the tool itself (globs, the three verdicts, range mode on a throw-away repo,
-and that the printed line queues the same ids in `AUTOQA_LOCAL_DIR` mode):
+that the printed line queues the same ids in `AUTOQA_LOCAL_DIR` mode, that the printed total equals the catalogue's
+declaration count and the digits of that count appear nowhere in the script, and that a map naming an unknown check
+fails loudly):
 
 ```
 python3 tools/ops/test_autoqa_proof.py

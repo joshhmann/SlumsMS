@@ -74,12 +74,33 @@ function setEventExclusives(eim) {
     eim.setExclusiveItems(itemSet);
 }
 
+function tierLevel(eim) {   //the tier this run is played at: 1 unless the server runs tiers and the row names one
+    var TierScaling = Java.type('soloMapling.mechanics.TierScaling');
+    if (!TierScaling.on()) {
+        return 1;   //tiers off: every run is NORMAL, byte for byte, however it was started
+    }
+    var MechanicsRuns = Java.type('soloMapling.mechanics.MechanicsRuns');
+    var eventName = (typeof em === 'undefined' || em == null) ? "" : em.getName();   //the owner of this script
+    var tier = TierScaling.requested(MechanicsRuns.contentFor(eventName));   //NORMAL unless the row names the tier
+    var rowLevel = tier.ordinal() + 1;
+    var startedLevel = eim.getIntProperty("level");    //what startInstance was handed for this instance
+    var level = (startedLevel > rowLevel) ? startedLevel : rowLevel;
+    return (level >= 2) ? 2 : 1;   //this script defines rewards for level 1 and level 2 only
+}
+
 function setEventRewards(eim) {
     var itemSet, itemQty, evLevel, expStages;
 
-    evLevel = 1;    //Rewards at clear PQ
+    // The difficulty this instance was started at (setup's `level`; NORMAL is 1 and pays exactly what this script
+    // always paid). A tier changes only HOW MUCH of each item the clear pays: the ids are the same at every level, and the
+    // clear-stage EXP below is shared by both, because "harder pays more experience" is the hidden bonus the owner
+    // rejected. Reading it through TierScaling keeps one gate: with -Dslums.mechanics.tiers off this is always level 1.
+    evLevel = (tierLevel(eim) >= 2) ? 2 : 1;
     itemSet = [4001158];
     itemQty = [1];
+    if (evLevel == 2) {   //HARD: the same ids, twice the quantity - the only thing a tier may move
+        itemQty = [2];
+    }
     eim.setEventRewards(evLevel, itemSet, itemQty);
 
     expStages = [1600];    //bonus exp given on CLEAR stage signal

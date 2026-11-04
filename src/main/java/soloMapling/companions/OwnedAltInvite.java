@@ -1,6 +1,8 @@
 package soloMapling.companions;
 
 import client.Character;
+import net.server.channel.handlers.AcceptFamilyHandler;
+import net.server.channel.handlers.GuildOperationHandler;
 import soloMapling.ArtificialPlayer.BotPartySystem.CompanionSwitches;
 import tools.PacketCreator;
 
@@ -47,5 +49,58 @@ public final class OwnedAltInvite {
             }
         });
         return true;
+    }
+
+    /**
+     * e02: {@code -Dslums.ownedalts.acceptownerinvite=true}, off unless a server starts with it - the same shape as
+     * {@code -Dslums.alts.lanes} (a {@code -D} property and not a config key: an unknown {@code config.yaml} key stops
+     * a server booting). Switched on, one class of invite stops waiting for a human: family and guild invites from a
+     * character to its own summoned alt are answered by the alt.
+     */
+    public static final String OWNER_INVITE_SWITCH = "slums.ownedalts.acceptownerinvite";
+
+    public static boolean ownerInvitesAccepted() {
+        try {
+            return Boolean.getBoolean(OWNER_INVITE_SWITCH);
+        } catch (RuntimeException | LinkageError e) {
+            return false;
+        }
+    }
+
+    /**
+     * e02: true when {@code target} is one of {@code inviter}'s own alts and {@link #OWNER_INVITE_SWITCH} is on - the
+     * only case where a headless character answers an invite itself. Every population bot, every other player's alt
+     * and an alt whose owner is not the inviter stay refused, exactly as {@link OwnedAltService#interactionRefusal}
+     * says.
+     */
+    public static boolean acceptsOwnerInvite(Character inviter, Character target) {
+        if (!ownerInvitesAccepted() || inviter == null || target == null) {
+            return false;
+        }
+        if (!target.isOwnedAlt() || inviter.isOwnedAlt() || inviter.isBot()) {
+            return false;
+        }
+        Character owner = target.getOwnedAltOwner();
+        return owner != null && owner.getId() == inviter.getId();
+    }
+
+    /**
+     * e02: the alt answers {@code owner}'s "be my junior" invite the way its client would have. The family rules above
+     * the invite (same map, level, generations) are the same ones a human invite meets; the answer runs on this thread
+     * as the accept packet's body does.
+     */
+    public static void acceptFamily(Character alt, Character owner) {
+        AcceptFamilyHandler.answer(alt, owner, true);
+    }
+
+    /**
+     * e02: the alt answers {@code owner}'s guild invite and joins through the accept packet's own body, so the member
+     * row, the guild packets and the bot guildmates' welcome are the ones a human accept produces.
+     */
+    public static boolean acceptGuild(Character alt, Character owner) {
+        if (owner == null || owner.getGuildId() <= 0) {
+            return false;
+        }
+        return GuildOperationHandler.joinAfterInvite(alt, owner.getGuildId());
     }
 }

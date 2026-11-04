@@ -78,7 +78,7 @@ public final class BotCommitments {
         if (soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.holds(chr.getId())) {
             return true;
         }
-        // 1.7.0 ticket 130: a bots-play-the-mechanics run is driving it (released when the run ends).
+        // 1.6.4 ticket 130: a bots-play-the-mechanics run is driving it (released when the run ends).
         if (soloMapling.mechanics.MechanicsHold.committed(chr)) {
             return true;
         }

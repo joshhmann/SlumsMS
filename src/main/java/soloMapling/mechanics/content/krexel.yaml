@@ -1,0 +1,57 @@
+# Ticket 130 boss lane, branch 164-bossrows: Krexel (1.6.4).
+#
+# Read only when the server runs with -Dslums.mechanics.boss=true (off by default). One room whose only resident is the
+# reactor that brings the fight.
+#
+# What OUR scripts say the room is:
+#  - the gate is the script's own: 1-6 players, levels 1-255, one lobby (KrexelBattle.js:28-29,40);
+#  - entry is the expedition NPC (scripts/npc/3003133.js:50,173 -> startInstance(expedition)): one human character has to
+#    start it, as for Zakum;
+#  - 541020800 holds nothing but reactor 5411001 (Map.wz/Map/Map5/541020800.img.xml: no mobs). The reactor is act()-based
+#    (scripts/reactor/5411001.js:22-29): it spawns 9420521 and sets "summoned"/"canEnter";
+#  - the fight is a WZ revive chain: Mob.wz/9420521.img.xml revive/0 = 9420522, which has none. 9420522 is isKrexel
+#    (KrexelBattle.js:218-221);
+#  - the clear is clearPQ -> setEventCleared(KREXEL) (KrexelBattle.js:213-216) when 9420522 dies (:223-232); "boss" is
+#    seeded "0" at :125 and never written again -> instance: true.
+#
+# Why there is no summonProperty: the reactor writes "summoned" on the click, and the solver's summon gate is checked
+# before the click it is supposed to make - a row that waited for it would deadlock. spawnWaitSeconds covers the window
+# between the click and the spawn instead.
+#
+# The wz facts are from /root/work/SlumsMS-170-evan/wz, which is not version-pinned to this branch (docs/PROVENANCE.md).
+id: krexel
+name: Krexel (expedition)
+kind: BOSS
+eventScript: KrexelBattle
+recruitMap: 541020700
+exitMap: 541020700
+minPlayers: 1
+maxPlayers: 6
+minLevel: 1
+maxLevel: 255
+timeLimitMinutes: 45
+sources:
+  - "scripts/event/KrexelBattle.js (ours, the truth): minPlayers 1 / maxPlayers 6 and levels 1-255 (:28-29), entryMap 541020800 and exitMap 541020700 (:30-31), minMapId = maxMapId = 541020800 (:35-36), eventTime 45 (:38), maxLobbies 1 (:40), 'boss' seeded '0' (:125), clearPQ sets the instance's flag (:213-216), isKrexel = 9420522 (:218-221), monsterKilled -> eim.clearPQ() (:223-232)"
+  - "scripts/reactor/5411001.js:22-29 - act() spawns 9420521, sets \"summoned\"/\"canEnter\", creates the ps00 monitor; it is act()-based, so Reactor.java:242-246 sends a bot's click to it. Unlike scripts/reactor/2408003.js:30-34 (touch() only) it is reachable by a bot"
+  - "Map.wz/Map/Map5/541020800.img.xml (dump /root/work/SlumsMS-170-evan/wz): the map's life is reactor 5411001 only. Mob.wz/9420521.img.xml revive/0 = 9420522, Mob.wz/9420522.img.xml none"
+  - "scripts/npc/3003133.js:50,173 - the expedition NPC starts the event, so the party needs a human leader"
+stages:
+  - stage: 1
+    map: 541020800
+    name: Krexel
+    solver: boss-phases
+    # the bot clicks 5411001 once; 9420521 arrives from that click, so the room may stand empty until it does.
+    hitReactors: [5411001]
+    # 60 s is a policy number (the click, the spawn and a respawn animation, with margin), not a WZ one.
+    spawnWaitSeconds: 60
+    mobs:
+      - 9420521
+      - 9420522
+    objectives:
+      - id: boss
+        kind: DEFEAT
+        mob: 9420522
+        note: the second form, and the id isKrexel waits for
+    # KrexelBattle.js:213-216 writes no property; the instance's own flag is the clear.
+    clear:
+      instance: true

@@ -75,6 +75,9 @@ public final class FamilyAddHandler extends AbstractPacketHandler {
             if (addChr.isBot()) {
                 // 1.6.1 ticket 53: a bot has no client to show the invite; it answers by its social rules
                 soloMapling.ArtificialPlayer.BotFamily.onInvite(addChr, chr);
+            } else if (soloMapling.companions.OwnedAltInvite.acceptsOwnerInvite(chr, addChr)) {
+                // e02: an alt answers its own owner's invite; nobody else's invite ever reaches it
+                soloMapling.companions.OwnedAltInvite.acceptFamily(addChr, chr);
             } else {
                 addChr.getClient().sendPacket(PacketCreator.sendFamilyInvite(chr.getId(), chr.getName()));
             }

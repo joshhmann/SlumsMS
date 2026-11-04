@@ -50,6 +50,15 @@ public final class KpqStaging {
     private KpqStaging() {
     }
 
+    /**
+     * The number the event script's {@code setup(difficulty, leaderId)} receives: {@link MechanicsModel.Tier#NORMAL} is
+     * 1, which is the argument every party quest was started with before tiers existed, so a NORMAL run is byte-identical
+     * on the script side.
+     */
+    static int difficulty(MechanicsModel.Tier tier) {
+        return (tier == null ? MechanicsModel.Tier.NORMAL : tier).ordinal() + 1;
+    }
+
     /** The shipped KPQ stage data, or null (the reason goes to {@code why}). */
     static Content kpq(Consumer<String> why) {
         StageData.Result r = StageData.load();
@@ -99,30 +108,98 @@ public final class KpqStaging {
     public static Staged start(Channel on, Character gm, boolean withGm, int bots, boolean perfect, long budgetMs,
                                int firstStage, int lastStage, Consumer<String> reporter,
                                Consumer<MechanicsRuns.Active> afterCleanup) {
-        if (!Mechanics.enabled()) {
-            return new Staged(null, List.of(), "mechanics is off (start the server with -D" + Mechanics.FLAG + "=true)");
-        }
         String[] why = {null};
         Content content = kpq(w -> why[0] = w);
         if (content == null) {
             return new Staged(null, List.of(), why[0]);
         }
+        return start(content, on, gm, withGm, bots, perfect, budgetMs, firstStage, lastStage, reporter, afterCleanup);
+    }
+
+    /**
+     * Stages and starts a run of {@code content} - any party quest row, not Kerning's alone: which map the party forms
+     * on, which NPC a bot leader accepts the quest from, the level band and the event are all the row's own fields
+     * ({@code recruitMap}, {@code entryNpc}, {@code minLevel}/{@code maxLevel}, {@code eventScript}). Nothing about
+     * Kerning lives in this method, which is what lets a second party quest use it instead of a copy of it.
+     *
+     * <p>The bots are spawned on the row's recruit map at the row's floor level ({@code minLevel}) up to five above it,
+     * the party is made, and the run starts either past the GM (he leads, {@code withGm}) or by the bot leader talking
+     * to the row's entry NPC - so a bot party enters the way a player's does, through the quest's own script.
+     */
+    public static Staged start(Content content, Channel on, Character gm, boolean withGm, int bots, boolean perfect,
+                               long budgetMs, int firstStage, int lastStage, Consumer<String> reporter,
+                               Consumer<MechanicsRuns.Active> afterCleanup) {
+        return start(content, MechanicsModel.Tier.NORMAL, on, gm, withGm, bots, perfect, budgetMs, firstStage, lastStage,
+                reporter, afterCleanup, RealRunPool.exempt(RealRunPool.Origin.STAGED));
+    }
+
+    /**
+     * As above at a difficulty tier. The tier reaches the three places that must agree on it: the party quest's own
+     * {@code setup(difficulty, leaderId)} (through {@code startInstance}, where NORMAL is 1 and the stock call),
+     * {@link MechanicsRuns#start} so the run itself knows which rules apply, and the row's level band through
+     * {@link Content#rules(MechanicsModel.Tier)}.
+     */
+    public static Staged start(Content content, MechanicsModel.Tier tier, Channel on, Character gm, boolean withGm,
+                               int bots, boolean perfect, long budgetMs, int firstStage, int lastStage,
+                               Consumer<String> reporter, Consumer<MechanicsRuns.Active> afterCleanup) {
+        // a GM's !mechanics and a QA scenario come this way: forced real, never counted in the pool, never refused
+        return start(content, tier, on, gm, withGm, bots, perfect, budgetMs, firstStage, lastStage, reporter,
+                afterCleanup, RealRunPool.exempt(RealRunPool.Origin.STAGED));
+    }
+
+    /**
+     * As above for a run {@link RealRunPool} admitted ({@code admission}: the content lobbies). The place it holds is
+     * given back when this call does not end in a playing run - any refusal, any throw - and by the run itself when it
+     * ends ({@code MechanicsRuns.finish}).
+     */
+    public static Staged start(Content content, Channel on, Character gm, boolean withGm, int bots, boolean perfect,
+                               long budgetMs, int firstStage, int lastStage, Consumer<String> reporter,
+                               Consumer<MechanicsRuns.Active> afterCleanup, RealRunPool.Admission admission) {
+        return start(content, MechanicsModel.Tier.NORMAL, on, gm, withGm, bots, perfect, budgetMs, firstStage,
+                lastStage, reporter, afterCleanup, admission);
+    }
+
+    /** The one every overload goes through: the tier of the party quest, the place the run holds. */
+    public static Staged start(Content content, MechanicsModel.Tier tier, Channel on, Character gm, boolean withGm,
+                               int bots, boolean perfect, long budgetMs, int firstStage, int lastStage,
+                               Consumer<String> reporter, Consumer<MechanicsRuns.Active> afterCleanup,
+                               RealRunPool.Admission admission) {
+        boolean playing = false;
+        try {
+            Staged staged = stage(content, tier, on, gm, withGm, bots, perfect, budgetMs, firstStage, lastStage,
+                    reporter, afterCleanup, admission);
+            playing = staged.active() != null && !staged.active().run().ended();
+            return staged;
+        } finally {
+            if (!playing) {
+                admission.release();
+            }
+        }
+    }
+
+    private static Staged stage(Content content, MechanicsModel.Tier tier, Channel on, Character gm, boolean withGm,
+                                int bots, boolean perfect, long budgetMs, int firstStage, int lastStage,
+                                Consumer<String> reporter, Consumer<MechanicsRuns.Active> afterCleanup,
+                                RealRunPool.Admission admission) {
+        if (!Mechanics.enabled()) {
+            return new Staged(null, List.of(), "mechanics is off (start the server with -D" + Mechanics.FLAG + "=true)");
+        }
         Channel ch = on != null ? on : gm.getClient().getChannelServer();
         if (withGm && ch != gm.getClient().getChannelServer()) {
             return new Staged(null, List.of(), "a run with you in it is staged on your own channel");
         }
-        MapleMap recruit = ch.getMapFactory().getMap(RECRUIT_MAP);
+        MapleMap recruit = ch.getMapFactory().getMap(content.recruitMap());
         if (recruit == null) {
-            return new Staged(null, List.of(), "map " + RECRUIT_MAP + " did not load");
+            return new Staged(null, List.of(), "map " + content.recruitMap() + " did not load");
         }
-        EventManager em = ch.getEventSM().getEventManager(EVENT);
+        EventManager em = ch.getEventSM().getEventManager(content.eventScript());
         if (em == null) {
-            return new Staged(null, List.of(), "no " + EVENT + " event on channel " + ch.getId());
+            return new Staged(null, List.of(), "no " + content.eventScript() + " event on channel " + ch.getId());
         }
         int partyNow = withGm && gm.getParty() != null ? gm.getParty().getMembers().size() : 0;
         if (withGm) {
             if (gm.getLevel() < content.minLevel()) {
-                return new Staged(null, List.of(), "KPQ takes level " + content.minLevel() + "+ (you are "
+                return new Staged(null, List.of(), content.name() + " takes level " + content.minLevel() + "+ (you are "
                         + gm.getLevel() + ")");
             }
             if (gm.getParty() != null && gm.getParty().getLeaderId() != gm.getId()) {
@@ -138,19 +215,22 @@ public final class KpqStaging {
             return new Staged(null, List.of(), full);
         }
         if ((withGm ? Math.max(1, partyNow) : 0) + want < content.minPlayers()) {
-            return new Staged(null, List.of(), "KPQ needs " + content.minPlayers() + "-" + content.maxPlayers()
-                    + " in the party");
+            return new Staged(null, List.of(), content.name() + " needs " + content.minPlayers() + "-"
+                    + content.maxPlayers() + " in the party");
         }
         if (withGm && gm.getMap() != recruit) {
             gm.changeMap(recruit, recruit.getPortal(0));
         }
 
         List<Integer> spawned = new ArrayList<>();
-        List<Character> botChars = spawnBots(recruit, want, spawned);
+        // a bot spawns at the row's floor level and up to five above it: Kerning's are 30-35 as before (its row starts
+        // at 21), and a row that starts at 51 gets 51-56 - inside the row's own gate either way
+        int botMin = Math.max(content.minLevel(), 30);
+        List<Character> botChars = spawnBots(recruit, want, spawned, content.entryNpc(), botMin, botMin + 5);
         if (botChars.size() < want) {
             cleanup(spawned);
             return new Staged(null, List.of(), "only " + botChars.size() + " of " + want + " bots spawned on "
-                    + RECRUIT_MAP + " (channel " + ch.getId() + ")");
+                    + content.recruitMap() + " (channel " + ch.getId() + ")");
         }
 
         Character leader = withGm ? gm : botChars.get(0);
@@ -168,9 +248,10 @@ public final class KpqStaging {
         List<PartyCharacter> eligible = em.getEligibleParty(party);
         if (eligible.size() < content.minPlayers()) {
             cleanup(spawned);
-            return new Staged(null, List.of(), "Lakelis would refuse: " + eligible.size() + " eligible member(s)"
-                    + " (all on " + RECRUIT_MAP + ", level " + content.minLevel() + "+)");
-        }
+            return new Staged(null, List.of(), String.valueOf(content.entryNpc()) + " would refuse: "
+                    + eligible.size() + " eligible member(s) (all on " + content.recruitMap() + ", level "
+                    + content.minLevel() + "+)");
+    }
         boolean started;
         String lakelisSaid = "";
         if (!withGm) {
@@ -180,17 +261,19 @@ public final class KpqStaging {
         }
         if (withGm) {
             // the GM leads: staging presses Lakelis' button for him (a GM tool), the same call the script makes
-            started = MechanicsRuns.staging(() -> em.startInstance(party, recruit, 1));
+            started = MechanicsRuns.staging(() -> em.startInstance(party, recruit, difficulty(tier)));
         } else {
             // a bot leads: it talks to Lakelis itself, through his own script ("I want to participate")
-            BotNpcTalk.Result r = MechanicsRuns.staging(() -> BotNpcTalk.INSTANCE.converse(leader, LAKELIS, List.of(0)));
+            BotNpcTalk.Result r = MechanicsRuns.staging(() -> BotNpcTalk.INSTANCE.converse(leader, content.entryNpc(),
+                    List.of(0)));
             lakelisSaid = r.ran() ? r.lastLine() : "script failed: " + r.error();
             started = leader.getEventInstance() != null;
         }
         if (!started) {
             cleanup(spawned);
-            return new Staged(null, List.of(), "Lakelis did not start KPQ (another party may be in it on channel "
-                    + ch.getId() + ")" + (lakelisSaid.isEmpty() ? "" : ": " + lakelisSaid));
+            return new Staged(null, List.of(), content.entryNpc() + " did not start " + content.name()
+                    + " (another party may be in it on channel " + ch.getId() + ")"
+                    + (lakelisSaid.isEmpty() ? "" : ": " + lakelisSaid));
         }
         EventInstanceManager eim = leader.getEventInstance();
         if (eim == null) {
@@ -234,7 +317,8 @@ public final class KpqStaging {
                         + " stayed behind (a party short a member cannot clear, so the run would not clear either)");
             }
         }
-        MechanicsRuns.Active a = MechanicsRuns.get().start(eim, content, perfect, budgetMs, firstStage, lastStage, true,
+        MechanicsRuns.Active a = MechanicsRuns.get().start(eim, content, tier, perfect, budgetMs, firstStage, lastStage,
+                true,
                 reporter, done -> {
             ExecutorServiceManager.getScheduledExecutorService().schedule(() -> {
                 cleanup(ours);
@@ -242,7 +326,7 @@ public final class KpqStaging {
                     afterCleanup.accept(done);
                 }
             }, DESPAWN_AFTER_MS, TimeUnit.MILLISECONDS);
-        });
+        }, admission);
         if (a.run().ended()) {
             cleanup(spawned);
             return new Staged(a, ours, a.run().endedBecause());
@@ -433,17 +517,18 @@ public final class KpqStaging {
                 + " @dismiss your alts or leave the party, wait for the last run's bots to go, then try again";
     }
 
-    public static List<Character> spawnBots(MapleMap recruit, int want, List<Integer> spawned) {
+    public static List<Character> spawnBots(MapleMap recruit, int want, List<Integer> spawned, int nearNpc,
+                                            int minLevel, int maxLevel) {
         if (want <= 0) {
             return new ArrayList<>();
         }
-        NPC lakelis = recruit.getNPCById(LAKELIS);
-        Point by = lakelis != null ? lakelis.getPosition() : recruit.getPortal(0).getPosition();
+        NPC npc = nearNpc > 0 ? recruit.getNPCById(nearNpc) : null;
+        Point by = npc != null ? npc.getPosition() : recruit.getPortal(0).getPosition();
         int slotBase = BotStore.nextDynamicSlots(want);
         List<Integer> mine = new ArrayList<>();
         for (int i = 0; i < want; i++) {
             Point at = StageSpots.nearLevel(recruit, new Point(by.x + 40 * (i + 1), by.y));
-            int id = BotGeneration.createBot(slotBase + i, at, recruit, 0, BOT_LEVEL_MIN, BOT_LEVEL_MAX);
+            int id = BotGeneration.createBot(slotBase + i, at, recruit, 0, minLevel, maxLevel);
             if (id > 0) {
                 mine.add(id);
                 spawned.add(id);

@@ -5,6 +5,7 @@ import client.Character;
 import client.inventory.Inventory;
 import client.inventory.InventoryType;
 import client.inventory.Item;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
 import soloMapling.ArtificialPlayer.BotSM;
@@ -12,7 +13,9 @@ import server.maps.MapleMap;
 import java.awt.Point;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import testutil.PropsRestored;
 
+@ExtendWith(PropsRestored.class)
 class GameFishingTest {
     @Test void flagsOffDoNotReadOrChangeACharacter() {
         String old = System.getProperty("slums.fishing.enabled");

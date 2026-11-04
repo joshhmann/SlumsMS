@@ -452,6 +452,13 @@ public class EventManager {
         if (this.isDisposed()) {
             return false;
         }
+        // 1.6.4 (-Dslums.exped.botcaptain): a real player always outranks a bot. Decided here, before the instance is
+        // made, because the setup script's channel, the instance's leader and every expedition.getLeader() below come
+        // from this one value. With the switch off, or a human already leading, this returns the argument unchanged.
+        leader = soloMapling.ArtificialPlayer.BotPartySystem.ExpeditionBots.preferredLeader(exped, leader);
+        if (leader == null) {
+            return false;
+        }
 
         try {
             if (!playerPermit.contains(leader.getId()) && startSemaphore.tryAcquire(7777, MILLISECONDS)) {
@@ -493,6 +500,10 @@ public class EventManager {
                         eim.registerExpedition(exped);
 
                         eim.startEvent();
+                        // 1.6.4 boss lane (-Dslums.mechanics.boss, off by default): a real expedition (Zakum) with a
+                        // BOSS content row hands its party's bots and owned alts to MechanicsRuns. GuildBossRuns is the
+                        // roll with the bots logged out and never comes through here.
+                        soloMapling.mechanics.MechanicsRuns.onInstanceStarted(eim, true);
                     } catch (ScriptException | NoSuchMethodException ex) {
                         log.error("Event script startInstance", ex);
                     }
@@ -565,6 +576,9 @@ public class EventManager {
                         }
 
                         eim.startEvent();
+                        // 1.6.4 seams: an instance the world queue starts (Guild Quest: attemptStartGuildInstance) is armed
+                        // for its bots once its join window closes - only for a content row that says it is queue-entered
+                        soloMapling.mechanics.MechanicsRuns.onQueueInstanceStarted(eim);
                     } catch (ScriptException | NoSuchMethodException ex) {
                         log.error("Event script startInstance", ex);
                     }
@@ -640,7 +654,7 @@ public class EventManager {
 
                         eim.startEvent();
                         // 1.6.1 KPQ automation (-Dslums.mechanics): bots and owned alts in the party play the stages
-                        soloMapling.mechanics.MechanicsRuns.onPartyInstanceStarted(eim);
+                        soloMapling.mechanics.MechanicsRuns.onInstanceStarted(eim, false);
                     } catch (ScriptException | NoSuchMethodException ex) {
                         log.error("Event script startInstance", ex);
                     }
@@ -716,7 +730,7 @@ public class EventManager {
 
                         eim.startEvent();
                         // 1.6.1 KPQ automation (-Dslums.mechanics): bots and owned alts in the party play the stages
-                        soloMapling.mechanics.MechanicsRuns.onPartyInstanceStarted(eim);
+                        soloMapling.mechanics.MechanicsRuns.onInstanceStarted(eim, false);
                     } catch (ScriptException | NoSuchMethodException ex) {
                         log.error("Event script startInstance", ex);
                     }
@@ -737,18 +751,42 @@ public class EventManager {
 
     //non-PQ method for starting instance
     public boolean startInstance(EventInstanceManager eim, String ldr) {
+        warnBossRowUnattended(eim);
         return startInstance(-1, eim, ldr);
     }
 
     public boolean startInstance(EventInstanceManager eim, Character ldr) {
+        warnBossRowUnattended(eim);
         return startInstance(-1, eim, ldr.getName(), ldr);
     }
 
     public boolean startInstance(int lobbyId, EventInstanceManager eim, String ldr) {
+        warnBossRowUnattended(eim);
         return startInstance(-1, eim, ldr, eim.getEm().getChannelServer().getPlayerStorage().getCharacterByName(ldr));  // things they make me do...
     }
 
+    /**
+     * A script that builds its own {@link EventInstanceManager} starts an instance this class never arms, so a boss row
+     * matching that script would be silently left to its humans. Say so, once per instance, instead of failing quietly.
+     */
+    private static void warnBossRowUnattended(EventInstanceManager eim) {
+        if (eim == null || eim.getEm() == null || !soloMapling.mechanics.Mechanics.bossesEnabled()
+                || eim.warnedUnattended()) {
+            return;
+        }
+        String event = eim.getEm().getName();
+        soloMapling.mechanics.MechanicsModel.Content content =
+                soloMapling.mechanics.MechanicsRuns.contentFor(event, eim.instanceMapIds());
+        if (content == null || content.kind() != soloMapling.mechanics.MechanicsModel.Kind.BOSS) {
+            return;
+        }
+        eim.markWarnedUnattended();
+        System.out.println("[Mechanics] " + event + " was started from its own script with an instance manager this"
+                + " class did not create: the boss row " + content.id() + " arms no run for it");
+    }
+
     public boolean startInstance(int lobbyId, EventInstanceManager eim, String ldr, Character leader) {
+        warnBossRowUnattended(eim);
         if (this.isDisposed()) {
             return false;
         }
