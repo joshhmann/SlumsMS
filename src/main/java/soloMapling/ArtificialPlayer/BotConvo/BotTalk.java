@@ -19,6 +19,7 @@ import soloMapling.ArtificialPlayer.BotConvo.TalkPlanner.Act;
 import soloMapling.ArtificialPlayer.BotConvo.TalkPlanner.Offer;
 import soloMapling.ArtificialPlayer.BotConvo.TalkPlanner.Plan;
 import soloMapling.ArtificialPlayer.BotConvo.TalkPlanner.Step;
+import soloMapling.ArtificialPlayer.BotEpisodes;
 import soloMapling.ArtificialPlayer.BotHelpers;
 import soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision;
 import soloMapling.ArtificialPlayer.BotLifeSystem.LifeGoals;
@@ -27,6 +28,7 @@ import soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemoryStore;
 import soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime;
 import soloMapling.ArtificialPlayer.BotLifeSystem.LifeTowns;
 import soloMapling.ArtificialPlayer.BotLifeSystem.SocialSelf;
+import soloMapling.ArtificialPlayer.BotMemory;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.ArtificialPlayer.BotStore;
@@ -533,6 +535,7 @@ public final class BotTalk {
                 LfgParty.release(sense.reserved);
                 throw e;
             }
+            PartnerMemory.greetFromMemory(plan, now); // Stage 3: a pair with a real shared past may open with it
             if (sense.reserved != null && !usesReservation(plan, sense.reserved)) {
                 LfgParty.release(sense.reserved); // the PQ was not asked, or not taken: its cap slot goes back
             }
@@ -802,11 +805,80 @@ public final class BotTalk {
             case GOSSIP -> "talked about " + act.offer().about();
         };
         if (ok) {
+            long at = soloMapling.ArtificialPlayer.BotSocialSystem.SocialSim.now();
             for (Character c : act.yes()) {
                 note(act.asker(), c, what);
                 note(c, act.asker(), what);
+                rememberAct(live, act.ask(), act.asker(), c, at);
             }
         }
+    }
+
+    /**
+     * Stage 3: what an act that really happened leaves in each bot's memory of the other (kind, a feeling, the map). The
+     * server's own event writes it, never the model, in the background, merged and capped by {@code BotMemory}. The
+     * texts name nobody (a gossip pass is just "listened to my gossip", never the story: its people are not the
+     * partner's business).
+     */
+    static void rememberAct(Live live, Ask ask, Character asker, Character other, long at) {
+        BotMemory.Kind kind;
+        String byOther; // asker's memory of the other
+        String byAsker; // the other's memory of the asker
+        double toOther;
+        double toAsker;
+        switch (ask) {
+            case PARTY -> {
+                kind = BotMemory.Kind.PARTY;
+                byOther = "partied with me";
+                byAsker = "partied with me";
+                toOther = 0.4;
+                toAsker = 0.4;
+            }
+            case TRADE -> {
+                kind = BotMemory.Kind.TRADE;
+                byOther = "traded with me";
+                byAsker = "traded with me";
+                toOther = 0.3;
+                toAsker = 0.3;
+            }
+            case HELP -> {
+                kind = BotMemory.Kind.HELP;
+                byOther = "came to help me train";
+                byAsker = "asked me to help train";
+                toOther = 0.5;
+                toAsker = 0.3;
+            }
+            case COME_ALONG -> {
+                kind = BotMemory.Kind.PARTY;
+                byOther = "came along with me";
+                byAsker = "asked me to come along";
+                toOther = 0.3;
+                toAsker = 0.3;
+            }
+            case GOSSIP -> {
+                kind = BotMemory.Kind.TOLD;
+                byOther = "listened to my gossip";
+                byAsker = "shared some gossip";
+                toOther = 0.1;
+                toAsker = 0.2;
+            }
+            default -> {
+                return;
+            }
+        }
+        BotEpisodes.botEvent(asker.getId(), other.getId(), kind, byOther, toOther, live.mapId, at);
+        BotEpisodes.botEvent(other.getId(), asker.getId(), kind, byAsker, toAsker, live.mapId, at);
+    }
+
+    /** What an ask is, for the memory of a refusal ("turned me down for a party"). Null: nothing worth remembering. */
+    static String askNoun(Ask ask) {
+        return switch (ask) {
+            case PARTY -> "a party";
+            case TRADE -> "a trade";
+            case HELP -> "help training";
+            case COME_ALONG -> "a trip together";
+            case GOSSIP -> null;
+        };
     }
 
     record Result(boolean ok, String kind, String text) {
@@ -1016,6 +1088,7 @@ public final class BotTalk {
                         : askWords(plan.ask, plan.offer) + " (" + answerOf(plan, c) + ")";
                 note(a, c, what);
                 note(c, a, what);
+                rememberTalk(live, plan, a, c);
             }
             if (soloMapling.autoqa.SocialTrace.on()) {
                 soloMapling.autoqa.SocialTrace.threadBonded(live.id);
@@ -1031,6 +1104,39 @@ public final class BotTalk {
             byId.remove(live.id);
             plan.done = true;
         }
+    }
+
+    /**
+     * Stage 3: a finished talk between {@code a} (the opener) and {@code c} as each one's memory of the other: a hello
+     * or a chat (a small feeling, souring when the two have beef), or an ask that was turned down or countered (the
+     * asker remembers the refusal, the other that it was asked). A yes is remembered by {@link #rememberAct} when the
+     * act really happens.
+     */
+    static void rememberTalk(Live live, Plan plan, Character a, Character c) {
+        long at = soloMapling.ArtificialPlayer.BotSocialSystem.SocialSim.now();
+        boolean spat;
+        try {
+            spat = BotBonds.state(a.getId(), c.getId()).hostile();
+        } catch (RuntimeException | LinkageError e) {
+            spat = false;
+        }
+        if (plan.greetOnly || plan.ask == null) {
+            String text = plan.greetOnly ? "said hi" : "chatted";
+            double v = spat ? -0.3 : plan.greetOnly ? 0.1 : 0.2;
+            BotEpisodes.botEvent(a.getId(), c.getId(), BotMemory.Kind.CHAT, text, v, live.mapId, at);
+            BotEpisodes.botEvent(c.getId(), a.getId(), BotMemory.Kind.CHAT, text, v, live.mapId, at);
+            return;
+        }
+        TalkBrain.Decision d = plan.decisions.get(c.getId());
+        String noun = askNoun(plan.ask);
+        if (d == null || noun == null || d.answer() == Answer.YES) {
+            return;
+        }
+        boolean counter = d.answer() == Answer.COUNTER;
+        double asked = counter ? 0 : d.manner() == TalkIntent.Manner.RUDE ? -0.4 : -0.2;
+        BotEpisodes.botEvent(a.getId(), c.getId(), BotMemory.Kind.ASKED,
+                (counter ? "wanted something else than " : "turned me down for ") + noun, asked, live.mapId, at);
+        BotEpisodes.botEvent(c.getId(), a.getId(), BotMemory.Kind.ASKED, "asked me for " + noun, 0, live.mapId, at);
     }
 
     static String askWords(Ask ask, Offer o) {
@@ -1129,6 +1235,13 @@ public final class BotTalk {
                 .append("casual MMO chat, PG-13 (mild swearing at most, no slurs, nothing sexual, no real-life ")
                 .append("insults). Never mention AI, bots, scripts or being an assistant. Name no player who is not ")
                 .append("in this list: ").append(names(plan.who)).append(".\n");
+        if (plan.who.size() >= 2) { // Stage 3: what the opener and the first listener really remember of each other
+            String shared = PartnerMemory.clause(plan.who.get(0), plan.who.get(1), plan.topic,
+                    soloMapling.ArtificialPlayer.BotSocialSystem.SocialSim.now());
+            if (!shared.isEmpty()) {
+                b.append(shared).append(".\n");
+            }
+        }
         int i = 1;
         for (Step s : plan.steps) {
             b.append(i++).append(". ").append(s.speaker.getName()).append(" (")

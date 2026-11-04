@@ -831,6 +831,11 @@ public final class BotThreads {
                     + " training spots for level " + a.getLevel() + ": " + String.join(", ", named) + ", by that name;"
                     + " never make up a place, a monster or a party quest";
         }
+        // Stage 3: what the two really remember of each other (the server's own records); none leaves the prompt as it was
+        String shared = PartnerMemory.clause(a, b, about, soloMapling.ArtificialPlayer.BotSocialSystem.SocialSim.now());
+        if (!shared.isEmpty()) {
+            subject += ". " + shared;
+        }
         // 1.6.0 tune: 12 of 59 model lines were over 60 characters, and some read like a letter
         return "Write a short public chat exchange between two MapleStory players in 2008, " + a.getName() + " (level "
                 + a.getLevel() + ") and " + b.getName() + " (level " + b.getLevel() + "), standing in "
@@ -957,6 +962,19 @@ public final class BotThreads {
                 out.add(new String[]{b.getName(), react});
             }
             return out;
+        }
+        if (topic == Topic.GOSSIP) { // Stage 3: no story to tell, but the two may really share a past
+            String recalled = PartnerMemory.callback(a, b, soloMapling.ArtificialPlayer.BotSocialSystem.SocialSim.now());
+            if (recalled != null) {
+                FALLBACK_KIND.set("bank (shared memory)");
+                ConvoLines.Line reaction = ConvoLines.line("talk", b, a, null, null, null, false);
+                List<String[]> out = new ArrayList<>();
+                out.add(new String[]{a.getName(), recalled});
+                if (reaction != null) {
+                    out.add(new String[]{b.getName(), reaction.text()});
+                }
+                return out;
+            }
         }
         List<String[]> out = new ArrayList<>();
         Map<String, String> extra = new HashMap<>();

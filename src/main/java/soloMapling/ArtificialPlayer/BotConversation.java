@@ -799,6 +799,22 @@ public final class BotConversation {
     }
 
     /**
+     * Stage 3: what this reply is after in the bot's memory of the player - the words of the player's last line, the
+     * map the two stand on, and a sour mood when the bot is wary of them (a grudge then comes to mind sooner).
+     */
+    static BotMemory.Query recallQuery(Session session, Character bot, boolean wary) {
+        String line = null;
+        for (int i = session.history.size() - 1; i >= 0; i--) {
+            BotBrain.Turn t = session.history.get(i);
+            if (t.role() == BotBrain.Role.USER) {
+                line = t.content();
+                break;
+            }
+        }
+        return BotMemory.Query.of(null, wary ? -0.4 : 0, bot.getMapId(), line, 0);
+    }
+
+    /**
      * The system prompt for a reply: persona, live state, memories, recent map chat, the action's outcome, the
      * merchant's stock (ticket 26), and whether to greet the player as someone the bot knows.
      */
@@ -814,7 +830,7 @@ public final class BotConversation {
         BotPersonality.Traits traits = member == null ? null : member.traits();
         MerchantStock.Stock stock = MerchantStock.of(session.bot);
         BotChatPrompt.Context context = BotChatPrompt.context(bot, player, activity,
-                BotChatPrompt.mood(activity, wary), BotMemory.recall(slot, player.getId(), now),
+                BotChatPrompt.mood(activity, wary), BotMemory.recall(slot, player.getId(), recallQuery(session, bot, wary), now),
                 List.of(), outcome) // the map's chat goes in the final turn (BotChatPrompt.finalTurn)
                 .with(stock == null ? null : stock.fact(), recognise);
         String card = null;

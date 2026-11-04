@@ -53,6 +53,10 @@ class BotMemoryTest {
     }
 
     private PreparedStatement statement(String sql) throws Exception {
+        if (sql.equals(BotMemory.PROBE_SOCIAL) || sql.equals(BotMemory.INSERT_SOCIAL) || sql.equals(BotMemory.MERGE_SOCIAL)) {
+            // this table plays a database with migration 030 but not 060 (the Stage 3 columns are unknown)
+            throw new java.sql.SQLException("Unknown column 'SubjectType' in 'field list'", "42S22", 1054);
+        }
         Map<Integer, Object> bound = new HashMap<>();
         PreparedStatement ps = mock(PreparedStatement.class);
         doAnswer(c -> bound.put(c.getArgument(0), c.getArgument(1))).when(ps).setInt(anyInt(), anyInt());
