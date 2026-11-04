@@ -140,6 +140,12 @@ public final class AllianceOperationHandler extends AbstractPacketHandler {
                 int guildid = p.readInt();
                 int allianceid = p.readInt();
                 if (chr.getGuild().getAllianceId() == 0 || chr.getGuild().getAllianceId() != allianceid) {
+                    c.sendPacket(PacketCreator.enableActions());
+                    return;
+                }
+
+                if (chr.getMGC().getAllianceRank() != 1 || !alliance.getGuilds().contains(guildid)) {
+                    c.sendPacket(PacketCreator.enableActions());
                     return;
                 }
 
@@ -155,11 +161,18 @@ public final class AllianceOperationHandler extends AbstractPacketHandler {
             }
             case 0x07: { // Change Alliance Leader
                 if (chr.getGuild().getAllianceId() == 0 || chr.getGuildId() < 1) {
+                    c.sendPacket(PacketCreator.enableActions());
                     return;
                 }
                 int victimid = p.readInt();
+                if (chr.getMGC().getAllianceRank() != 1) {
+                    c.sendPacket(PacketCreator.enableActions());
+                    return;
+                }
                 Character player = Server.getInstance().getWorld(c.getWorld()).getPlayerStorage().getCharacterById(victimid);
-                if (player.getAllianceRank() != 2) {
+                if (player == null || player.getAllianceRank() != 2
+                        || player.getGuild() == null || !alliance.getGuilds().contains(player.getGuildId())) {
+                    c.sendPacket(PacketCreator.enableActions());
                     return;
                 }
 
@@ -168,6 +181,10 @@ public final class AllianceOperationHandler extends AbstractPacketHandler {
                 break;
             }
             case 0x08:
+                if (chr.getMGC().getAllianceRank() != 1) {
+                    c.sendPacket(PacketCreator.enableActions());
+                    return;
+                }
                 String[] ranks = new String[5];
                 for (int i = 0; i < 5; i++) {
                     ranks[i] = p.readString();
@@ -181,11 +198,19 @@ public final class AllianceOperationHandler extends AbstractPacketHandler {
 
                 //Server.getInstance().allianceMessage(alliance.getId(), sendChangeRank(chr.getGuild().getAllianceId(), chr.getId(), int1, byte1), -1, -1);
                 Character player = Server.getInstance().getWorld(c.getWorld()).getPlayerStorage().getCharacterById(int1);
+                if (player == null || player.getGuild() == null || !alliance.getGuilds().contains(player.getGuildId())) {
+                    c.sendPacket(PacketCreator.enableActions());
+                    return;
+                }
                 changePlayerAllianceRank(alliance, player, (byte1 > 0));
 
                 break;
             }
             case 0x0A:
+                if (chr.getMGC().getAllianceRank() != 1) {
+                    c.sendPacket(PacketCreator.enableActions());
+                    return;
+                }
                 String notice = p.readString();
                 Server.getInstance().setAllianceNotice(alliance.getId(), notice);
                 Server.getInstance().allianceMessage(alliance.getId(), GuildPackets.allianceNotice(alliance.getId(), notice), -1, -1);
