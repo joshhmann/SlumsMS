@@ -175,14 +175,16 @@ class OpenAICompatibleBrainTest {
 
     @Test
     void queuedCallsPastTheDeadlineFallBackInsteadOfWaiting() throws Exception {
-        delayMs = 800; // roomy enough for a slow CI runner's first connection
-        OpenAICompatibleBrain brain = brain(1500, 1, 0, "");
+        // 2000 ms per answer, 3000 ms budget: the first answer has 1 s of slack (parallel forks load the CPU), and the
+        // third caller would only start at 4000 ms, 1 s past its deadline.
+        delayMs = 2000;
+        OpenAICompatibleBrain brain = brain(3000, 1, 0, "");
         CompletableFuture<Optional<String>> first = brain.complete(1, HAT);
         CompletableFuture<Optional<String>> second = brain.complete(2, HAT);
         CompletableFuture<Optional<String>> third = brain.complete(3, HAT);
 
         assertTrue(await(first).isPresent());
-        // One slot, 800 ms per answer, a 1500 ms budget: the third caller cannot be served in time.
+        // One slot, 2000 ms per answer, a 3000 ms budget: the third caller cannot be served in time.
         assertEquals(Optional.empty(), await(third));
         await(second);
     }

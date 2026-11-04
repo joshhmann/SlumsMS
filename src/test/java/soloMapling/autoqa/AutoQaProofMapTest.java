@@ -117,14 +117,27 @@ class AutoQaProofMapTest {
     @Test
     void everyGlobMatchesATrackedFile() throws IOException {
         List<String> tracked;
-        try (Stream<Path> walk = Files.walk(Path.of("."), 32)) {
-            tracked = walk.filter(Files::isRegularFile)
-                    .map(p -> p.toString().replace('\\', '/'))
-                    .filter(f -> f.startsWith("./"))
-                    .map(f -> f.substring(2))
-                    .filter(f -> !f.startsWith(".git/") && !f.startsWith("target/"))
-                    .collect(Collectors.toList());
-        }
+        // walkFileTree, not Files.walk: with parallel surefire forks, files such as another JVM's .attach_pid* appear
+        // and vanish mid-walk, and Files.walk throws on them.
+        List<String> found = new ArrayList<>();
+        Files.walkFileTree(Path.of("."), java.util.EnumSet.noneOf(java.nio.file.FileVisitOption.class), 32,
+                new java.nio.file.SimpleFileVisitor<>() {
+                    @Override
+                    public java.nio.file.FileVisitResult visitFile(Path file, java.nio.file.attribute.BasicFileAttributes attrs) {
+                        if (attrs.isRegularFile()) found.add(file.toString().replace('\\', '/'));
+                        return java.nio.file.FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public java.nio.file.FileVisitResult visitFileFailed(Path file, IOException e) {
+                        return java.nio.file.FileVisitResult.CONTINUE;
+                    }
+                });
+        tracked = found.stream()
+                .filter(f -> f.startsWith("./"))
+                .map(f -> f.substring(2))
+                .filter(f -> !f.startsWith(".git/") && !f.startsWith("target/"))
+                .collect(Collectors.toList());
         assertTrue(tracked.size() > 1000, "the worktree is there (" + tracked.size() + " files)");
         List<String> broken = new ArrayList<>();
         for (Row r : map()) {

@@ -128,7 +128,8 @@ class RootyShopSelectionTest {
         assertEquals(List.of(), dups, "item ids listed twice in rooty.js CATALOG");
         // both old shops' stock is in it: 2,300 Nx Goodies, 6,381 Donor NX, 52 Maple weapons, Rose Vac and Hyper Teleport Rock
         assertTrue(seen.containsAll(Arrays.asList(FIRST_ROOTY_CAP, FIRST_DONOR_CAP, MAPLE_SWORD_LV35, ROSE_VAC)));
-        assertEquals(2300 + 6381 + 52 + 2, ids.size());
+        // minus the three b297 Cash items that did nothing (5070000, 5073000, 5074000; owner 2026-11-04)
+        assertEquals(2300 + 6381 + 52 + 2 - 3, ids.size());
     }
 
     @Test
