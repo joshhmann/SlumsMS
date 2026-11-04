@@ -69,7 +69,7 @@ import java.util.Random;
  *   <tr><td>SHARE_INFO / SPREAD_RUMOR (wrapped)</td><td>in earshot, ACQUAINTANCE+, not sour; a true story the actor knows (a negative one, to a bot that trusts it, for the rumor; honest bots do not)</td>
  *       <td>sociability, curiosity, warmth (rumor: jealousy, low honesty and agreeableness)</td>
  *       <td>the {@code BotWorldGossip} / {@code BotGossip} pass; lands when the listener kept it</td><td>the listener's stories and REPORTED memory</td></tr>
- *   <tr><td>AVOID (built)</td><td>target within 450 px, actor idle, not already avoiding, resentment 0.2+ or fear 0.25+ or RIVAL/ESTRANGED or an open fight with anger or anxiety</td>
+ *   <tr><td>AVOID (built)</td><td>target within 450 px, actor idle, not already avoiding, resentment 0.2+ or fear 0.25+ of someone it is not warm with, or RIVAL/ESTRANGED or an open fight with anger or anxiety</td>
  *       <td>resentment, fear, anxiety, an open fight, embarrassment; ~anger, impulsiveness, affection, companionship need</td>
  *       <td>walks away at once; an avoid record keeps it 450 px off for 5-13 minutes then expires</td>
  *       <td>{@link SocialActions.Avoid} (readable by the other stages); anxiety eased; memory</td></tr>
@@ -186,6 +186,17 @@ final class SocialActs {
         SocialActions.world().remember(actor, subject, kind, text, valence, mapId, now);
     }
 
+    /**
+     * How much social drive the bot has now, 0.35..1: its sociability and its most pressing unmet need for company
+     * (companionship, belonging, loneliness). The friendly acts scale by it, so a content loner does nothing even with a
+     * close friend beside it while a starved socializer acts on weak ties. Hostile and withdrawing acts are driven by
+     * anger, fear and grudges instead and are not scaled.
+     */
+    static double energy(SocialContext.Self s) {
+        double pressure = Math.max(s.n(Need.COMPANIONSHIP), Math.max(0.8 * s.n(Need.BELONGING), s.e(Emotion.LONELINESS)));
+        return 0.35 + 0.65 * clamp01(0.45 * s.t(Trait.SOCIABILITY) + 0.55 * pressure);
+    }
+
     /** The edge-and-mind based answer to "does this bot want it": the base of ACCEPT and DECLINE. */
     static double willingness(SocialContext c) {
         SocialContext.Self s = c.self();
@@ -271,8 +282,8 @@ final class SocialActs {
         public double utility(SocialContext c) {
             SocialContext.Self s = c.self();
             Axes e = c.edge();
-            double u = 0.18 + 0.30 * s.t(Trait.SOCIABILITY) + 0.35 * pos(c.warmth()) + 0.25 * s.n(Need.COMPANIONSHIP)
-                    + 0.15 * s.e(Emotion.LONELINESS) + 0.10 * e.familiarity()
+            double u = energy(s) * (0.18 + 0.30 * s.t(Trait.SOCIABILITY) + 0.35 * pos(c.warmth()) + 0.25 * s.n(Need.COMPANIONSHIP)
+                    + 0.15 * s.e(Emotion.LONELINESS) + 0.10 * e.familiarity())
                     - 0.45 * e.resentment() - 0.30 * e.rivalry() - 0.25 * s.e(Emotion.EMBARRASSMENT)
                     - 0.20 * s.e(Emotion.ANXIETY) * (1 - s.t(Trait.CONFIDENCE))
                     - 0.35 * s.t(Trait.JEALOUSY) * c.distrustedCompany();
@@ -323,9 +334,9 @@ final class SocialActs {
         public double utility(SocialContext c) {
             SocialContext.Self s = c.self();
             Axes e = c.edge();
-            return 0.12 + 0.35 * s.n(Need.COMPANIONSHIP) + 0.20 * s.n(Need.BELONGING) + 0.30 * s.t(Trait.SOCIABILITY)
+            return energy(s) * (0.12 + 0.35 * s.n(Need.COMPANIONSHIP) + 0.20 * s.n(Need.BELONGING) + 0.30 * s.t(Trait.SOCIABILITY)
                     + 0.45 * pos(c.warmth()) + 0.25 * s.e(Emotion.LONELINESS) + 0.10 * s.t(Trait.CURIOSITY)
-                    + 0.10 * s.t(Trait.EMPATHY) - 0.40 * e.resentment() - 0.20 * pos(-e.trust())
+                    + 0.10 * s.t(Trait.EMPATHY)) - 0.40 * e.resentment() - 0.20 * pos(-e.trust())
                     - 0.3 * s.t(Trait.JEALOUSY) * c.distrustedCompany();
         }
 
@@ -386,9 +397,9 @@ final class SocialActs {
         public double utility(SocialContext c) {
             SocialContext.Self s = c.self();
             Axes e = c.edge();
-            return 0.08 + 0.35 * s.t(Trait.AGREEABLENESS) + 0.25 * s.t(Trait.EMPATHY) + 0.40 * pos(e.affection())
+            return energy(s) * (0.08 + 0.35 * s.t(Trait.AGREEABLENESS) + 0.25 * s.t(Trait.EMPATHY) + 0.40 * pos(e.affection())
                     + 0.30 * pos(e.respect()) + 0.20 * s.n(Need.BELONGING) + 0.15 * e.attraction()
-                    + 0.10 * s.t(Trait.SOCIABILITY) - 0.30 * s.t(Trait.JEALOUSY) * e.rivalry() - 0.20 * e.resentment()
+                    + 0.10 * s.t(Trait.SOCIABILITY)) - 0.30 * s.t(Trait.JEALOUSY) * e.rivalry() - 0.20 * e.resentment()
                     - 0.25 * s.t(Trait.JEALOUSY) * c.distrustedCompany();
         }
 
@@ -487,8 +498,8 @@ final class SocialActs {
         public double utility(SocialContext c) {
             SocialContext.Self s = c.self();
             Axes e = c.edge();
-            return 0.05 + 0.40 * s.t(Trait.EMPATHY) + 0.25 * s.t(Trait.LOYALTY) + 0.35 * pos(e.affection())
-                    + 0.25 * pos(e.obligation()) + 0.20 * s.n(Need.RECOGNITION) + 0.10 * s.t(Trait.AGREEABLENESS)
+            return energy(s) * (0.05 + 0.40 * s.t(Trait.EMPATHY) + 0.25 * s.t(Trait.LOYALTY) + 0.35 * pos(e.affection())
+                    + 0.25 * pos(e.obligation()) + 0.20 * s.n(Need.RECOGNITION) + 0.10 * s.t(Trait.AGREEABLENESS))
                     - 0.30 * s.n(Need.ACHIEVEMENT) * s.t(Trait.AMBITION);
         }
 
@@ -544,8 +555,8 @@ final class SocialActs {
         public double utility(SocialContext c) {
             SocialContext.Self s = c.self();
             Axes e = c.edge();
-            return 0.04 + 0.40 * pos(e.affection()) + 0.25 * s.t(Trait.LOYALTY) + 0.25 * s.t(Trait.EMPATHY)
-                    + 0.30 * e.attraction() + 0.35 * pos(e.obligation()) + 0.10 * s.t(Trait.AGREEABLENESS);
+            return energy(s) * (0.04 + 0.40 * pos(e.affection()) + 0.25 * s.t(Trait.LOYALTY) + 0.25 * s.t(Trait.EMPATHY)
+                    + 0.30 * e.attraction() + 0.35 * pos(e.obligation()) + 0.10 * s.t(Trait.AGREEABLENESS));
         }
 
         @Override
@@ -596,8 +607,8 @@ final class SocialActs {
         public double utility(SocialContext c) {
             SocialContext.Self s = c.self();
             Axes e = c.edge();
-            return 0.08 + 0.35 * s.n(Need.COMPANIONSHIP) + 0.15 * s.n(Need.BELONGING) + 0.25 * s.t(Trait.SOCIABILITY)
-                    + 0.35 * pos(c.warmth()) + 0.20 * s.t(Trait.CURIOSITY) + 0.15 * s.e(Emotion.LONELINESS)
+            return energy(s) * (0.08 + 0.35 * s.n(Need.COMPANIONSHIP) + 0.15 * s.n(Need.BELONGING) + 0.25 * s.t(Trait.SOCIABILITY)
+                    + 0.35 * pos(c.warmth()) + 0.20 * s.t(Trait.CURIOSITY) + 0.15 * s.e(Emotion.LONELINESS))
                     - 0.30 * e.resentment() - 0.20 * pos(-e.trust());
         }
 
@@ -949,8 +960,8 @@ final class SocialActs {
         @Override
         public double utility(SocialContext c) {
             SocialContext.Self s = c.self();
-            return 0.06 + 0.35 * s.t(Trait.SOCIABILITY) + 0.25 * s.t(Trait.CURIOSITY) + 0.25 * pos(c.warmth())
-                    + 0.25 * s.n(Need.COMPANIONSHIP) + 0.15 * s.n(Need.RECOGNITION) + 0.10 * s.t(Trait.HONESTY);
+            return energy(s) * (0.06 + 0.35 * s.t(Trait.SOCIABILITY) + 0.25 * s.t(Trait.CURIOSITY) + 0.25 * pos(c.warmth())
+                    + 0.25 * s.n(Need.COMPANIONSHIP) + 0.15 * s.n(Need.RECOGNITION) + 0.10 * s.t(Trait.HONESTY));
         }
 
         @Override
@@ -992,8 +1003,8 @@ final class SocialActs {
         @Override
         public double utility(SocialContext c) {
             SocialContext.Self s = c.self();
-            return 0.03 + 0.30 * s.t(Trait.JEALOUSY) + 0.25 * (1 - s.t(Trait.AGREEABLENESS))
-                    + 0.25 * (1 - s.t(Trait.HONESTY)) + 0.25 * s.t(Trait.SOCIABILITY) + 0.30 * pos(c.edge().trust());
+            return energy(s) * (0.03 + 0.30 * s.t(Trait.JEALOUSY) + 0.25 * (1 - s.t(Trait.AGREEABLENESS))
+                    + 0.25 * (1 - s.t(Trait.HONESTY)) + 0.25 * s.t(Trait.SOCIABILITY) + 0.30 * pos(c.edge().trust()));
         }
 
         @Override
@@ -1031,7 +1042,7 @@ final class SocialActs {
             }
             SocialContext.Self s = c.self();
             Axes e = c.edge();
-            boolean reason = e.resentment() >= 0.2 || s.e(Emotion.FEAR) >= 0.25 || c.sourRelation()
+            boolean reason = e.resentment() >= 0.2 || s.e(Emotion.FEAR) >= 0.25 && c.warmth() < 0.2 || c.sourRelation()
                     || c.memory().openFight() && (s.e(Emotion.ANGER) >= 0.2 || s.e(Emotion.ANXIETY) >= 0.2);
             return reason ? null : "no reason to keep away";
         }
@@ -1040,8 +1051,9 @@ final class SocialActs {
         public double utility(SocialContext c) {
             SocialContext.Self s = c.self();
             Axes e = c.edge();
-            return 0.05 + 0.45 * e.resentment() + 0.40 * s.e(Emotion.FEAR) + 0.30 * s.e(Emotion.ANXIETY)
-                    + 0.25 * (1 - s.t(Trait.CONFIDENCE)) + 0.20 * pos(-e.affection())
+            double unease = 1 - clamp01(c.warmth()); // fear and anxiety are felt toward someone it is not warm with
+            return 0.05 + 0.45 * e.resentment() + 0.40 * s.e(Emotion.FEAR) * unease + 0.30 * s.e(Emotion.ANXIETY) * unease
+                    + 0.25 * (1 - s.t(Trait.CONFIDENCE)) * unease + 0.20 * pos(-e.affection())
                     + (c.memory().openFight() ? 0.25 : 0) + 0.15 * s.e(Emotion.EMBARRASSMENT)
                     - 0.35 * s.e(Emotion.ANGER) - 0.30 * s.t(Trait.IMPULSIVENESS) - 0.25 * pos(e.affection())
                     - 0.20 * s.n(Need.COMPANIONSHIP) * s.t(Trait.SOCIABILITY);
@@ -1104,8 +1116,8 @@ final class SocialActs {
         public double utility(SocialContext c) {
             SocialContext.Self s = c.self();
             Axes e = c.edge();
-            return 0.06 + 0.40 * s.n(Need.COMPANIONSHIP) + 0.25 * s.n(Need.BELONGING) + 0.35 * pos(c.warmth())
-                    + 0.25 * e.attraction() + 0.25 * s.e(Emotion.LONELINESS) + 0.15 * s.t(Trait.SOCIABILITY)
+            return energy(s) * (0.06 + 0.40 * s.n(Need.COMPANIONSHIP) + 0.25 * s.n(Need.BELONGING) + 0.35 * pos(c.warmth())
+                    + 0.25 * e.attraction() + 0.25 * s.e(Emotion.LONELINESS) + 0.15 * s.t(Trait.SOCIABILITY))
                     - 0.20 * s.n(Need.ACHIEVEMENT) * s.t(Trait.AMBITION) - 0.35 * e.resentment()
                     - 0.30 * s.t(Trait.JEALOUSY) * c.distrustedCompany();
         }
