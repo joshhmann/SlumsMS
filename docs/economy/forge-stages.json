@@ -1,0 +1,141 @@
+{
+  "status": "1.6.4 candidate; owner targets 8\u201312 active hours per upgrade stage; measurement pending",
+  "stages": {
+    "Royal Von Leon": {
+      "armour_group": "Royal Von Leon Set",
+      "fee_per_piece": 5000000,
+      "regional_items": [
+        4000625,
+        4000626,
+        4000627,
+        4000628,
+        4000629
+      ],
+      "armour_quantity": 100,
+      "weapon_quantity": 200,
+      "weapon_trophy": 4001693,
+      "weapon_core": false,
+      "reference_net_mesos_per_hour": 3000000,
+      "craft_level": 120
+    },
+    "Lionheart": {
+      "armour_group": "Lionheart Set",
+      "fee_per_piece": 6000000,
+      "regional_items": [
+        4000642,
+        4000644,
+        4000646,
+        4000647,
+        4000648
+      ],
+      "armour_quantity": 100,
+      "weapon_quantity": 200,
+      "weapon_trophy": 4000659,
+      "weapon_core": true,
+      "reference_net_mesos_per_hour": 3500000,
+      "craft_level": 130
+    },
+    "Amaterasu": {
+      "armour_group": "Amaterasu Set",
+      "fee_per_piece": 6500000,
+      "regional_items": [
+        4000658,
+        4000655,
+        4000657,
+        4000654,
+        4000656
+      ],
+      "armour_quantity": 100,
+      "weapon_quantity": 200,
+      "weapon_trophy": 4001879,
+      "weapon_core": true,
+      "reference_net_mesos_per_hour": 4000000,
+      "craft_level": 140
+    },
+    "Absolab": {
+      "armour_group": "Absolab Set",
+      "fee_per_piece": 7000000,
+      "regional_items": [
+        4000739,
+        4000740,
+        4000741,
+        4000743,
+        4000744
+      ],
+      "armour_quantity": 100,
+      "weapon_quantity": 200,
+      "weapon_trophy": 4001890,
+      "weapon_core": true,
+      "reference_net_mesos_per_hour": 4500000,
+      "craft_level": 150
+    },
+    "Arcane Umbra": {
+      "armour_group": "Arcane Umbra Set",
+      "fee_per_piece": 8000000,
+      "regional_items": [
+        4001878
+      ],
+      "armour_quantity": 4,
+      "weapon_quantity": 8,
+      "weapon_trophy": 4001894,
+      "weapon_core": true,
+      "reference_net_mesos_per_hour": 5000000,
+      "craft_level": 190
+    }
+  },
+  "endgame": {
+    "Sealed Genesis": {
+      "fee": 40000000,
+      "materials": {
+        "4036535": 1,
+        "4036536": 1,
+        "4036537": 1,
+        "4036538": 1
+      },
+      "class_core": 1,
+      "reference_net_mesos_per_hour": 5000000,
+      "craft_level": 225
+    },
+    "Genesis": {
+      "fee": 50000000,
+      "materials": {
+        "4036543": 1,
+        "4036540": 1,
+        "4036539": 1
+      },
+      "class_core": 1,
+      "reference_net_mesos_per_hour": 6000000,
+      "craft_level": 250
+    }
+  },
+  "fragment_recipe": {
+    "itemId": 4036539,
+    "quantity": 1,
+    "cost": 1000000,
+    "requiredLevel": 225,
+    "requiredMakerLevel": 3,
+    "materials": [
+      {
+        "itemId": 4036535,
+        "amount": 1
+      },
+      {
+        "itemId": 4036536,
+        "amount": 1
+      },
+      {
+        "itemId": 4036537,
+        "amount": 1
+      },
+      {
+        "itemId": 4036538,
+        "amount": 1
+      }
+    ]
+  },
+  "core_exchange": {
+    "input": 1,
+    "output": 1,
+    "fee": 0
+  }
+}

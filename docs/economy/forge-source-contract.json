@@ -1,0 +1,18 @@
+{
+  "boss_rewards": {
+    "4001693": {"name": "Von Leon's Seal", "map": 211070100, "quantity": 1},
+    "4000659": {"name": "Cygnus Circlet", "map": 271040100, "quantity": 1},
+    "4001879": {"name": "Butterfly Droplet Stone", "map": 450004751, "quantity": 1},
+    "4001890": {"name": "Stone Cobweb Droplet", "map": 450007441, "quantity": 1},
+    "4001894": {"name": "Shadow of Annihilation", "map": 450012211, "quantity": 1},
+    "4036535": {"name": "Lucid Token", "map": 450004750, "quantity": 1},
+    "4036536": {"name": "Will Token", "map": 450007440, "quantity": 1},
+    "4036537": {"name": "Darknell Token", "map": 450012210, "quantity": 1},
+    "4036538": {"name": "Verus Hilla Token", "map": 450010100, "quantity": 1},
+    "4036540": {"name": "Tyrant's Fragment", "map": 401060100, "quantity": 1},
+    "4036543": {"name": "Monochrome Void Core", "map": 401060100, "quantity": 1}
+  },
+  "core_pool": {"map": 271040100, "total_per_clear": 1, "items": [4036544,4036545,4036546,4036547,4036548], "exchange_input": 1, "exchange_output": 1},
+  "fragment_recipe": 4036539,
+  "active_sources_verified": false
+}

@@ -145,6 +145,9 @@ class MakerCraftingMenuSubInteraction {
         selectionMenuString += '#fUI/UIWindow.img/Quest/basic#\r\n'
         selectionMenuString += `#i${this.selectedRecipe.itemId}:# #z${this.selectedRecipe.itemId}# #e x${this.cm.numberWithCommas(this.selectedRecipe.quantity * this.selectedRecipeAmount)}#n\r\n\r\n`;
         selectionMenuString += `#fUI/UIWindow.img/Quest/icon0# #fUI/UIWindow.img/UserInfo/ReqLv#. #r${this.selectedRecipe.requiredLevel}#k\r\n\r\n`;
+        selectionMenuString += `Maker level: ${this.selectedRecipe.requiredMakerLevel}\r\n`;
+        const rebirths = this.ItemConstants.getItemRebirthRequirement(this.selectedRecipe.itemId);
+        selectionMenuString += `Required rebirths: ${rebirths}\r\n\r\n`;
         selectionMenuString += '#fUI/UIWindow.img/Quest/icon0# #b#eRequired Materials:#n#k\r\n';
 
         for (let material of this.selectedRecipe.materials) {
@@ -339,6 +342,37 @@ class MakerCraftingMenuSubInteraction {
         if (!this.selectedRecipe) {
             this.cm.sendOk('No recipe selected! (haxor?)');
             return ScriptInteractionResult.Dispose;
+        }
+
+        // Check declared requirements before constructing a crafter or consuming anything.
+        const requirements = [];
+        if (this.cm.getLevel() < this.selectedRecipe.requiredLevel) {
+            requirements.push(`You need level ${this.selectedRecipe.requiredLevel}.`);
+        }
+        const makerLevel = this.NpcMakerCraftingService.getMakerSkillLevel(this.cm.getPlayer());
+        if (makerLevel < this.selectedRecipe.requiredMakerLevel) {
+            requirements.push(`You need Maker level ${this.selectedRecipe.requiredMakerLevel}.`);
+        }
+        const rebirths = this.ItemConstants.getItemRebirthRequirement(this.selectedRecipe.itemId);
+        if (rebirths > 0 && this.cm.getPlayer().getReborns() < rebirths) {
+            requirements.push(`You need ${rebirths} rebirth(s) to craft this equipment.`);
+        }
+        for (const material of this.selectedRecipe.materials.filter(m => m.processStarforce)) {
+            let input = null;
+            try {
+                if (this.starForceItemTargetSlot) {
+                    input = this.cm.getStarForceEquip(this.starForceItemTargetSlot);
+                }
+            } catch (error) {
+                // The selected inventory slot can have become empty since the menu was shown.
+            }
+            if (!input || input.getItemId() !== material.itemId || input.getQuantity() < material.amount) {
+                requirements.push('Select the equipment required by this recipe again.');
+            }
+        }
+        if (requirements.length > 0) {
+            this.cm.sendOk(requirements.join('\r\n'));
+            return this.goToMainMenu();
         }
 
         let missingMaterialRequirements = [];

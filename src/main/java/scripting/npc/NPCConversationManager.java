@@ -2300,9 +2300,12 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         equip.setDex(getShortMaxIfOverflow(equip.getDex() + starBoostBonus.getDex()));
         equip.setLuk(getShortMaxIfOverflow(equip.getLuk() + starBoostBonus.getLuk()));
         equip.setInt(getShortMaxIfOverflow(equip.getInt() + starBoostBonus.getInt()));
+        // Preserve the consumed equipment’s actual HP/MP through the upgrade.
+        equip.setHp(getShortMaxIfOverflow(equip.getHp() + equipItem.getHp()));
+        equip.setMp(getShortMaxIfOverflow(equip.getMp() + equipItem.getMp()));
 
         InventoryManipulator.removeFromSlot(c, equipItem.getInventoryType(), equipItem.getPosition(), equipItem.getQuantity(), false);
-        gainItem(4000999, getShortMaxIfOverflow(getStarForceEquipSpellTraceBonus(equip)));
+        gainItem(4000999, getShortMaxIfOverflow(getStarForceEquipSpellTraceBonus(equipItem)));
 
         return equip;
     }

@@ -224,6 +224,9 @@ final class GameAutoQaWorld implements AutoQaWorld {
                     if (more == null) {
                         more = ProbesMaker.probe(what, actor instanceof SyntheticPlayer sp4 ? sp4 : null, a);
                     }
+                    if (more == null) {
+                        more = ProbesGear.probe(what, caller);
+                    }
                     yield more != null ? more : List.of("FAIL no probe '" + what + "'");
                 }
             };

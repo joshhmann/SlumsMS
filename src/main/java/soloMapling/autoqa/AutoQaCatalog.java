@@ -1564,6 +1564,12 @@ public final class AutoQaCatalog {
                 .laneOnly().minutes(2)
                 .expect(probe("socialPilot"))
                 .build());
+        c.add(Check.half("t-ng-8", "Nimble class weapon core exchange",
+                "Run !qa run ng-8 in a client for the actual menu, confirmation, cancellation and inventory messages.")
+                .laneOnly().minutes(1).expect(probe("forgeCoreExchange")).build());
+        c.add(Check.half("t-ng-10", "Normal equipment bridge: ordinary drop sources and guide",
+                "Run !qa run ng-10 for the actual Nimble guide, source routes, equipment and previous-tier combat checks.")
+                .laneOnly().minutes(1).expect(probe("normalGearBridge")).build());
         return List.copyOf(c);
     }
 

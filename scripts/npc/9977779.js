@@ -7,13 +7,17 @@ load("scripts/npc/interactions/common/base.js")
 const MenuOption = {
     StringMap: {
         0 : "Crafting Equipment",
-        1 : "Refining Minerals"
+        1 : "Refining Minerals",
+        2 : "Exchange weapon cores",
+        3 : "Normal equipment guide"
     },
     CraftingEquipment: 0,
-    RefiningMinerals: 1
+    RefiningMinerals: 1,
+    CoreExchange: 2,
+    NormalGearGuide: 3
 }
 
-const selectionMenuOptions = [ MenuOption.CraftingEquipment, MenuOption.RefiningMinerals ];
+const selectionMenuOptions = [ MenuOption.CraftingEquipment, MenuOption.RefiningMinerals, MenuOption.CoreExchange, MenuOption.NormalGearGuide ];
 
 let currentInteraction;
 let status;
@@ -41,6 +45,8 @@ function action(mode, type, selection) {
         selStr += "#r#erequired materials#n#k.#b#e";
 
         for (let option of selectionMenuOptions) {
+            if (option === MenuOption.CoreExchange && !Java.type('soloMapling.crafting.WeaponCoreExchange').isEnabled()) continue;
+            if (option === MenuOption.NormalGearGuide && !Java.type('soloMapling.crafting.NormalGearBridge').isEnabled()) continue;
             selStr += `\r\n#L${option}# ${MenuOption.StringMap[option]}#l`;
         }
 
@@ -48,6 +54,14 @@ function action(mode, type, selection) {
         return;
     } else if (status === 1) {
         switch (selection) {
+            case MenuOption.NormalGearGuide:
+                if (!Java.type('soloMapling.crafting.NormalGearBridge').isEnabled()) {
+                    cm.dispose();
+                    return;
+                }
+                load('scripts/npc/interactions/NormalGearGuide.js');
+                currentInteraction = new NormalGearGuideInteraction(cm);
+                break;
             case MenuOption.CraftingEquipment:
                 load('scripts/npc/interactions/CraftingEquipment.js');
                 currentInteraction = new CraftingEquipmentInteraction(cm);
@@ -55,6 +69,14 @@ function action(mode, type, selection) {
             case MenuOption.RefiningMinerals:
                 load('scripts/npc/interactions/RefiningMaterials.js');
                 currentInteraction = new RefiningMineralsInteraction(cm);
+                break;
+            case MenuOption.CoreExchange:
+                if (!Java.type('soloMapling.crafting.WeaponCoreExchange').isEnabled()) {
+                    cm.dispose();
+                    return;
+                }
+                load('scripts/npc/interactions/WeaponCoreExchange.js');
+                currentInteraction = new WeaponCoreExchangeInteraction(cm);
                 break;
             default:
                 cm.logToConsole(`Unknown selection: ${selection}`);

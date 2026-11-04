@@ -207,3 +207,19 @@ t-sa-1	src/main/java/soloMapling/ArtificialPlayer/BotSocialSystem/SocialActions.
 t-sa-1	src/main/java/soloMapling/ArtificialPlayer/BotSocialSystem/SocialBudget.java	the loop breaker: cooldowns, rate windows, turn cap
 t-pi-1	src/main/java/soloMapling/autoqa/Probes164Social.java	probe socialPilot
 t-pi-1	src/main/java/soloMapling/ArtificialPlayer/BotSocialSystem/SocialPilot.java	the pilot: selection, hold, counters
+t-ng-8	src/main/java/soloMapling/crafting/WeaponCoreExchange.java	HALF: core exchange confirmation, cancellation, space and stale input
+t-ng-8	scripts/npc/9977779.js	HALF: Nimble core exchange menu
+t-ng-8	scripts/npc/interactions/WeaponCoreExchange.js	HALF: core exchange conversation
+t-ng-8	src/main/java/soloMapling/qa/GearProgressionScenarios.java	hands-on core exchange checklist
+t-ng-8	-Dslums.forge.coreexchange=true	core exchange is off by default
+t-ng-8	src/main/java/soloMapling/autoqa/ProbesGear.java	core exchange with synthetic inventory, round trip and cleanup
+t-ng-10	src/main/java/soloMapling/crafting/NormalGearBridge.java	HALF: ordinary source rates in DB; client/cache/combat remain hands-on
+t-ng-10	scripts/npc/9977779.js	HALF: Nimble normal equipment guide menu
+t-ng-10	scripts/npc/interactions/NormalGearGuide.js	HALF: family, band, item and two-source guide
+t-ng-10	scripts/json/normalGearGuide.json	generated normal gear sources and required rate floors
+t-ng-10	database/migrations/061-normal-gear-bridge*.sql	ordinary drop insertion, guarded floors and rollback
+t-ng-10	docs/economy/normal-200/bridge-120-149.json	curated normal bridge sources and items
+t-ng-10	tools/economy/gen_bridge_drops.py	bridge SQL and guide generator
+t-ng-10	src/main/java/soloMapling/qa/GearProgressionScenarios.java	hands-on guide, source, equip and combat checklist
+t-ng-10	src/main/java/soloMapling/autoqa/ProbesGear.java	read-only source rate probe
+t-ng-10	-Dslums.gear.bridge=true	normal guide and source proof are off by default
