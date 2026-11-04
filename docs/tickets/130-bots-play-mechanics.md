@@ -936,3 +936,30 @@ like a party bot - there was no count to change, only the rule that kept it out.
 `Character.isPresentInWorld()` (`Character.java:532-534`), which is true for a bot standing on a map. One count that
 does deliberately exclude bot-kind members is left alone: `RebirthBossRuns.helperOk` keeps owned alts out of the
 rebirth helper pool (`!c.isOwnedAlt()`), because helpers are population bots hired for a fight, not party members.
+
+## Expedition policy: the one caller of a bot captain (1.6.4, branch `164-expedpolicy`)
+
+A bot captain was refused by `ExpeditionBots.autoJoin` and had no way to answer a recruiter's door (`scripts/npc/2030013.js:150-216`
+is a player conversation), so `ExpeditionBots.startAsCaptain` - the capability - was unreachable in game and would have
+shipped as dead code. `!mechanics boss TYPE [bots]` is now its **only** caller.
+
+**In 1.6.4 a bot-captained run is reachable only by that command.** `-Dslums.exped.botcaptain` (on by default) governs
+whether a bot *may* captain a party whose leader is a bot; it does **not** make bots open boss rooms on their own. There
+is no scheduler, no lobby tick and no autonomous trigger of any kind - the command is the trigger, because a bot that
+opens boss rooms by itself is bot farming, which the owner has not asked for and which needs an economy decision first.
+
+- **What the command does** (`client/command/commands/gm3/MechanicsCommand.java:243-258`, `soloMapling/mechanics/BossStaging.java`):
+  reads the type (`ExpeditionType.valueOf`, case-insensitive), spawns `bots` bots (the row's `minPlayers` when omitted,
+  capped at `maxPlayers`) on that row's recruit map at `max(minLevel, 30)..+5`, makes the **first bot** the party leader,
+  fills the party, and calls `ExpeditionBots.startAsCaptain(captain, type)`. On anything but `STARTED` the spawned bots
+  are taken out again (`KpqStaging.cleanup`) so a refusal leaves no loose party behind.
+- **Every answer is printed, never swallowed:** `STARTED`, `HUMAN_LEADS`, `ROOM_TAKEN`, `NO_SCRIPT`, `TOO_FEW`,
+  `SWITCH_OFF`, `REFUSED`, each with a sentence (`BossStaging.sentence`), and logged as `[Mechanics] ...`.
+- **Clean refusals:** `-Dslums.mechanics.boss` off answers `SWITCH_OFF` before any bot spawns (the command's
+  `Mechanics.enabled()` guard deliberately does not swallow `boss`, so the message names the right switch); a type with
+  no content row answers `NO_SCRIPT`; a room already held answers `ROOM_TAKEN`; a human in the party answers
+  `HUMAN_LEADS` - a bot never overrides a human.
+- **Tests** (`src/test/java/soloMapling/mechanics/BossStagingTest.java`, 6): the command reaches `STARTED` and the
+  script's `leader`/`channel`/`startInstance` are set; a human in the party answers `HUMAN_LEADS` through the command;
+  the boss switch off refuses with the switch named and nothing started; a rowless type answers `NO_SCRIPT`; a refused
+  start leaves `spawned()` empty; every `Door` value has a sentence.
