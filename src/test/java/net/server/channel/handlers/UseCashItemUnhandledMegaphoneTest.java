@@ -61,8 +61,12 @@ class UseCashItemUnhandledMegaphoneTest {
             when(server.getCurrentTime()).thenReturn(1_000_000L);
             srv.when(Server::getInstance).thenReturn(server);
             new UseCashItemHandler(mock(NoteService.class)).handlePacket(p, c);
+            // 163-integration added a Character overload next to the Client one, so the bare any() is ambiguous: pin both.
             im.verify(() -> client.inventory.manipulator.InventoryManipulator.removeFromSlot(
-                    any(), any(), org.mockito.ArgumentMatchers.anyShort(), org.mockito.ArgumentMatchers.anyShort(), org.mockito.ArgumentMatchers.anyBoolean(),
+                    org.mockito.ArgumentMatchers.<client.Client>any(), any(), org.mockito.ArgumentMatchers.anyShort(), org.mockito.ArgumentMatchers.anyShort(), org.mockito.ArgumentMatchers.anyBoolean(),
+                    org.mockito.ArgumentMatchers.anyBoolean()), never());
+            im.verify(() -> client.inventory.manipulator.InventoryManipulator.removeFromSlot(
+                    org.mockito.ArgumentMatchers.<client.Character>any(), any(), org.mockito.ArgumentMatchers.anyShort(), org.mockito.ArgumentMatchers.anyShort(), org.mockito.ArgumentMatchers.anyBoolean(),
                     org.mockito.ArgumentMatchers.anyBoolean()), never());
         }
         verify(cash, never()).removeItem(org.mockito.ArgumentMatchers.anyShort());
