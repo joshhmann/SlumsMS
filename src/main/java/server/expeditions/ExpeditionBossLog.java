@@ -245,7 +245,7 @@ public class ExpeditionBossLog {
     }
 
     /** 1.6.4 (owner Round 6 D3): the one daily Chaos Zakum limit all roster bots share (economy number). */
-    public static final int CHAOS_ZAKUM_BOT_DAILY_RUNS = 5;
+    public static final int CHAOS_ZAKUM_BOT_DAILY_RUNS = 25;   // owner 2026-11-04: 25 bot entries a day, world-wide
 
     /** Today's Chaos Zakum rows written by roster bots (ids above the bot base); swapped in tests. */
     static volatile java.util.function.IntSupplier chaosBotRunsToday = ExpeditionBossLog::countChaosBotRows;
