@@ -437,6 +437,11 @@ public final class RingActionHandler extends AbstractPacketHandler {
                     return;
                 }
 
+                if (source.isOwnedAlt() || target.isOwnedAlt()) { // ticket 189 (MA-10): an alt never answers or proposes by packet
+                    target.sendPacket(PacketCreator.enableActions());
+                    return;
+                }
+
                 if (soloMapling.ArtificialPlayer.BotHelpers.isBot(source)
                         && soloMapling.ArtificialPlayer.BotDramaSystem.BotRomance.playerAnsweredBot(target, source, accepted)) {
                     target.sendPacket(PacketCreator.enableActions()); // 1.5.0 bot drama: a bot partner proposed
@@ -503,6 +508,14 @@ public final class RingActionHandler extends AbstractPacketHandler {
                 }
 
                 if ((itemId != ItemId.INVITATION_CHAPEL && itemId != ItemId.INVITATION_CATHEDRAL) || !c.getPlayer().haveItem(itemId)) {
+                    c.sendPacket(PacketCreator.enableActions());
+                    return;
+                }
+
+                String altRefusal = soloMapling.companions.OwnedAltService.inviteRefusalByName( // ticket 189 (MA-09)
+                        c.getWorldServer().getPlayerStorage(), c.getPlayer(), name, "use a wedding invitation");
+                if (altRefusal != null) {
+                    c.getPlayer().dropMessage(5, altRefusal);
                     c.sendPacket(PacketCreator.enableActions());
                     return;
                 }

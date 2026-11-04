@@ -79,8 +79,7 @@ class OwnedAltOwnerInviteTest {
         try (MockedStatic<InviteCoordinator> invites = mockStatic(InviteCoordinator.class);
              MockedStatic<GuildOperationHandler> joins = mockStatic(GuildOperationHandler.class)) {
             Guild.sendInvitation(c, "Alt2");
-            verify(owner).yellowMessage("Alt2 is your alt and can't answer a guild invitation while it travels with you."
-                    + " Use @dismiss Alt2 and log in on it.");
+            verify(owner).yellowMessage("Alt2 is your alt and can't answer a guild invitation while it travels with you.");
             joins.verifyNoInteractions();
             invites.verifyNoInteractions();
         }

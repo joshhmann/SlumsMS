@@ -211,6 +211,11 @@ function action(mode, type, selection) {
                 if (cserv.isWeddingReserved(wid)) {
                     if (wid == cserv.getOngoingWedding(cathedralWedding)) {
                         var partner = cserv.getPlayerStorage().getCharacterById(cm.getPlayer().getPartnerId());
+                        if (partner != null && partner.isOwnedAlt()) { // ticket 189 (MA-10): an alt cannot answer the vows
+                            cm.sendOk("Your partner is an alt and cannot stand at the altar to answer the vows. Only a player at the keyboard can say the vows.");
+                            cm.dispose();
+                            return;
+                        }
                         if (!(partner == null || !cm.getMap().equals(partner.getMap()))) {
                             if (!cm.canHold(4000313)) {
                                 cm.sendOk("Please have a free ETC slot available to get the #b#t4000313##k.");
@@ -258,6 +263,11 @@ function action(mode, type, selection) {
                 var wtype = cserv.getOngoingWeddingType(cathedralWedding);
 
                 var partner = cserv.getPlayerStorage().getCharacterById(cm.getPlayer().getPartnerId());
+                if (partner != null && partner.isOwnedAlt()) { // ticket 189 (MA-10): an alt cannot answer the vows
+                    cm.sendOk("Your partner is an alt and cannot stand at the altar to answer the vows. Only a player at the keyboard can say the vows.");
+                    cm.dispose();
+                    return;
+                }
                 if (!(partner == null || !cm.getMap().equals(partner.getMap()))) {
                     if (cserv.acceptOngoingWedding(cathedralWedding)) {
                         var wid = cm.getClient().getWorldServer().getRelationshipId(cm.getPlayer().getId());

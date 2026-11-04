@@ -19,7 +19,7 @@ class OwnedAltInteractionRefusalTest {
             Trade.inviteTrade(stranger, alt);
             verify(stranger).message("Second is an alt traveling with its owner and can't trade.");
             Trade.inviteTrade(owner, alt);
-            verify(owner).message("Second is your alt and can't trade while it travels with you. Use @dismiss Second and log in on it.");
+            verify(owner).message("Second is your alt and can't trade while it travels with you.");
             invites.verifyNoInteractions();
         }
         verify(alt, never()).setTrade(any());
