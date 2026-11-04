@@ -354,6 +354,9 @@ public final class SocialActions {
                     || a.needsIdle() && !c.actorIdle()) {
                 continue;
             }
+            if (c.since(kind) < SocialBudget.cooldownMs(budgetKey(kind))) {
+                continue; // inside the pair's gap for this act: the budget would hold it back, so it is not a choice
+            }
             double u = a.utility(c);
             out.add(new Scored(kind, c.target().id(), u, u + amp * (rng.nextDouble() * 2 - 1)));
         }
@@ -443,6 +446,19 @@ public final class SocialActions {
         return i != null && i.expiresAt() > now ? i : null;
     }
 
+    /** Whether any invitation to {@code to} is still open. */
+    public static boolean hasInviteFor(int to, long now) {
+        if (invites.isEmpty()) {
+            return false;
+        }
+        for (Invite i : invites.values()) {
+            if (i.to() == to && i.expiresAt() > now) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     static Invite openInvite(int from, int to, String what, int mapId, Object payload, long now) {
         Invite i = new Invite(INVITE_IDS.getAndIncrement(), from, to, what, mapId, now, now + INVITE_TTL_MS, payload);
         Invite old = invites.put(pairKey(from, to), i);
@@ -486,7 +502,8 @@ public final class SocialActions {
         return out;
     }
 
-    static void startAvoid(Avoid a) {
+    /** Records that {@code a.actor()} keeps away from {@code a.target()} (the AVOID act, GM and QA staging). */
+    public static void startAvoid(Avoid a) {
         avoids.put(pairKey(a.actor(), a.target()), a);
         avoidWalkAt.put(pairKey(a.actor(), a.target()), a.since());
     }

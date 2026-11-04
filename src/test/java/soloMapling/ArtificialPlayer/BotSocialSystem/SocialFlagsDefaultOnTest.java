@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SocialFlagsDefaultOnTest {
 
     private static final String[] KEYS = {
-            "slums.botlife.enabled", "slums.botlife.execute", "slums.bottalk", "slums.crews"};
+            "slums.botlife.enabled", "slums.botlife.execute", "slums.bottalk", "slums.crews", "slums.socialacts"};
     private final String[] saved = new String[KEYS.length];
 
     @BeforeEach
@@ -47,6 +47,7 @@ class SocialFlagsDefaultOnTest {
         assertTrue(LifeRuntime.reachesAllBots());
         assertTrue(BotTalk.on());
         assertTrue(BotCrews.on());
+        assertTrue(SocialActions.enabled());
     }
 
     @Test
@@ -66,5 +67,8 @@ class SocialFlagsDefaultOnTest {
 
         System.setProperty("slums.crews", "false");
         assertFalse(BotCrews.on());
+
+        System.setProperty("slums.socialacts", "false");
+        assertFalse(SocialActions.enabled());
     }
 }

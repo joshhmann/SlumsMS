@@ -3,6 +3,7 @@ package soloMapling.dashboard;
 import soloMapling.ArtificialPlayer.BotConvo.BotTalk;
 import soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemoryStore;
 import soloMapling.ArtificialPlayer.BotLifeSystem.ModeSwitch;
+import soloMapling.ArtificialPlayer.BotSocialSystem.SocialActions;
 import soloMapling.ArtificialPlayer.BotSocialSystem.SocialBudget;
 import soloMapling.ArtificialPlayer.BotSocialSystem.SocialMetrics;
 import soloMapling.ArtificialPlayer.GCMoveSystem.BotPerformanceMonitor;
@@ -20,6 +21,7 @@ import java.util.Map;
  * <pre>
  *   social.modes        {enabled, census: {training, social, town}, stats: ModeSwitch counters}
  *   social.budget       {enabled, counters: SocialBudget counters (allowed, denied per reason, recorded, ...)}
+ *   social.acts         {enabled, counters: SocialMetrics act and decision counters ("KIND.ok", "KIND.rejected"...), open: invites, avoids, together}
  *   social.talk         {on, ticks, avgTickMs, avgCpuMs, talks, greets, actsOk, actsFailed}  BotTalk, since boot
  *   social.socialTick   {calls, totalMs, msPerS, callsPerS}  the social-tick cost phase, rate over the interval
  *   social.bonds        {bonds, holders, text}  BotBonds totals
@@ -39,6 +41,7 @@ final class SocialExport {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("modes", modes());
         out.put("budget", budget());
+        out.put("acts", acts());
         out.put("talk", talk());
         out.put("socialTick", socialTick(now, phases));
         out.put("bonds", SocialMetrics.bondTotals());
@@ -62,6 +65,14 @@ final class SocialExport {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("enabled", SocialBudget.enabled());
         m.put("counters", new LinkedHashMap<>(SocialBudget.counters()));
+        return m;
+    }
+
+    private static Map<String, Object> acts() {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("enabled", SocialActions.enabled());
+        m.put("counters", new LinkedHashMap<>(SocialMetrics.actCounters()));
+        m.put("open", new LinkedHashMap<>(SocialActions.openState()));
         return m;
     }
 

@@ -48,43 +48,67 @@ public final class SocialDecider {
         }
         int decided = 0, acted = 0;
         SocialWorld world = SocialActions.world();
-        for (int id : botIds) {
-            if (decided >= PER_MAP) {
-                break;
-            }
-            Long due = nextAt.get(id);
-            if (due != null && due > now) {
-                continue;
-            }
-            nextAt.put(id, now + pace(id, now));
-            decided++;
-            SocialMetrics.countDecision("decisions");
-            if (LifeMemoryStore.peek(id) == null) {
-                SocialMetrics.countDecision("skipped-no-mind");
-                continue;
-            }
-            if (!world.free(id)) {
-                SocialMetrics.countDecision("skipped-busy");
-                continue;
-            }
-            List<Integer> candidates = candidates(id, world, now);
-            if (candidates.isEmpty()) {
-                SocialMetrics.countDecision("idle-nobody-known");
-                continue;
-            }
-            var best = SocialActions.best(id, candidates, now);
-            if (best.isEmpty()) {
-                SocialMetrics.countDecision("idle");
-                continue;
-            }
-            SocialActions.Scored pick = best.get();
-            SocialActions.Outcome out = SocialActions.perform(id, pick.targetId(), pick.kind(), now);
-            SocialMetrics.countDecision(out.happened() ? "acted" : "act-refused");
-            if (out.happened()) {
-                acted++;
+        for (int pass = 0; pass < 2 && decided < PER_MAP; pass++) { // pass 0: bots with an open invitation to answer
+            for (int id : botIds) {
+                if (decided >= PER_MAP) {
+                    break;
+                }
+                if ((pass == 0) != SocialActions.hasInviteFor(id, now)) {
+                    continue;
+                }
+                Long due = nextAt.get(id);
+                if (due != null && due > now) {
+                    continue;
+                }
+                nextAt.put(id, now + pace(id, now));
+                decided++;
+                SocialMetrics.countDecision("decisions");
+                if (decideOne(id, world, now)) {
+                    acted++;
+                }
             }
         }
         return acted;
+    }
+
+    /** One bot's decision; true when it did something. */
+    private static boolean decideOne(int id, SocialWorld world, long now) {
+        if (LifeMemoryStore.peek(id) == null) {
+            SocialMetrics.countDecision("skipped-no-mind");
+            return false;
+        }
+        if (!world.free(id)) {
+            SocialMetrics.countDecision("skipped-busy");
+            return false;
+        }
+        List<Integer> candidates = candidates(id, world, now);
+        if (candidates.isEmpty()) {
+            SocialMetrics.countDecision("idle-nobody-known");
+            return false;
+        }
+        var best = SocialActions.best(id, candidates, now);
+        if (best.isEmpty()) {
+            SocialMetrics.countDecision("idle");
+            return false;
+        }
+        SocialActions.Scored pick = best.get();
+        SocialActions.Outcome out = SocialActions.perform(id, pick.targetId(), pick.kind(), now);
+        SocialMetrics.countDecision(out.happened() ? "acted" : "act-refused");
+        return out.happened();
+    }
+
+    /**
+     * Makes {@code id} due again within 3-15 seconds: an invitation was just made to it and it should answer while the
+     * invitation is open (it lapses after {@link SocialActions#INVITE_TTL_MS}).
+     */
+    public static void expedite(int id, long now) {
+        nextAt.put(id, now + 3_000L + (long) (SocialSim.random(id, "social-pace").nextDouble() * 12_000L));
+    }
+
+    /** Whether this bot's next decision is due (a bot never looked at is due). */
+    public static boolean due(int id, long now) {
+        Long due = nextAt.get(id);
+        return due == null || due <= now;
     }
 
     /** Upkeep of what acts leave running (see {@link SocialActions#tick}). */

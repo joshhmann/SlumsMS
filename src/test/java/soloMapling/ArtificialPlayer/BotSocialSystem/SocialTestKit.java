@@ -161,7 +161,7 @@ final class SocialTestKit {
     }
 
     /** Flows that record what they were asked and answer from a script; they count in the budget like BotTalk's do. */
-    static final class FakeFlows implements SocialFlows {
+    static class FakeFlows implements SocialFlows {
         record Call(SocialActKind kind, int actor, int target) {
         }
 

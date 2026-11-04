@@ -5,15 +5,15 @@ import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 /**
- * Since 1.6.4 the daily-life brain, bot talk and crews are on unless a flag says {@code false}. A test written for
- * the world without them applies this extension ({@code @ExtendWith(SocialFlagsOff.class)}): the four flags are
+ * Since 1.6.4 the daily-life brain, bot talk, crews and social acts are on unless a flag says {@code false}. A test written for
+ * the world without them applies this extension ({@code @ExtendWith(SocialFlagsOff.class)}): the five flags are
  * {@code false} for each test and put back afterwards, whatever the test did to them. A test that wants one on sets
  * it to {@code true} itself, as before.
  */
 public final class SocialFlagsOff implements BeforeEachCallback, AfterEachCallback {
 
     private static final String[] KEYS = {
-            "slums.botlife.enabled", "slums.botlife.execute", "slums.bottalk", "slums.crews"};
+            "slums.botlife.enabled", "slums.botlife.execute", "slums.bottalk", "slums.crews", "slums.socialacts"};
     private static final ExtensionContext.Namespace NS = ExtensionContext.Namespace.create(SocialFlagsOff.class);
 
     @Override

@@ -43,7 +43,7 @@ import java.util.Random;
  *       <td>empathy, loyalty, affection, owing, recognition need; ~its own achievement drive</td>
  *       <td>the help trip (party + keeps grinding there); lands when it formed</td>
  *       <td>target's edge: BUFF event; pride, recognition; HELP memory both sides</td></tr>
- *   <tr><td>GIVE_GIFT (built, seam)</td><td>FRIEND or affection 0.3+, not sour, the {@link GiftSeam} can give, 60 min gap</td>
+ *   <tr><td>GIVE_GIFT (built, seam)</td><td>FRIEND or affection 0.3+, not sour, the {@link GiftSeam} can give, 6 h gap</td>
  *       <td>affection, loyalty, empathy, attraction, owing; ~(none)</td>
  *       <td>{@link GiftSeam#give}; lands when it was done</td>
  *       <td>default: GIFT on the receiver's edge, GIFT_GIVEN on the giver's, GIFTED push; both GIFT memory, affection and pride</td></tr>
@@ -187,14 +187,25 @@ final class SocialActs {
     }
 
     /**
-     * How much social drive the bot has now, 0.35..1: its sociability and its most pressing unmet need for company
-     * (companionship, belonging, loneliness). The friendly acts scale by it, so a content loner does nothing even with a
-     * close friend beside it while a starved socializer acts on weak ties. Hostile and withdrawing acts are driven by
+     * How much social drive the bot has now, 0.15..1: mostly its most pressing unmet need for company, a little its sociability
+     * (companionship, belonging, loneliness). The friendly acts scale by it, so a bot whose needs are met does little even
+     * with a close friend beside it while a starved socializer acts on weak ties; meeting the need (talking, hanging out)
+     * is what quietens it. Hostile and withdrawing acts are driven by
      * anger, fear and grudges instead and are not scaled.
      */
     static double energy(SocialContext.Self s) {
         double pressure = Math.max(s.n(Need.COMPANIONSHIP), Math.max(0.8 * s.n(Need.BELONGING), s.e(Emotion.LONELINESS)));
-        return 0.35 + 0.65 * clamp01(0.45 * s.t(Trait.SOCIABILITY) + 0.55 * pressure);
+        return 0.15 + 0.85 * clamp01(0.3 * s.t(Trait.SOCIABILITY) + 0.7 * pressure);
+    }
+
+    /**
+     * Habituation: a repeat of the same act to the same bot soon after the last one is worth less (up to 0.4 less right
+     * after, fading to nothing over four of the act's own gaps), so a bot does not run one gesture on a loop.
+     */
+    static double stale(SocialContext c, SocialActKind kind) {
+        long gap = SocialBudget.cooldownMs(SocialActions.budgetKey(kind));
+        long since = c.since(kind);
+        return since == Long.MAX_VALUE ? 0 : 0.4 * Math.max(0, 1 - since / (4.0 * Math.max(1, gap)));
     }
 
     /** The edge-and-mind based answer to "does this bot want it": the base of ACCEPT and DECLINE. */
@@ -400,7 +411,7 @@ final class SocialActs {
             return energy(s) * (0.08 + 0.35 * s.t(Trait.AGREEABLENESS) + 0.25 * s.t(Trait.EMPATHY) + 0.40 * pos(e.affection())
                     + 0.30 * pos(e.respect()) + 0.20 * s.n(Need.BELONGING) + 0.15 * e.attraction()
                     + 0.10 * s.t(Trait.SOCIABILITY)) - 0.30 * s.t(Trait.JEALOUSY) * e.rivalry() - 0.20 * e.resentment()
-                    - 0.25 * s.t(Trait.JEALOUSY) * c.distrustedCompany();
+                    - 0.25 * s.t(Trait.JEALOUSY) * c.distrustedCompany() - stale(c, kind());
         }
 
         @Override
@@ -545,7 +556,7 @@ final class SocialActs {
             if (c.edge().familiarity() < 0.2) {
                 return "does not know them well enough";
             }
-            if (c.since(kind()) < 60 * 60_000L) {
+            if (c.since(kind()) < 6 * 60 * 60_000L) {
                 return "gave them something lately";
             }
             return SocialActions.giftSeam.blocker(c.actor().id(), c.target().id(), c.now());
@@ -555,8 +566,9 @@ final class SocialActs {
         public double utility(SocialContext c) {
             SocialContext.Self s = c.self();
             Axes e = c.edge();
-            return energy(s) * (0.04 + 0.40 * pos(e.affection()) + 0.25 * s.t(Trait.LOYALTY) + 0.25 * s.t(Trait.EMPATHY)
-                    + 0.30 * e.attraction() + 0.35 * pos(e.obligation()) + 0.10 * s.t(Trait.AGREEABLENESS));
+            return energy(s) * (0.04 + 0.30 * pos(e.affection()) + 0.20 * s.t(Trait.LOYALTY) + 0.20 * s.t(Trait.EMPATHY)
+                    + 0.30 * e.attraction() + 0.35 * pos(e.obligation()) + 0.10 * s.t(Trait.AGREEABLENESS))
+                    - stale(c, kind());
         }
 
         @Override
@@ -627,6 +639,7 @@ final class SocialActs {
             }
             SocialActions.Invite open = SocialActions.openInvite(a, t, offer.what(), offer.mapId(), offer.payload(), now);
             say(a, lineTo("SocialInvite", c.target(), a, "{PLAYER} wanna party?"));
+            SocialDecider.expedite(t, now); // the invited bot answers while the invitation is open
             return Outcome.ok(kind(), 0, "invited " + c.target().name() + " to " + open.what());
         }
     }
@@ -645,7 +658,7 @@ final class SocialActs {
 
         @Override
         public double utility(SocialContext c) {
-            return 0.4 + 1.2 * (willingness(c) - 0.5);
+            return 0.6 + 1.2 * (willingness(c) - 0.5);
         }
 
         @Override
@@ -680,7 +693,7 @@ final class SocialActs {
 
         @Override
         public double utility(SocialContext c) {
-            return 0.4 + 1.2 * (0.5 - willingness(c)) + 0.3 * c.edge().resentment();
+            return 0.6 + 1.2 * (0.5 - willingness(c)) + 0.3 * c.edge().resentment();
         }
 
         @Override

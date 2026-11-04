@@ -305,8 +305,16 @@ public final class BotTalk {
             SocialDecider.upkeep(now);
             for (Map.Entry<Long, List<Character>> e : maps) {
                 List<Character> here = e.getValue();
-                if (here.size() < 2 || here.get(0).getMap() == null || BotThreads.mapWeight(here.get(0).getMap()) <= 0) {
+                if (here.size() < 2) {
                     continue;
+                }
+                boolean anyDue = false; // nothing due on this map: no map read, no allocation
+                for (int i = 0, n = here.size(); i < n && !anyDue; i++) {
+                    anyDue = SocialDecider.due(here.get(i).getId(), now);
+                }
+                MapleMap map = anyDue ? here.get(0).getMap() : null;
+                if (map == null || BotThreads.excluded(map.getId(), map.getEventInstance() != null || map.isEventMap())) {
+                    continue; // no social acts on boss maps, event maps and mini-dungeons (the talk tick's own rule)
                 }
                 int[] ids = new int[here.size()];
                 for (int i = 0; i < ids.length; i++) {
