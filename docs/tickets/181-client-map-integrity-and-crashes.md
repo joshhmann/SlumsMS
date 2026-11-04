@@ -35,6 +35,53 @@ The two feature lists are coverage candidates only: **7** maps with `qrLimit=310
 
 ## Existing mitigation and work to reuse
 
+### Owner-reported route: Temple of Time → Leafre of the Past
+
+Owner clarification, recorded 2026-11-04 06:36 UTC (2026-11-03 10:36 PM PST): the affected path is
+the Temple of Time portal's **“Leafre of the Past (Crack in Time)”** choice. This identifies a
+normal player route outside the five missing-image maps above. It does not establish that the
+51 broken-link maps are reachable. The exact visible failure (error dialog, closure, disconnect,
+wrong destination or inability to proceed), error code and timing still need to be recorded.
+
+Source trace:
+
+1. Temple map `270000000`, `portal1` (index 10), opens `scripts/portal/270000000.10.js`.
+2. That script opens keeper NPC `2140000` with `scripts/npc/gateOfTime.js`.
+3. The third menu choice (selection 2) checks `AreaGates.denyReason` and calls `cm.warp(272000000, 0)`.
+4. Retained client map `272000000` has `in00`, type **10**, targeting `272000100/out00`.
+   Map `272000100` then has `in00`, type **7**, targeting `272000200/out00`.
+
+Additional offline findings for this route:
+
+- Existing `check_map_refs.py` scanned `272000000`, `272000100`, `272000200`, `272000300`,
+  `272000400`, `272000500`, `272000600`: **27 note findings, 0 fatal/fixed listed maps**
+  (23 layer-3 object findings, 4 layer-4). Notes include missing internal nodes such as
+  `Obj/acc10.img/timeTemple/pillar_old/7` and `timeTemple/crack/3` in `272000000`.
+  An existing image with absent internal nodes is a different class from missing `mario.img`;
+  the checker does not establish these notes as the cause of a process exit.
+- `272000000/west00` targets `270000000/east00`; retained client `270000000` has no `east00`.
+  This is a return-destination mismatch to check against current server data and fallback handling,
+  not a demonstrated explanation for a failure on initial entry.
+- Retained `272000000` declares `onUserEnter=q31165e`; no matching script was found under this
+  checkout's `scripts/`. Check actual runtime script handling and logs before attributing symptoms.
+- Check native-client handling of portal types 10 and 7 at the two onward transitions; neither
+  is declared unsupported by this investigation. Capture outgoing portal packets to distinguish
+  a client portal that never activates from a server warp or map-load failure.
+- `GateOfTimeScriptTest` checks the chosen destination and level gate; `t-ld-1` checks script
+  text and access rules. Those checks cannot establish successful client rendering or traversal.
+
+**Priority reproduction:** use an eligible character (level 120, no rebirths) and the actual Temple
+menu path, not only `!warp`. Capture menu selection, requested destination, server transition,
+client map-ready/error/cleanup and exact timestamp. Test first arrival at `272000000`, onward
+travel to `272000100` and `272000200`, and the return to `270000000` separately. Compare direct
+warp only as a diagnostic control. Archive client integration/trace/error logs and matching server
+logs per leg. Do not reuse a Rose Garden fix without evidence that the same instruction fails.
+
+Evidence outputs: `/root/work/agent-runs/client/map-audit-20261103/temple-route-check.out`,
+`temple-route-check.err`, `temple-route-notes.txt`; copied checker tools in `temple-route-tools/`.
+The Sound root is absent from this retained Data subset, so the checker skipped BGM validation.
+No fresh client run, runtime script proof or diagnosis of this route's reported error is claimed.
+
 - The inspected release-1.6.4 `src/main/resources/soloMapling/map-routing.tsv` already lists all five
   missing-art maps and all seven Rose Garden maps as `client-crash`, with fallback destinations.
   In particular, `211080000 east00 -> 211080100` routes **back to `211080000`**; it is not an
@@ -70,6 +117,8 @@ The two feature lists are coverage candidates only: **7** maps with `qrLimit=310
 
 ## Acceptance and targeted proof
 
+- [ ] Reproduce the owner's Temple menu → `272000000` path, record the exact symptom, and prove
+      arrival, onward transitions and the return portal separately using the route plan above.
 - [ ] Re-run inventory against the exact QA/release Data set and record hashes, counts, errors and findings.
 - [ ] Fail-before tests cover the chosen b251 fix, valid-layer behavior and missing-art containment.
       Run native CTest; separately record any prior test results used only as historical evidence.
