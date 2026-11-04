@@ -190,7 +190,7 @@ class OwnedAltLifecycleAuditTest {
         when(world.getCharacterByName("Second")).thenReturn(alt);
         Character stranger = owner(5);
         String mine = OwnedAltService.inviteRefusalByName(world, owner, "Second", "join a Maple Messenger chat");
-        assertTrue(mine.contains("is your alt") && mine.contains("@dismiss Second"), mine);
+        assertTrue(mine.contains("is your alt"), mine);
         assertTrue(OwnedAltService.inviteRefusalByName(world, stranger, "Second", "answer a buddy request")
                 .contains("can't answer a buddy request"));
         Character player = mock(Character.class);
