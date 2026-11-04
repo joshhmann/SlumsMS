@@ -43,6 +43,13 @@ if [ "$LEDGER_BEFORE" = __auto__ ]; then
   LEDGER_BEFORE=$(printf '%s\n' "${ids[@]}" | LC_ALL=C sort | paste -sd,)
 fi
 EXPECT_LOG=("SlumsMS v$JAR_VERSION" "is now online" "${EXPECT_LOG[@]}")
+# Routing guard (b251): the live table must keep every map in routing-required.txt, and no unit edit may swap it.
+ROUTE_REQUIRED=()
+while read -r id _; do [[ "$id" =~ ^[0-9]+$ ]] && ROUTE_REQUIRED+=("$id"); done < "$here/routing-required.txt"
+for e in "${UNIT_EDITS[@]}"; do [[ "$e" == *slums.maps.routing.table* ]] && die "UNIT_EDITS sets -Dslums.maps.routing.table (TEST-only override)"; done
+for id in "${ROUTE_REQUIRED[@]}"; do
+  grep -qP "^$id\t" "$REPO/src/main/resources/soloMapling/map-routing.tsv" || die "map-routing.tsv lost the route for $id (routing-required.txt)"
+done
 [ -z "$CONFIG_HEAD" ] || [ -n "$CONFIG_HEAD_BEFORE" ] || die "CONFIG_HEAD needs CONFIG_HEAD_BEFORE"
 for f in "$CONFIG_HEAD" "$CONFIG_APPEND" "$CASHSHOP_CATALOG"; do [ -z "$f" ] || [ -f "$REPO/$f" ] || die "no $REPO/$f"; done
 # SERVER_SET: numeric, boolean or simple text (String fields; letters, digits and : , . _ -) server: keys edited in place (or added) by set-release-config --set. The config loader is
@@ -82,7 +89,7 @@ H
   # staged copies of the config files live in staging/ under their base names
   printf 'CASHSHOP_CATALOG=%s\n' "$(sq "${CASHSHOP_CATALOG:+$(basename "$CASHSHOP_CATALOG")}")"
   printf 'CONFIG_HEAD=%s\nCONFIG_APPEND=%s\n' "$(sq "${CONFIG_HEAD:+$(basename "$CONFIG_HEAD")}")" "$(sq "${CONFIG_APPEND:+$(basename "$CONFIG_APPEND")}")"
-  for a in MIGRATION_FILES MIGRATION_IDS UNIT_EDITS SERVER_SET PRECHECK_SQL EXPECT_LOG FORBID_LOG; do
+  for a in MIGRATION_FILES MIGRATION_IDS UNIT_EDITS SERVER_SET PRECHECK_SQL EXPECT_LOG FORBID_LOG ROUTE_REQUIRED; do
     declare -n arr=$a; printf '%s=(' "$a"; sep=""; for x in "${arr[@]}"; do printf '%s%s' "$sep" "$(sq "$x")"; sep=" "; done; echo ')'; unset -n arr
   done
 }

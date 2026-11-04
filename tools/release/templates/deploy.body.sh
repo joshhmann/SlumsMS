@@ -285,6 +285,15 @@ for p in $LOGIN_PORT $CHANNEL_BASE; do
   if ss -ltn | has ":$p "; then echo "ok   listening on $p"; else echo "FAIL nothing on $p"; fail+=("port $p"); fi
 done
 l=$(ledger); [ "$l" = "$LEDGER_AFTER" ] || fail+=("ledger now '$l'")
+# b251 routing guard: the running jar's table still blocks every required map, and nothing swapped the table.
+table=$(unzip -p "$SRV/target/Cosmic.jar" soloMapling/map-routing.tsv 2>/dev/null)
+for id in "${ROUTE_REQUIRED[@]}"; do
+  if printf '%s\n' "$table" | has -P "^$id\t"; then echo "ok   map $id still routed"; else echo "FAIL map $id not routed"; fail+=("route $id"); fi
+done
+pid=$(systemctl show -p MainPID --value "$JOURNAL_UNIT" 2>/dev/null)
+if [ -n "$pid" ] && [ "$pid" != 0 ] && tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | has -F 'slums.maps.routing.table'; then
+  echo "FAIL the server runs with -Dslums.maps.routing.table (TEST-only)"; fail+=("routing.table override")
+else echo "ok   no routing table override"; fi
 echo "SELECT 'characters by world', world, COUNT(*) FROM characters GROUP BY world;" | sql
 mark smoke1
 

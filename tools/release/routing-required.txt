@@ -1,0 +1,5 @@
+# Maps the live map-routing table must keep routed (blocked), one map id per line, then why.
+# gen-deploy refuses a release whose table lacks one or whose UNIT_EDITS points the server at another routing table
+# (-Dslums.maps.routing.table, a TEST-only override), and the deploy smoke test re-reads both on the host.
+# Remove a line only when the client fix for that map is live.
+211080100 Rose Garden : Abandoned Garden, client crash (b251; client fix 3e640f1 under test, not live)
