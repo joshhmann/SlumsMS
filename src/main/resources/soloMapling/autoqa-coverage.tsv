@@ -200,3 +200,10 @@ t-mp-1	src/main/java/server/maps/MapRouting.java	map routing: blocked/missing ma
 t-mp-1	src/main/resources/soloMapling/map-routing.tsv	the routing table
 t-xc-5	src/main/java/soloMapling/Economy/exchange/volatility/MarketTraders.java	trader bots list the scrolls they hold (s-xtraders)
 t-xc-5	src/main/java/soloMapling/Economy/exchange/volatility/MarketQa.java	probe marketScroll
+t-ms-1,t-sm-1,t-sa-1	src/main/java/soloMapling/autoqa/Probes164Social.java	probe modeSwitch; probe socialMind; probe socialActs
+t-ms-1	src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/ModeSwitch.java	the three modes: policy, executor, census and counters
+t-sm-1	src/main/java/soloMapling/ArtificialPlayer/BotSocialSystem/SocialMind.java	emotions, needs, mood and their seeds
+t-sa-1	src/main/java/soloMapling/ArtificialPlayer/BotSocialSystem/SocialActions.java	the act registry and its outcomes
+t-sa-1	src/main/java/soloMapling/ArtificialPlayer/BotSocialSystem/SocialBudget.java	the loop breaker: cooldowns, rate windows, turn cap
+# t-pi-1 (the Henesys pilot's own counters, probe "socialPilot" in Probes164Social) is deliberately absent until
+# stage 8 registers it in AutoQaCatalog: a check that can only SKIP would fail every release run.
