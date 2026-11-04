@@ -1,7 +1,7 @@
 # 181: Repair client map dependencies and prove safe area entry
 
-**State:** investigation recorded; owner now reports a friend's client crashed on the Future Leafre route.
-Exact transition, diagnostic reproduction and fix proof pending. This is a repository ticket,
+**State:** data sweep complete; v232 repair candidate prepared and verified offline.
+Installation, native client proof, remaining missing assets and Rose Garden runtime repair are pending. This is a repository ticket,
 not a newly assigned release-book bug ID. Link the Rose Garden work to existing **b251** and missing-art
 work to **b246 / client-163-mapload** rather than opening duplicate fixes.
 **Requested by:** owner, client map/crash audit followed by “look into those; write a ticket”.
@@ -11,6 +11,27 @@ recorded client failure; broken-link reachability and individual missing-art run
 **CLOSER:** Client Development SlumsMS, with Server Dev for routing changes.
 **PROOF:** fail-before regression tests plus targeted real-client entry, dwell, exit and re-entry evidence;
 source inventory alone cannot close the ticket.
+
+## Current findings and handoff — 2026-11-04
+
+- **Crack in Time272000000:** traced missing-object failure; the private v232 candidate resolves
+  all27 missing pillar/crack placements. Requires native rendering and entry/exit proof before release.
+- **Rose Garden211080100 (b251):** art resolves; separate runtime crash remains open.
+- **Rose Garden211080700:**12 Obj/mario.img placements remain unresolved; v232 lacks that image.
+- **Broader data sweep:** candidate removes2151 fatal-class references (920 object placements and
+  1231 missing whole BGM-image references).247 map IDs still have fatal-class findings;14 newly
+  exposed missing-track notes also need attention. Static counts are not gameplay guarantees.
+- **Transfer hypothesis:** all49750 original repack files checked are present in QA. Missing nodes
+  also occur in the original pack; this comparison does not support failed transfer as their cause.
+- **Validation:**24 relevant Python tests pass plus the full11352-map offline candidate sweep.
+  Candidate is local only; nothing installed, published, pushed or merged. No game was launched.
+
+Implementation and pinned source manifest: client branch `client-164-mapart-fixes`, commit `c97a953`.
+[Detailed v232 results and remaining-map list](/root/work/client/src-164-mapart-fixes/docs/map-data-sweep-164/v232-results.md).
+
+Client lane: review/stage the compatible candidate and prove native behavior; source missing mario,
+starPlanet, PL_RetroWorld and remaining audio dependencies. Handle b251 independently. Server Dev:
+review the Temple menu/return routing findings below. Retain restrictions until each map has proof.
 
 ## Problem and investigation
 
