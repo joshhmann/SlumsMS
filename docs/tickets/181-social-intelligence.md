@@ -31,7 +31,7 @@ change.
 | 1 | `SocialMind`: traits, emotions, needs, decay, persistence | built on branch `164-social-mind` `43c1128c4` (model, persistence, event hooks; not yet read by any decision, that is Stage 4); TEST persistence check pending |
 | 2 | 8-axis `Bond`/`Tie`, migration 059, background bond formation | planned |
 | 3 | `botmemory` extension, relevance recall, knowledge boundaries | planned |
-| 4 | `SocialAction` registry, missing actions, gifts, emotion and memory into the decision model | planned |
+| 4 | `SocialAction` registry, missing actions, gifts, emotion and memory into the decision model | gifts built on branch `164-social-gift` (`BotBotGift`: bot-to-bot item gift or gesture, non-economic, limits, tests); registry and decision-model wiring still planned |
 | 5 | Persisted intentions; memory in bot-bot prompts | planned |
 | 6 | Social LOD, loop breaker, metrics | planned |
 | 7 | Henesys pilot and live verification | planned |
@@ -47,3 +47,7 @@ it has run; the audit file says what has and has not.
 
 `slums.botlife.enabled`, `slums.botlife.execute`, `slums.bottalk`, `slums.crews`, `slums.modeswitch`: all `-D` JVM
 properties, on unless set to `false`. None is a `config.yaml` key.
+
+Gifts (`BotBotGift`): `slums.botgifts` (on unless `false`), and the limits
+`slums.botgifts.giver.cooldownMin` (360), `slums.botgifts.pair.cooldownMin` (1440), `slums.botgifts.receiver.perDay`
+(3), `slums.botgifts.perHour` (15), `slums.botgifts.valueCap` (100000 mesos at NPC prices).
