@@ -29,6 +29,8 @@ import soloMapling.ArtificialPlayer.BotLifeSystem.LifeTowns;
 import soloMapling.ArtificialPlayer.BotLifeSystem.SocialSelf;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
 import soloMapling.ArtificialPlayer.BotSM;
+import soloMapling.ArtificialPlayer.BotSocialSystem.SocialBudget;
+import soloMapling.ArtificialPlayer.BotSocialSystem.SocialSim;
 import soloMapling.ArtificialPlayer.BotStore;
 import soloMapling.ArtificialPlayer.BotTypes.TrainingBot;
 import soloMapling.server.ExecutorServiceManager;
@@ -513,6 +515,14 @@ public final class BotTalk {
      */
     public static Plan run(MapleMap map, List<Character> who, boolean greetOnly, Ask forced, boolean bankOnly,
                            String why, long now, Random rng) {
+        String kind = greetOnly ? SocialBudget.GREET : SocialBudget.CHAT; // 1.6.4: the loop breaker (QA-forced talks skip it)
+        long mapKey = key(map.getChannelId(), map.getId());
+        SocialBudget.Verdict gate = forced != null || who.size() < 2 ? SocialBudget.Verdict.OK
+                : SocialBudget.allow(who.get(0).getId(), who.get(1).getId(), mapKey, kind, now);
+        if (!gate.allowed()) {
+            qa(map.getId(), "BUDGET held back " + kind + " " + names(who) + ": " + gate.reason().label());
+            return null;
+        }
         for (Character c : who) {
             if (inTalk.putIfAbsent(c.getId(), now) != null) {
                 for (Character d : who) {
@@ -549,6 +559,9 @@ public final class BotTalk {
             BotThreads.Live thread = register(id, map, channel, plan, now);
             Live live = new Live(id, plan, channel, map.getId(), thread, topic);
             byId.put(id, live);
+            if (forced == null && who.size() >= 2) {
+                SocialBudget.record(new SocialBudget.Outcome(who.get(0).getId(), who.get(1).getId(), mapKey, kind, now, true));
+            }
             count(greetOnly ? "kind:greet" : who.size() >= 3 ? "kind:group" : "kind:chat");
             if (greetOnly) {
                 greets.increment();
@@ -816,7 +829,21 @@ public final class BotTalk {
     static volatile java.util.function.BiFunction<Live, Act, Result> doer = BotTalk::realAct;
 
     static Result carryOut(Live live, Act act) {
-        return doer.apply(live, act);
+        int target = act.yes().isEmpty() ? 0 : act.yes().get(0).getId(); // 1.6.4: the loop breaker's view of an ask act
+        String kind = SocialBudget.ASK + ":" + act.ask();
+        long mapKey = key(live.channel, live.mapId), at = SocialSim.now();
+        SocialBudget.Verdict gate = SocialBudget.allow(act.asker().getId(), target, mapKey, kind, at);
+        if (!gate.allowed()) {
+            return new Result(false, "budget", "held back by the social budget: " + gate.reason().label());
+        }
+        boolean ok = false;
+        try {
+            Result r = doer.apply(live, act);
+            ok = r.ok;
+            return r;
+        } finally {
+            SocialBudget.record(new SocialBudget.Outcome(act.asker().getId(), target, mapKey, kind, at, ok));
+        }
     }
 
     static Result realAct(Live live, Act act) {
@@ -1322,6 +1349,7 @@ public final class BotTalk {
         notes.clear();
         tally.clear();
         doer = BotTalk::realAct;
+        SocialBudget.resetForTest();
         trips = BotTalk::goLater;
         lives = BotTalk::gameLife;
         TalkPromises.resetForTest();
