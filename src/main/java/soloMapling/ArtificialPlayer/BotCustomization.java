@@ -3,7 +3,9 @@ package soloMapling.ArtificialPlayer;
 import client.Character;
 import client.inventory.BodyPart;
 import client.inventory.Equip;
+import client.inventory.Inventory;
 import client.inventory.InventoryType;
+import client.inventory.Item;
 import constants.inventory.ItemConstants;
 import server.ItemInformationProvider;
 
@@ -85,12 +87,20 @@ public class BotCustomization {
             return;
         }
         Equip source = (Equip) BotLogic.generateCleanItemEquip(itemId); // Item you are equipping, clean stats
-        Equip target = (Equip) fakechar.getInventory(InventoryType.EQUIPPED).getItem(dst); // Currently equipped item
-        if (target != null) { // if equip already in, remove that.
-            fakechar.getInventory(InventoryType.EQUIPPED).removeSlot(dst);
+        Inventory equipped = fakechar.getInventory(InventoryType.EQUIPPED);
+        Item off = equipped.getItem(dst); // Currently equipped item
+        if (off != null) { // if equip already in, take that off first
+            equipped.removeSlot(dst);
+            if (dst > -100) { // a body piece goes back into the bag; a cash overlay (-1xx) has no bag slot
+                short free = fakechar.getInventory(InventoryType.EQUIP).getNextFreeSlot();
+                if (free > 0) {
+                    off.setPosition(free);
+                    fakechar.getInventory(InventoryType.EQUIP).addItemFromDB(off);
+                }
+            }
         }
         source.setPosition(dst); // set the position of Equip to dst (see body part)
-        fakechar.getInventory(InventoryType.EQUIPPED).addItemFromDB(source); // Actually equip the item
+        equipped.addItemFromDB(source); // Actually equip the item
         fakechar.equipChanged(); // Update fakechar avatar, doesn't work if they're not on screen
     }
 

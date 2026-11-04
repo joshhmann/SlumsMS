@@ -73,6 +73,11 @@ class GearUpgradesTest {
             }
 
             @Override
+            public double holdingValue(Character chr, Equip candidate) {
+                return BotGear.holdingValue(chr, candidate, data::get, worn -> STR);
+            }
+
+            @Override
             public Map<Short, Equip> bestSet(Character chr, java.util.Collection<Equip> extras) {
                 return BotGear.bestSet(chr, extras, data::get, worn -> STR);
             }

@@ -6,6 +6,7 @@ import client.Job;
 import client.Skill;
 import client.SkillFactory;
 import client.inventory.WeaponType;
+import constants.game.GameConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import soloMapling.ArtificialPlayer.BotCommandsPack.BotAttack;
@@ -271,7 +272,35 @@ public final class BotProgression {
                 bot.getHp(), bot.getMp(), bot.getRemainingAp(), bot.getRemainingSps(), settled, skills);
     }
 
-    private static BotBuild.State capture(Character bot) {
+    /*
+     * Ticket 181 prog#P3: the only owner of the skill-point books. The build keeps one pool (BotBuild.State.sp); the
+     * game keeps one book per job advance and credits the book of the job the bot has (Character.levelUpGainSp:
+     * gainSp(spGain, GameConstants.getSkillBook(job.getId()), true)). Reading is the sum of every book - a point in a
+     * book the build never looks at is a point the bot can never spend - and writing puts the whole pool in the
+     * current job's book and zeroes the rest, so the live array and the build never hold the same points twice.
+     */
+    private static final class SkillPoints {
+        private SkillPoints() {
+        }
+
+        /** Every unspent point the bot has, whichever book the server credited it to. */
+        static int total(int[] books) {
+            int sum = 0;
+            for (int book : books) {
+                sum += book;
+            }
+            return sum;
+        }
+
+        /** The books to write onto the bot: the pool in the current job's book, nothing anywhere else. */
+        static int[] booksFor(Character bot, int pool) {
+            int[] books = new int[bot.getRemainingSps().length];
+            books[GameConstants.getSkillBook(bot.getJob().getId())] = Math.max(0, pool);
+            return books;
+        }
+    }
+
+    static BotBuild.State capture(Character bot) {
         BotBuild.State s = new BotBuild.State(bot.getJob().getId(), bot.getLevel());
         s.str = bot.getStr();
         s.dex = bot.getDex();
@@ -280,7 +309,7 @@ public final class BotProgression {
         s.maxHp = bot.getMaxHp();
         s.maxMp = bot.getMaxMp();
         s.remainingAp = bot.getRemainingAp();
-        s.sp = bot.getRemainingSps()[0];
+        s.sp = SkillPoints.total(bot.getRemainingSps());
         for (Map.Entry<Skill, SkillEntry> entry : bot.getSkills().entrySet()) {
             if (entry.getKey() == null || entry.getValue() == null) {
                 continue;
@@ -311,7 +340,7 @@ public final class BotProgression {
         return held.skillevel <= 0 && held.masterlevel > 0 && BotSkillBooks.enabled();
     }
 
-    private static BotBuild.State fromStored(int job, int level, BotRealStats stored) {
+    static BotBuild.State fromStored(int job, int level, BotRealStats stored) {
         BotBuild.State s = new BotBuild.State(job, level);
         s.str = stored.str();
         s.dex = stored.dex();
@@ -320,7 +349,7 @@ public final class BotProgression {
         s.maxHp = stored.maxHp();
         s.maxMp = stored.maxMp();
         s.remainingAp = stored.remainingAp();
-        s.sp = stored.sp()[0];
+        s.sp = SkillPoints.total(stored.sp());
         stored.skills().forEach((id, held) -> {
             if (held.level() > 0) {
                 s.skills.put(id, held.level());
@@ -336,7 +365,7 @@ public final class BotProgression {
      * Writes a build onto the bot: job, base stats, unspent points, base pools and the skill map (replacing it
      * whole, so the clone template's skills never leak into a bot). Skills the server does not have are dropped.
      */
-    private static void apply(Character bot, BotBuild.State s, boolean heal) {
+    static void apply(Character bot, BotBuild.State s, boolean heal) {
         if (bot.getJob().getId() != s.job) {
             Job job = Job.getById(s.job);
             if (job != null) {
@@ -373,8 +402,7 @@ public final class BotProgression {
                 skills.put(skill, new SkillEntry((byte) 0, cap.getValue(), -1));
             }
         }
-        int[] sps = bot.getRemainingSps();
-        sps[0] = s.sp + refunded;
+        int[] sps = SkillPoints.booksFor(bot, s.sp + refunded);
         bot.applyBotBuild(s.str, s.dex, s.int_, s.luk, s.remainingAp, sps, s.maxHp, s.maxMp);
         bot.replaceBotSkills(skills);
 

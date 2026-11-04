@@ -106,7 +106,10 @@ final class ProbesMaker {
         return -1;
     }
 
-    /** Junk equips by client fee, cheapest first: has a disassembly recipe, would not be worn by the bot. */
+    /**
+     * Junk equips by client fee, cheapest first: has a disassembly recipe, would bring nothing even to a bot who can
+     * wear it ({@link MakerGearScore} at the piece's own level, the predicate {@code BotMaker.junk} serves).
+     */
     private static List<Equip> candidates(Character bot, MakerGearScore score) {
         List<Equip> out = new ArrayList<>();
         int[][] ranges = {{1002000, 1002200}, {1040000, 1040150}, {1050000, 1050050}, {1060000, 1060150},
@@ -117,7 +120,7 @@ final class ProbesMaker {
                     continue;
                 }
                 Equip e = new Equip(id, (short) 0);
-                if (score.upgradeValue(bot, e) <= 0 && MakerItemFactory.getDisassemblyFee(e) > 0) {
+                if (score.holdingValue(bot, e) <= 0 && MakerItemFactory.getDisassemblyFee(e) > 0) {
                     out.add(e);
                 }
             }
