@@ -59,6 +59,26 @@ public final class BotDeaths {
         }
     }
 
+    /**
+     * 1.7.0: whether a bot may die at all - {@code -Dslums.bots.immortal}. <b>Off by default</b>: a bot is mortal, and a
+     * lethal hit in an event instance kills it like a player, so a boss room can show whether the bots survive. On, the
+     * 1.5.0 rule comes back untouched: no bot ever dies inside an instance.
+     */
+    public static final String IMMORTAL_SWITCH = "slums.bots.immortal";
+
+    /** The switch above; false (mortal) unless a server asks for immortal bots. */
+    public static boolean immortal() {
+        return Boolean.getBoolean(IMMORTAL_SWITCH);
+    }
+
+    /**
+     * A lethal hit in an event instance kills a mortal bot outright - no roll, no harder-map rule, no world cap - the
+     * way the same hit kills a player. Outside an instance nothing changes: the rare-death rules are the open world's.
+     */
+    public static boolean diesOutright(Character bot) {
+        return bot != null && !immortal() && bot.getEventInstance() != null;
+    }
+
     /** QA cb-3: this bot's next lethal hit (while eligible) kills it whatever the map and the roll. */
     public static void forceNextDeath(int botId, boolean on) {
         if (on) {
@@ -71,10 +91,15 @@ public final class BotDeaths {
     /**
      * Re-checked at roll time (eligibility is only set at grind start): a bot that has since partied with or is
      * following a real player, is in an event, or is held by GM staging (cb-3 does not hold) never dies.
+     *
+     * <p>1.7.0: the event clause is now the immortality switch's, not a fact of instances - inside a boss room
+     * {@link #diesOutright} decides anyway, and the party/follow clauses stay the open world's own.
      */
     static boolean protectedFromDeath(Character bot) {
-        if (bot.getEventInstance() != null
-                || soloMapling.worldevents.WorldEventSteer.isStagingHeld(bot.getId())) {
+        if (bot.getEventInstance() != null) {
+            return immortal();
+        }
+        if (soloMapling.worldevents.WorldEventSteer.isStagingHeld(bot.getId())) {
             return true;
         }
         net.server.world.Party party = bot.getParty();

@@ -77,7 +77,9 @@ public final class BotVitals {
             // 1.6.0 world events: on an invasion map a heavy hit (under half its max HP left) may kill too
             boolean lethal = bot.getHp() - damage <= 0
                     || soloMapling.worldevents.WorldEvents.swarmed(bot, (long) bot.getHp() - damage);
-            if (lethal && soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.rollsDeath(bot)) {
+            // 1.7.0: in an event instance a mortal bot dies outright, like a player; the roll is the open world's rule
+            if (lethal && (soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.diesOutright(bot)
+                    || soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.rollsDeath(bot))) {
                 soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.die(bot); // 1.5.0 rc3: a rare real death
                 return;
             }
