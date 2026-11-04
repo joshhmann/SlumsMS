@@ -32,7 +32,7 @@ change.
 | 2 | 8-axis `Bond`/`Tie`, migration 059, background bond formation | built on branch `164-social-bonds` (`f03304844`): 8 directed axes with per-axis decay, `Stage` with hysteresis, significance eviction, background tier on unobserved maps (`-Dslums.bonds.background`), `BotBonds.axes/stage`; migration 059 not yet applied anywhere; nothing reads the axes yet (Stage 4) |
 | 3 | `botmemory` extension (migration 060), relevance recall, knowledge boundaries, memory in bot-bot talk | built on branch `164-social-memory`; unit-tested, not run on TEST or in a client |
 | 4 | `SocialAction` registry, missing actions, gifts, emotion and memory into the decision model | planned |
-| 5 | Persisted intentions: `SocialIntent`/`IntentBook`/`SocialIntents` inside `LifeMemory`, dialogue-to-intention, kept/broken consequences, commitment clause, counters, `!botwhy` line | built on branch `164-social-intents`; unit-tested; the performer is a seam (`SocialIntents.performer`, not wired until Stage 4 is merged); TEST not run |
+| 5 | Persisted intentions: `SocialIntent`/`IntentBook`/`SocialIntents` inside `LifeMemory`, dialogue-to-intention, kept/broken consequences, commitment clause, counters, `!botwhy` line | built on branch `164-social-intents` (`81a7faa31`); unit-tested; the performer is a seam (`SocialIntents.performer`, not wired until Stage 4 is merged); TEST not run |
 | 6 | Social LOD, loop breaker, metrics | 6a built on branch `164-social-observe`: `SocialBudget` loop breaker hooked into `BotTalk` (greet, chat, ask acts), social metrics in `live.json`, `/bots/{cid}` and `!botwhy` (`docs/design/inspect-api.md`); 6b social LOD planned; no migration; not run on TEST |
 | 7 | Henesys pilot and live verification | planned |
 
