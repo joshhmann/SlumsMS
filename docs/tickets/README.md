@@ -13,6 +13,11 @@ Read-only audit of the server code (eleven lanes). Documented, not changed.
 | # | Ticket | State |
 |---|---|---|
 | [182](182-server-code-audit-1-6-4.md) | Fix the server-code defects the audit-164 audit found | Owner decisions (a)-(e) answered; cards b289-b298, then cardless impact-4 set, migration 059, config validation |
+## Client map integrity (owner request, 2026-11-03 Pacific)
+
+| # | Ticket | State |
+|---|---|---|
+| [181](181-client-map-integrity-and-crashes.md) | Missing map assets, broken map links and Rose Garden crash proof | Investigation recorded; links b251 and existing map-load work; implementation and real-client proof pending |
 
 ## Promise audit (2026-11-01, pending triage)
 
