@@ -919,3 +919,20 @@ owner is a member of", "it should count as party". Two switches, both defaulting
   this changes: an owned alt is admitted when its owner is a member of that expedition. A bot that merely follows
   someone (a population bot) is not an owned alt and keeps the 1.6.0 rule. Deliberately unchanged: a bot never
   displaces a human leader, and a dead/banned/out-of-band bot is still skipped.
+
+### The alt counts: `-Dslums.exped.altfollow`
+
+1.6.0 admitted only the leader's own bots (its companion or its `@botme` alt); an alt was skipped with reason
+`owner` unless its owner led the expedition. The owner's answer changes the rule: an **owned alt** is admitted when
+**its owner is a member** of that expedition, whoever leads it. A population bot's "owner" is only whoever it
+follows, so it keeps the 1.6.0 rule; an alt whose owner is not a member, or whose owner logged off (`ownerId == -2`),
+is still skipped.
+
+Counts, audited (`Expedition.java`): `members` (a map id → name) is the single membership record. `getMemberList()`
+is what the recuiters' `size() < getMinSize()` gate reads (`scripts/npc/2030013.js:182-187`), `getActiveMembers()` is what
+`broadcastExped` and `registerExpeditionAttempt` walk, and `getMaxSize()` is compared against `members.size()` in
+`addMember`/`addMemberInt`. All three include a bot the moment it is registered, so an admitted alt counts exactly
+like a party bot - there was no count to change, only the rule that kept it out. A bot resolves as "active" through
+`Character.isPresentInWorld()` (`Character.java:532-534`), which is true for a bot standing on a map. One count that
+does deliberately exclude bot-kind members is left alone: `RebirthBossRuns.helperOk` keeps owned alts out of the
+rebirth helper pool (`!c.isOwnedAlt()`), because helpers are population bots hired for a fight, not party members.

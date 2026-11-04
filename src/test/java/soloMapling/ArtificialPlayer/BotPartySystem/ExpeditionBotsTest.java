@@ -68,7 +68,12 @@ class ExpeditionBotsTest {
     // ── the rules ────────────────────────────────────────────────────────────
 
     private static ExpeditionBots.Facts facts(int owner, boolean sole, boolean sameMap, int level, boolean quest) {
-        return new ExpeditionBots.Facts(true, false, false, false, sameMap, level, owner, sole, quest);
+        return new ExpeditionBots.Facts(true, false, false, false, sameMap, level, owner, sole, quest, false, false);
+    }
+
+    /** An owned alt: whether it is one, and whether the owner it follows is a member of the expedition. */
+    private static ExpeditionBots.Facts altFacts(int owner, boolean ownerMember) {
+        return new ExpeditionBots.Facts(true, false, false, false, true, 60, owner, false, true, true, ownerMember);
     }
 
     @Test
@@ -101,14 +106,47 @@ class ExpeditionBotsTest {
     @Test
     void theRecruitersMemberQuestAndOtherBlocksApply() {
         assertEquals("quest", ExpeditionBots.skip(ExpeditionType.VONLEON, LEADER, facts(LEADER, false, true, 130, false)));
-        ExpeditionBots.Facts member = new ExpeditionBots.Facts(true, true, false, false, true, 60, LEADER, false, true);
+        ExpeditionBots.Facts member = new ExpeditionBots.Facts(true, true, false, false, true, 60, LEADER, false, true, false, false);
         assertEquals("member", ExpeditionBots.skip(ExpeditionType.ZAKUM, LEADER, member));
-        ExpeditionBots.Facts banned = new ExpeditionBots.Facts(true, false, true, false, true, 60, LEADER, false, true);
+        ExpeditionBots.Facts banned = new ExpeditionBots.Facts(true, false, true, false, true, 60, LEADER, false, true, false, false);
         assertEquals("banned", ExpeditionBots.skip(ExpeditionType.ZAKUM, LEADER, banned));
-        ExpeditionBots.Facts dead = new ExpeditionBots.Facts(true, false, false, true, true, 60, LEADER, false, true);
+        ExpeditionBots.Facts dead = new ExpeditionBots.Facts(true, false, false, true, true, 60, LEADER, false, true, false, false);
         assertEquals("dead", ExpeditionBots.skip(ExpeditionType.ZAKUM, LEADER, dead));
-        ExpeditionBots.Facts human = new ExpeditionBots.Facts(false, false, false, false, true, 60, LEADER, false, true);
+        ExpeditionBots.Facts human = new ExpeditionBots.Facts(false, false, false, false, true, 60, LEADER, false, true, false, false);
         assertEquals("not a bot", ExpeditionBots.skip(ExpeditionType.ZAKUM, LEADER, human));
+    }
+
+    @Test
+    void anAltWhoseOwnerIsAMemberFollowsIntoAStrangerLedExpedition() {
+        assertNull(ExpeditionBots.skip(ExpeditionType.ZAKUM, LEADER, altFacts(2, true)));
+        assertTrue(ExpeditionBots.ownerAdmits(LEADER, altFacts(2, true)));
+    }
+
+    @Test
+    void anAltWhoseOwnerIsNotAMemberIsStillSkipped() {
+        assertEquals("owner", ExpeditionBots.skip(ExpeditionType.ZAKUM, LEADER, altFacts(2, false)));
+        // an alt whose owner logged off is nobody's to take
+        assertEquals("owner", ExpeditionBots.skip(ExpeditionType.ZAKUM, LEADER, altFacts(-2, false)));
+    }
+
+    @Test
+    void withAltFollowOffTheOwnerRuleIsTheOldOne() {
+        System.setProperty(ExpeditionBots.ALT_FOLLOW_SWITCH, "false");
+        try {
+            assertEquals("owner", ExpeditionBots.skip(ExpeditionType.ZAKUM, LEADER, altFacts(2, true)));
+            assertNull(ExpeditionBots.skip(ExpeditionType.ZAKUM, LEADER, altFacts(LEADER, false)),
+                    "the leader's own alt always comes");
+        } finally {
+            System.clearProperty(ExpeditionBots.ALT_FOLLOW_SWITCH);
+        }
+    }
+
+    @Test
+    void aCompanionOfAMemberWhoIsNotItsOwnerIsNotAdmitted() {
+        // only an owned alt follows its owner; a population bot's "owner" is whoever it follows
+        ExpeditionBots.Facts companion = new ExpeditionBots.Facts(true, false, false, false, true, 60, 2, false, true,
+                false, true);
+        assertEquals("owner", ExpeditionBots.skip(ExpeditionType.ZAKUM, LEADER, companion));
     }
 
     @Test
@@ -168,6 +206,47 @@ class ExpeditionBotsTest {
         exped.beginRegistration();
         made.add(exped);
         return exped;
+    }
+
+    @Test
+    void anAdmittedAltWhoseOwnerIsAMemberCountsAsAPartyMember() {
+        boolean saved = YamlConfig.config.server.USE_ENABLE_SOLO_EXPEDITIONS;
+        YamlConfig.config.server.USE_ENABLE_SOLO_EXPEDITIONS = false;
+        try {
+            Character leader = player(LEADER, "Josh");       // a stranger to both of them
+            Character owner = player(2, "Owner");
+            Character alt = altOf(owner, 3, "Alt3");
+            party(leader, owner, alt);
+            Expedition exped = new Expedition(leader, ExpeditionType.ZAKUM, true, 3, 3);
+            exped.beginRegistration();
+            made.add(exped);
+            exped.addMemberInt(owner);                        // the owner is in this expedition
+            when(storage.getCharacterById(2)).thenReturn(owner);
+            when(storage.getCharacterById(3)).thenReturn(alt);
+            when(owner.isPresentInWorld()).thenReturn(true);
+            when(alt.isPresentInWorld()).thenReturn(true);
+
+            assertEquals(List.of("Alt3"), ExpeditionBots.autoJoin(leader, exped));
+
+            assertEquals(3, exped.getMembers().size(), "the alt is a member, not an onlooker");
+            assertTrue(exped.getMemberList().stream().anyMatch(e -> "Alt3".equals(e.getValue())));
+            assertTrue(exped.getMembers().size() >= exped.getMinSize(), "the script's size gate counts it");
+            assertTrue(exped.getActiveMembers().contains(alt), "and broadcasts reach it");
+        } finally {
+            YamlConfig.config.server.USE_ENABLE_SOLO_EXPEDITIONS = saved;
+        }
+    }
+
+    @Test
+    void anAltWhoseOwnerIsOutsideTheExpeditionDoesNotFollow() {
+        Character leader = player(LEADER, "Josh");
+        Character owner = player(2, "Owner");
+        Character alt = altOf(owner, 3, "Alt3");
+        party(leader, owner, alt);
+        Expedition exped = expedition(leader, ExpeditionType.ZAKUM, 3);
+
+        assertTrue(ExpeditionBots.autoJoin(leader, exped).isEmpty());
+        assertFalse(exped.getMembers().containsKey(3));
     }
 
     @Test

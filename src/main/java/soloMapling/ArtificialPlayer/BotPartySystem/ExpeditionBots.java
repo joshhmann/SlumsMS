@@ -56,10 +56,21 @@ public final class ExpeditionBots {
      */
     public static final String CAPTAIN_SWITCH = "slums.exped.botcaptain";
 
+    /**
+     * 1.6.4 (owner, 2026-11-03): an owned alt follows its owner into any expedition the owner is a member of, whoever
+     * leads it. ON by default. With it off an alt is admitted only by the 1.6.0 rule (its owner leads the
+     * expedition). An alt counts as a party member once admitted: {@code Expedition.members} is what every size gate
+     * and display reads, and {@link #skip} is the only place that decided otherwise.
+     */
+    public static final String ALT_FOLLOW_SWITCH = "slums.exped.altfollow";
+
     public static boolean captainsAllowed() {
         return !"false".equalsIgnoreCase(System.getProperty(CAPTAIN_SWITCH, "true").trim());
     }
 
+    public static boolean altFollowAllowed() {
+        return !"false".equalsIgnoreCase(System.getProperty(ALT_FOLLOW_SWITCH, "true").trim());
+    }
 
     /** Bot id -> the expedition whose boss-log quota it had used up: asked once, not on every NPC step. */
     private static final Map<Integer, Expedition> quotaFull = new ConcurrentHashMap<>();
@@ -76,7 +87,7 @@ public final class ExpeditionBots {
 
     /** What decides whether one party bot may join: read off the live characters by {@link #factsOf}. */
     record Facts(boolean bot, boolean member, boolean banned, boolean dead, boolean sameMap, int level, int ownerId,
-                 boolean soleRealPlayer, boolean questOk) {
+                 boolean soleRealPlayer, boolean questOk, boolean alt, boolean ownerMember) {
     }
 
     /**
@@ -334,14 +345,29 @@ public final class ExpeditionBots {
         if (!f.bot()) return "not a bot";
         if (f.member()) return "member";
         if (f.banned()) return "banned";
-        // His companion or his alt; a bot nobody leads only when he is the one real player in the party.
-        if (f.ownerId() != leaderId && !(f.ownerId() == -1 && f.soleRealPlayer())) return "owner";
+        if (!ownerAdmits(leaderId, f)) return "owner";
         if (f.dead()) return "dead";
         if (!f.sameMap()) return "map";
         if (f.level() < type.getMinLevel() || f.level() > type.getMaxLevel()) return "level";
         if (!f.questOk()) return "quest";
         return null;
     }
+
+    /**
+     * Whose bot it must be. 1.6.0: the leader's companion or alt, or a bot nobody leads when the leader is the one
+     * real player in the party. 1.6.4 (owner, -Dslums.exped.altfollow): an owned alt also comes when its owner is a
+     * member of that expedition, whoever leads it - "it should count as party".
+     */
+    static boolean ownerAdmits(int leaderId, Facts f) {
+        if (f.ownerId() == leaderId) {
+            return true;
+        }
+        if (f.alt() && f.ownerMember() && altFollowAllowed()) {
+            return true;
+        }
+        return f.ownerId() == -1 && f.soleRealPlayer();
+    }
+
 
     /** Ariant is a PvP arena with its own sign-up; bots stay out. */
     static boolean excluded(ExpeditionType type) {
@@ -413,10 +439,12 @@ public final class ExpeditionBots {
 
     static Facts factsOf(Character leader, Expedition exped, Party party, Character bot) {
         int id = bot.getId();
+        int ownerId = ownerOf(bot);
         return new Facts(BotHelpers.isBot(bot), exped.hasMember(id), exped.isBanned(id),
                 soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.isDead(id) || !bot.isAlive(),
-                bot.getMap() != null && bot.getMap() == exped.getRecruitingMap(), bot.getLevel(), ownerOf(bot),
-                soleRealPlayer(party, leader.getId()), questOk(exped.getType(), bot));
+                bot.getMap() != null && bot.getMap() == exped.getRecruitingMap(), bot.getLevel(), ownerId,
+                soleRealPlayer(party, leader.getId()), questOk(exped.getType(), bot),
+                bot.isOwnedAlt(), bot.isOwnedAlt() && ownerId > 0 && exped.hasMember(ownerId));
     }
 
     /** The real player this bot belongs to: its alt owner, or the player it follows; -1 = nobody's. */

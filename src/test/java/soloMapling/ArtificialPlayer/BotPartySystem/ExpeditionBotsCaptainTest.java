@@ -84,6 +84,7 @@ class ExpeditionBotsCaptainTest {
         made.forEach(ExpeditionBots::release);
         ExpeditionBots.quota = realQuota;
         System.clearProperty(ExpeditionBots.CAPTAIN_SWITCH);
+        System.clearProperty(ExpeditionBots.ALT_FOLLOW_SWITCH);
     }
 
     private Character bot(int id, String name, Party party) {
