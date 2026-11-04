@@ -1,9 +1,9 @@
 # Merge lane, 1.6.4 - everything in one tree (branch `164-all-merge`)
 
 Worktree `/root/work/164-all`, branch `164-all-merge` off `release-1.6.4` @ `6d18f961e`, push URL disabled, nothing
-pushed, nothing deployed, live server untouched. **Last merge commit `23789b44a`** (the code head; `git diff 23789b44a
-HEAD -- src/main` is empty), 184 commits over the release tip; the suite and the WZ pass ran on `3b82d7cf0`, whose tree
-differs from the code head only in `docs/` (checked with `git diff 23789b44a HEAD -- src/`).
+pushed, nothing deployed, live server untouched. **Last merge commit `32e612d73`** (the code head; `git diff 32e612d73
+HEAD -- src/` is empty), 196 commits over the release tip (this report's own commit is the last); the suite and the WZ pass ran on `839ff8e91`, whose tree
+differs from the code head only in `docs/` (checked with `git diff 32e612d73 HEAD -- src/ scripts/`).
 
 This is the one branch that carries every 1.6.4 lane: the base game's two rows, the boss lane's 27, the party-quest
 lane's 18, the real-run lane's ten, and the engine-seam lane's Guild Quest and Zenumist band - **57 rows, 29 `kind: BOSS`
@@ -39,7 +39,10 @@ nothing; every head was verified with `git for-each-ref` and `git merge-base --i
 `Orchestrator`'s stage walk, `StepExecutor`, `StageView`, `LiveStageView`, every solver file that only one lane touched,
 the four auto-QA wiring files, `docs/PROVENANCE.md`, and 50 of the 56 row files. The collisions were almost all
 data-layer or switch-layer: the record, its parser, `index.txt`, the pinned id list and the two test classes the two
-test-creating lanes both wrote.
+test-creating lanes both wrote. The last three merges landed whole: expedition policy (`ExpeditionBots`, `EventManager`,
+`Expedition`, `BossStaging`, `MechanicsCommand`), Amoria (`scripts/event/AmoriaPQ.js`, one constant in `Mechanics`) and
+mortality (`BotDeaths`, `BotVitals`, `StatEffect`, `EventInstanceManager`, `ExpeditionDeathCount`, `MechanicsRuns`,
+`Orchestrator`), plus the spawner seam (`PlatformSpawner`, `Platform`).
 
 ## Every conflict and how it was resolved
 
@@ -339,31 +342,32 @@ through the client path, but the proof map does not claim them.
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Full suite, every switch unset | `mvn -o test` | **`Tests run: 9100, Failures: 0, Errors: 0, Skipped: 140`**, BUILD SUCCESS, `EXIT=0` (log `/tmp/final6.log`, on `3b82d7cf0`) |
+| Full suite, every switch unset | `mvn -o test` | **`Tests run: 9121, Failures: 0, Errors: 0, Skipped: 140`**, BUILD SUCCESS, `EXIT=0`, 34:58 (log `/tmp/final7.log`, on `839ff8e91`) |
 | Property leaks, both orders | `mvn -o test -Dtest='EventLootScrambleTest,EventSchedulerTest'`, the reverse, and `-Dsurefire.runOrder=reversealphabetical -Dtest='soloMapling.worldevents.*Test'` | green three times over (`testutil.PropsRestoredTest` 3) |
 | Row data, row simulation, tiers, the late-spawn leash | `mvn -o test -Dtest='MechanicsDataFilesTest,StageDataTest,RowRunSimulationTest,TierScalingTest,LateSpawnGraceTest'` | green; `RowRunSimulationTest` 47, `TierScalingTest` 13, `LateSpawnGraceTest` 5 |
 | The whole mechanics package | `mvn -o test -Dtest='soloMapling.mechanics.*Test,soloMapling.MechanicsDataFilesTest'` | **`Tests run: 725, Failures: 0, Errors: 0, Skipped: 2`** (log `/tmp/mech.log`) |
-| Every row against the WZ dump | `mvn -o test -Dwz-path=/root/work/SlumsMS-170-evan/wz -Dtest='ContentRowWzIntegrityTest,MechanicsRowWzIntegrityTest'` | `Tests run: 3, Failures: 0, Errors: 0, Skipped: 0`, `EXIT=0` (log `/tmp/wz6.log`): **57 rows, 163 map ids, 129 mob ids, 14 reactor ids, 1 door item (`4000381`)** - unchanged by the two policy merges, which add no row |
+| Every row against the WZ dump | `mvn -o test -Dwz-path=/root/work/SlumsMS-170-evan/wz -Dtest='ContentRowWzIntegrityTest,MechanicsRowWzIntegrityTest'` | `Tests run: 3, Failures: 0, Errors: 0, Skipped: 0`, `EXIT=0` (log `/tmp/wz7.log`): **57 rows, 163 map ids, 129 mob ids, 14 reactor ids, 1 door item (`4000381`)** - unchanged by the two policy merges, which add no row |
 | Hotfix parity with the last shipped release | `tools/release/hotfix-parity release-1.6.3` | `ok: HEAD has every commit of release-1.6.3`, `EXIT=0` |
 | Every named reactor stands on its stage's own ground | same run (`MechanicsRowWzIntegrityTest:93`) | green: 86 reactor references across 57 rows, 0 mismatches, with a negative control |
 
 ### Suite totals
 
-`mvn -o test`, every switch unset, on `3b82d7cf0` - the merged tip after the two owner-answered merges:
+`mvn -o test`, every switch unset, on `839ff8e91` - the merged tip, after every lane including mortality:
 
 ```
-Tests run: 9100, Failures: 0, Errors: 0, Skipped: 140     BUILD SUCCESS, EXIT=0   (log /tmp/final6.log)
+Tests run: 9121, Failures: 0, Errors: 0, Skipped: 140     BUILD SUCCESS, EXIT=0, 34:58 (2099 s)   (log /tmp/final7.log)
 ```
 
-Log `/tmp/final6.log`. The run before the two policy merges (on `3f78a573a`) was `9074 / 0 / 0 / 140` (`/tmp/final5.log`);
-the difference is the two lanes' own tests - `BossStagingTest` (6), `ExpeditionBotsCaptainTest`, `ExpeditionBotsTest` and
-`AmoriaBotCountTest`. The code head is `23789b44a`; the two commits after it change reports and docs only. Zero `<<< FAILURE` markers, no surefire temp-directory collision. The 140 skips are the tests that
+Log `/tmp/final7.log`. The run before mortality (on `3b82d7cf0`) was `9100 / 0 / 0 / 140` (`/tmp/final6.log`); the 21 over
+that are the mortality lane's own - `BotMortalityTest`, `BotResurrectionTest`, `BotDeathCountTest`, `DeadMemberTest`, the
+added cases in `ExpeditionDeathCountTest`/`ExpeditionDeathCountRunTest`/`MechanicsRunsInstancesTest`, and the new
+seam case in `PlatformGroundTest`. The code head is `32e612d73`; the commit after it changes reports and docs only. Zero `<<< FAILURE` markers, no surefire temp-directory collision. The 140 skips are the tests that
 need a WZ dump (`ContentRowWzIntegrityTest`, `MechanicsRowWzIntegrityTest`), the tests that need a real client, and the
 `@EnabledIfSystemProperty` rows for switches this run leaves unset; the WZ pair is re-run green in the table above.
 
 For scale, the lanes' own suites: `164-bossrows` 8575/138, `164-opq` 8635/138 (final head 9071/140 on its own tree),
 `164-realruns` 8766/137, `164-seams` 8799/137, `164-zenumist` 9071/140, `164-expedpolicy` 9096/140, `164-amoria`
-9078/140. The merged tree is at or above every one of them.
+9078/140, `164-botmortal` 9095/140 (`/tmp/botmortal-full4.log`). The merged tree is at or above every one of them.
 
 **The one flake, and what it actually was.** The first full-suite run on this tip (`/tmp/final3.log`) failed one test:
 `soloMapling.worldevents.EventLootScrambleTest.whenTheCakeFallsTheCalledBotsGetALootWindow` —
@@ -409,6 +413,17 @@ gets its old value, an untouched one survives) so the guarantee is a test, not a
 `src/` behaviour changed, and no test was found that only passes because another test ran first - the reversals proved it
 (`-Dtest='EventLootScrambleTest,EventSchedulerTest'`, the reverse, and `-Dsurefire.runOrder=reversealphabetical` over the
 whole `soloMapling.worldevents` package, all green), and the full suite below re-ran everything with the extension on.
+
+**The second flake this candidate has outlived.** `soloMapling.Environment.PlatformGroundTest.aBandAcrossTwoLevelsPutsEachSpawnOnItsOwnLevel`
+failed when a spawn landed exactly on the seam between two footholds, because `PlatformSpawner` held one unseeded
+`static final Random` for the whole JVM - the same class of defect as the loot-window test, a test that bets on an
+unseeded draw. The fix is a seam, not a widened assertion: `PlatformSpawner`'s random is an injectable
+`private static Random` with a package-private `useRandom(Random)` (production keeps the unseeded default), and
+`Platform.spawnX(int)` nudges a spawn one pixel inside when x sits on the seam, clamped at the edges. The test now pins
+seeds and adds a case that draws the seam deterministically (`seedThatDraws(800, 400)`) and asserts `x == 1` on the 250
+level; with `groundPoint` reverted it fails `expected: <1> but was: <0>`. The seam is genuine - the two ground queries
+legitimately disagree on the boundary - so the test was unlucky, not wrong, and both halves are recorded here rather than
+papered over.
 
 **A card for the owner, not a silent fix.** `WorldEventReactions.release` reaches for `ThreadLocalRandom` directly
 (`WorldEventReactions.java:297`), which is why a test that wants to assert a share has to assert a coin toss. A testable
