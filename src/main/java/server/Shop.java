@@ -104,8 +104,15 @@ public class Shop {
         }
         ItemInformationProvider ii = ItemInformationProvider.getInstance();
         if (item.getPrice() > 0) {
+            // 1.6.4 b289: a rechargeable is granted as one whole slotMax stack, so what it costs is the same
+            // WZ price/unitPrice expression that selling the stack pays out (getPrice, also used by sell and
+            // recharge). Charging the counter price once for the stack minted mesos on every buy/sell pair.
+            boolean rechargeable = ItemConstants.isRechargeable(itemId);
+            if (rechargeable) {
+                quantity = ii.getSlotMax(c.getPlayer(), itemId);
+            }
             // 1.5.0 rc3 review: exact long math; a total over the most mesos a character holds is refused
-            long total = ItemConstants.isRechargeable(itemId) ? item.getPrice() : ShopMath.total(item.getPrice(), quantity);
+            long total = rechargeable ? ii.getPrice(itemId, quantity) : ShopMath.total(item.getPrice(), quantity);
             if (total < 0 || quantity < 1) {
                 c.sendPacket(PacketCreator.shopTransaction((byte) 2));
                 return;
@@ -113,7 +120,7 @@ public class Shop {
             int amount = (int) total;
             if (c.getPlayer().getMeso() >= amount) {
                 if (InventoryManipulator.checkSpace(c, itemId, quantity, "")) {
-                    if (!ItemConstants.isRechargeable(itemId)) { //Pets can't be bought from shops
+                    if (!rechargeable) { //Pets can't be bought from shops
                         InventoryManipulator.addById(c, itemId, quantity, "", -1);
                         c.getPlayer().gainMeso(-amount, false);
                         soloMapling.Economy.stats.EconomyCounters.recordNpcBuy(amount);
@@ -121,11 +128,9 @@ public class Shop {
                             soloMapling.Economy.MesoSinks.onSinkPurchase(c.getPlayer(), itemId, quantity, amount);
                         }
                     } else {
-                        short slotMax = ii.getSlotMax(c.getPlayer(), item.getItemId());
-                        quantity = slotMax;
                         InventoryManipulator.addById(c, itemId, quantity, "", -1);
-                        c.getPlayer().gainMeso(-item.getPrice(), false);
-                        soloMapling.Economy.stats.EconomyCounters.recordNpcBuy(item.getPrice());
+                        c.getPlayer().gainMeso(-amount, false);
+                        soloMapling.Economy.stats.EconomyCounters.recordNpcBuy(amount);
                     }
                     c.sendPacket(PacketCreator.shopTransaction((byte) 0));
                     server.reports.PlayerTrail.event(c.getPlayer(), "shop", itemId, "npc " + npcId); // ticket 131: @bug trail
@@ -258,7 +263,12 @@ public class Shop {
             return;
         }
         if (item.getQuantity() < slotMax) {
-            int price = (int) Math.ceil(ii.getUnitPrice(item.getItemId()) * (slotMax - item.getQuantity()));
+            // 1.6.4 b289: the same WZ price/unitPrice expression as buying and selling a stack, so a refill
+            // from empty costs exactly a fresh purchase and the refilled stack sells for what it cost.
+            int price = ii.getPrice(item.getItemId(), slotMax - item.getQuantity());
+            if (price < 0) {    // no WZ price data for this item: there is no price to charge
+                return;
+            }
             if (c.getPlayer().getMeso() >= price) {
                 item.setQuantity(slotMax);
                 c.getPlayer().forceUpdateItem(item);

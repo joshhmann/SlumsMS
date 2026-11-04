@@ -132,8 +132,10 @@ class BotShoppingTest {
             }
 
             @Override
-            public double unitPrice(int itemId) {
-                return itemId == ILBI ? 1.0 : 0.5;
+            public int price(int itemId, int quantity) {
+                // b289: the shop's own derivation over these numbers: the whole price plus unitPrice per star.
+                return itemId == ILBI ? 250 + (int) Math.ceil(1.0 * quantity)
+                        : 250 + (int) Math.ceil(0.5 * quantity);
             }
         });
     }
@@ -252,7 +254,7 @@ class BotShoppingTest {
     }
 
     @Test
-    void starsComeAWholeStackForTheListedPriceAndOwnStacksAreRecharged() throws Exception {
+    void starsComeAWholeStackForTheCounterPriceAndOwnStacksAreRecharged() throws Exception {
         weapon = WeaponType.CLAW;
         Character thief = bot(Job.ASSASSIN, 40, 900, 300, 200_000);
         Item ilbis = give(thief, ILBI, 100);   // looted, better than anything sold: recharged
@@ -266,9 +268,10 @@ class BotShoppingTest {
         // Level 40 carries 2,600 shots: after both recharges (1,600) two more stacks of Subi.
         assertEquals(2600, BotShopping.ammoGoal(40));
         assertEquals(800 + 2 * 800, count(thief, SUBI));
-        long recharge = (long) Math.ceil(1.0 * 700) + (long) Math.ceil(0.5 * 800);
-        long stars = 2 * 500L;
-        assertEquals(recharge + stars, r.spent - potionSpend(thief), "recharge at unitPrice, a stack at its price");
+        // b289: a recharge or a stack costs what the counter charges — the whole price, then the unit price per star.
+        long recharge = (250 + (long) Math.ceil(1.0 * 700)) + (250 + (long) Math.ceil(0.5 * 800));
+        long stars = 2 * (250L + (long) Math.ceil(0.5 * 800));
+        assertEquals(recharge + stars, r.spent - potionSpend(thief), "recharge and stack at the counter price");
         assertEquals(1500, r.recharged);
     }
 
