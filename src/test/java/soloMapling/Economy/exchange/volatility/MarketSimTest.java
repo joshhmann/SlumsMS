@@ -1,5 +1,7 @@
 package soloMapling.Economy.exchange.volatility;
 
+import soloMapling.Economy.exchange.AssetRegistry.Asset;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import soloMapling.Economy.exchange.Desk;
@@ -10,7 +12,6 @@ import soloMapling.Economy.exchange.ExchangeConfig;
 import soloMapling.Economy.exchange.ExchangeStore;
 import soloMapling.Economy.exchange.ExchangeStore.FillRow;
 import soloMapling.Economy.exchange.FakeBotWallet;
-import soloMapling.Economy.exchange.Ledger.Asset;
 import soloMapling.Economy.exchange.Ledger.Bucket;
 import soloMapling.Economy.exchange.Ledger.Posting;
 import soloMapling.Economy.exchange.Ledger.Why;
@@ -191,7 +192,7 @@ class MarketSimTest {
             flows.add("LEAF", 400 * perTick, 300 * perTick, at);
             flows.add("ELIXIR", 2_000 * perTick, (busy ? 3_000 : 2_000) * perTick, at);
             if (t % 3_600_000L == 0) {
-                fair.update(at, flows, src);
+                fair.update(at, flows, src, java.util.List.of("CHAOS", "WS", "ELIXIR", "LEAF"));
             }
             // off-screen hunting: every trader hunts about half the time
             for (FakeBotWallet w : wallets.values()) {

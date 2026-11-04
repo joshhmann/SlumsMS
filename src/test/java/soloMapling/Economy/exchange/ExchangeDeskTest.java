@@ -1,10 +1,11 @@
 package soloMapling.Economy.exchange;
 
+import soloMapling.Economy.exchange.AssetRegistry.Asset;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import soloMapling.Economy.exchange.Exchange.Place;
 import soloMapling.Economy.exchange.Exchange.Response;
-import soloMapling.Economy.exchange.Ledger.Asset;
 import soloMapling.Economy.exchange.Ledger.Bucket;
 import soloMapling.Economy.exchange.Ledger.Posting;
 import soloMapling.Economy.exchange.Ledger.Why;

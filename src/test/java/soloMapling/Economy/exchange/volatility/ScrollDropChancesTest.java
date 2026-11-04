@@ -1,5 +1,7 @@
 package soloMapling.Economy.exchange.volatility;
 
+import soloMapling.Economy.exchange.AssetRegistry.Asset;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -8,7 +10,6 @@ import org.mockito.MockedStatic;
 import server.life.MonsterDropEntry;
 import server.life.MonsterGlobalDropEntry;
 import server.life.MonsterInformationProvider;
-import soloMapling.Economy.exchange.Ledger.Asset;
 
 import java.sql.Connection;
 import java.util.ArrayList;

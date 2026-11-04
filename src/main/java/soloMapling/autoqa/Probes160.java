@@ -3239,7 +3239,7 @@ final class Probes160 {
         long nxTop = 0;
         List<String> out = new ArrayList<>();
         List<String> bad = new ArrayList<>();
-        long nx0 = w.have(soloMapling.Economy.exchange.Ledger.Asset.NX);
+        long nx0 = w.have(soloMapling.Economy.exchange.AssetRegistry.Asset.NX);
         if (nx0 < soloMapling.Economy.exchange.ExchangeQa.NX) {
             nxTop = soloMapling.Economy.exchange.ExchangeQa.NX - nx0;
             me.getCashShop().gainCash(1, (int) nxTop);
@@ -3271,7 +3271,7 @@ final class Probes160 {
             while (me.getMeso() - mesoBefore < gets && System.currentTimeMillis() < deadline) {
                 Thread.sleep(200);
             }
-            long nx1 = w.have(soloMapling.Economy.exchange.Ledger.Asset.NX);
+            long nx1 = w.have(soloMapling.Economy.exchange.AssetRegistry.Asset.NX);
             out.add("after the sale: " + nx1 + " NX, mesos +" + (me.getMeso() - mesoBefore) + " (want +" + gets + ")");
             if (placed == null || !placed.startsWith("Order ")) {
                 bad.add("the sale was not placed: " + placed);
@@ -3314,7 +3314,7 @@ final class Probes160 {
             }
         }
         long fee = cfg.fee(soloMapling.Economy.exchange.OrderBook.cost(100, bid));
-        long nxEnd = w.have(soloMapling.Economy.exchange.Ledger.Asset.NX) + nxTop;
+        long nxEnd = w.have(soloMapling.Economy.exchange.AssetRegistry.Asset.NX) + nxTop;
         out.add("after: " + (nxEnd - nxTop) + " NX, " + me.getMeso() + " mesos; fees paid " + (2 * fee));
         if (nxEnd != nx0) {
             bad.add("NX not conserved: " + nx0 + " -> " + nxEnd);

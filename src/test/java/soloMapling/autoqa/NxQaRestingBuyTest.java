@@ -1,10 +1,11 @@
 package soloMapling.autoqa;
 
+import soloMapling.Economy.exchange.AssetRegistry.Asset;
+
 import org.junit.jupiter.api.Test;
 import soloMapling.Economy.exchange.Exchange;
 import soloMapling.Economy.exchange.Exchange.Place;
 import soloMapling.Economy.exchange.ExchangeConfig;
-import soloMapling.Economy.exchange.Ledger.Asset;
 import soloMapling.Economy.exchange.MemoryExchangeStore;
 import soloMapling.Economy.exchange.NxGuard;
 import soloMapling.Economy.exchange.OrderBook.Side;

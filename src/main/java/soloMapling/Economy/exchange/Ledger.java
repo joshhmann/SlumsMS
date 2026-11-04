@@ -1,5 +1,7 @@
 package soloMapling.Economy.exchange;
 
+import soloMapling.Economy.exchange.AssetRegistry.Asset;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,35 +28,6 @@ import java.util.Map;
 public final class Ledger {
 
     private Ledger() {
-    }
-
-    /**
-     * What a bucket holds. NX and MESO as before; the rest are the item tickers (owner 2026-10-28): each is one item id,
-     * counted in whole items. An item WALLET is that character's inventory (id = character id) and moves only through
-     * the live character in game ({@link LiveWallet}); item PAYOUT is kept per character (the buyer's).
-     */
-    public enum Asset {
-        NX(0), MESO(0), LEAF(4001126), CHAOS(2049100), WS(2340000), ELIXIR(2000005);
-
-        private final int itemId;
-
-        Asset(int itemId) {
-            this.itemId = itemId;
-        }
-
-        /** The item id of an item asset; 0 for NX and MESO. */
-        public int itemId() {
-            return itemId;
-        }
-
-        public boolean item() {
-            return itemId > 0;
-        }
-
-        /** A payout of this asset is kept per character (mesos, items) rather than per account (NX). */
-        public boolean perCharacter() {
-            return this != NX;
-        }
     }
 
     public enum Kind {
@@ -116,7 +89,7 @@ public final class Ledger {
             if (amount <= 0) {
                 throw new IllegalArgumentException("posting amount must be positive: " + amount);
             }
-            if (from.asset() != to.asset()) {
+            if (!from.asset().equals(to.asset())) {
                 throw new IllegalArgumentException("asset mismatch " + from + " -> " + to);
             }
             if (from.equals(to)) {

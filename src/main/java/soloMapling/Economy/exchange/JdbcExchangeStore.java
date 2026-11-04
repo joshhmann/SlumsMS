@@ -1,7 +1,7 @@
 package soloMapling.Economy.exchange;
 
 import soloMapling.Economy.exchange.ExchangeStore.Failure;
-import soloMapling.Economy.exchange.Ledger.Asset;
+import soloMapling.Economy.exchange.AssetRegistry.Asset;
 import soloMapling.Economy.exchange.Ledger.Bucket;
 import soloMapling.Economy.exchange.Ledger.Kind;
 import soloMapling.Economy.exchange.Ledger.Posting;
@@ -147,17 +147,27 @@ public final class JdbcExchangeStore implements ExchangeStore {
                 }
             }
             boolean items = false;
+            // an offline bag batch holds no save lock: its account is the one on its legs (its order, escrow, payout)
+            long bagAccount = 0;
+            if (batch.liveAccount() <= 0 && batch.inventory() != null) {
+                for (Posting p : batch.postings()) {
+                    bagAccount = p.account();
+                }
+            }
             for (Posting p : batch.postings()) {
                 for (Bucket b : new Bucket[]{p.from(), p.to()}) {
                     if (b.kind() != Kind.WALLET) {
                         continue;
                     }
                     if (b.asset().item()) {
-                        // ticker items: only the live character's bags, written whole below in this transaction
-                        if (batch.liveAccount() <= 0 || p.account() != batch.liveAccount()
-                                || b.id() != batch.liveCharacter() || batch.inventory() == null) {
-                            throw new StoreException(Failure.NOT_OWNER, b + ": items move only through the live "
-                                    + "character");
+                        // ticker items: only one character's bags, written whole below in this transaction — the live
+                        // character's under its save lock, or (ticket 270) an offline character's for a site sell,
+                        // whose account must be logged out (the lock below refuses it otherwise)
+                        long owner = batch.liveAccount() > 0 ? batch.liveAccount() : bagAccount;
+                        if (batch.inventory() == null || b.id() != batch.liveCharacter()
+                                || owner <= 0 || p.account() != owner) {
+                            throw new StoreException(Failure.NOT_OWNER, b + ": items move only through the "
+                                    + "character's own bags");
                         }
                         items = true;
                     }
@@ -173,9 +183,10 @@ public final class JdbcExchangeStore implements ExchangeStore {
                 post(con, batch.id(), batch.at(), p);
             }
             if (items) {
-                if (!Long.valueOf(batch.liveAccount()).equals(characterAccount(con, batch.liveCharacter()))) {
+                long owner = batch.liveAccount() > 0 ? batch.liveAccount() : bagAccount;
+                if (!Long.valueOf(owner).equals(characterAccount(con, batch.liveCharacter()))) {
                     throw new StoreException(Failure.NOT_OWNER, "character " + batch.liveCharacter()
-                            + " is not on account " + batch.liveAccount());
+                            + " is not on account " + owner);
                 }
                 batch.inventory().write(con);
             }
@@ -316,7 +327,7 @@ public final class JdbcExchangeStore implements ExchangeStore {
             ps.setLong(5, p.from().id());
             ps.setString(6, p.to().kind().name());
             ps.setLong(7, p.to().id());
-            ps.setString(8, p.asset().name());
+            ps.setString(8, p.asset().id());
             ps.setLong(9, p.amount());
             ps.setLong(10, p.account());
             ps.setLong(11, p.orderId());
@@ -363,7 +374,7 @@ public final class JdbcExchangeStore implements ExchangeStore {
                 ps.setLong(2, at);
                 ps.setString(3, b.kind().name());
                 ps.setLong(4, b.id());
-                ps.setString(5, b.asset().name());
+                ps.setString(5, b.asset().id());
                 ps.setLong(6, amount);
                 if (ps.executeUpdate() != 1) {
                     throw new StoreException(Failure.INSUFFICIENT, b + " cannot pay " + amount);
@@ -379,7 +390,7 @@ public final class JdbcExchangeStore implements ExchangeStore {
         try (PreparedStatement ps = con.prepareStatement(CREDIT_BUCKET)) {
             ps.setString(1, b.kind().name());
             ps.setLong(2, b.id());
-            ps.setString(3, b.asset().name());
+            ps.setString(3, b.asset().id());
             ps.setLong(4, owner);
             ps.setLong(5, amount);
             ps.setLong(6, at);
@@ -509,13 +520,45 @@ public final class JdbcExchangeStore implements ExchangeStore {
     }
 
     @Override
+    public long itemExposure(long account, long since) throws StoreException {
+        return tx(con -> {
+            long out = 0;
+            try (PreparedStatement ps = con.prepareStatement(
+                    "SELECT COALESCE(SUM(f.mesos), 0) FROM exchange_fills f"
+                            + " JOIN exchange_orders o ON o.id = f.sell_order"
+                            + " WHERE o.account_id = ? AND o.regular_id = 0 AND f.at >= ?"
+                            + " AND f.ticker NOT IN ('NX', 'MESO')")) {
+                ps.setLong(1, account);
+                ps.setLong(2, since);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        out += rs.getLong(1);
+                    }
+                }
+            }
+            try (PreparedStatement ps = con.prepareStatement(
+                    "SELECT COALESCE(SUM(nx_left * price), 0) FROM exchange_orders"
+                            + " WHERE account_id = ? AND regular_id = 0 AND side = 'SELL' AND status = 'OPEN'"
+                            + " AND ticker NOT IN ('NX', 'MESO')")) {
+                ps.setLong(1, account);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        out += rs.getLong(1);
+                    }
+                }
+            }
+            return out;
+        });
+    }
+
+    @Override
     public long balance(Bucket b) throws StoreException {
         return tx(con -> {
             try (PreparedStatement ps = con.prepareStatement(
                     "SELECT amount FROM exchange_escrow WHERE kind = ? AND owner_id = ? AND asset = ?")) {
                 ps.setString(1, b.kind().name());
                 ps.setLong(2, b.id());
-                ps.setString(3, b.asset().name());
+                ps.setString(3, b.asset().id());
                 try (ResultSet rs = ps.executeQuery()) {
                     return rs.next() ? rs.getLong(1) : 0L;
                 }
@@ -587,7 +630,7 @@ public final class JdbcExchangeStore implements ExchangeStore {
                 ps.setLong(3, fillId);
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
-                        Asset a = Asset.valueOf(rs.getString(6));
+                        Asset a = AssetRegistry.of(rs.getString(6));
                         out.add(new Posting(Ledger.Why.valueOf(rs.getString(1)),
                                 new Bucket(Kind.valueOf(rs.getString(2)), rs.getLong(3), a),
                                 new Bucket(Kind.valueOf(rs.getString(4)), rs.getLong(5), a), rs.getLong(7),
@@ -615,7 +658,7 @@ public final class JdbcExchangeStore implements ExchangeStore {
                     "SELECT kind, owner_id, asset, amount FROM exchange_escrow WHERE amount <> 0");
                  ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    balances.put(new Bucket(Kind.valueOf(rs.getString(1)), rs.getLong(2), Asset.valueOf(rs.getString(3))),
+                    balances.put(new Bucket(Kind.valueOf(rs.getString(1)), rs.getLong(2), AssetRegistry.of(rs.getString(3))),
                             rs.getLong(4));
                 }
             }
@@ -624,7 +667,7 @@ public final class JdbcExchangeStore implements ExchangeStore {
                     "SELECT to_kind, to_id, asset, SUM(amount) FROM exchange_ledger WHERE to_kind NOT IN ('WALLET', 'BOT') GROUP BY to_kind, to_id, asset");
                  ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    sums.merge(new Bucket(Kind.valueOf(rs.getString(1)), rs.getLong(2), Asset.valueOf(rs.getString(3))),
+                    sums.merge(new Bucket(Kind.valueOf(rs.getString(1)), rs.getLong(2), AssetRegistry.of(rs.getString(3))),
                             rs.getLong(4), Long::sum);
                 }
             }
@@ -632,7 +675,7 @@ public final class JdbcExchangeStore implements ExchangeStore {
                     "SELECT from_kind, from_id, asset, SUM(amount) FROM exchange_ledger WHERE from_kind NOT IN ('WALLET', 'BOT') GROUP BY from_kind, from_id, asset");
                  ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    sums.merge(new Bucket(Kind.valueOf(rs.getString(1)), rs.getLong(2), Asset.valueOf(rs.getString(3))),
+                    sums.merge(new Bucket(Kind.valueOf(rs.getString(1)), rs.getLong(2), AssetRegistry.of(rs.getString(3))),
                             -rs.getLong(4), Long::sum);
                 }
             }

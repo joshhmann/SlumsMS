@@ -5,7 +5,7 @@ import soloMapling.Economy.exchange.ExchangeStore.Failure;
 import soloMapling.Economy.exchange.ExchangeStore.FillRow;
 import soloMapling.Economy.exchange.ExchangeStore.OrderRow;
 import soloMapling.Economy.exchange.ExchangeStore.StoreException;
-import soloMapling.Economy.exchange.Ledger.Asset;
+import soloMapling.Economy.exchange.AssetRegistry.Asset;
 import soloMapling.Economy.exchange.Ledger.Bucket;
 import soloMapling.Economy.exchange.Ledger.Kind;
 import soloMapling.Economy.exchange.Ledger.Posting;
@@ -383,6 +383,8 @@ public final class Exchange {
     private final ExchangeConfig config;
     private final Presence presence;
     private final LiveWallet.Finder live;
+    /** Ticket 270: the bags of a character that is not in the game, for the site's item sell. */
+    private LiveWallet.Bags bags = OfflineBag::open;
     private final LongSupplier clock;
     /** Open buy order id -> its FEEHOLD balance (rebuilt from the store at recovery). */
     private final Map<Long, Long> feeHold = new HashMap<>();
@@ -409,6 +411,9 @@ public final class Exchange {
     /** Trader bots (character ids) with something waiting in a PAYOUT ({@link #collectBot}). */
     private final java.util.Set<Long> botPayouts = new java.util.TreeSet<>();
     private long nextOrder = 1, nextFill = 1, nextSeq = 1, nextBatch = 1;
+    /** Books the item maker examines per tick (ticket 270): the pass rotates, so a big catalog is swept in an hour. */
+    private static final int MAKER_BOOKS_PER_TICK = 12;
+    private int makerCursor;
     private volatile boolean halted;
     private volatile String haltReason = "";
     private boolean recovered;
@@ -442,6 +447,11 @@ public final class Exchange {
         this.tickers = java.util.Collections.unmodifiableMap(all);
         this.openTickers = java.util.Collections.unmodifiableSet(on);
         this.books = newBooks();
+    }
+
+    /** Another source of offline bags (tests). */
+    public void bags(LiveWallet.Bags b) {
+        bags = b == null ? LiveWallet.Bags.NONE : b;
     }
 
     private Map<String, OrderBook> newBooks() {
@@ -684,6 +694,10 @@ public final class Exchange {
         if (limit != null) {
             return Response.error(rid, limit, limitMessage(limit, t, p.account(), now));
         }
+        Response capped = sellCap(rid, p, t, now);
+        if (capped != null) {
+            return capped;
+        }
         LiveWallet w = live.find(p.account());
         if (w != null) {
             if (w.character() != p.character()) {
@@ -692,11 +706,15 @@ public final class Exchange {
             }
             return placeLive(p, t, w, now);
         }
-        if (t.item() && p.side() == Side.SELL) {
-            return Response.error(rid, "LOG_IN_FIRST", itemsInGame(t));
-        }
         if (presence.test(p.account())) {
             return Response.error(rid, "LOG_OUT_FIRST", "log out of the game to place an order");
+        }
+        if (t.item() && p.side() == Side.SELL) {
+            LiveWallet bag = ExchangeLimits.siteItems() ? bags.find(p.account(), p.character()) : null;
+            if (bag == null) {
+                return Response.error(rid, "LOG_IN_FIRST", itemsInGame(t));
+            }
+            return placeBag(rid, p, t, bag, now);
         }
         collectQuietly(p.account());
         return placeOrder(rid, p.account(), p.character(), 0, t, p.side(), p.price(), p.nx(), now, null);
@@ -771,6 +789,39 @@ public final class Exchange {
         }
     }
 
+    /**
+     * A sell from a character's bags while it is not in the game (ticket 270, the site's item sell): the bags are read
+     * from the database, the escrow is taken out of them in memory, and the reduced bags are written in the order's own
+     * transaction — so the database holds the items either in the bags or in the escrow, never both. A refused write
+     * leaves memory changes unapplied (the bag object is dropped), and a fill's mesos are swept into the character's
+     * row at once ({@link #collectQuietly}), because it may not log in again soon.
+     */
+    private Response placeBag(String rid, Place p, Ticker t, LiveWallet bag, long now) {
+        Asset a = t.asset();
+        long amount = p.nx();
+        return bag.locked(() -> {
+            if (!bag.usable() || !bag.take(a, amount)) {
+                return Response.error(rid, "INSUFFICIENT_FUNDS", "you need " + amount + " " + unitName(a)
+                        + " in those bags (tradeable copies only)");
+            }
+            Response placed;
+            committed = false;
+            try {
+                placed = placeOrder(rid, p.account(), p.character(), 0, t, p.side(), p.price(), p.nx(), now, bag);
+            } catch (RuntimeException e) {
+                if (committed) {
+                    halt("place " + rid + " failed after its commit: " + e);
+                }
+                log.error("NX exchange: place {} failed", rid, e);
+                return Response.error(rid, "ERROR", "try again later");
+            }
+            if (placed.ok()) {
+                collectQuietly(p.account());
+            }
+            return placed;
+        });
+    }
+
     // ---------------------------------------------------------------- confirm step (owner 2026-10-28)
 
     /**
@@ -814,15 +865,18 @@ public final class Exchange {
         if (w != null && w.character() != p.character()) {
             return Response.error(rid, "LOG_OUT_FIRST", "you are logged in as another character: use that one, or log out");
         }
-        if (w == null && tk.item() && p.side() == Side.SELL) {
-            return Response.error(rid, "LOG_IN_FIRST", itemsInGame(tk));
-        }
         if (w == null && presence.test(p.account())) {
             return Response.error(rid, "LOG_OUT_FIRST", "log out of the game to place an order");
         }
+        LiveWallet bag = w == null && tk.item() && p.side() == Side.SELL && ExchangeLimits.siteItems()
+                ? bags.find(p.account(), p.character()) : null;
+        if (w == null && tk.item() && p.side() == Side.SELL && bag == null) {
+            return Response.error(rid, "LOG_IN_FIRST", itemsInGame(tk));
+        }
         Asset a = p.side() == Side.SELL ? tk.asset() : Asset.MESO;
         long takes = p.side() == Side.SELL ? p.nx() : tk.buyTotal(config, p.nx(), p.price());
-        if (w != null && w.have(a) < takes) {
+        LiveWallet funds = w == null ? bag : w;
+        if (funds != null && funds.have(a) < takes) {
             return Response.error(rid, "INSUFFICIENT_FUNDS", "you need " + takes + " " + unitName(a));
         }
         long hold = p.side() == Side.BUY ? tk.cost(p.nx(), p.price()) : 0;
@@ -869,7 +923,7 @@ public final class Exchange {
         match.put("mesos", mesos);
         match.put("fee", fees);
         match.put("youGet", p.side() == Side.SELL ? Map.of("asset", "MESO", "amount", mesos - fees)
-                : Map.of("asset", tk.asset().name(), "amount", nx));
+                : Map.of("asset", tk.asset().id(), "amount", nx));
         data.put("matchNow", match);
         data.put("restsNx", p.nx() - nx);
         data.put("cancelledBySelfTrade", r.closed().stream().anyMatch(c -> c.orderId() == nextOrder
@@ -1762,8 +1816,10 @@ public final class Exchange {
             release(c, postings, holds);
         }
         List<OrderRow> touched = touchedRows(r, now, book);
+        // an offline bag batch writes a logged-out character's bags, so it holds no login: the store locks the
+        // account row and requires it logged out, exactly as it does for a site buy
         Batch batch = w == null ? new Batch(nextBatch, now, postings, touched, fills)
-                : new Batch(nextBatch, now, postings, touched, fills, w.account(), w.character(),
+                : new Batch(nextBatch, now, postings, touched, fills, w.offline() ? 0 : w.account(), w.character(),
                 w.inventoryWriter());
         try {
             commit(batch, "place");
@@ -2160,7 +2216,8 @@ public final class Exchange {
 
     /**
      * Funds a regular's HOUSE from a real, offline staff wallet (NX from the account, mesos from the character). The
-     * only way money reaches a regular: nothing is minted.
+     * only way money reaches a regular: nothing is minted. Items have no offline wallet (they live in bags), so item
+     * tickers are funded only through the live house character ({@link #fundHouseLive}).
      */
     public synchronized Response fundHouse(int regular, long account, long character, Asset asset, long amount) {
         if (regular <= 0 || amount <= 0 || asset.item()) {
@@ -2184,10 +2241,13 @@ public final class Exchange {
     /**
      * Funds a regular's HOUSE from the house account's live wallet ({@code !exchange fund}): only a character logged in
      * on {@link ExchangeConfig#houseAccount()} can, unless {@code qa} (the auto-QA check, which funds its own test
-     * regular from the GM's own staff account and takes it all back). Nothing is minted.
+     * regular from the GM's own staff account and takes it all back). Nothing is minted. An item asset is only
+     * accepted with {@code -Dslums.exchange.itemMaker=true}: the item maker needs the HOUSE to hold real items to
+     * quote asks with (ticket 270), and without the maker a regular still never holds one.
      */
     public synchronized Response fundHouseLive(int regular, LiveWallet w, Asset asset, long amount, boolean qa) {
-        if (regular <= 0 || amount <= 0 || amount > Integer.MAX_VALUE || asset.item()) {
+        if (regular <= 0 || amount <= 0 || amount > Integer.MAX_VALUE
+                || (asset.item() && !ExchangeLimits.itemMaker())) {
             return Response.error("fund", "BAD_REQUEST", "regular and amount");
         }
         if (!qa && (config.houseAccount() <= 0 || w.account() != config.houseAccount())) {
@@ -2226,7 +2286,7 @@ public final class Exchange {
         List<Posting> postings = new ArrayList<>();
         Map<String, Object> data = new LinkedHashMap<>();
         try {
-            for (Asset a : Asset.values()) {
+            for (Asset a : AssetRegistry.all()) {
                 long have = store.balance(deskBucket(a));
                 data.put(a.name().toLowerCase(java.util.Locale.ROOT), have);
                 if (have > 0) {
@@ -2257,10 +2317,12 @@ public final class Exchange {
             return Response.error("fund", "INSUFFICIENT_FUNDS", "not enough " + asset);
         }
         Bucket from = asset == Asset.NX ? Bucket.wallet(Asset.NX, w.account())
+                : asset.item() ? Bucket.wallet(asset, w.character())   // the maker's asks come from real items
                 : Bucket.wallet(Asset.MESO, w.character());
         try {
             commit(new Batch(nextBatch, clock.getAsLong(), List.of(new Posting(Why.FUND, from, to, amount, w.account(),
-                    0, 0)), List.of(), List.of(), w.account(), w.character()), what);
+                    0, 0)), List.of(), List.of(), w.account(), w.character(),
+                    asset.item() ? w.inventoryWriter() : null), what);
         } catch (StoreException e) {
             giveBack(w, asset, amount, "a refused " + what);
             return storeError("fund", e);
@@ -2290,7 +2352,7 @@ public final class Exchange {
         List<Posting> postings = new ArrayList<>();
         Map<String, Object> data = new LinkedHashMap<>();
         try {
-            for (Asset a : Asset.values()) {
+            for (Asset a : AssetRegistry.all()) {
                 long have = store.balance(Bucket.house(a, regular));
                 data.put(a.name().toLowerCase(java.util.Locale.ROOT), have);
                 if (have > 0) {
@@ -2481,6 +2543,10 @@ public final class Exchange {
         String limit = limits(p.account(), t, now);
         if (limit != null) {
             return Response.error(rid, limit, limitMessage(limit, t, p.account(), now));
+        }
+        Response capped = sellCap(rid, p, t, now);
+        if (capped != null) {
+            return capped;
         }
         Asset a = p.side() == Side.SELL ? t.asset() : Asset.MESO;
         long amount = p.side() == Side.SELL ? p.nx() : t.buyTotal(config, p.nx(), p.price());
@@ -2676,9 +2742,15 @@ public final class Exchange {
      * for it (if its house can pay). Not while halted; nothing without a reference price. Returns orders placed.
      */
     public synchronized int tickRegulars() {
-        if (!recovered || halted || desk != null || config.regulars() <= 0 || config.houseAccount() <= 0) {
-            return 0;   // owner 2026-10-28: no house account named = regulars idle; ticket 162: no NX book under the desk
+        if (!recovered || halted || config.regulars() <= 0 || config.houseAccount() <= 0) {
+            return 0;   // owner 2026-10-28: no house account named = regulars idle
         }
+        int placed = desk == null ? nxRegulars() : 0;   // ticket 162: no NX book under the desk
+        return placed + makerQuotes();
+    }
+
+    /** The NX regulars (ticket 113). */
+    private int nxRegulars() {
         Long ref = officialRate();
         if (ref == null) {
             long bid = nxBook().best(Side.BUY), ask = nxBook().best(Side.SELL);
@@ -2699,6 +2771,111 @@ public final class Exchange {
             }
         }
         return placed;
+    }
+
+    /**
+     * Ticket 270: the item maker. Every regular keeps one small quote per side on every open item book at the fair
+     * value the volatility thread computed, each a rung wider than the last ({@link Regulars#quotes}: bid at
+     * 1 - i x spread, ask at 1 + i x spread), so an item book shows the same ladder of bids and asks the NX book does
+     * and a player always has somebody to trade against (owner 2026-11-03: more regulars interaction is fine -- it is
+     * what makes the room feel live). Their NX and mesos live in HOUSE buckets that only the house account can fund
+     * ({@code !exchange fund}), so this mints nothing; a quote it cannot pay for is simply not posted, which is why a
+     * regular the staff never funded contributes no rung. A ticker with no fair value yet (no anchor, no fills) has no
+     * maker.
+     *
+     * <p>LEAF is left out: the room already has its own two-sided book and a maker there would only crowd it.
+     * Off unless {@code -Dslums.exchange.itemMaker=true}.
+     */
+    private int makerQuotes() {
+        if (!ExchangeLimits.itemMaker()) {
+            return 0;
+        }
+        soloMapling.Economy.exchange.volatility.FairValue fair =
+                soloMapling.Economy.exchange.volatility.FairValue.current();
+        if (fair == null) {
+            return 0;
+        }
+        long qty = Math.max(1, ExchangeLimits.regularItems());
+        long now = clock.getAsLong();
+        List<Ticker> all = new ArrayList<>(tickers.values());
+        int n = all.size();
+        if (n == 0) {
+            return 0;
+        }
+        // A catalog adds hundreds of books and a quote rests for a week, so the pass is budgeted and rotates: each
+        // tick examines MAKER_BOOKS_PER_TICK books (two house-bucket reads each at most) and the cursor moves on, so
+        // a full sweep is an hour at the default poll and no tick can turn into a thousand queries.
+        int placed = 0, looked = 0;
+        for (int i = 0; i < n && looked < MAKER_BOOKS_PER_TICK; i++) {
+            Ticker t = all.get((makerCursor + i) % n);
+            if (!t.item() || "LEAF".equals(t.id()) || !open(t.id())) {
+                continue;
+            }
+            soloMapling.Economy.exchange.volatility.FairValue.Point p = fair.point(t.id());
+            if (p == null || p.fair() <= 0) {
+                continue;
+            }
+            looked++;
+            for (Regulars.Quote q : Regulars.quotes(p.fair(), config.regulars(), config.regularSpreadBps(), qty,
+                    t.minPrice(), t.maxPrice())) {
+                placed += makerQuote(t, q.regular(), q.side(), q.price(), q.nx(), now);
+            }
+        }
+        makerCursor = (makerCursor + Math.max(1, looked)) % n;
+        return placed;
+    }
+
+    /** One maker order, unless that side already rests, or the HOUSE cannot deliver it. */
+    private int makerQuote(Ticker t, int regular, Side side, long price, long qty, long now) {
+        boolean has = books.get(t.id()).ordersOf(Regulars.owner(regular)).stream().anyMatch(o -> o.side == side);
+        if (has) {
+            return 0;
+        }
+        try {
+            long need = side == Side.BUY ? t.cost(qty, price) : qty;
+            // a bid comes out of the HOUSE's mesos, an ask out of its items (ticket 270 §6.6)
+            Bucket purse = Bucket.house(side == Side.BUY ? Asset.MESO : t.asset(), regular);
+            if (store.balance(purse) < need) {
+                return 0;
+            }
+        } catch (StoreException e) {
+            log.warn("exchange: item maker could not read the house bucket for {}: {}", t.id(), e.getMessage());
+            return 0;
+        }
+        Response r = placeOrder("maker-" + regular + "-" + side + "-" + t.id() + "-" + nextOrder, 0, 0, regular, t,
+                side, price, qty, now, null);
+        if (!r.ok()) {
+            log.debug("exchange: item maker {} {} {} at {} refused: {} {}", regular, side, t.id(), price, r.code(),
+                    r.message());
+            return 0;
+        }
+        return 1;
+    }
+
+    /**
+     * Ticket 270: the daily item-sell ceiling. One account may take at most
+     * {@code -Dslums.exchange.items.sellCapMesosPerDay} mesos out of item sells in a UTC day; what it has already
+     * taken today plus what its resting item sells would still take counts against the ceiling, so a hoard cannot be
+     * dumped on one tick and a second character cannot dodge it either (the ceiling is per account).
+     */
+    private Response sellCap(String rid, Place p, Ticker t, long now) {
+        long cap = ExchangeLimits.sellCapMesosPerDay();
+        if (cap <= 0 || !t.item() || p.side() != Side.SELL) {
+            return null;
+        }
+        long notional = t.cost(p.nx(), p.price());
+        long used;
+        try {
+            used = store.itemExposure(p.account(), ExchangeLimits.dayStart(now));
+        } catch (StoreException e) {
+            return storeError(rid, e);
+        }
+        if (used + notional > cap) {
+            return Response.error(rid, "ITEMS_CAP", "item sells are capped at " + String.format("%,d", cap)
+                    + " mesos a day per account: you have " + String.format("%,d", used)
+                    + " filled or resting today, this order would add " + String.format("%,d", notional));
+        }
+        return null;
     }
 
     // ---------------------------------------------------------------- reads
@@ -2966,7 +3143,7 @@ public final class Exchange {
     /** The asset a ticker trades (a ticker id is its asset's name); null when unknown. */
     static Asset assetOf(String ticker) {
         try {
-            return Asset.valueOf(ticker);
+            return AssetRegistry.of(ticker);
         } catch (IllegalArgumentException | NullPointerException e) {
             return null;
         }

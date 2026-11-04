@@ -66,6 +66,12 @@ From `agent-runs/server/269-dbpool-forensics/AUDIT.md` and the fix branch `269-d
 |---|---|---|
 | [173](173-life-runtime-lock.md) | `LifeRuntime.accepted` takes the bot's monitor over a PlayerStorage read (same family as b267, no cycle today) | S4, after 1.6.2 |
 
+## Exchange item catalog (owner direction, 2026-11-03)
+
+| # | Ticket | Status |
+|---|---|---|
+| [270](270-exchange-item-catalog.md) | The exchange item catalog: all scrolls, some use items, then ETC as tickers, plus the item maker and the sell cap | built, 1.6.4, branch `164-excatalog` (709 tickers, tests green, not deployed); the list is [docs/economy/exchange-item-catalog.md](../economy/exchange-item-catalog.md) |
+
 ## Economy (after 1.6.3, owner 2026-11-01)
 
 | # | Ticket | Status |

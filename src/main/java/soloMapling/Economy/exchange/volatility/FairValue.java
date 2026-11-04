@@ -1,5 +1,8 @@
 package soloMapling.Economy.exchange.volatility;
 
+import soloMapling.Economy.exchange.AssetRegistry;
+
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +52,11 @@ public final class FairValue {
     public record Point(long floor, long ceiling, double supply, double demand, long raw, long fair) {
     }
 
-    public static final List<String> TICKERS = List.of("LEAF", "CHAOS", "WS", "ELIXIR");
+    /** A ticker the catalog knows (the registry seeds and every open catalog ticker). */
+    public static boolean known(String ticker) {
+        AssetRegistry.Asset a = AssetRegistry.of(ticker);
+        return a != null && a.item();
+    }
 
     private static volatile FairValue current;
 
@@ -93,11 +100,14 @@ public final class FairValue {
         return prev == null ? raw : Math.round(prev + alpha * (raw - prev));
     }
 
-    /** Recomputes every ticker now (CHAOS first: LEAF's ceiling reads it). */
-    public synchronized void update(long now, MarketFlows flows, Sources src) {
+    /**
+     * Recomputes every one of {@code tickers} now. CHAOS is done first and LEAF last: LEAF's ceiling reads CHAOS's
+     * fair value (Rooty's Bonus), and every other ticker is independent.
+     */
+    public synchronized void update(long now, MarketFlows flows, Sources src, List<String> tickers) {
         Map<String, Long> fairs = new LinkedHashMap<>();
         points.forEach((t, p) -> fairs.put(t, p.fair()));
-        for (String t : List.of("CHAOS", "WS", "ELIXIR", "LEAF")) {
+        for (String t : order(tickers)) {
             long floor = src.floor(t);
             if (floor < TOKEN_FLOOR) {
                 floor = src.anchor(t);
@@ -117,13 +127,30 @@ public final class FairValue {
         }
     }
 
+    /** The tickers in the order {@link #update} wants: CHAOS, the rest, then LEAF. */
+    static List<String> order(List<String> tickers) {
+        List<String> out = new ArrayList<>();
+        if (tickers.contains("CHAOS")) {
+            out.add("CHAOS");
+        }
+        for (String t : tickers) {
+            if (!"CHAOS".equals(t) && !"LEAF".equals(t)) {
+                out.add(t);
+            }
+        }
+        if (tickers.contains("LEAF")) {
+            out.add("LEAF");
+        }
+        return out;
+    }
+
     /** Recomputes once an hour (the volatility tick calls this every 30 s). */
-    public synchronized boolean maybeUpdate(long now, MarketFlows flows, Sources src) {
+    public synchronized boolean maybeUpdate(long now, MarketFlows flows, Sources src, List<String> tickers) {
         if (now < nextAt) {
             return false;
         }
         nextAt = now + MarketFlows.HOUR;
-        update(now, flows, src);
+        update(now, flows, src, tickers);
         return true;
     }
 
@@ -134,6 +161,11 @@ public final class FairValue {
 
     public synchronized Point point(String ticker) {
         return points.get(ticker);
+    }
+
+    /** The tickers this instance has a fair value for (the status command and the site). */
+    public synchronized List<String> tickers() {
+        return List.copyOf(points.keySet());
     }
 
     private static double d(String key, double dflt) {
@@ -149,34 +181,47 @@ public final class FairValue {
 
     /** Rooty's Maple Weapons: leaves per tier and one weapon of the tier to price it. */
     static final long[][] ROOTY_TIERS = {{5, 1302020}, {10, 1302030}, {15, 1302064}, {20, 1302142}};
-    static final Map<String, Integer> ITEM = Map.of("LEAF", 4001126, "CHAOS", 2049100, "WS", 2340000,
-            "ELIXIR", 2000005);
-
     /** The running game's floors (shop prices) and ceilings (sink utility from the price board). */
     public static Sources game(MarketEvents events) {
         return new Sources() {
             public long floor(String t) {
+                AssetRegistry.Asset a = AssetRegistry.of(t);
+                if (a == null || !a.item()) {
+                    return 0;
+                }
                 if ("LEAF".equals(t)) {
-                    return 500_000L;
+                    return l("slums.exchange.LEAF.anchor", 500_000L);
                 }
                 try {
-                    return Math.max(1, (long) server.ItemInformationProvider.getInstance().getPrice(ITEM.get(t), 1));
+                    return Math.max(1, (long) server.ItemInformationProvider.getInstance().getPrice(a.itemId(), 1));
                 } catch (RuntimeException e) {
                     return 1;
                 }
             }
 
+            /**
+             * The price that stands in for a token shop price: the board's value when it has one, else the catalog's
+             * anchor (the old starting prices for CHAOS 20m, WS 10m, ELIXIR 6k live there), else the NX fallback.
+             */
             public long anchor(String t) {
+                AssetRegistry.Asset a = AssetRegistry.of(t);
+                if (a == null || !a.item()) {
+                    return 0;
+                }
                 long board = 0;
                 try {
-                    board = value(ITEM.get(t));
+                    board = value(a.itemId());
                 } catch (RuntimeException e) {
-                    // no price board: the starting price
+                    // no price board: the catalog's anchor
                 }
-                return board >= TOKEN_FLOOR ? board : MarketTraders.FALLBACK.getOrDefault(t, 0L);
+                return board >= TOKEN_FLOOR ? board : a.anchor();
             }
 
             public long ceiling(String t, Map<String, Long> fairs) {
+                AssetRegistry.Asset a = AssetRegistry.of(t);
+                if (a == null || !a.item()) {
+                    return 0;
+                }
                 try {
                     if ("LEAF".equals(t)) {
                         long best = 0;
@@ -190,12 +235,26 @@ public final class FairValue {
                         }
                         return best;
                     }
-                    return Math.round(value(ITEM.get(t)) * 1.5);
+                    long board = value(a.itemId());
+                    long base = board > 0 ? board : a.anchor();
+                    return Math.round(base * 1.5);
                 } catch (RuntimeException e) {
                     return 0;
                 }
             }
         };
+    }
+
+    private static long l(String key, long dflt) {
+        String v = System.getProperty(key);
+        if (v == null || v.isBlank()) {
+            return dflt;
+        }
+        try {
+            return Long.parseLong(v.trim());
+        } catch (NumberFormatException e) {
+            return dflt;
+        }
     }
 
     private static long value(int itemId) {

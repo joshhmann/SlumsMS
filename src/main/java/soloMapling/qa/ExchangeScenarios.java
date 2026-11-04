@@ -7,6 +7,7 @@ import soloMapling.Economy.exchange.Exchange;
 import soloMapling.Economy.exchange.ExchangeQa;
 import soloMapling.Economy.exchange.ExchangeService;
 import soloMapling.Economy.exchange.GameLiveWallet;
+import soloMapling.Economy.exchange.AssetRegistry;
 import soloMapling.Economy.exchange.Ledger;
 import soloMapling.Economy.exchange.LiveWallet;
 import soloMapling.Economy.exchange.OrderBook;
@@ -123,9 +124,9 @@ final class ExchangeScenarios {
             if (w == null) {
                 throw new QaRefusal("Run this from your own logged-in character.");
             }
-            Ledger.Asset leaf = Ledger.Asset.LEAF;
+            AssetRegistry.Asset leaf = AssetRegistry.Asset.LEAF;
             leaves0 = w.have(leaf);
-            meso0 = w.have(Ledger.Asset.MESO);
+            meso0 = w.have(AssetRegistry.Asset.MESO);
             if (leaves0 < 2 * ExchangeQa.ITEMS) {
                 throw new QaRefusal("You need at least " + 2 * ExchangeQa.ITEMS + " tradeable Maple Leaves (you have "
                         + leaves0 + "; !item 4001126 20).");
@@ -169,8 +170,8 @@ final class ExchangeScenarios {
             if (w == null || ex == null) {
                 throw new QaRefusal("Log in and keep the exchange on.");
             }
-            String line = "XC2 CHECK leaves " + leaves0 + " -> " + w.have(Ledger.Asset.LEAF) + ", meso " + meso0
-                    + " -> " + w.have(Ledger.Asset.MESO) + ", open orders " + ex.openIdsOf(w.account()).size()
+            String line = "XC2 CHECK leaves " + leaves0 + " -> " + w.have(AssetRegistry.Asset.LEAF) + ", meso " + meso0
+                    + " -> " + w.have(AssetRegistry.Asset.MESO) + ", open orders " + ex.openIdsOf(w.account()).size()
                     + (ex.halted() ? ", HALTED " + ex.haltReason() : "");
             ctx.run().note("XC2", line);
             return List.of(line);
@@ -200,8 +201,8 @@ final class ExchangeScenarios {
             if (w == null) {
                 throw new QaRefusal("Run this from your own logged-in character.");
             }
-            nx0 = w.have(Ledger.Asset.NX);
-            meso0 = w.have(Ledger.Asset.MESO);
+            nx0 = w.have(AssetRegistry.Asset.NX);
+            meso0 = w.have(AssetRegistry.Asset.MESO);
             desk = ExchangeQa.deskOn(ex);
             if (desk) {
                 return stageDesk(ctx, ex, w);
@@ -253,7 +254,7 @@ final class ExchangeScenarios {
             if (w == null || ex == null) {
                 throw new QaRefusal("Log in and keep the exchange on.");
             }
-            long nx = w.have(Ledger.Asset.NX), meso = w.have(Ledger.Asset.MESO);
+            long nx = w.have(AssetRegistry.Asset.NX), meso = w.have(AssetRegistry.Asset.MESO);
             long[] inv = ex.deskInventory();
             String line = desk
                     ? "XC1 CHECK desk nx " + nx0 + " -> " + nx + ", meso " + meso0 + " -> " + meso + " (the spread: "
@@ -365,14 +366,14 @@ final class ExchangeScenarios {
             price = desk.quote(side);
             mesos = desk.mesos(side, qty, price);
             long fee = desk.config().fee(mesos);
-            Ledger.Asset pays = side == OrderBook.Side.BUY ? Ledger.Asset.MESO : Ledger.Asset.NX;
+            AssetRegistry.Asset pays = side == OrderBook.Side.BUY ? AssetRegistry.Asset.MESO : AssetRegistry.Asset.NX;
             long takes = side == OrderBook.Side.BUY ? mesos + fee : qty;
             if (w.have(pays) < takes) {
-                throw new QaRefusal("You need " + takes + " " + (pays == Ledger.Asset.NX ? "NX" : "mesos")
+                throw new QaRefusal("You need " + takes + " " + (pays == AssetRegistry.Asset.NX ? "NX" : "mesos")
                         + " for " + qty + " NX at the desk's quote (you have " + w.have(pays) + ").");
             }
-            nx0 = w.have(Ledger.Asset.NX);
-            meso0 = w.have(Ledger.Asset.MESO);
+            nx0 = w.have(AssetRegistry.Asset.NX);
+            meso0 = w.have(AssetRegistry.Asset.MESO);
             deskNx0 = inv[0];
             deskMeso0 = inv[1];
             Exchange.Response pv = ex.preview(new Exchange.Place("qa-xd1", w.account(), w.character(), side, 0, qty,
@@ -396,8 +397,8 @@ final class ExchangeScenarios {
                 Exchange.Response f = p.ok()
                         ? e.confirm("qa-xd1-back-c", back.account(), (String) p.data().get("token")) : p;
                 ctx.run().note("CLEANUP", "XD1 back " + undo + " " + qty + " NX: " + (f.ok() ? "done" : f.code())
-                        + ", NX now " + back.have(Ledger.Asset.NX) + " (was " + nx0 + "), mesos now "
-                        + back.have(Ledger.Asset.MESO) + " (was " + meso0 + "; the spread is the cost)");
+                        + ", NX now " + back.have(AssetRegistry.Asset.NX) + " (was " + nx0 + "), mesos now "
+                        + back.have(AssetRegistry.Asset.MESO) + " (was " + meso0 + "; the spread is the cost)");
             });
             String per = Exchange.perNx(price);
             return List.of(
@@ -422,7 +423,7 @@ final class ExchangeScenarios {
                 throw new QaRefusal("Log in and keep the exchange and the desk on.");
             }
             Desk desk = ex.desk();
-            long nx = w.have(Ledger.Asset.NX), meso = w.have(Ledger.Asset.MESO);
+            long nx = w.have(AssetRegistry.Asset.NX), meso = w.have(AssetRegistry.Asset.MESO);
             long[] inv = ex.deskInventory();
             long fee = desk.config().fee(mesos);
             long wantNx = side == OrderBook.Side.BUY ? qty : -qty;

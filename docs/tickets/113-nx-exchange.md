@@ -745,3 +745,19 @@ Switch-on checklist (each live step needs the owner's go):
 Owner decisions (grill, 2026-10-30): the price band STAYS one-sided (refuses SELL < 50% and BUY > 200% of the 7-day
 rate; silly asks and lowball bids may rest unfilled). Regular bots trade through a HOUSE ACCOUNT: one staff-owned
 account funds and receives every regular's exchange trades, so their money is tracked and reconciled in one place.
+
+## The item catalog (ticket 270, 2026-11-03)
+
+The five item tickers this ticket shipped are now one case of a general catalog: `AssetRegistry` (asset ids, item ids,
+categories, anchors) replaces the `Ledger.Asset` enum, `itemConfig/exchangeTickers.yaml` lists 709 tickers (518
+tradeable scrolls, 27 use items, 164 ETC) with their own caps and starting prices, and `-Dslums.exchange.catalog=
+scrolls,use,etc` opens them. `-Dslums.exchange.tickers` still narrows the set, `NX`, `LEAF`, `CHAOS`, `WS` and `ELIXIR`
+keep their ids and books (no migration), and two new guards come with it: a house-funded item maker
+(`-Dslums.exchange.itemMaker=true`) so a new book is not an asks-only wall, and a per-account daily meso ceiling on
+item sells (`-Dslums.exchange.items.sellCapMesosPerDay`). The maker is funded from the house character with real
+items (`!exchange fund <regular> <ticker> <amount>`, accepted only while the maker is on), so its asks are items the
+server already had, never minted ones. The maker quotes from every configured regular (the same ±3/6/9% ladder the NX
+book shows), the bot traders offer what they grind (the scroll they hold most, else the ETC they hold most) instead of
+only staff-funded stock, and `volatility/MarketEventPressure` lets the world events press on the item books the way the
+guild news presses on NX. See `docs/tickets/270-exchange-item-catalog.md` for the numbers, the anchor
+chain and the tests.

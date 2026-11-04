@@ -1,5 +1,6 @@
 package soloMapling.Economy.exchange.volatility;
 
+import soloMapling.Economy.exchange.AssetRegistry;
 import soloMapling.Economy.exchange.Exchange;
 import soloMapling.Economy.exchange.ExchangeStore.FillRow;
 import soloMapling.Economy.exchange.ExchangeStore.OrderRow;
@@ -51,6 +52,16 @@ public final class MarketTraders {
     /** A ticker's price when it has never traded (until players set one): the trader's first anchor. */
     static final Map<String, Long> FALLBACK = Map.of("LEAF", 600_000L, "CHAOS", 20_000_000L, "WS", 10_000_000L,
             "ELIXIR", 6_000L, Ticker.NX, 5_000_000L);
+
+    /**
+     * The price a trader starts a never-traded ticker from. The 1.6.3 item tickers keep {@link #FALLBACK} exactly as
+     * they were (LEAF's 600,000 and its band are live behaviour); a catalog ticker starts from its own row's anchor
+     * (ticket 270), and 0 means it has none, which leaves the trader to skip it.
+     */
+    static long anchorOf(Ticker tk) {
+        Long legacy = FALLBACK.get(tk.id());
+        return legacy != null ? legacy : tk.anchor();
+    }
     /** The NPC shops buy Maple Leaves at this: value traders anchor LEAF's fair value near it. */
     static final long LEAF_SHOP = 500_000L;
 
@@ -279,7 +290,7 @@ public final class MarketTraders {
         }
         // 1.6.2: trade what you hold. A bot holding a scroll (CHAOS, WS) offers that scroll this turn: until now the
         // dice alone decided, so the 27 CHAOS a bot already held never reached the book and no bot ever quoted one.
-        Ticker held = heldScroll(items, w);
+        Ticker held = heldItem(items, w);
         if (held == null && desk) {
             // 1.6.3: a bot that holds NX offers it at the desk's buy quote; otherwise some turns are desk turns
             long purse = ex.botNx(w.account());
@@ -310,6 +321,8 @@ public final class MarketTraders {
         if (events != null) {
             pressure += events.pressure(tk.id(), now, true);
         }
+        // ticket 270: the world events press on the item books too (an invasion burns potions, a handout floods its item)
+        pressure += MarketEventPressure.pressure(MarketEventPressure.running(now), tk, now);
         if (rumours != null) {
             pressure += rumours.pressure(tk.id(), now, cfg.actOnRumourPct(), t.seed());
         }
@@ -320,7 +333,7 @@ public final class MarketTraders {
         }
         int left = Math.max(0, tk.perDay() - ex.placedToday(w.account(), tk.id()));
         long heldNow = tk.item() ? w.have(tk.asset()) : ex.botNx(w.account());
-        TraderBrain.Holdings h = new TraderBrain.Holdings(w.have(soloMapling.Economy.exchange.Ledger.Asset.MESO),
+        TraderBrain.Holdings h = new TraderBrain.Holdings(w.have(soloMapling.Economy.exchange.AssetRegistry.Asset.MESO),
                 heldNow, open, left, tk.maxOpen());
         List<TraderBrain.Action> acts = role == MarketNews.Role.NONE ? List.of() : TraderBrain.newsActions(role, v, h, rng);
         if (acts.isEmpty()) {
@@ -414,7 +427,7 @@ public final class MarketTraders {
         TraderBrain.View v = new TraderBrain.View(Ticker.NX, ref, d.buy(), d.sell(), hourAgo, high2h, fair, pressure,
                 lo, hi,
                 nx.maxQty(), ex.config().feeBps(), bandLo, bandHi, nx.per(), nx.lot(), nx.minQty());
-        TraderBrain.Holdings h = new TraderBrain.Holdings(w.have(soloMapling.Economy.exchange.Ledger.Asset.MESO),
+        TraderBrain.Holdings h = new TraderBrain.Holdings(w.have(soloMapling.Economy.exchange.AssetRegistry.Asset.MESO),
                 ex.botNx(w.account()),
                 List.of(), 1, 1);
         TraderBrain.Place p = null;
@@ -492,8 +505,8 @@ public final class MarketTraders {
     static String newsTicker(MarketNews.Role role, LiveWallet w) {
         return switch (role) {
             case WINNER -> "LEAF";
-            case LOSER -> w.have(soloMapling.Economy.exchange.Ledger.Asset.LEAF) > 0 ? "LEAF" : "ELIXIR";
-            case CLEARED -> w.have(soloMapling.Economy.exchange.Ledger.Asset.CHAOS) > 0 ? "CHAOS" : "WS";
+            case LOSER -> w.have(soloMapling.Economy.exchange.AssetRegistry.Asset.LEAF) > 0 ? "LEAF" : "ELIXIR";
+            case CLEARED -> w.have(soloMapling.Economy.exchange.AssetRegistry.Asset.CHAOS) > 0 ? "CHAOS" : "WS";
             default -> "ELIXIR";
         };
     }
@@ -514,7 +527,7 @@ public final class MarketTraders {
      * reference) then dropped the value and maker quotes near 500,000, and the LEAF book locked in at 1,000 to 1,110.
      */
     public static TraderBrain.View view(Exchange ex, Ticker tk, long now, double pressure, Long fairValue) {
-        long anchor = fairValue != null && fairValue > 0 ? fairValue : FALLBACK.getOrDefault(tk.id(), 0L);
+        long anchor = fairValue != null && fairValue > 0 ? fairValue : anchorOf(tk);
         long[] band = TraderBrain.band(anchor);
         java.util.function.LongPredicate in = p -> band[1] <= 0 || (p >= band[0] && p <= band[1]);
         long bid = 0, ask = 0;
@@ -546,7 +559,7 @@ public final class MarketTraders {
                 high2h = Math.max(high2h, f.price());
             }
         }
-        long fallback = fairValue != null && fairValue > 0 ? fairValue : FALLBACK.getOrDefault(tk.id(), 1_000L);
+        long fallback = fairValue != null && fairValue > 0 ? fairValue : Math.max(1_000L, anchorOf(tk));
         long ref = last > 0 ? last : bid > 0 && ask > 0 ? (bid + ask) / 2 : fallback;
         if (hourAgo == 0 && !trades.isEmpty()) {
             hourAgo = trades.get(trades.size() - 1).price(); // younger than an hour: from the oldest we have
@@ -567,31 +580,43 @@ public final class MarketTraders {
                 ex.config().feeBps(), band[0], band[1], tk.per(), tk.lot(), tk.minQty());
     }
 
-    /** The scroll tickers trader bots trade, in the order off-screen finds are rolled (1.6.2). */
+    /**
+     * The scroll tickers whose off-screen finds roll (1.6.2), in order. The find machinery keeps one counter and one
+     * drop scan per slot, so it stays a short list even with the whole catalog on; every other scroll reaches the book
+     * the way a player's does, from bags a bot already has ({@link #heldItem}).
+     */
     static final java.util.List<String> SCROLL_IDS = java.util.List.of("CHAOS", "WS");
 
-    /** The scroll tickers trader bots trade (1.6.2); anything else they hold is still taken by the dice. */
-    private static final java.util.Set<String> SCROLLS = java.util.Set.copyOf(SCROLL_IDS);
-
     /**
-     * The scroll this bot holds most of, among the open item tickers; null when it holds none (the dice pick, then).
-     * Leaves and potions are left to the dice on purpose: almost every trader holds some, and preferring them would
-     * only concentrate the whole market on LEAF.
+     * The catalog item this bot holds most of, among the open item tickers; null when it holds none (the dice pick,
+     * then). Ticket 270: scrolls first, because the 17,516 Claw ATT 60% bots already carry can reach the book
+     * instead of only CHAOS and WS; otherwise the ETC a bot actually grinds -- Monster Cards, ores, feathers, rocks --
+     * so what it owns from hunting is what it lists (owner 2026-11-03: regulars source their stock by grinding, then
+     * sell it on the exchange or in their own shop). Leaves, potions and everything else stay on the dice: almost
+     * every trader holds leaves and potions, and preferring them would concentrate the whole market on LEAF.
      */
-    static Ticker heldScroll(List<Ticker> open, LiveWallet w) {
-        Ticker best = null;
-        long most = 0;
+    static Ticker heldItem(List<Ticker> open, LiveWallet w) {
+        Ticker scroll = null, goods = null;
+        long mostScroll = 0, mostGoods = 0;
         for (Ticker k : open) {
-            if (!k.item() || !SCROLLS.contains(k.id())) {
+            if (!k.item() || AssetRegistry.Category.LEAF.equals(k.category())) {
                 continue;
             }
             long have = w.have(k.asset());
-            if (have > most) {
-                most = have;
-                best = k;
+            if (have <= 0) {
+                continue;
+            }
+            if (AssetRegistry.Category.SCROLL.equals(k.category())) {
+                if (have > mostScroll) {
+                    mostScroll = have;
+                    scroll = k;
+                }
+            } else if (AssetRegistry.Category.ETC.equals(k.category()) && have > mostGoods) {
+                mostGoods = have;
+                goods = k;
             }
         }
-        return best;
+        return scroll != null ? scroll : goods;
     }
 
     /** How deep a trader looks for the best in-band bid and ask. */
@@ -635,8 +660,8 @@ public final class MarketTraders {
             LiveWallet w = roster.walletOf(t);
             online += w != null ? 1 : 0;
             out.add(String.format("  %d %s %s%s", t.id(), t.archetype(), w == null ? "offline"
-                    : String.format("%,d mesos, %,d leaves", w.have(soloMapling.Economy.exchange.Ledger.Asset.MESO),
-                    w.have(soloMapling.Economy.exchange.Ledger.Asset.LEAF)),
+                    : String.format("%,d mesos, %,d leaves", w.have(soloMapling.Economy.exchange.AssetRegistry.Asset.MESO),
+                    w.have(soloMapling.Economy.exchange.AssetRegistry.Asset.LEAF)),
                     ex == null ? "" : ", open " + ex.openIdsOf(t.id()).size()));
         }
         out.add(0, "Traders: " + roster.traders().size() + " (" + online + " online); orders placed " + placed

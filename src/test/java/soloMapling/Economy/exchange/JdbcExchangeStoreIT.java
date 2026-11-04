@@ -1,5 +1,7 @@
 package soloMapling.Economy.exchange;
 
+import soloMapling.Economy.exchange.AssetRegistry.Asset;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
@@ -151,12 +153,12 @@ class JdbcExchangeStoreIT {
         assertEquals(5_000_000, d.mid(), "no stored R and no book rate: NX's start price");
         // staff fund the desk as `!exchange desk fund` does: a FUND posting from the house account's wallet
         store.apply(new ExchangeStore.Batch(9000, now.get(), List.of(
-                new Ledger.Posting(Ledger.Why.FUND, Ledger.Bucket.wallet(Ledger.Asset.NX, 1),
-                        Exchange.deskBucket(Ledger.Asset.NX), 5_000, 1, 0, 0),
-                new Ledger.Posting(Ledger.Why.FUND, Ledger.Bucket.wallet(Ledger.Asset.MESO, 11),
-                        Exchange.deskBucket(Ledger.Asset.MESO), 40_000_000, 1, 0, 0)), List.of(), List.of()));
-        assertEquals(5_000, store.balance(Exchange.deskBucket(Ledger.Asset.NX)));
-        assertEquals(40_000_000, store.balance(Exchange.deskBucket(Ledger.Asset.MESO)));
+                new Ledger.Posting(Ledger.Why.FUND, Ledger.Bucket.wallet(Asset.NX, 1),
+                        Exchange.deskBucket(Asset.NX), 5_000, 1, 0, 0),
+                new Ledger.Posting(Ledger.Why.FUND, Ledger.Bucket.wallet(Asset.MESO, 11),
+                        Exchange.deskBucket(Asset.MESO), 40_000_000, 1, 0, 0)), List.of(), List.of()));
+        assertEquals(5_000, store.balance(Exchange.deskBucket(Asset.NX)));
+        assertEquals(40_000_000, store.balance(Exchange.deskBucket(Asset.MESO)));
         assertEquals(95_000, one("SELECT nxCredit FROM accounts WHERE id=1"));
         assertEquals(10_000_000, one("SELECT meso FROM characters WHERE id=11"));
         assertEquals(100_000, store.nxFloat(), "the float is the players' NX (95,000 + 5,000), not the desk's 5,000");
@@ -223,10 +225,10 @@ class JdbcExchangeStoreIT {
         ex.deskConfig(DeskConfig.defaults().on());
         assertTrue(ex.recover().isEmpty());
         store.apply(new ExchangeStore.Batch(9000, now.get(), List.of(
-                new Ledger.Posting(Ledger.Why.FUND, Ledger.Bucket.wallet(Ledger.Asset.NX, 1),
-                        Exchange.deskBucket(Ledger.Asset.NX), 5_000, 1, 0, 0),
-                new Ledger.Posting(Ledger.Why.FUND, Ledger.Bucket.wallet(Ledger.Asset.MESO, 11),
-                        Exchange.deskBucket(Ledger.Asset.MESO), 40_000_000, 1, 0, 0)), List.of(), List.of()));
+                new Ledger.Posting(Ledger.Why.FUND, Ledger.Bucket.wallet(Asset.NX, 1),
+                        Exchange.deskBucket(Asset.NX), 5_000, 1, 0, 0),
+                new Ledger.Posting(Ledger.Why.FUND, Ledger.Bucket.wallet(Asset.MESO, 11),
+                        Exchange.deskBucket(Asset.MESO), 40_000_000, 1, 0, 0)), List.of(), List.of()));
         long nx0 = totalNx(), meso0 = totalMeso();
         Response pv = ex.preview(new Place("pv", 2, 12, Side.BUY, 0, 1_000, Ticker.NX));
         assertTrue(pv.ok(), pv.toString());
@@ -399,17 +401,17 @@ class JdbcExchangeStoreIT {
             }
         }
 
-        public long have(Ledger.Asset a) {
-            return a == Ledger.Asset.NX ? nx : a.item() ? leaves : meso;
+        public long have(Asset a) {
+            return a == Asset.NX ? nx : a.item() ? leaves : meso;
         }
 
-        public boolean take(Ledger.Asset a, long amount) {
+        public boolean take(Asset a, long amount) {
             if (have(a) < amount) {
                 return false;
             }
             if (a.item()) {
                 leaves -= amount;
-            } else if (a == Ledger.Asset.NX) {
+            } else if (a == Asset.NX) {
                 nx -= amount;
             } else {
                 meso -= amount;
@@ -417,8 +419,8 @@ class JdbcExchangeStoreIT {
             return true;
         }
 
-        public boolean give(Ledger.Asset a, long amount) {
-            if (a == Ledger.Asset.NX) {
+        public boolean give(Asset a, long amount) {
+            if (a == Asset.NX) {
                 nx += amount;
             } else if (a.item()) {
                 leaves += amount;

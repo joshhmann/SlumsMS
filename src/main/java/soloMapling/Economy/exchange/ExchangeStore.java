@@ -158,6 +158,12 @@ public interface ExchangeStore {
     /** One stored exchange balance (0 when none). */
     long balance(Ledger.Bucket bucket) throws StoreException;
 
+    /**
+     * Ticket 270: mesos this account has taken out of item fills since {@code since}, plus what its resting item sell
+     * orders would still take. NX and MESO are not item sells and do not count.
+     */
+    long itemExposure(long account, long since) throws StoreException;
+
     /** One order (open or closed), or null. */
     OrderRow order(long id) throws StoreException;
 

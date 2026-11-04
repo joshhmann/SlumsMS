@@ -1,5 +1,7 @@
 package soloMapling.Economy.exchange.volatility;
 
+import soloMapling.Economy.exchange.AssetRegistry.Asset;
+
 import client.Character;
 import client.inventory.Inventory;
 import client.inventory.Item;
@@ -80,8 +82,8 @@ public final class BotTraderWallet implements LiveWallet {
     }
 
     @Override
-    public long have(Ledger.Asset asset) {
-        if (asset == Ledger.Asset.NX) {
+    public long have(Asset asset) {
+        if (asset == Asset.NX) {
             return 0;
         }
         if (!asset.item()) {
@@ -101,8 +103,8 @@ public final class BotTraderWallet implements LiveWallet {
     }
 
     @Override
-    public boolean take(Ledger.Asset asset, long amount) {
-        if (amount < 0 || amount > Integer.MAX_VALUE || asset == Ledger.Asset.NX) {
+    public boolean take(Asset asset, long amount) {
+        if (amount < 0 || amount > Integer.MAX_VALUE || asset == Asset.NX) {
             return false;
         }
         if (amount == 0) {
@@ -148,8 +150,8 @@ public final class BotTraderWallet implements LiveWallet {
     }
 
     @Override
-    public boolean give(Ledger.Asset asset, long amount) {
-        if (amount < 0 || amount > Integer.MAX_VALUE || asset == Ledger.Asset.NX) {
+    public boolean give(Asset asset, long amount) {
+        if (amount < 0 || amount > Integer.MAX_VALUE || asset == Asset.NX) {
             return false;
         }
         if (amount == 0) {
@@ -165,7 +167,7 @@ public final class BotTraderWallet implements LiveWallet {
     }
 
     @Override
-    public long room(Ledger.Asset asset, long want) {
+    public long room(Asset asset, long want) {
         if (!asset.item()) {
             return LiveWallet.super.room(asset, want);
         }
