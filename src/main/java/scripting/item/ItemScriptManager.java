@@ -33,7 +33,7 @@ public class ItemScriptManager {
         return instance;
     }
 
-    public void runItemScript(Client c, ScriptedItem scriptItem) {
-        NPCScriptManager.getInstance().start(c, scriptItem, null);
+    public boolean runItemScript(Client c, ScriptedItem scriptItem) {
+        return NPCScriptManager.getInstance().start(c, scriptItem, null);
     }
 }
