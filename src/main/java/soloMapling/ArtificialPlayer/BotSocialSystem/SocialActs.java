@@ -54,11 +54,11 @@ import java.util.Random;
  *       <td>willingness: warmth, sociability, companionship need; ~resentment, distrust (ACCEPT; DECLINE is its mirror)</td>
  *       <td>ACCEPT carries the invitation out (the duo or PQ party, the trips); DECLINE says no politely</td>
  *       <td>ACCEPT: party/trips, needs, PARTY memory; DECLINE: the inviter's sadness and embarrassment, ASKED memory</td></tr>
- *   <tr><td>APOLOGIZE (built)</td><td>in earshot, an open fight the actor remembers, no apology since, actor not too angry (resentment under 0.55)</td>
+ *   <tr><td>APOLOGIZE (built)</td><td>in earshot, an open fight the actor remembers, no apology since, actor not too angry (anger under 0.55) or bitter (resentment under 0.85)</td>
  *       <td>empathy, agreeableness, embarrassment (guilt), starting the fight; ~pride x confidence, resentment, anger</td>
  *       <td>sorry line; the target takes it by its own agreeableness, resentment and pride; lands when taken</td>
  *       <td>taken: APOLOGY bond event both edges (resentment down, trust up), anger down, memory; refused: anger/embarrassment, memory</td></tr>
- *   <tr><td>RECONCILE (built)</td><td>an open fight that was apologized for, edge RIVAL/ESTRANGED or resentment 0.15+, actor cooled (resentment under 0.35)</td>
+ *   <tr><td>RECONCILE (built)</td><td>an open fight that was apologized for, edge RIVAL/ESTRANGED or resentment 0.15+, actor cooled (resentment under 0.45)</td>
  *       <td>agreeableness, loneliness, companionship need, loyalty; ~pride, resentment, anger</td>
  *       <td>truce line; the target takes it by agreeableness, resentment, loyalty; lands when taken</td>
  *       <td>taken: RECONCILE bond event both edges (stage climbs one rung per event), mood up, avoid records cleared, memory ends the fight</td></tr>
@@ -87,12 +87,25 @@ final class SocialActs {
 
     /** The wording of the notes the acts write (they name nobody) and the words {@link #read} classifies them by. */
     static final class Notes {
-        static final String FIGHT_MINE = "lost my temper at them";
-        static final String FIGHT_THEIRS = "they lost their temper at me";
-        static final String SORRY_GIVEN = "said sorry to them";
-        static final String SORRY_TAKEN = "they said sorry to me";
+        /**
+         * Notes of a fight, an apology and a making-up come in three wordings, rotated by the minute: the memory drops the
+         * same text written again within 20 hours, and a second fight the same day must still be remembered.
+         */
+        static final String[] FIGHT_MINE = {"lost my temper at them", "lost my temper over it with them",
+                "lost my temper again with them"};
+        static final String[] FIGHT_THEIRS = {"they lost their temper at me", "they lost their temper over it with me",
+                "they lost their temper again with me"};
+        static final String[] SORRY_GIVEN = {"said sorry to them", "said sorry to them again", "said sorry to them, meant it"};
+        static final String[] SORRY_TAKEN = {"they said sorry to me", "they said sorry to me again",
+                "they said sorry to me, meant it"};
         static final String SORRY_REFUSED = "was turned away when i tried to make peace";
-        static final String MADE_UP = "made up after a fight";
+        static final String[] MADE_UP = {"made up after a fight", "made up after another fight",
+                "made up with them after the fight"};
+
+        static String of(String[] wordings, long now) {
+            return wordings[(int) ((now / 60_000L) % wordings.length)];
+        }
+
         static final String COMPLIMENT_GIVEN = "paid them a compliment";
         static final String COMPLIMENT_TAKEN = "they paid me a compliment";
         static final String HUNG_OUT = "hung out together for a while";
@@ -153,8 +166,6 @@ final class SocialActs {
     static double clamp01(double v) {
         return Math.max(0, Math.min(1, v));
     }
-
-    private static final Random UNUSED = new Random(0);
 
     static Random linesRng(int botId) {
         return SocialSim.random(botId, "social-line");
@@ -698,8 +709,11 @@ final class SocialActs {
             if (m.apologized()) {
                 return "already said sorry for it";
             }
-            if (c.edge().resentment() >= 0.55 || c.self().e(Emotion.ANGER) >= 0.55) {
-                return "still too angry to say sorry";
+            if (c.self().e(Emotion.ANGER) >= 0.55) {
+                return "still too angry to say sorry"; // hot: wait for the anger to fade (half-life 3 h)
+            }
+            if (c.edge().resentment() >= 0.85) {
+                return "too bitter to say sorry";
             }
             if (c.since(kind()) < 20 * 60_000L) {
                 return "tried a moment ago";
@@ -743,8 +757,8 @@ final class SocialActs {
                     m.feel(Emotion.AFFECTION, 0.05, now);
                     m.feel(Emotion.SADNESS, -0.05, now);
                 });
-                remember(a, t, BotMemory.Kind.CHAT, Notes.SORRY_GIVEN, 0.2, mapId, now);
-                remember(t, a, BotMemory.Kind.CHAT, Notes.SORRY_TAKEN, 0.4, mapId, now);
+                remember(a, t, BotMemory.Kind.CHAT, Notes.of(Notes.SORRY_GIVEN, now), 0.2, mapId, now);
+                remember(t, a, BotMemory.Kind.CHAT, Notes.of(Notes.SORRY_TAKEN, now), 0.4, mapId, now);
                 return Outcome.ok(kind(), 0, "apology taken by " + c.target().name());
             }
             say(t, lineTo("SocialApologyRefused", c.actor(), t, "not yet {PLAYER}"));
@@ -829,8 +843,8 @@ final class SocialActs {
                 m.feel(Emotion.SADNESS, 0.05, now);
                 m.feel(Emotion.HAPPINESS, -0.10, now);
             });
-            remember(a, t, BotMemory.Kind.CHAT, Notes.FIGHT_MINE, -0.5, mapId, now);
-            remember(t, a, BotMemory.Kind.CHAT, Notes.FIGHT_THEIRS, -0.7, mapId, now);
+            remember(a, t, BotMemory.Kind.CHAT, Notes.of(Notes.FIGHT_MINE, now), -0.5, mapId, now);
+            remember(t, a, BotMemory.Kind.CHAT, Notes.of(Notes.FIGHT_THEIRS, now), -0.7, mapId, now);
             return Outcome.ok(kind(), 0, "argued with " + c.target().name());
         }
     }
@@ -859,7 +873,7 @@ final class SocialActs {
             if (!(c.sourRelation() || e.resentment() >= 0.15 || e.affection() < 0.1)) {
                 return "nothing left to mend";
             }
-            if (e.resentment() >= 0.35) {
+            if (e.resentment() >= 0.45) {
                 return "still too sore to make up";
             }
             if (c.since(kind()) < 30 * 60_000L) {
@@ -907,8 +921,8 @@ final class SocialActs {
                     m.satisfy(Need.BELONGING, 0.15, now);
                 });
             }
-            remember(a, t, BotMemory.Kind.CHAT, Notes.MADE_UP, 0.5, mapId, now);
-            remember(t, a, BotMemory.Kind.CHAT, Notes.MADE_UP, 0.5, mapId, now);
+            remember(a, t, BotMemory.Kind.CHAT, Notes.of(Notes.MADE_UP, now), 0.5, mapId, now);
+            remember(t, a, BotMemory.Kind.CHAT, Notes.of(Notes.MADE_UP, now), 0.5, mapId, now);
             return Outcome.ok(kind(), 0, "made up with " + c.target().name());
         }
     }
