@@ -157,6 +157,9 @@ public class TownWandererBot extends BotSM {
         if (life != null) {
             life.tick(System.currentTimeMillis()); // 1.6.0 S8: the brain decides when to hop (MOVE_MAP)
             if (wanderState == WanderState.CHANGE_MAP) return;
+            // 1.6.4: the brain may move this bot to training or a social mode; a swap is the last act of the tick.
+            if (soloMapling.ArtificialPlayer.BotLifeSystem.ModeSwitch.maybeSwitch(this, life.lifeRuntime(),
+                    System.currentTimeMillis())) return;
         } else if (cooled && townFamily.size() > 1 && rollChanceInverse(12)) {
             wanderState = WanderState.CHANGE_MAP;
             return;

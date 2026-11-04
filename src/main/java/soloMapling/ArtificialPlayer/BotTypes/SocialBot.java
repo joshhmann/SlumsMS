@@ -213,7 +213,9 @@ public class SocialBot extends BotSM {
         }
         pollRecruitInvite(); // last: a JOINED poll converts this bot to a FollowerBot
         if (life != null && getRunning()) {
-            life.tick(System.currentTimeMillis()); // 1.6.0 S8: the brain (30 s cadence, skips unchanged ticks)
+            long now = System.currentTimeMillis();
+            life.tick(now); // 1.6.0 S8: the brain (30 s cadence, skips unchanged ticks)
+            soloMapling.ArtificialPlayer.BotLifeSystem.ModeSwitch.maybeSwitch(this, life.lifeRuntime(), now); // 1.6.4: last act
         }
     }
 

@@ -662,6 +662,8 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         pollRecruitInvite(); // gated party-invite drain (the "wanna party up?" flow)
         soloMenu.poll();
         partyMenu.poll();    // kept last: a "Follow me!" selection converts this bot away
+        // 1.6.4: the brain may move this bot to a social or town mode; a swap is the last act of the tick.
+        soloMapling.ArtificialPlayer.BotLifeSystem.ModeSwitch.maybeSwitch(this, dailyLife, now());
     }
 
     // ── Conversation hold (1.5.1) ────────────────────────────────────────────

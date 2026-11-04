@@ -278,14 +278,27 @@ public final class BotRoster {
 
     /**
      * The bot type a roster member logs in as (ticket 07): a resumed session keeps the activity it logged out in;
-     * otherwise null, and the caller's choice stands.
+     * otherwise null, and the caller's choice stands. With the brain on, a fresh login is a training session and the
+     * brain moves it on ({@link soloMapling.ArtificialPlayer.BotLifeSystem.ModeSwitch}); a resumed session keeps the
+     * mode the bot was switched into (1.6.4: before, every resume was forced back to training, which undid a switch
+     * at the next restart).
      */
     public static BotTypeManager.BotType resumedType(int charId) {
-        if (soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled()
-                && loadedMember(charId - BotStore.BOT_ID_BASE) != null) return BotTypeManager.BotType.TRAINING_BOT;
         Activity armed = peekResume(charId);
         BotPersonality.Activity activity = armed == null ? null : BotPersonality.Activity.fromRecorded(armed.name());
-        return activity == null ? null : activity.type;
+        boolean brainMember = soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled()
+                && loadedMember(charId - BotStore.BOT_ID_BASE) != null;
+        return resumeChoice(brainMember, soloMapling.ArtificialPlayer.BotLifeSystem.ModeSwitch.enabled(),
+                activity == null ? null : activity.type);
+    }
+
+    /** The decision behind {@link #resumedType}: {@code recorded} is the type of the armed resume, or null. */
+    static BotTypeManager.BotType resumeChoice(boolean brainMember, boolean modeSwitchOn,
+                                               BotTypeManager.BotType recorded) {
+        if (brainMember) {
+            return modeSwitchOn && recorded != null ? recorded : BotTypeManager.BotType.TRAINING_BOT;
+        }
+        return recorded;
     }
 
     /** The activity this bot logged out in, once: the second call returns null. */

@@ -8,6 +8,12 @@
 | [178](178-sibling-only-upgrade-handover.md) | Sibling-only upgrade offer cannot start a handover | Source-confirmed; coordinator + submitter triage required |
 | [179](179-qa-worker-loses-batched-ready-events.md) | Client readiness events lost between waits | Reproduced locally; coordinator + submitter triage required |
 
+## Social intelligence (owner direction, 2026-11-03)
+
+| # | Ticket | State |
+|---|---|---|
+| [181](181-social-intelligence.md) | Persistent NPC social intelligence (traits, emotions, needs, relationships, memory, actions, modes, Henesys pilot) | Stages 0 and 0b done on `164-social-core`; 1-7 planned. Design: `docs/design/social-intelligence-audit.md` |
+
 ## 1.6.2 release closure (owner direction, 2026-10-31)
 
 | # | Ticket | Purpose |
