@@ -17,12 +17,12 @@ Read-only audit of the server code (eleven lanes). Documented, not changed.
 
 | # | Ticket | State |
 |---|---|---|
-| [181](181-client-map-integrity-and-crashes.md) | Missing map assets, broken map links and Rose Garden crash proof | Investigation recorded; links b251 and existing map-load work; implementation and real-client proof pending |
+| [181](272-client-map-integrity-and-crashes.md) | Missing map assets, broken map links and Rose Garden crash proof | Investigation recorded; links b251 and existing map-load work; implementation and real-client proof pending |
 ## Monster loot coverage (owner request, 2026-11-03 Pacific)
 
 | # | Ticket | State |
 |---|---|---|
-| [182](182-missing-monster-and-boss-loot-tables.md) | Missing mob/boss loot tables, with gear progression overlap | Read-only audit; candidate list needs reward/source triage and targeted kills |
+| [182](274-missing-monster-and-boss-loot-tables.md) | Missing mob/boss loot tables, with gear progression overlap | Read-only audit; candidate list needs reward/source triage and targeted kills |
 ## Marriage fixes (owner direction, 2026-11-03)
 
 | # | Ticket | Purpose |
@@ -70,12 +70,12 @@ boss/expedition audit `agent-runs/server/s-boss-audit/`. Story and environment t
 
 | # | Ticket | State |
 |---|---|---|
-| [181](181-config-template-gap.md) | The shipped config template omits 353 of 359 keys and every world, so a fresh install boots into 0-valued boot-critical fields | Merged at `1c168eff9`; forward-merge hazard to `release-1.6.4` remains (S2) |
-| [182](182-boss-clear-reward-bot-guard.md) | Papulatus, Scarga and Showa dereference a bot's headless client in the clear-reward loop | Source-confirmed, reachable; fix + test required (S3, F01) |
-| [183](183-expedition-attempt-logging.md) | The daily expedition-attempt ledger is never written, so the quota counts clears | Source-confirmed; needs the owner's switch decision (S3, F02) |
-| [184](184-expedition-hwid-reward-limit.md) | `EXPEDITION_HWID_LIMIT` reads 0 and nothing calls the limit, so "4 per machine per day" is enforced nowhere | Source-confirmed; arithmetic decision required (S3, F03) |
-| [185](185-world-unclaimed-expedition.md) | `World.addUnclaimed` is a no-op and `removeUnclaimed` puts the same value back | Source-confirmed; 14 script callers are inert (S4, F07) |
-| [186](186-dead-code-cleanup.md) | Dead `RedisJobQueue` + its `jedis` dependency, a half-written `Ola.startOla`, and F08 filed stale | Source-confirmed; deletion (S4) |
+| [181](273-config-template-gap.md) | The shipped config template omits 353 of 359 keys and every world, so a fresh install boots into 0-valued boot-critical fields | Merged at `1c168eff9`; forward-merge hazard to `release-1.6.4` remains (S2) |
+| [182](275-boss-clear-reward-bot-guard.md) | Papulatus, Scarga and Showa dereference a bot's headless client in the clear-reward loop | Source-confirmed, reachable; fix + test required (S3, F01) |
+| [183](276-expedition-attempt-logging.md) | The daily expedition-attempt ledger is never written, so the quota counts clears | Source-confirmed; needs the owner's switch decision (S3, F02) |
+| [184](277-expedition-hwid-reward-limit.md) | `EXPEDITION_HWID_LIMIT` reads 0 and nothing calls the limit, so "4 per machine per day" is enforced nowhere | Source-confirmed; arithmetic decision required (S3, F03) |
+| [185](278-world-unclaimed-expedition.md) | `World.addUnclaimed` is a no-op and `removeUnclaimed` puts the same value back | Source-confirmed; 14 script callers are inert (S4, F07) |
+| [186](279-dead-code-cleanup.md) | Dead `RedisJobQueue` + its `jedis` dependency, a half-written `Ola.startOla`, and F08 filed stale | Source-confirmed; deletion (S4) |
 | [187](187-stale-divergence-ledger-rows.md) | Three divergence-ledger rows describe code that has changed (NP-007, SK-033, MP-003) | Docs-only; owner confirmation required (S4) |
 
 ## 1.6.2 release closure (owner direction, 2026-10-31)

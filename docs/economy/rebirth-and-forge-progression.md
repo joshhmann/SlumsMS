@@ -7,7 +7,7 @@ The owner selected normal gear through200, then8–12 hours per forge stage, ret
 All237 main equipment recipes plus the existing Genesis Fragment refining recipe are simplified locally;
 requirements, pirate inputs, sword RB parity and refunds are fixed. No deployment or combat result is claimed.
 
-[Implementation ticket](../tickets/normal-200-to-forged-rebirth-progression.md).
+[Implementation ticket](../tickets/280-normal-200-to-forged-rebirth-progression.md).
 The refreshed catalogue below describes current candidate recipes; the later analysis retains original audit
 costs to explain the problem. Current cumulative Arcane-armour/Genesis-weapon fee including Fragment refining
 is286M for each supported class weapon, before optional enhancements.

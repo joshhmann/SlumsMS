@@ -1,6 +1,6 @@
 # Monster loot coverage snapshot
 
-See [ticket 182](../../tickets/182-missing-monster-and-boss-loot-tables.md) for the findings, exact scope,
+See [ticket 182](../../tickets/274-missing-monster-and-boss-loot-tables.md) for the findings, exact scope,
 gear-branch comparison and required proof. This is an audit, not a drop-table migration.
 
 - `placed-gaps.csv`: 811 IDs placed in current TEST map XML with empty tables, quest-gated rows only,

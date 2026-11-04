@@ -304,5 +304,5 @@ Native compatibility and targeted map-entry proof remain required before install
 Read-only review of the owner's `Z:\swordie 271` archives found useful Rose Garden behavior, Temple
 portal and missing-loot references, but no full client art pack or included client hook source.
 All ten inspected low-level Edelstein gap mobs have candidate base drop rows; no rates were imported.
-[Source hashes, exact paths, compatibility limits and loot leads](181-swordie271-source-review.md).
+[Source hashes, exact paths, compatibility limits and loot leads](281-swordie271-source-review.md).
 Rose Garden crash/missing mario art remain unresolved; the downloaded Steam assets require a separate sweep.

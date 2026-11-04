@@ -41,7 +41,7 @@ tips move; re-run before relying on an entry.
 ## 2. 181 `prog#P3` vs the codex progression lane (no overlap found)
 
 - **What:** `prog#P3` (skill points unusable at level 120): `BotProgression.java:283`, `:377`, `Character.java:7691`.
-  The codex lane (normal 120-149 gear bridge, forge, ticket doc `normal-200-to-forged-rebirth-progression.md`) is the
+  The codex lane (normal 120-149 gear bridge, forge, ticket doc `280-normal-200-to-forged-rebirth-progression.md`) is the
   other progression work.
 - **Sides:** brief `s-bot181-progress` (no branch yet); codex worktree `/root/work/SlumsMS-164-gear-progression-codex`,
   branch `164-gear-progression-codex`, tip `0444737f2`.
