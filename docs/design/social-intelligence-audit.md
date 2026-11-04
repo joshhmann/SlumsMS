@@ -139,7 +139,7 @@ the dashboard.
 | 2 | 8-axis bonds, migration 059, background formation | axis table, directedness, hysteresis, eviction, restart and legacy-row round trips, background tier, simulated-days tests | built (`164-social-bonds`, `f03304844`); migration 059 not yet applied on TEST; no decision reads the axes yet |
 | 3 | Memory extension (migration 060), relevance recall, knowledge boundaries, memory in bot-bot talk | knowledge-boundary tests | built (`164-social-memory`): subject type, place, confidence, valence, provenance, other party; `BotMemory.recall(.., Query, ..)` and `remember(..)` writer; repeats merge; world news only from witnesses or tellers; circle-restricted counts; `BotThreads`/`BotTalk` prompts carry the partner's real memories. Unit-tested only; TEST not run |
 | 4 | `SocialAction` registry, missing actions, gifts, emotion/memory into `TalkBrain` and `LifeDecision` | per-action outcome tests, utility ordering, Alice/Bob/Clara scene, 3-day 12-bot simulation | built (`164-social-acts`): section 9; unit and simulation tests only, TEST not run |
-| 5 | Intentions (memory in `BotThreads`/`BotTalk` prompts moved to Stage 3) | dialogue-to-intention test | built (`164-social-intents`, `81a7faa31`): see section 8; unit-tested only; performer is an unwired seam until Stage 4 merges; TEST not run |
+| 5 | Intentions (memory in `BotThreads`/`BotTalk` prompts moved to Stage 3) | dialogue-to-intention test | built (`164-social-intents`, `81a7faa31`): see section 8; unit-tested only; performer is a seam, wired to `SocialActions.perform` by Stage 4 (section 9); TEST not run |
 | 6 | Social LOD, loop breaker, metrics in dashboard and inspect | perf measurement | 6a built (`164-social-observe`): `SocialBudget` loop breaker (per-pair cooldown, per-bot, per-map and global rates, A-B turn limit, failed-act backoff; hooked into `BotTalk`), `social` block in `live.json`, mode/mind/bonds in `/bots/{cid}`, mode and mind lines in `!botwhy`; unit tests only, no perf measurement and no TEST run yet. 6b social LOD planned **6b:** 6b social LOD built (`164-social-lod`: tier/hold, 5-minute maintenance, catch-up bounds, flag-off tests, full suite); loop breaker and dashboard metrics planned |
 | 7 | 20-bot Henesys pilot, TEST (mapletest) live check | real execution evidence | planned |
 
@@ -262,9 +262,14 @@ side of the seams (`GameSocialWorld`, `GameSocialFlows`). Switch: `-Dslums.socia
   loneliness into the social share, anger into the killer share, and an unmet companionship need into the COMPANY goal.
   `LifeRuntime` adds the mind's companionship/loneliness pull (at most about 0.4) to the SOCIAL need. AVOID records are
   honoured by the arrival greeting and the idle chat.
-- **Seams for the sibling stages.** `GiftSeam` (default: a bond GIFT/GIFT_GIVEN gesture, no item) is what the
-  bot-to-bot gift plugs into by replacing `SocialActions.giftSeam`; `SocialActions.avoiding/avoidRecords/pendingInvite`
-  are read APIs; `SocialActions.observer` sees every carried-out act; Stage 5's `SocialIntents` calls `perform`.
+- **Seams, wired to the sibling stages once `164-social-int` was merged in.** `GiftSeam` (live: `BotGiftSeam` over
+  `BotBotGift`, which records the receiver's bond and push; the act adds the giver's GIFT_GIVEN, both memories and the
+  feelings; `AFFINITY_ONLY` is the no-item gesture for tests) so GIVE_GIFT gives what the gift primitive picks and is
+  refused, never faked, when it cannot; `SocialIntents.performer` is set to `SocialActions.perform` at `BotTalk.start`
+  (a landed act is a promise kept); `SocialWorld.paceFactor` reads `SocialLod` (an unwatched bot decides four times less
+  often). `SocialActions.avoiding/avoidRecords/pendingInvite` are read APIs for later stages and `SocialActions.observer`
+  sees every carried-out act. With `-Dslums.socialacts=false` a promise cannot be performed, so pair it with
+  `-Dslums.intents=false`.
 
 Proof: `SocialActsTest` (every act: outcome, refusal, failure), `SocialUtilityTest` (utility ordering, the Alice/Bob/Clara
 scene with seeded runs, stability, norms), `SocialDeciderTest`, `SocialSimulationTest` (12 bots, 3 simulated days, counts
