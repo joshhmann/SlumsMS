@@ -366,12 +366,12 @@ pre-existing order-dependence, not this merge's.
 
 ### Paperwork
 
-`tools/ops/helper-checkout /root/work/164-all` ends `CHECKOUT FAIL (164-all-merge): 1 problem(s)` - **134 commit(s)
+`tools/ops/helper-checkout /root/work/164-all` ends `CHECKOUT FAIL (164-all-merge): 1 problem(s)` - **136 commit(s)
 without a `Co-Authored-By` trailer**. Those are the merged lanes' own commits (bossrows, opq, ex2, altinvite, pqpolish,
-realruns, seams); the convention arrives with `release-1.6.4`, whose tip `6d18f961e` does carry one, so the check is
-right about the text and wrong about who owns it. They are not rewritten: rewriting them would invalidate every hash
-`REPORT-opq.md`, `REPORT-bossrows.md` and this file cite. This branch's own merge and report commits do carry the
-trailer. Every other check passes: tests changed with the code, `REPORT.md` is 24 lines, names the branch, has the suite
+realruns, seams, zenumist); the convention arrives with `release-1.6.4`, whose tip `6d18f961e` does carry one, so the
+check is right about the text and wrong about who owns it. They are not rewritten: rewriting them would invalidate every
+hash `REPORT-opq.md`, `REPORT-bossrows.md` and this file cite. This branch's own merge and report commits do carry the
+trailer. Every other check passes: tests changed with the code, `REPORT.md` is 20 lines, names the branch, has the suite
 counts, names the fail-before breakage, and has an economy line; no secrets; nothing pushed. Warnings left standing and
 reported as they are: files outside the usual folders (`REPORT-altinvite.md`, `REPORT-bossfight.md`,
 `REPORT-bossrows.md`, `REPORT-ex2.md`, `REPORT-merged.md`) and added text that names MapleStory/Nexon (internal only).
