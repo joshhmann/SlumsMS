@@ -233,12 +233,51 @@ public class ExpeditionBossLog {
             return false;
         }
 
-        if (countPlayerEntries(cid, boss) >= boss.entries) {
+        if (boss == BossLogEntry.CHAOS_ZAKUM) {
+            return chaosEntryLeft(cid);
+        }
+
+        if (entryCount.applyAsInt(cid, boss) >= boss.entries) {
             return false;
         }
 
         return true;
     }
+
+    /** 1.6.4 (owner Round 6 D3): the one daily Chaos Zakum limit all roster bots share (economy number). */
+    public static final int CHAOS_ZAKUM_BOT_DAILY_RUNS = 5;
+
+    /** Today's Chaos Zakum rows written by roster bots (ids above the bot base); swapped in tests. */
+    static volatile java.util.function.IntSupplier chaosBotRunsToday = ExpeditionBossLog::countChaosBotRows;
+
+    /**
+     * Chaos Zakum has no daily quota for players or owned alts (real characters). Roster bots share
+     * {@link #CHAOS_ZAKUM_BOT_DAILY_RUNS} runs a day, counted from the same daily boss log and reset with it.
+     */
+    static boolean chaosEntryLeft(int cid) {
+        if (!soloMapling.ArtificialPlayer.BotHelpers.isArtificial(cid)) {
+            return true;
+        }
+        int used = chaosBotRunsToday.getAsInt();
+        return used >= 0 && used < CHAOS_ZAKUM_BOT_DAILY_RUNS;
+    }
+
+    private static int countChaosBotRows() {
+        try (Connection con = DatabaseConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement("SELECT COUNT(*) FROM bosslog_daily WHERE bosstype = ? AND characterid > ?")) {
+            ps.setString(1, BossLogEntry.CHAOS_ZAKUM.name());
+            ps.setInt(2, soloMapling.server.SoloMaplingConstants.GameConstants.BOT_BASE_ID);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : -1;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return -1;
+        }
+    }
+
+    /** Per-character daily count; swapped in tests. */
+    static volatile java.util.function.ToIntBiFunction<Integer, BossLogEntry> entryCount = ExpeditionBossLog::countPlayerEntries;
 
     /**
      * 1.6.1 ticket 30: the same daily limit {@link #attemptBoss} holds a player to, for a regular's off-screen boss
@@ -247,6 +286,9 @@ public class ExpeditionBossLog {
     public static boolean hasEntryLeft(int cid, BossLogEntry boss) {
         if (!YamlConfig.config.server.USE_ENABLE_DAILY_EXPEDITIONS || boss == null) {
             return true;
+        }
+        if (boss == BossLogEntry.CHAOS_ZAKUM) {
+            return chaosEntryLeft(cid);
         }
         int used = countPlayerEntries(cid, boss);
         return used >= 0 && used < boss.entries;
