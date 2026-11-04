@@ -406,7 +406,12 @@ public class ServerConfig {
     public long BLOCK_NPC_RACE_CONDT;
     public int TOT_MOB_QUEST_REQUIREMENT;
     public int MOB_REACTOR_REFRESH_TIME;
-    public int PARTY_SEARCH_REENTRY_LIMIT;
+    //ticket 164: without an initialiser the JVM default 0 let a single empty search expire the leader, which then sat
+    //in the long-term waiting queue for 77 ticks (~12.8 min at the 10 s PartySearchTask) and could only be freed by
+    //restarting the party search. 10 is the value the Cosmic and SoloMapling config.yaml files ship for this key -
+    //their own ServerConfig.java has no initialiser either, so 10 here comes from their yaml, not from any Java
+    //default: the max amount of times a party leader may persist on Party Search before the entry expires.
+    public int PARTY_SEARCH_REENTRY_LIMIT = 10;
     public long NAME_CHANGE_COOLDOWN;
     public long WORLD_TRANSFER_COOLDOWN = NAME_CHANGE_COOLDOWN;//Cooldown for world tranfers, default is same as name change (30 days).
     public boolean INSTANT_NAME_CHANGE;
@@ -494,10 +499,14 @@ public class ServerConfig {
     public int EXPAND_GUILD_MAX_COST;
 
     //Family Configuration
-    public int FAMILY_REP_PER_KILL;
-    public int FAMILY_REP_PER_BOSS_KILL;
-    public int FAMILY_REP_PER_LEVELUP;
-    public int FAMILY_MAX_GENERATIONS;
+    //owner 2026-10-25: rep per kill 4, per boss kill 20, per level-up 200, at most 1000 generations
+    //(docs/tickets/53-family.md:18-19). Initialised here because yamlbeans leaves an absent key at the Java
+    //default, and 0 is not a neutral value: it pays no reputation at all and turns the generation cap into a
+    //wall that refuses every join (FamilyAddHandler.java:71, AcceptFamilyHandler.java:105).
+    public int FAMILY_REP_PER_KILL = 4;
+    public int FAMILY_REP_PER_BOSS_KILL = 20;
+    public int FAMILY_REP_PER_LEVELUP = 200;
+    public int FAMILY_MAX_GENERATIONS = 1000;
 
     //Equipment Configuration
     public boolean USE_EQUIPMNT_LVLUP_SLOTS;

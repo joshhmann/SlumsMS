@@ -58,7 +58,9 @@ public class PartySearchCoordinator {
 
     private int updateCount = 0;
 
-    private static final Map<Integer, Set<Integer>> mapNeighbors = fetchNeighbouringMaps();
+    //ticket 164: not final so PartySearchVicinityTest can install its own table and drive the public isInVicinity
+    //through the same wrapper production uses; the installer below is the only writer besides this initialiser.
+    private static Map<Integer, Set<Integer>> mapNeighbors = fetchNeighbouringMaps();
     private static final Map<Integer, Job> jobTable = instantiateJobTable();
 
     public PartySearchCoordinator() {
@@ -97,10 +99,36 @@ public class PartySearchCoordinator {
     }
 
     public static boolean isInVicinity(int callerMapid, int calleeMapid) {
-        Set<Integer> vicinityMapids = mapNeighbors.get(calleeMapid);
+        return isInVicinity(mapNeighbors, callerMapid, calleeMapid);
+    }
+
+    /**
+     * ticket 164: swaps the neighbour table and returns the one that was installed before, so the caller can put it
+     * back. Exists only so PartySearchVicinityTest can drive the public {@link #isInVicinity(int, int)} - the wrapper
+     * production actually calls - with controlled data instead of an empty table (a JVM without Etc.wz loads no
+     * entries). Surefire gives every test class its own fork (pom.xml: forkCount 1, reuseForks false), so a table a
+     * failing test left behind cannot reach another class.
+     */
+    static Map<Integer, Set<Integer>> installNeighboursForTest(Map<Integer, Set<Integer>> table) {
+        Map<Integer, Set<Integer>> previous = mapNeighbors;
+        mapNeighbors = table;
+        return previous;
+    }
+
+    /**
+     * ticket 164: the neighbour table is a parameter so the rule can be tested without a wz directory - a JVM
+     * without Etc.wz loads an empty table here (see {@link #fetchNeighbouringMaps()}), which would leave the
+     * table-driven branch untested. The public overload above is the production entry point and passes the
+     * table this class loaded at startup.
+     */
+    static boolean isInVicinity(Map<Integer, Set<Integer>> neighbours, int callerMapid, int calleeMapid) {
+        Set<Integer> vicinityMapids = neighbours.get(calleeMapid);
 
         if (vicinityMapids != null) {
-            return vicinityMapids.contains(calleeMapid);
+            // ticket 164: this used to ask whether the CALLEE's map is a neighbour of the CALLEE's map. Every
+            // entry of Etc.wz/MapNeighbors.img lists its own map id (5262 of 5262 verified), so the answer was
+            // always true and party search never applied the "nearby maps only" rule. Ask about the CALLER.
+            return vicinityMapids.contains(callerMapid);
         } else {
             int callerRange = callerMapid / 10000000;
             if (callerRange >= 90) {

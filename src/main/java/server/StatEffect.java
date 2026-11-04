@@ -400,6 +400,9 @@ public class StatEffect {
             }
 
             addBuffStatPairToListIfNotZero(statups, BuffStat.WATK, (int) ret.watk);
+            // WDEF/MDEF/ACC/AVOID ship to the client for display only: nothing server-side reads them (there is no
+            // getTotalWdef/getTotalMdef at all, and incoming damage is taken as the client sent it). SPEED/JUMP are
+            // matched by move-speed checks, not by any damage formula.
             addBuffStatPairToListIfNotZero(statups, BuffStat.WDEF, (int) ret.wdef);
             addBuffStatPairToListIfNotZero(statups, BuffStat.MATK, (int) ret.matk);
             addBuffStatPairToListIfNotZero(statups, BuffStat.MDEF, (int) ret.mdef);

@@ -538,7 +538,8 @@ public final class RingActionHandler extends AbstractPacketHandler {
                                     if (guestChr != null && guestChr.isLoggedinWorld()) {
                                         guestChr.dropMessage(6, "[Wedding] %s".formatted(dueyMessage));
                                     } else {
-                                        noteService.sendNormal(dueyMessage, groom, name);
+                                        NoteService.warnIfNotDelivered("wedding invitation", groom, name,
+                                                noteService.sendNormal(dueyMessage, groom, name));
                                     }
 
                                     Item weddingTicket = new Item(newItemId, (short) 0, (short) 1);

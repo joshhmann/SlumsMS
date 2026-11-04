@@ -20,7 +20,8 @@ function end(mode, type, selection) {
                 qm.gainItem(1142242);
                 qm.forceCompleteQuest();
                 qm.changeJobById(3200);
-                qm.showItemGain(1382100, 1142242);
+                //stock: qm.showItemGain(1382100, 1142242) - an item-gain popup this server has no packet for, and the
+                //items are already in the bag by now, so the quest continues into the text below either way
             }
             qm.sendNext("Okay, okay. Welcome to the Resistance, kid. From now on, you will play the role of a Battle Mage, a fierce Magician always ready to lead your party into battle.");
         }

@@ -114,6 +114,19 @@ public final class PlayerInteractionHandler extends AbstractPacketHandler {
         }
     }
 
+    /**
+     * The game the player is in, or null with the client's actions re-enabled. chr.getMiniGame() is null whenever the
+     * player is not in a room; dereferencing it threw into Client's catch-all, which logs and leaves the client with
+     * actions disabled (PacketCreator.enableActions() there is commented out), so the player just appeared frozen.
+     */
+    private static MiniGame usingMiniGame(Character chr, Client c) {
+        MiniGame game = chr.getMiniGame();
+        if (game == null) {
+            c.sendPacket(PacketCreator.enableActions());
+        }
+        return game;
+    }
+
     private static int establishMiniroomStatus(Character chr, boolean isMinigame) {
         if (isMinigame && FieldLimit.CANNOTMINIGAME.check(chr.getMap().getFieldLimit())) {
             return 11;
@@ -400,13 +413,26 @@ public final class PlayerInteractionHandler extends AbstractPacketHandler {
                     chr.getMap().broadcastMessage(PacketCreator.spawnHiredMerchantBox(merchant));
                 }
             } else if (mode == Action.READY.getCode()) {
-                MiniGame game = chr.getMiniGame();
+                MiniGame game = usingMiniGame(chr, c);
+                if (game == null) {
+                    return;
+                }
                 game.broadcast(PacketCreator.getMiniGameReady(game));
             } else if (mode == Action.UN_READY.getCode()) {
-                MiniGame game = chr.getMiniGame();
+                MiniGame game = usingMiniGame(chr, c);
+                if (game == null) {
+                    return;
+                }
                 game.broadcast(PacketCreator.getMiniGameUnReady(game));
             } else if (mode == Action.START.getCode()) {
-                MiniGame game = chr.getMiniGame();
+                MiniGame game = usingMiniGame(chr, c);
+                if (game == null) {
+                    return;
+                }
+                if (game.hasFreeSlot()) {    // starting alone puts a match in progress with nobody to play it
+                    c.sendPacket(PacketCreator.enableActions());
+                    return;
+                }
                 if (game.getGameType().equals(MiniGameType.OMOK)) {
                     game.minigameMatchStarted();
                     game.broadcast(PacketCreator.getMiniGameStart(game, game.getLoser()));
@@ -418,7 +444,10 @@ public final class PlayerInteractionHandler extends AbstractPacketHandler {
                     chr.getMap().broadcastMessage(PacketCreator.addMatchCardBox(game.getOwner(), 2, 1));
                 }
             } else if (mode == Action.GIVE_UP.getCode()) {
-                MiniGame game = chr.getMiniGame();
+                MiniGame game = usingMiniGame(chr, c);
+                if (game == null) {
+                    return;
+                }
                 if (game.getGameType().equals(MiniGameType.OMOK)) {
                     if (game.isOwner(chr)) {
                         game.minigameMatchVisitorWins(true);
@@ -433,7 +462,10 @@ public final class PlayerInteractionHandler extends AbstractPacketHandler {
                     }
                 }
             } else if (mode == Action.REQUEST_TIE.getCode()) {
-                MiniGame game = chr.getMiniGame();
+                MiniGame game = usingMiniGame(chr, c);
+                if (game == null) {
+                    return;
+                }
                 if (!game.isTieDenied(chr)) {
                     if (game.isOwner(chr)) {
                         game.broadcastToVisitor(PacketCreator.getMiniGameRequestTie(game));
@@ -442,7 +474,10 @@ public final class PlayerInteractionHandler extends AbstractPacketHandler {
                     }
                 }
             } else if (mode == Action.ANSWER_TIE.getCode()) {
-                MiniGame game = chr.getMiniGame();
+                MiniGame game = usingMiniGame(chr, c);
+                if (game == null) {
+                    return;
+                }
                 if (p.readByte() != 0) {
                     game.minigameMatchDraw();
                 } else {
@@ -455,7 +490,10 @@ public final class PlayerInteractionHandler extends AbstractPacketHandler {
                     }
                 }
             } else if (mode == Action.SKIP.getCode()) {
-                MiniGame game = chr.getMiniGame();
+                MiniGame game = usingMiniGame(chr, c);
+                if (game == null) {
+                    return;
+                }
                 if (game.isOwner(chr)) {
                     game.broadcast(PacketCreator.getMiniGameSkipOwner(game));
                 } else {
@@ -465,12 +503,23 @@ public final class PlayerInteractionHandler extends AbstractPacketHandler {
                 int x = p.readInt(); // x point
                 int y = p.readInt(); // y point
                 int type = p.readByte(); // piece ( 1 or 2; Owner has one piece, visitor has another, it switches every game.)
-                chr.getMiniGame().setPiece(x, y, type, chr);
+                MiniGame game = usingMiniGame(chr, c);
+                if (game == null) {
+                    return;
+                }
+                game.setPiece(x, y, type, chr);    // setPiece drops coordinates off the 15x15 board
             } else if (mode == Action.SELECT_CARD.getCode()) {
                 int turn = p.readByte(); // 1st turn = 1; 2nd turn = 0
                 int slot = p.readByte(); // slot
-                MiniGame game = chr.getMiniGame();
+                MiniGame game = usingMiniGame(chr, c);
+                if (game == null) {
+                    return;
+                }
                 int firstslot = game.getFirstSlot();
+                if (!game.isValidCardSlot(slot) || (turn != 1 && !game.isValidCardSlot(firstslot))) {
+                    c.sendPacket(PacketCreator.enableActions());    // slots are unbounded wire input
+                    return;
+                }
                 if (turn == 1) {
                     game.setFirstSlot(slot);
                     if (game.isOwner(chr)) {

@@ -549,7 +549,10 @@ public class Guild {
                         } else if (mgc.isOnline()) {
                             Server.getInstance().getWorld(mgc.getWorld()).setGuildAndRank(cid, 0, 5);
                         } else {
-                            noteService.sendNormal("You have been expelled from the guild.", initiator.getName(), mgc.getName());
+                            // The expulsion itself is already done; the note is the only word the ex-member gets.
+                            NoteService.warnIfNotDelivered("guild expulsion", initiator.getName(), mgc.getName(),
+                                    noteService.sendNormal("You have been expelled from the guild.",
+                                            initiator.getName(), mgc.getName()));
                             Server.getInstance().getWorld(mgc.getWorld()).setOfflineGuildStatus((short) 0, (byte) 5, cid);
                         }
                     } catch (Exception re) {

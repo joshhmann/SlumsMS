@@ -261,7 +261,7 @@ function action(mode, type, selection) {
                 cm.gainItem(stimID, -1);
                 var deleted = Math.floor(Math.random() * 10);
                 if (deleted != 0) {
-                    cm.gainRandomItem(newItem);
+                    cm.gainRandomItem(item); // the crafted glove, rolled the way a drop would be
                     cm.sendOk("There, the gloves are ready. Be careful, they're still hot.");
                 } else {
                     cm.sendOk("Eek! I think I accidently added too much stimulator and, well, the whole thing is unusable now... Sorry, but I can't offer a refund.");

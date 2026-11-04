@@ -43,6 +43,26 @@ public class NoteDao {
         }
     }
 
+    /**
+     * How many live notes a name holds. The same rows {@link #findAllByTo(String)} returns, counted by the database
+     * instead of read into memory: the inbox cap asks this on every send, and a capped inbox is up to
+     * {@code NoteService.MAX_NOTES_PER_RECIPIENT} whole messages to transfer if the list is used for the count.
+     */
+    public int countInbox(String to) {
+        try (Handle handle = DatabaseConnection.getHandle()) {
+            return handle.createQuery("""
+                            SELECT COUNT(*)
+                            FROM notes
+                            WHERE `deleted` = 0
+                            AND `to` = ?""")
+                    .bind(0, to)
+                    .mapTo(Integer.class)
+                    .one();
+        } catch (JdbiException e) {
+            throw new DaoException("Failed to count notes sent to: %s".formatted(to), e);
+        }
+    }
+
     public Optional<Note> delete(int id) {
         try (Handle handle = DatabaseConnection.getHandle()) {
             Optional<Note> note = findById(handle, id);

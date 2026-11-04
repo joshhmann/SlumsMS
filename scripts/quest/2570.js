@@ -36,7 +36,8 @@ function end(mode, type, selection) {
                 qm.teachSkill(109, 1, 1, -1);
                 qm.teachSkill(110, 0, -1, -1);//? blessing
                 qm.teachSkill(111, 1, 1, -1);
-                qm.showItemGain(1532000, 1002610, 1052095);
+                //stock: qm.showItemGain(1532000, 1002610, 1052095) - an item-gain popup this server has no packet for,
+                //and the items are already in the bag by now, so the quest continues into the text below either way
             }
             qm.sendNext("Well, you are truly one of us now. Open up your Skill window and check out your new Pirate abilities. I also gave you a few extra SP, so you can go ahead and boost some of your new skills. You'll get more skills at higher levels, so I suggest you have a plan for your training.");
         }

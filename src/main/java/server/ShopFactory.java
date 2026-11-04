@@ -21,6 +21,7 @@
 */
 package server;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -37,6 +38,11 @@ public class ShopFactory {
     /** Loads a shop row by shop id (true) or by NPC id (false); swapped out in tests. */
     interface Loader {
         Shop load(int id, boolean isShopId);
+
+        /** shopid -> npcid for every shop row: the shop editor's pick list. */
+        default Map<Integer, Integer> allShopIds() {
+            return Collections.emptyMap();
+        }
     }
 
     private final Map<Integer, Shop> shops = new HashMap<>();
@@ -44,7 +50,17 @@ public class ShopFactory {
     private final Loader loader;
 
     private ShopFactory() {
-        this(Shop::createFromDB);
+        this(new Loader() {
+            @Override
+            public Shop load(int id, boolean isShopId) {
+                return Shop.createFromDB(id, isShopId);
+            }
+
+            @Override
+            public Map<Integer, Integer> allShopIds() {
+                return Shop.loadAllShopIds();
+            }
+        });
     }
 
     ShopFactory(Loader loader) {
@@ -58,6 +74,11 @@ public class ShopFactory {
      * with no script. Looking a shop up by NPC never returns one of these, so a player talking to Poch, and a bot
      * reading Maple Island's shops, no longer get the GM stock.
      */
+    /** shopid -> npcid for every shop in the database, for the GM shop editor (scripts/npc/ShopEditor.js:93). */
+    public Map<Integer, Integer> getAllShopIds() {
+        return loader.allShopIds();
+    }
+
     public static boolean isGmShop(int shopId) {
         return shopId == 1337 || (shopId >= 9999992 && shopId <= 9999999);
     }

@@ -38,7 +38,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.List;
 import java.util.Set;
 
@@ -240,8 +242,7 @@ public class Shop {
             InventoryManipulator.removeFromSlot(c, type, (byte) slot, quantity, false);
             soloMapling.Economy.exchange.volatility.MarketFlows.consumed(item.getItemId(), quantity); // 1.6.1 fair value: a shop sink
 
-            ItemInformationProvider ii = ItemInformationProvider.getInstance();
-            int recvMesos = ii.getPrice(item.getItemId(), quantity);
+            int recvMesos = sellPayout(item.getItemId(), quantity);
             if (recvMesos > 0) {
                 c.getPlayer().gainMeso(recvMesos, false);
                 soloMapling.Economy.stats.EconomyCounters.recordNpcSell(recvMesos);
@@ -250,6 +251,20 @@ public class Shop {
         } else {
             c.sendPacket(PacketCreator.shopTransaction((byte) 0x5));
         }
+    }
+
+    /**
+     * What a sale of {@code quantity} of an item pays. Casino chips pay their face value
+     * ({@link soloMapling.Casino.CasinoChipConfig#sellValue}), not the stock chip WZ {@code info/price} (250/350/400/350
+     * for the four stamps), so the chip shop's exchange stays lossless; everything else pays the WZ price as before.
+     *
+     * <p>This is the one answer to that question: both the NPC shop counter ({@link #sell}) and the quick-sell paths
+     * ({@code Character.sellAllItemsFromPosition} / {@code sellAllPosLast}, i.e. quicksell.js and the donation box) go
+     * through it. The {@code @sell} GM command ({@code client.commands.SellitemsCommand}) still reads the WZ price.
+     */
+    public static int sellPayout(int itemId, int quantity) {
+        int face = soloMapling.Casino.CasinoChipConfig.sellValue(itemId, quantity);
+        return face >= 0 ? face : ItemInformationProvider.getInstance().getPrice(itemId, quantity);
     }
 
     public void recharge(Client c, short slot) {
@@ -340,6 +355,24 @@ public class Shop {
                         ret.addItem(new ShopItem((short) 1000, recharge, 0, 0));
                     }
                 }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return ret;
+    }
+
+    /**
+     * 1.6.4: every shop the database holds, shopid -> npcid, for the GM shop editor's pick list
+     * (scripts/npc/ShopEditor.js). One query for the pairs, not a Shop apiece: the editor only lists them.
+     */
+    public static Map<Integer, Integer> loadAllShopIds() {
+        Map<Integer, Integer> ret = new LinkedHashMap<>();
+        try (Connection con = DatabaseConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement("SELECT shopid, npcid FROM shops ORDER BY npcid, shopid");
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                ret.put(rs.getInt("shopid"), rs.getInt("npcid"));
             }
         } catch (SQLException e) {
             e.printStackTrace();

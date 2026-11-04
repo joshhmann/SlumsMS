@@ -51,6 +51,7 @@ import server.life.*;
 import server.maps.MapObject;
 import server.maps.MapObjectType;
 import server.maps.MapleMap;
+import server.maps.Reactor;
 import server.partyquest.PartyQuest;
 import server.partyquest.Pyramid;
 import server.quest.Quest;
@@ -70,9 +71,22 @@ import static java.util.concurrent.TimeUnit.DAYS;
 public class AbstractPlayerInteraction {
     private static final Logger log = LoggerFactory.getLogger(AbstractPlayerInteraction.class);
     public Client c;
+    /**
+     * The character this interaction was opened for, when the caller knew it.
+     *
+     * <p>A bot shares one headless client whose {@code getPlayer()} is null, so a bot quest (and a
+     * test character) has to carry its character explicitly or every {@code getPlayer()} call turns
+     * into a NPE. That is what made item turn-ins unusable outside a real client session.
+     */
+    private final Character chr;
 
     public AbstractPlayerInteraction(Client c) {
+        this(c, null);
+    }
+
+    public AbstractPlayerInteraction(Client c, Character chr) {
         this.c = c;
+        this.chr = chr;
     }
 
     public Client getClient() {
@@ -80,11 +94,11 @@ public class AbstractPlayerInteraction {
     }
 
     public Character getPlayer() {
-        return c.getPlayer();
+        return chr != null ? chr : c.getPlayer();
     }
 
     public Character getChar() {
-        return c.getPlayer();
+        return getPlayer();
     }
 
     public int getJobId() {
@@ -100,7 +114,7 @@ public class AbstractPlayerInteraction {
     }
 
     public MapleMap getMap() {
-        return c.getPlayer().getMap();
+        return getPlayer().getMap();
     }
 
     public int getHourOfDay() {
@@ -130,6 +144,23 @@ public class AbstractPlayerInteraction {
 
     public void warpMap(int map) {
         getPlayer().getMap().warpEveryone(map);
+    }
+
+    /**
+     * 1.6.4: moves exactly the players the caller names to a map instance - the expedition leader's "you may continue
+     * to the next stage" step (scripts/npc/9000004.js:79-81) hands over the event instance's own member list, which
+     * is not the same set as everyone standing on the leader's map. Members already on the target map stay put.
+     */
+    public void warpMembers(MapleMap map, List<Character> members) {
+        if (map == null || members == null) {
+            log.warn("warpMembers: no map or no members, nobody moves (player {})", getPlayer().getName());
+            return;
+        }
+        for (Character member : members) {
+            if (member != null && member.getMap() != map) {
+                member.changeMap(map, 0);
+            }
+        }
     }
 
     public void warpParty(int id) {
@@ -309,7 +340,7 @@ public class AbstractPlayerInteraction {
             addedItems.add(new Pair<>(it, ItemConstants.getInventoryType(itemids.get(i))));
         }
 
-        return Inventory.checkSpots(c.getPlayer(), addedItems);
+        return Inventory.checkSpots(getPlayer(), addedItems);
     }
 
     private List<Pair<Item, InventoryType>> prepareProofInventoryItems(List<Pair<Integer, Integer>> items) {
@@ -355,12 +386,12 @@ public class AbstractPlayerInteraction {
                     prfInv.cloneContents(inv);
 
                     for (Pair<Integer, Integer> p : toRemove) {
-                        InventoryManipulator.removeById(c, InventoryType.CANHOLD, p.getLeft(), p.getRight(), false, false);
+                        InventoryManipulator.removeById(getPlayer(), InventoryType.CANHOLD, p.getLeft(), p.getRight(), false, false);
                     }
 
                     List<Pair<Item, InventoryType>> addItems = prepareProofInventoryItems(toAdd);
 
-                    boolean canHold = Inventory.checkSpots(c.getPlayer(), addItems, true);
+                    boolean canHold = Inventory.checkSpots(getPlayer(), addItems, true);
                     if (!canHold) {
                         return false;
                     }
@@ -377,11 +408,11 @@ public class AbstractPlayerInteraction {
     //---- \/ \/ \/ \/ \/ \/ \/  NOT TESTED  \/ \/ \/ \/ \/ \/ \/ \/ \/ ----
 
     public final QuestStatus getQuestRecord(final int id) {
-        return c.getPlayer().getQuestNAdd(Quest.getInstance(id));
+        return getPlayer().getQuestNAdd(Quest.getInstance(id));
     }
 
     public final QuestStatus getQuestNoRecord(final int id) {
-        return c.getPlayer().getQuestNoAdd(Quest.getInstance(id));
+        return getPlayer().getQuestNoAdd(Quest.getInstance(id));
     }
 
     //---- /\ /\ /\ /\ /\ /\ /\  NOT TESTED  /\ /\ /\ /\ /\ /\ /\ /\ /\ ----
@@ -401,11 +432,11 @@ public class AbstractPlayerInteraction {
     }
 
     public int getQuestStatus(int id) {
-        return c.getPlayer().getQuest(Quest.getInstance(id)).getStatus().getId();
+        return getPlayer().getQuest(Quest.getInstance(id)).getStatus().getId();
     }
 
     private QuestStatus.Status getQuestStat(int id) {
-        return c.getPlayer().getQuest(Quest.getInstance(id)).getStatus();
+        return getPlayer().getQuest(Quest.getInstance(id)).getStatus();
     }
 
     public boolean isQuestCompleted(int id) {
@@ -443,7 +474,7 @@ public class AbstractPlayerInteraction {
     }
 
     public void setQuestProgress(int id, int infoNumber, String progress) {
-        c.getPlayer().setQuestProgress(id, infoNumber, progress);
+        getPlayer().setQuestProgress(id, infoNumber, progress);
     }
 
     public String getQuestProgress(int id) {
@@ -585,8 +616,8 @@ public class AbstractPlayerInteraction {
             
             getPlayer().addPet(evolved);
             
-            getPlayer().getMap().broadcastMessage(c.getPlayer(), PacketCreator.showPet(c.getPlayer(), evolved, false, false), true);
-            c.sendPacket(PacketCreator.petStatUpdate(c.getPlayer()));
+            getPlayer().getMap().broadcastMessage(getPlayer(), PacketCreator.showPet(getPlayer(), evolved, false, false), true);
+            c.sendPacket(PacketCreator.petStatUpdate(getPlayer()));
             c.sendPacket(PacketCreator.enableActions());
             chr.getClient().getWorldServer().registerPetHunger(chr, chr.getPetIndex(evolved));
             */
@@ -661,12 +692,12 @@ public class AbstractPlayerInteraction {
                         it.setUpgradeSlots(3);
                     }
 
-                    if (YamlConfig.config.server.USE_ENHANCED_CRAFTING == true && c.getPlayer().getCS() == true) {
+                    if (YamlConfig.config.server.USE_ENHANCED_CRAFTING == true && getPlayer().getCS() == true) {
                         Equip eqp = (Equip) item;
-                        if (!(c.getPlayer().isGM() && YamlConfig.config.server.USE_PERFECT_GM_SCROLL)) {
+                        if (!(getPlayer().isGM() && YamlConfig.config.server.USE_PERFECT_GM_SCROLL)) {
                             eqp.setUpgradeSlots((byte) (eqp.getUpgradeSlots() + 1));
                         }
-                        item = ItemInformationProvider.getInstance().scrollEquipWithId(item, ItemId.CHAOS_SCROll_60, true, ItemId.CHAOS_SCROll_60, c.getPlayer().isGM());
+                        item = ItemInformationProvider.getInstance().scrollEquipWithId(item, ItemId.CHAOS_SCROll_60, true, ItemId.CHAOS_SCROll_60, getPlayer().isGM());
                     }
                 }
             } else {
@@ -678,7 +709,7 @@ public class AbstractPlayerInteraction {
             }
 
             if (!InventoryManipulator.checkSpace(c, id, quantity, "")) {
-                c.getPlayer().dropMessage(1, "Your inventory is full. Please remove an item from your " + ItemConstants.getInventoryType(id).name() + " inventory.");
+                getPlayer().dropMessage(1, "Your inventory is full. Please remove an item from your " + ItemConstants.getInventoryType(id).name() + " inventory.");
                 return null;
             }
             if (ItemConstants.getInventoryType(id) == InventoryType.EQUIP) {
@@ -710,6 +741,16 @@ public class AbstractPlayerInteraction {
         }
 
         return item;
+    }
+
+    /**
+     * 1.6.4: the crafted item with the stats a monster drop would have rolled. The glove maker's stimulator branch
+     * (scripts/npc/2040020.js:257-266) has already taken the materials, the mesos and the stimulator by the time it
+     * asks for this, and the script tells the player the stimulator "gives it stats as though it had dropped from a
+     * monster", so the roll lands on the item the player paid for: that item id, one of it, randomized stats.
+     */
+    public Item gainRandomItem(int itemId) {
+        return gainItem(itemId, (short) 1, true, true);
     }
 
     public void gainFame(int delta) {
@@ -745,12 +786,12 @@ public class AbstractPlayerInteraction {
     }
 
     public void displayAranIntro() {
-        String intro = switch (c.getPlayer().getMapId()) {
+        String intro = switch (getPlayer().getMapId()) {
             case MapId.ARAN_TUTO_1 -> "Effect/Direction1.img/aranTutorial/Scene0";
-            case MapId.ARAN_TUTO_2 -> "Effect/Direction1.img/aranTutorial/Scene1" + (c.getPlayer().getGender() == 0 ? "0" : "1");
-            case MapId.ARAN_TUTO_3 -> "Effect/Direction1.img/aranTutorial/Scene2" + (c.getPlayer().getGender() == 0 ? "0" : "1");
+            case MapId.ARAN_TUTO_2 -> "Effect/Direction1.img/aranTutorial/Scene1" + (getPlayer().getGender() == 0 ? "0" : "1");
+            case MapId.ARAN_TUTO_3 -> "Effect/Direction1.img/aranTutorial/Scene2" + (getPlayer().getGender() == 0 ? "0" : "1");
             case MapId.ARAN_TUTO_4 -> "Effect/Direction1.img/aranTutorial/Scene3";
-            case MapId.ARAN_POLEARM -> "Effect/Direction1.img/aranTutorial/HandedPoleArm" + (c.getPlayer().getGender() == 0 ? "0" : "1");
+            case MapId.ARAN_POLEARM -> "Effect/Direction1.img/aranTutorial/HandedPoleArm" + (getPlayer().getGender() == 0 ? "0" : "1");
             case MapId.ARAN_MAHA -> "Effect/Direction1.img/aranTutorial/Maha";
             default -> "";
         };
@@ -953,7 +994,7 @@ public class AbstractPlayerInteraction {
     }
 
     public int getMapId() {
-        return c.getPlayer().getMap().getId();
+        return getPlayer().getMap().getId();
     }
 
     public int getPlayerCount(int mapid) {
@@ -973,20 +1014,20 @@ public class AbstractPlayerInteraction {
     }
 
     public boolean isAllReactorState(final int reactorId, final int state) {
-        return c.getPlayer().getMap().isAllReactorState(reactorId, state);
+        return getPlayer().getMap().isAllReactorState(reactorId, state);
     }
 
     public void resetMap(int mapid) {
         getMap(mapid).resetReactors();
         getMap(mapid).killAllMonsters();
-        for (MapObject i : getMap(mapid).getMapObjectsInRange(c.getPlayer().getPosition(), Double.POSITIVE_INFINITY, Arrays.asList(MapObjectType.ITEM))) {
+        for (MapObject i : getMap(mapid).getMapObjectsInRange(getPlayer().getPosition(), Double.POSITIVE_INFINITY, Arrays.asList(MapObjectType.ITEM))) {
             getMap(mapid).removeMapObject(i);
-            getMap(mapid).broadcastMessage(PacketCreator.removeItemFromMap(i.getObjectId(), 0, c.getPlayer().getId()));
+            getMap(mapid).broadcastMessage(PacketCreator.removeItemFromMap(i.getObjectId(), 0, getPlayer().getId()));
         }
     }
 
     public void useItem(int id) {
-        ItemInformationProvider.getInstance().getItemEffect(id).applyTo(c.getPlayer());
+        ItemInformationProvider.getInstance().getItemEffect(id).applyTo(getPlayer());
         c.sendPacket(PacketCreator.getItemMessage(id));//Useful shet :3
     }
 
@@ -1026,18 +1067,18 @@ public class AbstractPlayerInteraction {
     }
 
     public void removeEquipFromSlot(short slot) {
-        Item tempItem = c.getPlayer().getInventory(InventoryType.EQUIPPED).getItem(slot);
+        Item tempItem = getPlayer().getInventory(InventoryType.EQUIPPED).getItem(slot);
         InventoryManipulator.removeFromSlot(c, InventoryType.EQUIPPED, slot, tempItem.getQuantity(), false, false);
     }
 
     public void gainAndEquip(int itemid, short slot) {
-        final Item old = c.getPlayer().getInventory(InventoryType.EQUIPPED).getItem(slot);
+        final Item old = getPlayer().getInventory(InventoryType.EQUIPPED).getItem(slot);
         if (old != null) {
             InventoryManipulator.removeFromSlot(c, InventoryType.EQUIPPED, slot, old.getQuantity(), false, false);
         }
         final Item newItem = ItemInformationProvider.getInstance().getEquipById(itemid);
         newItem.setPosition(slot);
-        c.getPlayer().getInventory(InventoryType.EQUIPPED).addItemFromDB(newItem);
+        getPlayer().getInventory(InventoryType.EQUIPPED).addItemFromDB(newItem);
         c.sendPacket(PacketCreator.modifyInventory(false, Collections.singletonList(new ModifyInventory(0, newItem))));
     }
 
@@ -1062,6 +1103,52 @@ public class AbstractPlayerInteraction {
         spawnNpc(npcId, pos, getMap());
     }
 
+    /**
+     * 1.6.4: the Cannoneer tutorial portal spawns its NPC at a fixed spot (scripts/portal/cannon_tuto_07.js
+     * passed {@code spawnNPC(579711, 1096012, -51, -97, 0, true)} in stock). Only the position carries over: the stock
+     * call's object id, z and flip are client-side cutscene decoration, and spawnNpc already assigns the object id and
+     * broadcasts the spawn to the map.
+     */
+    public void spawnNpc(int npcId, int x, int y) {
+        spawnNpc(npcId, new Point(x, y));
+    }
+
+    /**
+     * 1.6.4: the Temple of Time summon has Kirston vanish the moment he accepts (scripts/npc/2141000.js:12), so the
+     * script asks the map to drop him for everyone on it - MapleMap.destroyNPC broadcasts both the controller and the
+     * object removal. A map or NPC that is not there is logged instead of thrown: the summon still has to start.
+     */
+    public void removeNpc(int mapId, int npcId) {
+        MapleMap map = getWarpMap(mapId);
+        if (map == null) {
+            log.warn("removeNpc: map {} does not exist, npc {} stays put (player {})", mapId, npcId, getPlayer().getName());
+            return;
+        }
+        if (!map.containsNPC(npcId)) {
+            log.warn("removeNpc: npc {} is not on map {}, nothing to remove (player {})", npcId, mapId, getPlayer().getName());
+            return;
+        }
+        map.destroyNPC(npcId);
+    }
+
+    /**
+     * 1.6.4: starts a reactor the way a player's hit would (scripts/npc/2141000.js:13 summons the boss reactor
+     * 2709000 on the Temple of Time map). Reactor.hitReactor(Client) is the same entry point a real hit takes.
+     */
+    public void forceStartReactor(int mapId, int reactorId) {
+        MapleMap map = getWarpMap(mapId);
+        if (map == null) {
+            log.warn("forceStartReactor: map {} does not exist, reactor {} not started (player {})", mapId, reactorId, getPlayer().getName());
+            return;
+        }
+        Reactor reactor = map.getReactorById(reactorId);
+        if (reactor == null) {
+            log.warn("forceStartReactor: reactor {} is not on map {}, not started (player {})", reactorId, mapId, getPlayer().getName());
+            return;
+        }
+        reactor.hitReactor(c);
+    }
+
     public void spawnMonster(int id, int x, int y) {
         Monster monster = LifeFactory.getMonster(id);
         monster.setPosition(new Point(x, y));
@@ -1084,16 +1171,26 @@ public class AbstractPlayerInteraction {
         c.sendPacket(PacketCreator.showInfo("UI/tutorial.img/" + num));
     }
 
+    /**
+     * 1.6.4: the tutorial illustration step - the Evan quests (scripts/quest/22000.js and its neighbours) and the two
+     * Evan portals ask for it through qm.sendImage/pi.sendImage with a path like "UI/tutorial/evan/N/0". The client's
+     * SHOW_INFO opcode paints that path on screen, which is the same packet, and the same argument shape, that
+     * displayGuide already builds for guide images.
+     */
+    public void sendImage(String image) {
+        c.sendPacket(PacketCreator.showInfo(image));
+    }
+
     public void goDojoUp() {
         c.sendPacket(PacketCreator.dojoWarpUp());
     }
 
     public void resetDojoEnergy() {
-        c.getPlayer().setDojoEnergy(0);
+        getPlayer().setDojoEnergy(0);
     }
 
     public void resetPartyDojoEnergy() {
-        for (Character pchr : c.getPlayer().getPartyMembersOnSameMap()) {
+        for (Character pchr : getPlayer().getPartyMembersOnSameMap()) {
             pchr.setDojoEnergy(0);
         }
     }
@@ -1119,12 +1216,12 @@ public class AbstractPlayerInteraction {
     }
 
     public void updateAreaInfo(Short area, String info) {
-        c.getPlayer().updateAreaInfo(area, info);
+        getPlayer().updateAreaInfo(area, info);
         c.sendPacket(PacketCreator.enableActions());//idk, nexon does the same :P
     }
 
     public boolean containsAreaInfo(short area, String info) {
-        return c.getPlayer().containsAreaInfo(area, info);
+        return getPlayer().containsAreaInfo(area, info);
     }
 
     public void earnTitle(String msg) {
@@ -1151,6 +1248,73 @@ public class AbstractPlayerInteraction {
 
     public void playSound(String sound) {
         getPlayer().getMap().broadcastMessage(PacketCreator.environmentChange(sound, 4));
+    }
+
+    /**
+     * 1.6.4: the Cannoneer and metro cutscenes drive a client-side "direction" sequence - an NPC that stands and talks
+     * in sync with a scripted camera. This server has no such engine: net/opcodes/SendOpcode has no direction status,
+     * NPC value or direction info packet. These calls used to end the cutscene with a script error, taking the player's
+     * dialogue with them; they now record what the script asked for and let the step continue, so the player gets the
+     * NPC's next line instead of a dead dialog.
+     *
+     * <p>lockUI2 is deliberately not turned into lockUI(): the scripts that call it do not all unlock again
+     * (1096005.js never does), and a lock without a matching unlock leaves the player unable to walk, use a portal or
+     * open anything. A cutscene without its UI lock looks wrong; a player who cannot move is worse.
+     */
+    public void setDirectionStatus(boolean enabled) {
+        log.debug("setDirectionStatus({}): no direction engine to drive (player {})", enabled, getPlayer().getName());
+    }
+
+    public void lockUI2() {
+        log.debug("lockUI2(): cutscene UI lock not sent, no unlock path in the script (player {})", getPlayer().getName());
+    }
+
+    public void sendDirectionInfo(String effect, int duration, int a, int b, int c, int d) {
+        log.debug("sendDirectionInfo({}, {}, {}, {}, {}, {}): no direction engine (player {})",
+                effect, duration, a, b, c, d, getPlayer().getName());
+    }
+
+    public void sendDirectionInfo(int type, int value) {
+        log.debug("sendDirectionInfo({}, {}): no direction engine (player {})", type, value, getPlayer().getName());
+    }
+
+    public void setNPCValue(int npcOid, String value) {
+        log.debug("setNPCValue({}, {}): no per-NPC script values in this server (player {})", npcOid, value, getPlayer().getName());
+    }
+
+    public void updateInfo(String key, String value) {
+        log.debug("updateInfo({}, {}): no direction info to update (player {})", key, value, getPlayer().getName());
+    }
+
+    /**
+     * 1.6.4: same cutscene family as setDirectionStatus above, called by the Cannoneer and Resistance tutorial map
+     * scripts (scripts/map/onUserEnter/cannon_tuto_01.js:2, Resi_tutor50/70/80.js). A "direction" is a client-side
+     * camera script; the mode/stand-alone flags only tell the client whether the player may act during it. None of the
+     * three has a packet in this server, so they are recorded and skipped exactly like their siblings - the tutorial
+     * step still runs, it just does not play the camera.
+     */
+    public void setDirection(int direction) {
+        log.debug("setDirection({}): no direction engine to drive (player {})", direction, getPlayer().getName());
+    }
+
+    public void startDirection(String direction) {
+        log.debug("startDirection({}): no direction engine to drive (player {})", direction, getPlayer().getName());
+    }
+
+    public void setDirectionMode(boolean enabled) {
+        log.debug("setDirectionMode({}): no direction engine to drive (player {})", enabled, getPlayer().getName());
+    }
+
+    public void setStandAloneMode(boolean enabled) {
+        log.debug("setStandAloneMode({}): no cutscene stand-alone mode (player {})", enabled, getPlayer().getName());
+    }
+
+    /**
+     * 1.6.4: watch the effect - the metro cutscene's "Effect/Direction2.img/metro/Im". showEffect is the same
+     * FIELD_EFFECT packet v83's showWZEffect sent, so this one needs no fail-safe.
+     */
+    public void showWZEffect(String effect) {
+        showEffect(effect);
     }
 
     public void environmentChange(String env, int mode) {
@@ -1309,7 +1473,7 @@ public class AbstractPlayerInteraction {
     }
 
     public void weakenAreaBoss(int monsterId, String message) {
-        MapleMap map = c.getPlayer().getMap();
+        MapleMap map = getPlayer().getMap();
         Monster monster = map.getMonsterById(monsterId);
         if (monster == null) {
             return;
@@ -1389,7 +1553,7 @@ public class AbstractPlayerInteraction {
     public void spawnItemDropOnMap(Point pos, int itemId, short quantity){
         Item toDrop = new Item(itemId, (short) 0, quantity);
        // toDrop.setExpiration(expiration)
-        c.getPlayer().getMap().spawnItemDrop(c.getPlayer(), c.getPlayer(), toDrop, pos, true, false);
+        getPlayer().getMap().spawnItemDrop(getPlayer(), getPlayer(), toDrop, pos, true, false);
     }
 
     public void gainSp(int spGain) {
