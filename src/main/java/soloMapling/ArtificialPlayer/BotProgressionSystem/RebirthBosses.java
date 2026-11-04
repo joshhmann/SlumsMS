@@ -104,7 +104,8 @@ public final class RebirthBosses {
          * walks in from Future Ereve through the door that takes the emblem, so Future Ereve's rules and the emblem.
          */
         public int gateMap() {
-            return this == CYGNUS ? FUTURE_EREVE : recruitMap;
+            // Von Leon: the recruiter's corridor is open since 1.6.4, only the Audience Room keeps rebirth 1
+            return this == CYGNUS ? FUTURE_EREVE : this == VONLEON ? roomMap : recruitMap;
         }
 
         /** The players' level floor (ExpeditionType). */
