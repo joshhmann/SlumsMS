@@ -96,18 +96,22 @@ class DeadMemberTest {
     }
 
     @Test
-    void aDeadHumanIsAMemberLostOnTheSameTickEvenBeforeTheScriptUnregistersHim() {
+    void aDeadHumanIsStillTheSolversBusinessNotAMemberLost() {
         System.setProperty(RevivePause.FLAG, "true");
         Orchestrator o = orchestrator();
         RunState run = o.start(horntail(), Tier.NORMAL, party());
         View view = new View(run);
         view.dead.add(HUMAN); // he died and the script has not got to unregisterPlayer yet
 
-        o.tick(run, view, START + 5_000);
+        Map<Integer, SolverStep> steps = o.tick(run, view, START + 5_000);
 
-        assertNotNull(run.waitingFor(), "a human death holds the run, whoever noticed it first");
-        assertEquals(HUMAN, run.waitingFor().member().characterId());
+        assertEquals(6, run.members().size(), "the rule here is the bot's: a human's death is the script's and the "
+                + "leader wait's, and it must not turn into a lost member under either of them");
+        assertNull(run.waitingFor());
         assertNull(run.endedBecause());
+        assertTrue(steps.values().stream().anyMatch(s -> s instanceof SolverStep.Wait w
+                        && w.why().contains("the leader is down")),
+                "the leader's own wait is what a dead human gets: " + steps.values());
     }
 
     // ---- 2: with the pause off, a dead bot ends the run through an existing path --------------------

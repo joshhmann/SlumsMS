@@ -246,9 +246,10 @@ public final class Orchestrator implements RunOrchestrator {
                 if (run.ended()) {
                     return steps;
                 }
-            } else if (!view.alive(m.characterId())) {
-                // 1.7.0: a mortal bot lies dead where it fell, still registered - and a human's death is read here
-                // too, on the tick before the script unregisters him. Either way the run has lost a member.
+            } else if (m.bot() && !view.alive(m.characterId())) {
+                // 1.7.0: a mortal bot lies dead where it fell and stays registered (a bot never unregisters), so the
+                // run has lost it. A human's death is not this: the leader's is realLeader's wait below and every
+                // player's is the script's playerDead -> unregisterPlayer, which is the old "no longer in the stage".
                 memberLost(run, m.characterId(), "died", nowMs);
                 if (run.ended()) {
                     return steps;

@@ -149,7 +149,7 @@ class ExpeditionDeathCountRunTest {
     }
 
     @Test
-    void onlyAHumansDeathSpendsTheBudget() throws Exception {
+    void humansAndBotsSpendTheBudgetButNotAnOwnedAlt() throws Exception {
         zakumRun(10);
         Character human = member("Human1");
         Character bot = botMember("Bot1");
@@ -158,24 +158,26 @@ class ExpeditionDeathCountRunTest {
         eim.playerKilled(human);
         assertEquals(9, eim.getDeathCount().left());
 
-        eim.playerKilled(bot);
-        eim.playerKilled(bot);
+        // 1.7.0: bots are mortal, so their deaths are the party's loss - the whole point of the counter
+        eim.botKilled(bot);
+        eim.botKilled(bot);
+        assertEquals(7, eim.getDeathCount().left(), "each bot death spends one");
+
         eim.playerKilled(alt);
-        assertEquals(9, eim.getDeathCount().left(), "a bot's or an owned alt's death costs the party nothing");
+        assertEquals(7, eim.getDeathCount().left(), "an owned alt's death is its player's own business");
         assertFalse(eim.isEventDisposed());
     }
 
     @Test
-    void aBotsDeathsNeverEndTheRun() throws Exception {
+    void aBotPartyWipingEndsAnArmedRunLikeAnyOtherParty() throws Exception {
         zakumRun(1);
         Character bot = botMember("Bot1");
 
         for (int i = 0; i < 5; i++) {
-            eim.playerKilled(bot);
+            eim.botKilled(bot);
         }
 
-        assertEquals(1, eim.getDeathCount().left());
-        assertFalse(eim.isEventDisposed(), "a bot party wiping leaves the run running");
+        assertEquals(0, eim.getDeathCount().left(), "the first bot death spends the only one");
     }
 
     @Test
