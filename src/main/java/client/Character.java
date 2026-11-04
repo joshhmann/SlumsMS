@@ -3990,7 +3990,10 @@ public class Character extends AbstractCharacterObject {
             party = Integer.MAX_VALUE;  // integer overflow, heh.
         }
 
-        int equip = (int) Math.min((long) (gain / 10) * pendantExp, Integer.MAX_VALUE);
+        long equipL = (long) (gain / 10) * pendantExp;
+        // 1.6.4 ticket 189 stage 3: the marriage bonus rides with the Pendant's share, outside the multiplier chain and any stacking cap
+        equipL += soloMapling.companions.MarriageExpBonus.bonusFor(this, gain);
+        int equip = (int) Math.min(equipL, Integer.MAX_VALUE);
 
         gainExpInternal(gain, equip, party, show, inChat, white);
     }
