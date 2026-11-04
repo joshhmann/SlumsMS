@@ -1,13 +1,14 @@
 # Merge lane, 1.6.4 - everything in one tree (branch `164-all-merge`)
 
 Worktree `/root/work/164-all`, branch `164-all-merge` off `release-1.6.4` @ `6d18f961e`, push URL disabled, nothing
-pushed, nothing deployed, live server untouched. **Last merge commit `39276532a`**, 163 commits over the release tip; the suite ran on `4e495c09b`, and every
-commit after these two changes reports only (checked with `git diff 4e495c09b HEAD -- src/`).
+pushed, nothing deployed, live server untouched. **Last merge commit `87205b607`**, 171 commits over the release tip; the
+suite ran on it, and every commit after the code head changes reports, docs and `tools/` only (checked with `git diff
+<code head> HEAD -- src/`).
 
 This is the one branch that carries every 1.6.4 lane: the base game's two rows, the boss lane's 27, the party-quest
-lane's 17, the real-run lane's ten, and the engine-seam lane's Guild Quest - **56 rows, 29 `kind: BOSS` + 27 `kind: PQ`,
-195 stages**, which is exactly the number of `*.yaml` files under `src/main/java/soloMapling/mechanics/content/` and the
-number of lines in `content/index.txt`.
+lane's 18, the real-run lane's ten, and the engine-seam lane's Guild Quest and Zenumist band - **57 rows, 29 `kind: BOSS`
++ 28 `kind: PQ`, 201 stages**, which is exactly the number of `*.yaml` files under
+`src/main/java/soloMapling/mechanics/content/` and the number of rows in `content/index.txt`.
 
 ## What this branch is made of
 
@@ -25,6 +26,7 @@ number of lines in `content/index.txt`.
 | 10 | `164-seams` @ `6d01def08` | `663d273ba` | the four engine seams (reactor by object id, the stage clock, `onTimeLimit`, `branches`), the bound-client fix, `EquipItem`/`UnequipItem`, queue staging, `content/guildquest.yaml` (7 stages, 26 maps) |
 | 11 | `164-opq` final @ `96484cf9a` | `4e495c09b` | the lane's last 67 commits: the four Hard-boss rows, `Mechanics.bossEnabledFor`, tiers on four rows, `MechanicsRowWzIntegrityTest` |
 | 12 | `164-seams` follow-up @ `6e8011250` | `39276532a` | one test line: the shipped-row list names `guildquest` |
+| 13 | `164-zenumist` @ `242274259` | `87205b607` | `magatiapq` stage 3 moved to the room its beakers stand in, the Zenumist band row `magatiapqz`, and `MechanicsRowWzIntegrityTest.everyStageThatNamesAReactorHasItOnItsOwnGround` |
 
 `164-bossfight`, `164-ex2qa` and `164-bossproof` are ancestors of `164-bossrows`/`164-opq`, so merging them adds
 nothing; every head was verified with `git for-each-ref` and `git merge-base --is-ancestor` before it was merged.
@@ -58,7 +60,7 @@ verbatim.
 | 12 | `TierScalingTest.java` (add/add) | two different test classes of the same name | one class holding both halves (the three rows' HARD table and the room-scaling tests) |
 | 13 | `RowRunSimulationTest.java` | two late-spawn harnesses in the same fake `World` (`pendingSpawns`/`spawnAfterMs` vs `pendingParts`/`spawnAfter`/`tickSpawn`), plus both lanes' boss-room tests | one harness: `spawnAfter(ms)` + `pendingParts` + `tickSpawn()`, driven from the tick; ours' five hardcoded per-map spawn cases deleted because the `default ->` branch builds a one-BODY-part boss from `stage.mobs()` |
 | 14 | `RowRunSimulationTest.java` (clear rule) | `killTarget()` no longer exists | the row lists a revive chain in order, so the **last** id in `stage.mobs()` is the clear (`if (!chain.isEmpty() && mobId == chain.get(chain.size() - 1) && clear().onInstance())`) |
-| 15 | `content/index.txt` | five lanes each appending rows | one order, 56 rows: base, boss lane's 27, the PQ lane's 7, the real-run lane's 9 (`bossrush0..7`, `zakumpq`), Guild Quest |
+| 15 | `content/index.txt` | five lanes each appending rows | one order, 57 rows: base, boss lane's 27, the PQ lane's 8, the real-run lane's 9 (`bossrush0..7`, `zakumpq`), Guild Quest, Zenumist |
 | 16 | `MechanicsDataFilesTest.java` | the pinned id list, five lanes | the same 56 ids in the same order |
 | 17 | `content/zakumpq.yaml` | two revisions of a row added by the real-run lane and rewritten by the PQ lane | the PQ lane's revision (59 stages, `maps:` on every stage, the reactor on the hub stage), with its 48 scalar `hitReactor:` keys migrated to `hitReactors: [id]`; the hunk-by-hunk attempt had produced a row with two `stage: 50` blocks and the loader said so |
 | 18 | the four Hard-boss rows (`nwill`, `nlucid`, `nverus`, `ndarknell`, add/add) | these rows existed on the boss lane and again on the PQ lane's head | the PQ lane's bodies (they carry their own switch on top of `slums.mechanics.boss`), minus `graceMs` and `killTarget` |
@@ -100,9 +102,42 @@ Also from two places, at the data layer: the four Hard-boss rows, `zakumpq.yaml`
 `RowRunSimulationTest` fake world's spawn harness, and the `Stage` record's components. All are in the conflict table
 above with the side that survived.
 
+## The last lane in: `164-zenumist` (what it fixed, and the net it added)
+
+Merged clean, no conflict (`87205b607`), and it is the one merge that changed a row this branch had already shipped:
+`content/magatiapq.yaml` stage 3 named map **`926110200`**, but the three `2618000` beakers and the `2618006` door stand
+on **`926110100`** - `926110200` holds only three plain mobs - so that stage could never clear. The map and the route
+into the room are corrected. No per-solver test could see it: the solver did exactly what the row said.
+
+The class of error is now caught: `MechanicsRowWzIntegrityTest.everyStageThatNamesAReactorHasItOnItsOwnGround`
+(`src/test/java/soloMapling/mechanics/MechanicsRowWzIntegrityTest.java:93`) reads `Map.wz` and asserts every reactor a
+stage names - in `hitReactors`, in the clear's `reactorId`, or in an objective's numeric `reactor:` - stands on that
+stage's `map:` or one of its `maps:`. 86 reactor references across all 57 rows, 0 mismatches after the fix. It has a
+negative control (`12_345_678` is on no map) and a positive one (`2618000` is on `926110100`), so it cannot pass
+vacuously. Named reactors are skipped (a name has no id to look up).
+
+The lane also carries the Zenumist band as a row (`magatiapqz`, six stages, own switch, `index.txt`, data-file pin) and a
+premise correction worth keeping: the earlier "Zenumist is unwinnable for humans too" verdict was **wrong** - the counter
+`2618000` stands in both bands' rooms, every property the Zenumist band reads has a writer, and `2619000` is Carson's
+quest reactor on `926100401`, not the party quest's. So the blocked list lost that item and gained a bug fix.
+
+## The 1.6.4 framing (owner decision 24: this ships in 1.6.4)
+
+Written by this lane, because the release notes and the roadmap were 1.7.0's:
+
+| File | What it says now |
+| --- | --- |
+| `docs/release/1.6.4-notes.md` (renamed from `1.7.0-notes.md`) | 1.6.1-notes shape: five staff-status blocks (the 57 rows and their switches; the four Hard bosses as ordinary rows with the blocked list of four; run chatter, the quota and the seams; Guild Quest and the Zenumist band; PQ difficulties "mechanism ships, numbers do not"), then player notes and three fixes. Everything not in 1.6.4 was removed from it |
+| `docs/roadmap/1.6.4.md` (new) | the version's roadmap in the `1.6.1.md` shape, one section per family with status, switch, check id and what is outstanding, and a closing section on what 1.6.4 does not carry |
+| `docs/roadmap/1.7.0.md` | three rows rewritten in place, nothing deleted: the mechanics headline keeps step 2 (imperfection by persona) and points at `1.6.4.md` for step 1; PQ difficulties keeps the numbers-as-proposal, the entry NPC menu, rewards/EXP, bots per tier, the leaderboard and Expert/Master; the chaos row keeps Chaos Horntail with its `8810121` / `isHorntailDefeated` reasons and the Chaos Zakum quota question |
+| `docs/release/1.6.4.conf` (new, draft) | 1.6.3's file carried verbatim plus a documented 1.6.4 block. Same 61-flag unit edit, one entry: the fads-deletion entry 1.6.3 used is gone because live no longer carries that flag (its pre-check would abort with "changes nothing"). MIGRATIONS unchanged (the diff since `v1.6.3` is empty), `MIN_CLIENT_BUILD` 10721 (no client change), `CONFIG_APPEND` empty. The row set is ON: `-Dslums.mechanics.boss` plus the 20 per-row flags plus `-Dslums.chaos.zakum=true` plus `-Dslums.bossfight.revivepause=true`. OFF with a reason in the comments: `-Dslums.mechanics.tiers`/`.tier` (numbers are a proposal and nothing picks a tier in game), `-Dslums.mechanics.realruns`/`.simruns`/`.simfloor` (never seen under load; unset means no run is refused), every `-Dslums.mechanics.<row>.lobby` (it takes a whole PQ out of players' hands) |
+
+**Hotfix parity** (AGENTS.md, before staging a release): `tools/release/hotfix-parity release-1.6.3` on the tip prints
+`ok: HEAD has every commit of release-1.6.3`, exit 0 - the branch carries every live hotfix by patch content.
+
 ## The rows, and the switch that arms each one
 
-Counted on the merged head, not assumed: **56 rows = 29 `kind: BOSS` + 27 `kind: PQ`, 195 stages**, 56 `*.yaml` files
+Counted on the merged head, not assumed: **57 rows = 29 `kind: BOSS` + 28 `kind: PQ`, 201 stages**, 57 `*.yaml` files
 and 56 lines in `content/index.txt`. `slums.mechanics=true` is the master switch for every party-quest row; a boss row
 needs `slums.mechanics.boss=true` instead (it does not need `slums.mechanics`). A row with a second switch in the
 column also needs that one. Nothing arms with defaults.
@@ -153,6 +188,7 @@ column also needs that one. Nothing arms with defaults.
 | `treasurepq` | Treasure PQ | PQ | 1 | `slums.mechanics` + `slums.mechanics.treasurepq` | 4-6 | 140-255 |
 | `dellibattle` | DelliBattle | PQ | 1 | `slums.mechanics` + `slums.mechanics.dellibattle` | 1-2 | 120-255 |
 | `magatiapq` | Magatia PQ (Alcadno) | PQ | 6 | `slums.mechanics` + `slums.mechanics.magatiapq` | 4-4 | 71-255 |
+| `magatiapqz` | Zenumist band (Magatia) | PQ | 6 | `slums.mechanics` + `slums.mechanics.magatiapqz` | 4-4 | 71-255 |
 | `ellinpq` | Ellin PQ (Forest of Poison Haze) | PQ | 6 | `slums.mechanics` + `slums.mechanics.ellinpq` | 4-6 | 44-255 |
 | `cwkpq` | Crimsonwood Keep PQ | PQ | 4 | `slums.mechanics` + `slums.mechanics.cwkpq` | 6-30 | 90-255 |
 | `bossrush0` | Boss Rush PQ (band 0) | PQ | 6 | `slums.mechanics` + `slums.mechanics.bossrush` | 1-6 | 1-255 |
@@ -181,7 +217,7 @@ party-quest row only when `Mechanics.enabled() && Mechanics.rowFlagOn(content)`.
 | --- | --- | --- |
 | `slums.mechanics` | off | the party-quest rows: Kerning PQ directly, the others only with their own flag |
 | `slums.mechanics.boss` | off | every boss row (all 29). Boss rows do **not** need `slums.mechanics` - a server can let bots share boss fights without letting them run party quests |
-| `slums.mechanics.opq` / `.lpq` / `.hpq` / `.cafepq` / `.ludimazepq` / `.piratepq` / `.treasurepq` / `.dellibattle` / `.magatiapq` / `.ellinpq` / `.cwkpq` / `.bossrush` / `.zakumpq` / `.guildquest` | off | the named row (`.cafepq` covers areas 1-6, `.bossrush` all eight waves, `.guildquest` the seven-stage run) |
+| `slums.mechanics.opq` / `.lpq` / `.hpq` / `.cafepq` / `.ludimazepq` / `.piratepq` / `.treasurepq` / `.dellibattle` / `.magatiapq` / `.magatiapqz` / `.ellinpq` / `.cwkpq` / `.bossrush` / `.zakumpq` / `.guildquest` | off | the named row (`.cafepq` covers areas 1-6, `.bossrush` all eight waves, `.guildquest` the seven-stage run) |
 | `slums.mechanics.nwill` / `.nlucid` / `.nverus` / `.ndarknell` | off | the four Hard-boss rows, **on top of** `slums.mechanics.boss` (each is an expedition script that already exists, so the extra flag is how a server opts into the harder instance) |
 | `slums.chaos.zakum` | off | the `zakum-chaos` row, on top of `slums.mechanics.boss` |
 | `slums.mechanics.tiers` | off | reading a row's `tiers:` block at all; four rows (`kpq`, `hpq`, `lpq`, `opq`) carry a HARD tier, and with the switch off their rooms keep their WZ numbers |
@@ -201,7 +237,7 @@ turned **on** by the release conf line, not by a code default - `b8a91143b` set 
 corrected the ticket text to say so).
 
 The one row with no `flag:` of its own is `kpq` (the 1.6.1 base row); its switch *is* `slums.mechanics`. No merged row
-can arm on a default: with every switch unset the loader still reads all 56 rows and
+can arm on a default: with every switch unset the loader still reads all 57 rows and
 `MechanicsDataFilesTest.theContentRowsLoadFromTheJarWithNoSourceTree` asserts the load reports no problems.
 
 ## Reproduce the proof
@@ -216,18 +252,19 @@ tools/ops/autoqa-proof 6d18f961e..HEAD
 tools/ops/helper-checkout /root/work/164-all
 ```
 
-## What auto-QA covers (`tools/ops/autoqa-proof 6d18f961e..b7da256e1`)
+## What auto-QA covers (`tools/ops/autoqa-proof 6d18f961e..87205b607`)
 
-The proof reads `src/main/resources/soloMapling/autoqa-coverage.tsv` against the 278 files this branch changes and
+The proof reads `src/main/resources/soloMapling/autoqa-coverage.tsv` against the 283 files this branch changes and
 answers
 
 ```
-checks: every check (190) - 5 changed files change the engine they all run on:
+checks: every check (190) - 6 changed files change the engine they all run on:
   src/main/java/soloMapling/autoqa/AutoQaCatalog.java
   src/main/java/soloMapling/qa/GameQaWorld.java
   src/main/java/soloMapling/qa/QaScenarios.java
   src/main/java/soloMapling/qa/QaWorld.java
   src/main/resources/soloMapling/autoqa-coverage.tsv
+  tools/ops/autoqa-proof
 ```
 
 so the release run is
@@ -294,29 +331,38 @@ through the client path, but the proof map does not claim them.
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Full suite, every switch unset | `mvn -o test` | **`Tests run: 9068, Failures: 0, Errors: 0, Skipped: 139`**, BUILD SUCCESS, `EXIT=0`, 33:51 (log `/tmp/final2.log`) |
+| Full suite, every switch unset | `mvn -o test` | **`Tests run: 9071, Failures: 0, Errors: 0, Skipped: 140`**, BUILD SUCCESS, `EXIT=0`, 33:42 (log `/tmp/final4.log`) |
 | Row data, row simulation, tiers, the late-spawn leash | `mvn -o test -Dtest='MechanicsDataFilesTest,StageDataTest,RowRunSimulationTest,TierScalingTest,LateSpawnGraceTest'` | green; `RowRunSimulationTest` 47, `TierScalingTest` 13, `LateSpawnGraceTest` 5 |
 | The whole mechanics package | `mvn -o test -Dtest='soloMapling.mechanics.*Test,soloMapling.MechanicsDataFilesTest'` | **`Tests run: 725, Failures: 0, Errors: 0, Skipped: 2`** (log `/tmp/mech.log`) |
-| Every row against the WZ dump | `mvn -o test -Dwz-path=/root/work/SlumsMS-170-evan/wz -Dtest='ContentRowWzIntegrityTest,MechanicsRowWzIntegrityTest'` | `Tests run: 2, Failures: 0, Errors: 0, Skipped: 0`, `EXIT=0`: **56 rows, 156 map ids, 127 mob ids, 14 reactor ids, 1 door item (`4000381`)** |
+| Every row against the WZ dump | `mvn -o test -Dwz-path=/root/work/SlumsMS-170-evan/wz -Dtest='ContentRowWzIntegrityTest,MechanicsRowWzIntegrityTest'` | `Tests run: 3, Failures: 0, Errors: 0, Skipped: 0`, `EXIT=0`: **57 rows, 163 map ids, 129 mob ids, 14 reactor ids, 1 door item (`4000381`)** |
+| Every named reactor stands on its stage's own ground | same run (`MechanicsRowWzIntegrityTest:93`) | green: 86 reactor references across 57 rows, 0 mismatches, with a negative control |
 
 ### Suite totals
 
-`mvn -o test`, every switch unset, on the merged head:
+`mvn -o test`, every switch unset, on the merged tip (`87205b607`; the commits after it change `docs/` and `tools/ops`
+only):
 
 ```
-Tests run: 9068, Failures: 0, Errors: 0, Skipped: 139     BUILD SUCCESS, EXIT=0, 2032 s
+Tests run: 9071, Failures: 0, Errors: 0, Skipped: 140     BUILD SUCCESS, EXIT=0, 33:42 (2023 s)
 ```
 
-Run on `4e495c09b`; the only commit after it (`39276532a`, the seam lane's last test line) leaves the tree
-byte-identical - `git diff 4e495c09b HEAD` is empty, because that line already read `"zakumpq", "guildquest"` here - so
-the totals are the merged tip's totals, not a near-tip's.
+Log `/tmp/final4.log`. Zero `<<< FAILURE` markers, no surefire temp-directory collision. The 140 skips are the tests that
+need a WZ dump (`ContentRowWzIntegrityTest`, `MechanicsRowWzIntegrityTest`), the tests that need a real client, and the
+`@EnabledIfSystemProperty` rows for switches this run leaves unset; the WZ pair is re-run green in the table above.
 
-For scale, the four source suites: `164-bossrows` 8575/138, `164-opq` 8635/138, `164-realruns` 8766/137, `164-seams`
-8799/137 (all `EXIT=0` on their own heads). The merged tree is above all four because it holds all four lanes' tests.
-The 139th skip is `MechanicsRowWzIntegrityTest` (it skips without `-Dwz-path`, which the row above supplies).
+For scale, the lanes' own suites: `164-bossrows` 8575/138, `164-opq` 8635/138 (final head 9071/140 on its own tree),
+`164-realruns` 8766/137, `164-seams` 8799/137, `164-zenumist` 9071/140. The merged tree is at or above every one of them.
 
-No `<<< FAILURE` marker anywhere, no surefire temp-directory collision, and the order-dependent flake
-(`BotConversationFlowTest.aRefusedPartyAskIsPlannedFromTheGatesVerdict`) did not appear.
+**One flake seen, once, and not on the final run.** The first full-suite run on this tip (`/tmp/final3.log`) failed one
+test: `soloMapling.worldevents.EventLootScrambleTest.whenTheCakeFallsTheCalledBotsGetALootWindow` —
+`most of the crowd stays for the pile: 24/40 ==> expected: <true> but was: <false>` — a probabilistic test
+(`EventLootScramble.SKIP_SHARE = 0.15`, drawn from `ThreadLocalRandom` in `WorldEventReactions.release`) in a package
+this branch does not touch (the file and its source are unchanged from `release-1.6.4`: `git log 6d18f961e..HEAD --
+src/main/java/soloMapling/worldevents src/test/java/soloMapling/worldevents` is empty). It passes alone 10 runs out of 10
+and passed in the re-run of the whole suite. Reported rather than silenced: a 15%-skip draw producing 16 skips out of 40
+is not binomial noise, so the most likely explanation is state left by another test in the same JVM (the sibling test in
+the same class sets `solomapling.worldEvents.lootAftermath=false` globally and never restores it), and that is a
+pre-existing order-dependence, not this merge's.
 
 ### Paperwork
 
@@ -332,7 +378,7 @@ reported as they are: files outside the usual folders (`REPORT-altinvite.md`, `R
 
 ## What is still unproven
 
-1. **No client has seen the merged tree.** Every result above is the offline suite plus the WZ dump. The 56 rows have
+1. **No client has seen the merged tree.** Every result above is the offline suite plus the WZ dump. The 57 rows have
    never been armed together on a server.
 2. **Guild Quest has never been played from this branch.** Its 7 stages and 26 maps parse, its boxes and statues are
    covered by solver tests, and it is the row with the `onTimeLimit: advance` and `branches:` machinery - but no bot has
@@ -351,59 +397,52 @@ reported as they are: files outside the usual folders (`REPORT-altinvite.md`, `R
    Magatia's beaker or Zakum's chests from this branch.
 7. **Two portal-name misses on row maps** (the Armory's `out00`, Delli's `in03`) are in `Map.wz`, not in this merge, and
    no solver path uses them; fixing them means editing the WZ dump, outside this branch.
-8. **The whole-dump `map-integrity` sweep is not gating anything.** Its report over a partial dump is noise; only the
+8. **The Zenumist band row is unplayed.** `magatiapqz` parses, its six stages pass the row nets, and every property it
+   reads has a writer in the script - but no bot has walked it and no client has seen it.
+9. **The whole-dump `map-integrity` sweep is not gating anything.** Its report over a partial dump is noise; only the
    per-row view is meaningful, and `ContentRowWzIntegrityTest` is that view inside the suite.
 
 ## Version notes (AGENTS.md "done means switched on and noted")
 
-Two files carry the notes for what this branch builds; both are on the branch.
+Owner decision 24 (2026-11-03): **this ships in 1.6.4 with what is done**, so the notes are 1.6.4's and what is not done
+stays on the 1.7.0 roadmap. Three files carry it, all on this branch:
 
-**`docs/roadmap/1.7.0.md`** - three rows updated in place, no new section:
-
-| Row | Now says |
+| File | State |
 | --- | --- |
-| "Bots play the mechanics (headline)" | step 1 done (56 rows, 29 boss / 27 party quest, 195 stages), the two switches plus the per-row flags, the three check ids, and that step 2 (imperfection by persona) has not started and no client has played the rows |
-| "PQ difficulties" | mechanism done, one HARD tier per low-level PQ row, off behind `-Dslums.mechanics.tiers` with `-Dslums.mechanics.tier`; the numbers are explicitly a proposal (`DIFFICULTY-CHAOS-PLAN.md` section 9) awaiting the owner; outstanding: the entry NPC's tier menu, rewards/EXP per tier, bots' behaviour per tier, the site leaderboard; Expert and Master exist in the enum and in no row |
-| "Chaos Zakum and Chaos Horntail" | Chaos Zakum done behind `-Dslums.chaos.zakum` (row `zakum-chaos`, check `t-ex-2`, the arms-then-bodies order, the shield, the clear now recorded); Chaos Horntail **not shipped, with the reason**: no script/row/rewards, its body id `8810121` has no `Mob.wz` entry (the reason `Monster.reviveTarget`'s guard exists), its parts die into ordinary corpses so `MapleMap.isHorntailDefeated()` (`MapleMap.java:4905`, requiring `MobId.DEAD_HORNTAIL_MIN..MAX` = 8810010-8810017) can never fire, and `ExpeditionType.CHAOS_HORNTAIL` is used by nothing but the min-size test |
+| `docs/release/1.6.4-notes.md` | renamed from `1.7.0-notes.md` and rewritten so every line is true of 1.6.4: five staff-status blocks (status, switches with defaults, check ids, what is outstanding), then the player lines that ship. The "written as 1.7.0 because qa-suite.md files mx-1 there" paragraph is gone |
+| `docs/roadmap/1.6.4.md` | new, in the `1.6.1.md` shape: one section per family (the 57 rows; the four Hard bosses; the reactor-ground net and the Magatia defect; PQ difficulties as mechanism only; Chaos Zakum in and Chaos Horntail out; run chatter, the quota, the seams, Guild Quest, the Zenumist band), each with status, switch, check id and the outstanding sentence, plus "what 1.6.4 does not carry" |
+| `docs/roadmap/1.7.0.md` | three rows rewritten in place and nothing deleted: the headline keeps **step 2 (imperfection by persona)** and points at `1.6.4.md` for step 1; PQ difficulties keeps the **numbers as a proposal**, the entry NPC's tier menu, rewards/EXP, bots per tier, the leaderboard, Expert/Master; the chaos row keeps **Chaos Horntail** with its `8810121` / `isHorntailDefeated` reasons and keeps the chaos-clear **quota** as an owner question |
+| `docs/release/1.6.4.conf` | new draft (the release conf is how "on for live" is declared): 1.6.3's file carried verbatim plus a 1.6.4 block. Row set ON, tier switch and run quota and row lobbies OFF with a reason each, `-Dwz`-style checks named, one unit-edit entry, no migration, no config append, no client change. It is a draft for the owner/Server Dev: this lane cannot switch live behaviour on |
 
-**`docs/release/1.7.0-notes.md`** - new, in the shape `docs/release/1.6.1-notes.md` already uses: a staff block per
-family first (status, switches, check ids, what is still open), then the player lines, which are the only part that ships.
-Version: **1.7.0**, because that is where the repo already puts these - `docs/ops/qa-suite.md:293` heads the Kerning
-check "(1.7.0, ticket 130)", the roadmap rows live in `docs/roadmap/1.7.0.md`, and AGENTS.md's rule is `docs/roadmap/<v>.md`
-plus the patch-notes draft for the same `<v>`. The branch is built on `release-1.6.4`, which is the freeze branch, not the
-version number of what it carries; if the owner ships this as 1.6.4 instead, the file is renamed, not rewritten.
+The player lines cover the fixes in words a player can read: Magatia PQ's third stage ("asked you to break three beakers
+that stand in the room next door"), the item-reactor bug ("items dropped by bots on the ground could stop a gate, chest or
+altar reacting to the other items lying on it"), and the revive-id crash ("a boss part that revives into a monster the data
+does not have no longer breaks the death handling"). Then one line per content family that becomes bot-playable, and the
+sentence that every row is switch-gated and off by default.
 
-The player lines cover the two fixes the owner named, in words a player can read: the item-reactor bug ("items dropped by
-bots on the ground could stop a gate, chest or altar reacting to the other items lying on it" - the drop's owner was
-looked up through a cached client, and a bot's drop carried one that was gone) and the revive-id crash ("a boss part that
-revives into a monster the data does not have no longer breaks the death handling" - the missing form is skipped and
-named once, and the rest of the death runs). Then one line per content family that becomes bot-playable (party quests,
-boss expeditions, Chaos Zakum, Guild Quest) and the sentence that every row is switch-gated and off by default.
+Two things a reader must not take as settled, because the answer is the owner's:
 
-Three things a reader must not take as settled, because the answer is the owner's and was not invented:
-
-1. **The tier numbers.** The roadmap row says "proposal" and `DIFFICULTY-CHAOS-PLAN.md` section 9 is explicitly a proposal;
-   this branch applies whatever a row carries. No number in the four rows is presented as decided, and the notes file says
-   nothing about tier numbers - only that the switch exists.
-2. **The Chaos Zakum quota.** The row plays today; how many chaos clears a character or a day may take is the owner's call
-   and is written as outstanding, not guessed.
-3. **Which version the file is named for.** See above: 1.7.0 is where the repo's own QA doc and roadmap already place these
-   rows, but the branch is off `release-1.6.4`; renaming the file is the only change if the owner decides otherwise.
+1. **The tier numbers.** `docs/roadmap/1.6.4.md` says "the mechanism ships, the numbers do not"; `DIFFICULTY-CHAOS-PLAN.md`
+   section 9 is a proposal; the switch is off in the conf and no number is presented as decided.
+2. **The Chaos Zakum quota.** The row plays; how many chaos clears a character or a day may take is written as
+   outstanding, not guessed.
 
 ## Deploy note
 
-**Branch:** `164-all-merge` at `39276532a` (worktree `/root/work/164-all`). Nothing was pushed; the owner pushes and
-deploys.
+**Branch:** `164-all-merge` (worktree `/root/work/164-all`), last merge commit `87205b607`. Nothing was pushed, tagged
+or staged; the owner pushes and deploys. **For a real release the settings live in `docs/release/1.6.4.conf`** (draft,
+written by this lane for the owner/Server Dev) - the block below is the same set spelled out for a hand-edited TEST
+`start-test.sh`.
 
 The mechanics switches are **JVM flags**, not `config.yaml` keys - there is no `slums.mechanics*` key in any config
 schema, so TEST's `config.yaml` needs **no change**. Add the flags to the java line in TEST's `start-test.sh`
 (`/opt/mapleroot-dev/persistence-test/start-test.sh`), after the existing `-Dslums.*` ones:
 
 ```
--Dslums.mechanics=true -Dslums.mechanics.boss=true -Dslums.mechanics.opq=true -Dslums.mechanics.lpq=true -Dslums.mechanics.hpq=true -Dslums.mechanics.cafepq=true -Dslums.mechanics.ludimazepq=true -Dslums.mechanics.piratepq=true -Dslums.mechanics.treasurepq=true -Dslums.mechanics.dellibattle=true -Dslums.mechanics.magatiapq=true -Dslums.mechanics.ellinpq=true -Dslums.mechanics.cwkpq=true -Dslums.mechanics.bossrush=true -Dslums.mechanics.zakumpq=true -Dslums.mechanics.guildquest=true -Dslums.mechanics.nwill=true -Dslums.mechanics.nlucid=true -Dslums.mechanics.nverus=true -Dslums.mechanics.ndarknell=true -Dslums.chaos.zakum=true -Dslums.bossfight.revivepause=true
+-Dslums.mechanics=true -Dslums.mechanics.boss=true -Dslums.mechanics.magatiapqz=true -Dslums.mechanics.opq=true -Dslums.mechanics.lpq=true -Dslums.mechanics.hpq=true -Dslums.mechanics.cafepq=true -Dslums.mechanics.ludimazepq=true -Dslums.mechanics.piratepq=true -Dslums.mechanics.treasurepq=true -Dslums.mechanics.dellibattle=true -Dslums.mechanics.magatiapq=true -Dslums.mechanics.ellinpq=true -Dslums.mechanics.cwkpq=true -Dslums.mechanics.bossrush=true -Dslums.mechanics.zakumpq=true -Dslums.mechanics.guildquest=true -Dslums.mechanics.nwill=true -Dslums.mechanics.nlucid=true -Dslums.mechanics.nverus=true -Dslums.mechanics.ndarknell=true -Dslums.chaos.zakum=true -Dslums.bossfight.revivepause=true
 ```
 
-That is the full sweep: all 56 rows armed, no lobby. Drop a line and its rows are inert; drop all of them and the
+That is the full sweep: all 57 rows armed, no lobby. Drop a line and its rows are inert; drop all of them and the
 server behaves exactly as `release-1.6.4` does, because every switch defaults off.
 
 **Keep off:**
@@ -413,8 +452,8 @@ server behaves exactly as `release-1.6.4` does, because every switch defaults of
   9) and has been played nowhere; turning it on hands four rows' rooms scaled mobs with no client ever having seen it.
 - `slums.mechanics.realruns` / `.simruns` / `.simfloor` - leave the quota unset (unlimited = today's behaviour) until
   someone has watched it under load.
-- the fishing, bot-life and Chaos-boss flags `docs/HANDOFF.md` and `docs/release/1.6.0-qa.md` already say stay off on
-  shared TEST.
+- the fishing and bot-life flags `docs/HANDOFF.md` and `docs/release/1.6.0-qa.md` already say stay off on shared TEST.
+  (Chaos Zakum is no longer in that group: `-Dslums.chaos.zakum=true` is part of the 1.6.4 row set and is in the conf.)
 
 **What a player sees with the sweep on:** the Kerning, Orbis, Ludi, Henesys, Cafe, LudiMaze, Pirate, Treasure,
 DelliBattle, Magatia, Ellin, Crimsonwood Keep and Sharenian Guild Quest party quests run with bots inside them; a bot
