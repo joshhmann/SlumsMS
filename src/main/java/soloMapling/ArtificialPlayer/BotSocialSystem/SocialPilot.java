@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
- * Ticket 181 stage 7: the Henesys pilot. A small, stable set of roster bots ({@code -Dslums.socialpilot.size}, 20)
+ * Ticket 271 stage 7: the Henesys pilot. A small, stable set of roster bots ({@code -Dslums.socialpilot.size}, 20)
  * that live the social layer for real in one town ({@code -Dslums.socialpilot.map}, Henesys 100000000). They are
  * ordinary roster bots on the existing infrastructure ({@code ModeSwitch}, {@code SocialDecider}, intents, bonds,
  * memory); the pilot only adds four things, each a bias or a hold, never a script:

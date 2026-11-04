@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Ticket 181 stage 2, simulated days: 60 bots on six maps nobody watches, one minute step at a time on the simulated
+ * Ticket 271 stage 2, simulated days: 60 bots on six maps nobody watches, one minute step at a time on the simulated
  * clock for three days. Shows the background tier alone grows a bounded web of relationships, within the per-bot cap,
  * with no friendships out of nods, and that a week of silence afterwards cools them without anyone becoming estranged.
  */

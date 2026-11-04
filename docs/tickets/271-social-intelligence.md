@@ -1,7 +1,7 @@
-# 181: Persistent NPC social intelligence
+# 271: Persistent NPC social intelligence
 
 Status lives in the release book (this file's "Status:" line is not kept current). Owner direction 2026-11-03.
-Number 181 was the next free in `release-1.6.4` on 2026-11-03; the Coordinator may renumber.
+Originally numbered 181 (provisional); renumbered 271 on 164-social-int-renum because 181 is the bot-behaviour audit. 271 is the next free number across the 1.6.4 trees.
 
 ## Goal
 

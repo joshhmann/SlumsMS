@@ -16,7 +16,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Ticket 181 stage 6a: what the social layer looks like from outside, for the inspect API ({@code /bots/{cid}}),
+ * Ticket 271 stage 6a: what the social layer looks like from outside, for the inspect API ({@code /bots/{cid}}),
  * {@code !botwhy} and the dashboard. Everything here is memory only and cheap: a bot's {@link SocialMind} is read
  * from {@link LifeMemoryStore#peek} (never a table read; a bot whose memory is not loaded has {@code null}), its mode
  * from the running state machine's class, its bonds from {@link BotBonds}' in-memory sets. Nothing here writes,
@@ -215,7 +215,7 @@ public final class SocialMetrics {
         return lines;
     }
 
-    // ── ticket 181 stage 5: intentions ──
+    // ── ticket 271 stage 5: intentions ──
 
     /** The {@code !botwhy} line of this bot's live intents (memory only; never empty). */
     public static List<String> intentLines(int botId, long now) {

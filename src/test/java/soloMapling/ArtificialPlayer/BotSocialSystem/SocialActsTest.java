@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Ticket 181 stage 4: each of the 16 social acts, through {@link SocialActions#perform}, with the observable state
+ * Ticket 271 stage 4: each of the 16 social acts, through {@link SocialActions#perform}, with the observable state
  * change that makes it "implemented": bond axes and stage, a memory note, an emotion or need, a chat bubble through a
  * recording world, a movement call. Plus each act's precondition refusal and its failure path.
  */

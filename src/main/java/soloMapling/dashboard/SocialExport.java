@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Ticket 181 stage 6a: the {@code social} block of {@code live.json}. Read-only static accessors of the social layer
+ * Ticket 271 stage 6a: the {@code social} block of {@code live.json}. Read-only static accessors of the social layer
  * and nothing else: no database, no game lock, no walk over the bots. The one thing it remembers is the previous
  * {@code social-tick} phase total, to turn the running totals into a rate over the export interval (like
  * {@link LiveSnapshot} does for the other phases).
@@ -81,7 +81,7 @@ final class SocialExport {
         return m;
     }
 
-    /** Ticket 181 stage 7: the Henesys pilot's switch and counters ({@link SocialPilot#stats()}). */
+    /** Ticket 271 stage 7: the Henesys pilot's switch and counters ({@link SocialPilot#stats()}). */
     private static Map<String, Object> pilot() {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("enabled", SocialPilot.enabled());

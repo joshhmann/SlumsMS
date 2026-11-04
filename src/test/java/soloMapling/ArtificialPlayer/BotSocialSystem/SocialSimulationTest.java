@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Ticket 181 stage 4: agent to agent, no real player. 12 bots with their own minds live three simulated days in a fake
+ * Ticket 271 stage 4: agent to agent, no real player. 12 bots with their own minds live three simulated days in a fake
  * world on the {@link SocialSim} clock. Nothing but the decision tick chooses the social acts. Shows: relationships
  * change after events; acts of several kinds happen; an argument can be followed by an apology and a reconciliation that
  * recovers the pair; no pair loops past the {@link SocialBudget} limits. The counts are printed.

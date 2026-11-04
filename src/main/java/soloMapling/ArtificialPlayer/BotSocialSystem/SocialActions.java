@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
 /**
- * Ticket 181 stage 4: the registry of the social acts and the one server-authoritative way to do one.
+ * Ticket 271 stage 4: the registry of the social acts and the one server-authoritative way to do one.
  *
  * <ul>
  *   <li>{@link #perform}: checks the act's preconditions, its execution requirement and the {@link SocialBudget},

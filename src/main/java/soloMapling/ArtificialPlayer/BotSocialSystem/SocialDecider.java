@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Ticket 181 stage 4: the social decision tick. {@code BotTalk.tick} hands it each map's bots; a bot that is due (its own
+ * Ticket 271 stage 4: the social decision tick. {@code BotTalk.tick} hands it each map's bots; a bot that is due (its own
  * pace: 45 s to 3 minutes, shorter for the sociable and the lonely) and free looks at the bots it can see and knows,
  * lets {@link SocialActions#best} pick the best (act, target), and {@link SocialActions#perform} does it through the
  * {@link SocialBudget}. Cheap: a bot is looked at once per pace, over at most {@link #CANDIDATES} candidates and 16

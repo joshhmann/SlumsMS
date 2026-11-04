@@ -7,7 +7,7 @@ import soloMapling.ArtificialPlayer.BotSocialSystem.SocialMind;
 import java.util.function.IntFunction;
 
 /**
- * Ticket 181 stage 2: the parts of a bot's character that scale how an event lands on a relationship axis: the Bartle
+ * Ticket 271 stage 2: the parts of a bot's character that scale how an event lands on a relationship axis: the Bartle
  * shares the legacy score already uses ({@link BondRules#scale}) and, when the bot's {@link SocialMind} is in memory
  * ({@code LifeMemoryStore.peek(id).mind(..)}, never a database read), four traits. A trait of 0.5 (and shares of 0.25)
  * scales by exactly 1, so a bot with no mind in memory behaves as a neutral one.

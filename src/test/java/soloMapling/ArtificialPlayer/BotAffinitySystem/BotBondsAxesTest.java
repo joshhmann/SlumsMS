@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 /**
- * Ticket 181 stage 2 through {@link BotBonds}: directed axes, stages with hysteresis, significance-based eviction, the
+ * Ticket 271 stage 2 through {@link BotBonds}: directed axes, stages with hysteresis, significance-based eviction, the
  * read API, persistence (restart round trip, legacy rows) and the background tier.
  */
 class BotBondsAxesTest {

@@ -51,7 +51,7 @@ import java.util.function.LongSupplier;
  *
  * <p>Without migration 030 the columns are missing: notes are stored as plain notes and the slots live in memory only.
  *
- * <p><b>Stage 3 (ticket 181, migration 060).</b> A note's subject is a real player or another bot
+ * <p><b>Stage 3 (ticket 271, migration 060).</b> A note's subject is a real player or another bot
  * ({@link SubjectType}; a bot subject is keyed by its character id, so the same cap, LRU and age sweep apply), and a
  * note carries a place, a confidence, a valence, a {@link Provenance} and a second participant. {@link #remember(int,
  * int, Kind, String, double, int, Provenance, double, int, long)} is the writer for code (never the LLM);
@@ -113,7 +113,7 @@ public final class BotMemory {
         FEELING,
         // Episodes: things that happened between the two, written by code.
         PQ, BOSS, PARTY, HELP, FAME, TRADE, GIFT, FAVOR, SCAM,
-        // Stage 3 (ticket 181), bot to bot: a conversation, an ask and its answer, gossip passed on. Written by code.
+        // Stage 3 (ticket 271), bot to bot: a conversation, an ask and its answer, gossip passed on. Written by code.
         CHAT, ASKED, TOLD,
         /** A player's goal or wanted item, with a follow-up tag. */
         GOAL,
@@ -124,7 +124,7 @@ public final class BotMemory {
         /** Slot: how the player looked when these two last talked (their level), written when the chat ends. */
         PROGRESS,
         /**
-         * Stage 5 (ticket 181), bot to bot: the subject promised to do something with or for the bot and did not (the
+         * Stage 5 (ticket 271), bot to bot: the subject promised to do something with or for the bot and did not (the
          * promise's deadline passed). Written by code (SocialIntents), negative valence. Named short: the Kind column is
          * VARCHAR(8) (migration 030), so no migration is needed.
          */

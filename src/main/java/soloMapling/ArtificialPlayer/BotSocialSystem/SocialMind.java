@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.SplittableRandom;
 
 /**
- * Stage 1 of the social layer (ticket 181): what a roster bot is like, how it feels and what it lacks.
+ * Stage 1 of the social layer (ticket 271): what a roster bot is like, how it feels and what it lacks.
  *
  * <ul>
  *   <li><b>Traits</b>: 12 continuous values in [0, 1], fixed by the roster slot and the bot's Bartle point, never

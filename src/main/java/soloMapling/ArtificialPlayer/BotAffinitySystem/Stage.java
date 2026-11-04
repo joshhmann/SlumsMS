@@ -3,7 +3,7 @@ package soloMapling.ArtificialPlayer.BotAffinitySystem;
 import java.util.Locale;
 
 /**
- * Ticket 181 stage 2: where a directed relationship stands, derived from its {@link Axes} <b>and the stage it was in
+ * Ticket 271 stage 2: where a directed relationship stands, derived from its {@link Axes} <b>and the stage it was in
  * before</b>, so a stage is sticky: every stage is entered at a higher threshold than it is left at (hysteresis), and
  * a stage moves at most one rung per event. The stored stage is what carries the history. This is separate from, and
  * does not change, the legacy {@link AffinityState} (NEUTRAL, FRIEND, RIVAL, NEMESIS) the old consumers read.

@@ -33,7 +33,7 @@ import java.util.function.IntPredicate;
 import java.util.function.ToLongFunction;
 
 /**
- * 1.6.4 ticket 181 Stage 4: bot-to-bot gifts - one bot hands another something it already owns, or simply says
+ * 1.6.4 ticket 271 Stage 4: bot-to-bot gifts - one bot hands another something it already owns, or simply says
  * "thanks, let's hunt later". Nothing is minted (no mesos, no items out of thin air), nothing is bought and no price
  * is agreed, so this is not a trade and not an economy change: the item leaves one bot's bag and lands in the
  * other's, and the rest is affinity.

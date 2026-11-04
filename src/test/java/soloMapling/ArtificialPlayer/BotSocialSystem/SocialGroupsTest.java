@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Ticket 181 stage 7: friend groups. New code, so the fail-before is that none of it existed. Components of the mutual
+ * Ticket 271 stage 7: friend groups. New code, so the fail-before is that none of it existed. Components of the mutual
  * friend graph, the minimum size, the mutual requirement, the recompute throttle, what a group adds to decisions and
  * that it is bounded, the conflict between groups, the reputation read, and the switch.
  */

@@ -164,7 +164,7 @@ public final class BotEpisodes {
     }
 
     /**
-     * Stage 3 (ticket 181): bot {@code botCharId} remembers something it did or saw with another BOT, written by the
+     * Stage 3 (ticket 271): bot {@code botCharId} remembers something it did or saw with another BOT, written by the
      * server's own events (never by the LLM): a talk, an ask and its answer, a trip, a trade, gossip passed on. The
      * note is about the other bot ({@link BotMemory.SubjectType#BOT}, keyed by its character id), lives under the same
      * 10-per-pair cap and age sweep as a note about a player, and a repeat of a similar thing folds into one note with a

@@ -1,4 +1,4 @@
--- SlumsMS 1.6.4 (ticket 181, Stage 3: structured social memory): what a bot remembers gets a subject type (a real
+-- SlumsMS 1.6.4 (ticket 271, Stage 3: structured social memory): what a bot remembers gets a subject type (a real
 -- player or another bot), a place, how sure the bot is, how it felt, how it came to know and a second character
 -- involved, so bots remember each other, recall by relevance and keep to what they saw or were told. Adds six
 -- columns to botmemory, all with defaults, so every existing row stays valid and an older jar runs fine on a migrated

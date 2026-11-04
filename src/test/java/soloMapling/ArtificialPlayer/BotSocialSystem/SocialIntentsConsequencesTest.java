@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Ticket 181 stage 5: what keeping or breaking a promise does, with the real consequences (not a fake): the promised-to
+ * Ticket 271 stage 5: what keeping or breaking a promise does, with the real consequences (not a fake): the promised-to
  * bot's own edge toward the actor on the trust, respect, resentment and obligation axes (and nothing else: the legacy
  * score does not move, the actor's own edge does not move), a BROKEN note in the promised-to bot's memory, and the
  * actor's pride, or anxiety and embarrassment.

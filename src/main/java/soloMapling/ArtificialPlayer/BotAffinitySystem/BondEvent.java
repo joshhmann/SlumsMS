@@ -32,7 +32,7 @@ public enum BondEvent {
     GIFT_GIVEN(0, 30 * 60),
     /** A sampled minute on the same observed map: a nod, barely anything on its own. */
     NEAR(1, 30 * 60),
-    /** Stage 4 (ticket 181): the other paid it a compliment (a social act, {@code SocialActions}). */
+    /** Stage 4 (ticket 271): the other paid it a compliment (a social act, {@code SocialActions}). */
     COMPLIMENT(2, 60 * 60),
     /** Stage 4: an apology was made or taken: the grudge eases and trust grows back (resentment falls). */
     APOLOGY(3, 20 * 60),

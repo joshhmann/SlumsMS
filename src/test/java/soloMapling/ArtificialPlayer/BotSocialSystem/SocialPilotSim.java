@@ -45,7 +45,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Ticket 181 stage 7: the Henesys pilot's simulated week. Twenty roster bots chosen by the real {@link SocialPilot#select}
+ * Ticket 271 stage 7: the Henesys pilot's simulated week. Twenty roster bots chosen by the real {@link SocialPilot#select}
  * live {@code days} simulated days on the {@link SocialSim} clock in a fake Henesys (four maps), with every class of the
  * social layer real: {@link SocialMind} (through {@code LifeMemory}), {@code ModeSwitch.decide} (with the real
  * {@link SocialRoutine} bias), {@link SocialRoutine#spotFor} (through {@link SocialPilot#destination}),

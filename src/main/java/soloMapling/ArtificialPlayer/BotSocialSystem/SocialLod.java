@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
- * Stage 6b of ticket 181: the social <b>level of detail</b>. Every roster bot is in one of three tiers, and the
+ * Stage 6b of ticket 271: the social <b>level of detail</b>. Every roster bot is in one of three tiers, and the
  * social layer spends work on it accordingly.
  *
  * <ul>

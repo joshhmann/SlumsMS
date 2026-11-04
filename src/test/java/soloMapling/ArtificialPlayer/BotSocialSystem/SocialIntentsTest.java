@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Ticket 181 stage 5: the intent book in a bot's life memory, and the scheduler that keeps or breaks what it holds.
+ * Ticket 271 stage 5: the intent book in a bot's life memory, and the scheduler that keeps or breaks what it holds.
  * New code, so the fail-before is that none of it existed. Everything the game would supply (who is online, whether the
  * actor is free, the opt-outs, the act, the consequences) is a fake behind the seams.
  */

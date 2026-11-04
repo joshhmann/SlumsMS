@@ -19,7 +19,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Ticket 181 stage 5: {@code BotCommitments.inFlight} has one more clause, a persisted promise falling due within two
+ * Ticket 271 stage 5: {@code BotCommitments.inFlight} has one more clause, a persisted promise falling due within two
  * minutes. That is what keeps {@code BotPopulationDirector.mayLogOut} (which asks it) from logging the bot out.
  */
 class BotCommitmentsIntentsTest {

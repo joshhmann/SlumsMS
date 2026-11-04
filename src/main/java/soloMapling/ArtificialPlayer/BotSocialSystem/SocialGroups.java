@@ -16,7 +16,7 @@ import java.util.function.BiFunction;
 import java.util.function.IntFunction;
 
 /**
- * Ticket 181 stage 7: friend groups, read off the bond graph and kept in memory only.
+ * Ticket 271 stage 7: friend groups, read off the bond graph and kept in memory only.
  *
  * <p><b>Detection.</b> A group is a connected component, of at least {@link #MIN_SIZE} bots, of the graph whose edges are
  * pairs that are FRIEND or CLOSE_FRIEND <em>both ways</em> (each bot's own edge toward the other, so a one-sided crush is

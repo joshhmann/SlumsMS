@@ -146,7 +146,7 @@ class DashboardExporterTest {
         }
     }
 
-    /** Ticket 181 stage 6a: {@code live.json} carries a {@code social} block of memory-only counters. */
+    /** Ticket 271 stage 6a: {@code live.json} carries a {@code social} block of memory-only counters. */
     @Test
     void liveJsonCarriesTheSocialBlock() throws Exception {
         SocialBudget.resetForTest();
@@ -183,7 +183,7 @@ class DashboardExporterTest {
             assertEquals(List.of("invites", "avoids", "together"), List.copyOf(((Map<?, ?>) acts.get("open")).keySet().stream()
                     .sorted(java.util.Comparator.comparingInt(k -> List.of("invites", "avoids", "together").indexOf(k))).toList()));
 
-            Map<?, ?> intents = (Map<?, ?>) social.get("intents"); // ticket 181 stage 5: the promise counters
+            Map<?, ?> intents = (Map<?, ?>) social.get("intents"); // ticket 271 stage 5: the promise counters
             assertEquals(true, intents.get("enabled"));
             Map<?, ?> intentCounters = (Map<?, ?>) intents.get("counters");
             for (String key : List.of("created", "kept", "broken", "expired", "cancelled", "refused", "deferred")) {

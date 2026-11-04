@@ -14,7 +14,7 @@ import java.util.Set;
 import java.util.function.IntFunction;
 
 /**
- * Stage 3 (ticket 181): what one bot REALLY remembers about the bot it is talking to, for the bot-to-bot talk paths
+ * Stage 3 (ticket 271): what one bot REALLY remembers about the bot it is talking to, for the bot-to-bot talk paths
  * ({@link BotThreads} and {@link BotTalk}). The notes come from {@link BotMemory} - written only by the server's own
  * events ({@link BotEpisodes#botEvent}, world news, bond events), never by the model - and reach the prompt as facts the
  * lines may refer to, or the bank as a callback line ("remember when u partied with me"). So a conversation points at a

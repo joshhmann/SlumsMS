@@ -140,7 +140,7 @@ public final class BondRules {
     }
 
     /**
-     * Ticket 181 stage 5: moves the axes only by {@code row} (already scaled) at {@code now}: the score, kind and
+     * Ticket 271 stage 5: moves the axes only by {@code row} (already scaled) at {@code now}: the score, kind and
      * hostile counters stay as they are, so nothing that reads the legacy score sees it; the stage moves at most one
      * rung. A row of nothing changes nothing and returns false.
      */
@@ -179,7 +179,7 @@ public final class BondRules {
         bond.stage = Stage.settle(Stage.STRANGER, bond.axes, true);
     }
 
-    // ── ticket 181 stage 2: axes and stage ──
+    // ── ticket 271 stage 2: axes and stage ──
 
     /** The bond's eight axes faded to {@code now} (a new vector; each axis by its own half-life). */
     static double[] axesAt(Bond bond, long now) {

@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Ticket 181 stage 7: the social checks - their wiring, and every verdict rule with a pass and a fail. */
+/** Ticket 271 stage 7: the social checks - their wiring, and every verdict rule with a pass and a fail. */
 class Probes164SocialTest {
 
     static final List<String> NEW = List.of("t-ms-1", "t-sm-1", "t-sa-1");

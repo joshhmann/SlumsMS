@@ -1,7 +1,7 @@
 package soloMapling.ArtificialPlayer.BotSocialSystem;
 
 /**
- * Ticket 181 stage 5: one thing a bot means to do for another character later, because it agreed to (a promise to
+ * Ticket 271 stage 5: one thing a bot means to do for another character later, because it agreed to (a promise to
  * meet, help, come along, party, hang out). Immutable; the live ones are kept in the actor's {@link IntentBook}
  * (inside its life memory, saved with it).
  *

@@ -19,7 +19,7 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 /**
- * The real flows behind {@link SocialFlows} (ticket 181 stage 4): each wrapped social act runs the existing
+ * The real flows behind {@link SocialFlows} (ticket 271 stage 4): each wrapped social act runs the existing
  * bot-to-bot path without changing it. GREET and CONVERSE are {@link BotTalk#run} (a greeting-only plan, a full chat
  * plan), ASK_HELP is {@code run} with the HELP ask forced (the other's answer is {@link TalkBrain}'s), OFFER_HELP is the
  * help trip the HELP act already ran ({@link BotTalk#helpTrip}), INVITE/ACCEPT use {@link LfgParty} and the plain duo

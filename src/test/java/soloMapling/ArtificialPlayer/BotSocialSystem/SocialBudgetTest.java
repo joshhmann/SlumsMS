@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Ticket 181 stage 6a: the loop breaker. Every limit trips and releases on a manual clock, an A-B ping-pong stops at
+ * Ticket 271 stage 6a: the loop breaker. Every limit trips and releases on a manual clock, an A-B ping-pong stops at
  * the turn limit, a failing act backs off by doubling, refusals are counted per reason. New code: there was no guard
  * before (the fail-before is the whole class not existing); the BotTalk hook is covered in BotTalkBudgetTest.
  */

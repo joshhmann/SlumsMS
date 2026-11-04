@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Ticket 181 stage 4: the social decision tick: who decides, from what, how often, and what the switch does. */
+/** Ticket 271 stage 4: the social decision tick: who decides, from what, how often, and what the switch does. */
 class SocialDeciderTest extends SocialActTestBase {
 
     private void pair() {

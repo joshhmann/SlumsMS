@@ -7,7 +7,7 @@ package soloMapling.ArtificialPlayer.BotAffinitySystem;
  * most bonds only ever see one or two kinds of event). Not thread-safe: {@link BotBonds} guards it with the owner's
  * bond set.
  *
- * <p>Ticket 181 stage 2 adds the eight {@link Axis} values (as of the same {@link #updatedAt}) and the {@link Stage}
+ * <p>Ticket 271 stage 2 adds the eight {@link Axis} values (as of the same {@link #updatedAt}) and the {@link Stage}
  * the edge was last in (the memory the stage hysteresis needs). {@code score} stays the number every older consumer
  * reads: it is still moved by the event's own delta, exactly as before; the axes ride along and never change it.
  */

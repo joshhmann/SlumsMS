@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 /**
- * Ticket 181 stage 6a: the memory-only views of the social layer (inspect {@code mind}/{@code bonds}/{@code mode},
+ * Ticket 271 stage 6a: the memory-only views of the social layer (inspect {@code mind}/{@code bonds}/{@code mode},
  * {@code !botwhy} lines, the dashboard's bond totals). New code; the fail-before for the readers is that none existed.
  */
 class SocialMetricsTest {

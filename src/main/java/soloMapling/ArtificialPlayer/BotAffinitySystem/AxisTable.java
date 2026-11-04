@@ -4,7 +4,7 @@ import java.util.EnumMap;
 import java.util.Map;
 
 /**
- * Ticket 181 stage 2: the one table of what each event kind does to each relationship axis, for both edge kinds
+ * Ticket 271 stage 2: the one table of what each event kind does to each relationship axis, for both edge kinds
  * ({@link BondEvent}: bot to bot, {@link AffinityEvent}: bot to player), and the one place the holder's character
  * scales it. Nothing else in the code names an axis delta.
  *
@@ -81,7 +81,7 @@ final class AxisTable {
     }
 
     /**
-     * Ticket 181 stage 5, a promise between two bots, on the PROMISED-TO bot's own edge toward the one who promised (the
+     * Ticket 271 stage 5, a promise between two bots, on the PROMISED-TO bot's own edge toward the one who promised (the
      * only edge that learns of it). Kept: it trusts and respects a little more and feels it owes a little back. Broken: trust
      * and respect fall, a touch of resentment. Not a {@link BondEvent}: the score does not move, only the axes.
      */

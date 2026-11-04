@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Ticket 181 stage 2 for bot-to-player ties: the same axes and stages as bonds, through {@link BotAffinity}. */
+/** Ticket 271 stage 2 for bot-to-player ties: the same axes and stages as bonds, through {@link BotAffinity}. */
 class TieAxesTest {
 
     static final int BOT = BotStore.BOT_ID_BASE + 7;

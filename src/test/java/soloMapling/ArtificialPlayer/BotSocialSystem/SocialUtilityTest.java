@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Ticket 181 stage 4: the utility model and the choice. Pure over a {@link SocialContext}: traits, emotions, needs, the
+ * Ticket 271 stage 4: the utility model and the choice. Pure over a {@link SocialContext}: traits, emotions, needs, the
  * actor's own edge and stage, memory, the target's company and the norms decide which act scores best; different
  * personalities choose different acts from the same situation; the same bot in the same state is stable.
  */

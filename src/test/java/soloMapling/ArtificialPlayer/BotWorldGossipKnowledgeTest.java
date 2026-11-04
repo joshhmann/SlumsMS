@@ -30,7 +30,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Ticket 181 Stage 3, knowledge boundaries: the world news is global bookkeeping, but a bot only voices what it
+ * Ticket 271 Stage 3, knowledge boundaries: the world news is global bookkeeping, but a bot only voices what it
  * witnessed or was told (by a knower, at most two mouths from a witness, after a delay, as a REPORTED note of lower
  * confidence). A bot that neither saw nor heard it says nothing about it. The matrix: witnessed, told, neither.
  */

@@ -44,7 +44,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Ticket 181 Stage 4: a bot hands another bot something out of its own bag (or just a kind word), and the gift is
+ * Ticket 271 Stage 4: a bot hands another bot something out of its own bag (or just a kind word), and the gift is
  * either whole or does not happen. Everything the live path reads from WZ - what a bot can wear, what counts as a
  * potion, what an item is worth - is behind the seams the gear optimizer and the supply code already use, so this
  * test table is the item data: the assertions are about the rules, not about v83 content.

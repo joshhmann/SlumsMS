@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
 
 /**
- * Ticket 181 stage 7: the daily schedule as SOFT STRUCTURE. There is no script and no timetable: for each bot the
+ * Ticket 271 stage 7: the daily schedule as SOFT STRUCTURE. There is no script and no timetable: for each bot the
  * traits fix four smooth hour-of-day weights (work or training, a lunchtime gathering in the town square or market, an
  * evening hangout, rest), and those weights are only ever inputs to decisions that already exist:
  *

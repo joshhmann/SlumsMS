@@ -37,7 +37,7 @@ import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpe
  *   {@link #MENTION_GAP_MS} ms.</li>
  * </ul>
  *
- * <p><b>Knowledge boundaries (Stage 3, ticket 181).</b> The feed is global bookkeeping, but a bot only ever voices
+ * <p><b>Knowledge boundaries (Stage 3, ticket 271).</b> The feed is global bookkeeping, but a bot only ever voices
  * news it <i>knows</i>: it was one of the {@value #WITNESSES} bots on the actor's map when it happened (witnessed),
  * or a knower told it ({@link #pass}, along a {@code BotGossip} step: at most {@link BotMemory#MAX_HOPS} mouths from a
  * witness, known to the listener only after a short delay, kept as a REPORTED note of lower confidence). A bot that

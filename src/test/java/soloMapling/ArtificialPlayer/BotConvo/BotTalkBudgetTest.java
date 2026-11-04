@@ -25,7 +25,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Ticket 181 stage 6a: BotTalk asks {@link SocialBudget} before a greet or chat ({@code run}) and before an ask act is
+ * Ticket 271 stage 6a: BotTalk asks {@link SocialBudget} before a greet or chat ({@code run}) and before an ask act is
  * carried out ({@code carryOut}), and reports how each ask act went. The budget is a safety net: a first act is never
  * held, so existing pacing is unchanged until a loop builds up.
  */

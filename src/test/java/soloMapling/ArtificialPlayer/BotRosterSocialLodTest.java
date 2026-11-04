@@ -29,7 +29,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Stage 6b of ticket 181, the login half: a roster member that comes back after hours away is caught up once, at
+ * Stage 6b of ticket 271, the login half: a roster member that comes back after hours away is caught up once, at
  * login, by a bounded amount, through the same record the roster stamps.
  */
 class BotRosterSocialLodTest {

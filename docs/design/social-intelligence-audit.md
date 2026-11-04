@@ -1,6 +1,6 @@
 # Social intelligence: architecture audit, integration design and plan (1.6.4)
 
-Ticket 181. Read-only audit of `release-1.6.4` at `6d18f961e` on 2026-11-03 (six scouts, one per slice; this file is the
+Ticket 271. Read-only audit of `release-1.6.4` at `6d18f961e` on 2026-11-03 (six scouts, one per slice; this file is the
 consolidated result), then the staged plan. Path shorthand: **AP** = `src/main/java/soloMapling/ArtificialPlayer`,
 **BL** = `AP/BotLifeSystem`. Anchors are file:line at that commit and move; grep the symbol.
 

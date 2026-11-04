@@ -627,7 +627,7 @@ them (and undoes any LOD pin) itself. None of them is on the release allow-list.
   the shared ring was empty and the hour's 20 copies had gone to other bots' stuck reports). A tool that is off
   SKIPs the check naming its flag.
 
-### Social checks (1.6.4, ticket 181 stage 7)
+### Social checks (1.6.4, ticket 271 stage 7)
 
 Probes in `Probes164Social`, no `!qa` scenario; each samples counters the server has already accumulated and moves
 nothing, so they run beside a live population rather than staging one. They are lane-only (they need a populated

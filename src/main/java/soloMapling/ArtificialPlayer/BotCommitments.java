@@ -12,7 +12,7 @@ import soloMapling.ArtificialPlayer.BotPartySystem.BotRecruitManager;
  * how much physics and how much macro work to run; it is never a reason to make a player wait out a
  * background heartbeat, and no bot type's background pacing override may starve a commitment either.
  *
- * <p>Ticket 181 stage 5: a bot with a persisted social intent (a promise to meet, help, come along or party) falling due
+ * <p>Ticket 271 stage 5: a bot with a persisted social intent (a promise to meet, help, come along or party) falling due
  * within two minutes ({@code SocialIntents.dueSoon}) is committed as well, so the population director leaves it online
  * and {@code ModeSwitch.blocker} (which asks {@link #inFlight(BotSM)}) does not swap its mode.
  *
@@ -82,7 +82,7 @@ public final class BotCommitments {
         if (soloMapling.mechanics.MechanicsHold.committed(chr)) {
             return true;
         }
-        // 1.6.4 ticket 181 stage 5: a promise it made to a friend (meet, help, come along, party) falls due within two
+        // 1.6.4 ticket 271 stage 5: a promise it made to a friend (meet, help, come along, party) falls due within two
         // minutes: it neither logs out nor changes mode until it has kept it or let it lapse. Memory only.
         if (soloMapling.ArtificialPlayer.BotSocialSystem.SocialIntents.dueSoon(chr.getId(),
                 soloMapling.ArtificialPlayer.BotSocialSystem.SocialSim.now())) {

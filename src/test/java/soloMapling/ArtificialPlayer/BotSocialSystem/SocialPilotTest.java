@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Ticket 181 stage 7: the pilot's membership, hold, placement and counters. New code, so the fail-before is that none of it
+ * Ticket 271 stage 7: the pilot's membership, hold, placement and counters. New code, so the fail-before is that none of it
  * existed. The director's use of the hold is in {@code soloMapling.ArtificialPlayer.SocialPilotDirectorTest}.
  */
 class SocialPilotTest {

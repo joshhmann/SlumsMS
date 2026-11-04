@@ -9,7 +9,7 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Ticket 181 stage 5: one bot's persisted intentions. At most {@link #MAX_LIVE} live ones, ordered by due time then id,
+ * Ticket 271 stage 5: one bot's persisted intentions. At most {@link #MAX_LIVE} live ones, ordered by due time then id,
  * plus a short memory of how the last few ended. It lives inside the bot's {@code LifeMemory} (JSON key
  * {@code "intents"}, same lazy pattern as the social mind) and is not thread-safe on its own: reach it only through
  * {@code LifeMemory.intents(..)}, which holds the memory's lock and marks the memory dirty when {@link #version}

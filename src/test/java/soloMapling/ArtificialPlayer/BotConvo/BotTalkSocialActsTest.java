@@ -32,7 +32,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * Ticket 181 stage 4 at the bot-talk seam: the bot's emotions and needs reach {@link TalkBrain}'s inputs
+ * Ticket 271 stage 4 at the bot-talk seam: the bot's emotions and needs reach {@link TalkBrain}'s inputs
  * ({@code WorldSense.mind}) when social acts are on and change nothing when they are off; avoid records keep two bots
  * from greeting or chatting; the decision tick is invoked from the talk tick only when the switch is on.
  */

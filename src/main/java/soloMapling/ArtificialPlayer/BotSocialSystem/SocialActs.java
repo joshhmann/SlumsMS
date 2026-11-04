@@ -16,7 +16,7 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * The 16 social acts (ticket 181 stage 4), one nested class each. "Wrapped" acts run an existing flow through
+ * The 16 social acts (ticket 271 stage 4), one nested class each. "Wrapped" acts run an existing flow through
  * {@link SocialFlows} (the bot-talk greeting and chat, the help ask and trip, the party invitation, the gossip pass);
  * "built" acts have their own outcome here. U = the utility terms (all from {@link SocialContext}: needs, emotions,
  * traits, the actor's OWN edge, memory, the target's company, norms); {@code ~} marks a subtracted term.

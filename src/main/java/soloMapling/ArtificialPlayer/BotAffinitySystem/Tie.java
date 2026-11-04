@@ -8,7 +8,7 @@ import java.util.Map;
  * from there by {@link AffinityRules}, and how many kind and hostile things built it. Per-event cooldowns live here too,
  * in memory only. Not thread-safe: {@link BotAffinity} guards it with the player's lock.
  *
- * <p>Ticket 181 stage 2 adds the eight {@link Axis} values and the {@link Stage}, exactly as {@link Bond} has them; the
+ * <p>Ticket 271 stage 2 adds the eight {@link Axis} values and the {@link Stage}, exactly as {@link Bond} has them; the
  * score is still moved by the event's own delta and read by every older consumer.
  */
 public final class Tie {

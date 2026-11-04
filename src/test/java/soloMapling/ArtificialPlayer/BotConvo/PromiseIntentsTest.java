@@ -43,7 +43,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Ticket 181 stage 5: dialogue to intention. A bot's yes that the server already acts on (a bot-talk plan's yes, a
+ * Ticket 271 stage 5: dialogue to intention. A bot's yes that the server already acts on (a bot-talk plan's yes, a
  * player's request the gates agreed to) is also a persisted intention with the right kind and due time; the model's
  * words alone are not. Broken, kept, survives a save, at most three, opt-outs and the flag.
  */

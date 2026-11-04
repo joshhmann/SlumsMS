@@ -212,7 +212,7 @@ public final class AffinityRules {
         return Math.abs(scoreAt(tie, now)) < FADED && Axes.feeling(axesAt(tie, now)) < 0.03;
     }
 
-    // ── ticket 181 stage 2: axes and stage (the same arithmetic as BondRules, for bot-to-player edges) ──
+    // ── ticket 271 stage 2: axes and stage (the same arithmetic as BondRules, for bot-to-player edges) ──
 
     /** The tie's eight axes faded to {@code now}. */
     static double[] axesAt(Tie tie, long now) {

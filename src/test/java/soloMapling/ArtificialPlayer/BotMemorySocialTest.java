@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Ticket 181 Stage 3: structured social memory. The new columns (migration 060) and the server staying up without
+ * Ticket 271 Stage 3: structured social memory. The new columns (migration 060) and the server staying up without
  * them, bots as the subject of a note, the writer API, scored recall, and consolidation of repeats.
  */
 class BotMemorySocialTest {

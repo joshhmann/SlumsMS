@@ -20,7 +20,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 /**
- * Stage 6b of ticket 181: the social level of detail. The tier is a pure function of (observed, online,
+ * Stage 6b of ticket 271: the social level of detail. The tier is a pure function of (observed, online,
  * lastActiveAt, now); the hold keeps a bot ACTIVE for 30 s after the last observer left; a BACKGROUND bot gets its
  * maintenance at most once per five minutes; a DORMANT one costs nothing and catches up once at login.
  */

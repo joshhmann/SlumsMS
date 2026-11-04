@@ -1,4 +1,4 @@
--- SlumsMS 1.6.4 (ticket 181 stage 2, relationship axes): every directed relationship a bot holds (botbond: bot to bot;
+-- SlumsMS 1.6.4 (ticket 271 stage 2, relationship axes): every directed relationship a bot holds (botbond: bot to bot;
 -- botaffinity: bot to player) gets eight axes and a stage, so the server can tell "trusts but dislikes" from "admires
 -- but is rivals" instead of one -100..100 score. Adds ten columns to each of the two tables, all with defaults, so every
 -- existing row stays valid and an older jar runs fine on a migrated database (it never names them). Stop the game and

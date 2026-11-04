@@ -4,7 +4,7 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Ticket 181 stage 2: the eight axes of one directed relationship edge ({@link Bond}: bot to bot, {@link Tie}: bot to
+ * Ticket 271 stage 2: the eight axes of one directed relationship edge ({@link Bond}: bot to bot, {@link Tie}: bot to
  * player). Every axis is a float on a stated range, as of the edge's {@code updatedAt}, and fades <b>lazily on read</b>
  * toward 0 (the familiarity axis toward a floor), each with its own half-life; nothing is written when time passes.
  *

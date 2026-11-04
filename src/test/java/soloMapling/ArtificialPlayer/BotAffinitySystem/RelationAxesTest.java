@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Ticket 181 stage 2, the pure part: the axis table, the character scaling, per-axis decay with the familiarity floor,
+ * Ticket 271 stage 2, the pure part: the axis table, the character scaling, per-axis decay with the familiarity floor,
  * the legacy derivation and the stage hysteresis. Nothing here touches BotBonds or a store.
  */
 class RelationAxesTest {

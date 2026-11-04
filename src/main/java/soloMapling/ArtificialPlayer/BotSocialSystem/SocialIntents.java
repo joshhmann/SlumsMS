@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
- * Ticket 181 stage 5: persisted intentions. A bot that agrees to meet, help, come along, party or hang out has made a
+ * Ticket 271 stage 5: persisted intentions. A bot that agrees to meet, help, come along, party or hang out has made a
  * promise; this makes the promise a thing the server remembers and checks, instead of dialogue that meant nothing.
  *
  * <p>The model proposes nothing here. An intent is created only by server code that has already validated the

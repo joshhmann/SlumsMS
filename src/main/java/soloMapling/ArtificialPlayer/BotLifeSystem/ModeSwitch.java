@@ -99,7 +99,7 @@ public final class ModeSwitch {
     }
 
     /**
-     * As {@link #decide(Inputs, double, double)} with the daily routine's bias (ticket 181 stage 7): the pull from
+     * As {@link #decide(Inputs, double, double)} with the daily routine's bias (ticket 271 stage 7): the pull from
      * training toward a social or town mode is scaled by {@code bias.towardTown()}, the pull back by
      * {@code bias.towardTraining()}; both are bounded and neutral at 1, and {@code ModeBias.NONE} is exactly the
      * unbiased policy. The bias only scales a score, so a bot whose needs are strong still clears the threshold either way.

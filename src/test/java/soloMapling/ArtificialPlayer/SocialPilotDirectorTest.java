@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Ticket 181 stage 7: the population director's side of the pilot. A pilot bot inside its own play window is built as
+ * Ticket 271 stage 7: the population director's side of the pilot. A pilot bot inside its own play window is built as
  * the director's candidates are (a zero session length, no leave-now permission); the pure {@code plan} then never ends
  * its session. New code, so the fail-before is that nothing held a bot; the rest of the director is unchanged.
  */

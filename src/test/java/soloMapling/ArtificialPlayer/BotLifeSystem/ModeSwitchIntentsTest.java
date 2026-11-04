@@ -26,7 +26,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 /**
- * Ticket 181 stage 5: a bot with a promise falling due within two minutes is committed for the mode switch too.
+ * Ticket 271 stage 5: a bot with a promise falling due within two minutes is committed for the mode switch too.
  * {@code ModeSwitch.blocker} already asks {@code BotCommitments.inFlight} (which now has the intent clause), so the swap
  * waits; once the promise is kept or lapses the same bot is free. The real {@code BotCommitments} and
  * {@code BotPopulationDirector} run; only the game's lookups are faked.

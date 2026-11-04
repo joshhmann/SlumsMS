@@ -19,7 +19,7 @@ import java.util.TreeMap;
 import java.util.function.Supplier;
 
 /**
- * Ticket 181, the social pilot: read-only auto-QA checks that sample what the social layer has already done on the
+ * Ticket 271, the social pilot: read-only auto-QA checks that sample what the social layer has already done on the
  * running server. None of them stages a scene, moves a bot or writes a counter: they read the counters and the loaded
  * minds of the bots that are online now, so they cost one pass over the online bots and nothing else.
  *

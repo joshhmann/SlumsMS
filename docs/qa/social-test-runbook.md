@@ -1,6 +1,6 @@
-# Social intelligence on TEST: runbook (ticket 181, stage 7)
+# Social intelligence on TEST: runbook (ticket 271, stage 7)
 
-For Server Dev and the owner. Ticket 181 adds a social mind to the bots: a mood and needs that move, eight-axis
+For Server Dev and the owner. Ticket 271 adds a social mind to the bots: a mood and needs that move, eight-axis
 relationships, structured memories, a small set of social acts (greet, chat, gift, argue, apologise, reconcile,
 avoid, spend time, invite and answer), intents that outlive a single tick ("meet me at 8"), a social budget that
 stops a pair from looping, and a mode switch that lets a bot leave training for social or town life and come back.

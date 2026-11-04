@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Ticket 181 stage 7: THE PILOT PROOF. Twenty roster bots chosen by the real pilot selection, with seeded varied minds,
+ * Ticket 271 stage 7: THE PILOT PROOF. Twenty roster bots chosen by the real pilot selection, with seeded varied minds,
  * live seven simulated days in a fake Henesys on the {@link SocialSim} clock (see {@link SocialPilotSim} for exactly what is
  * real and what is faked), with a few visits of two real players and one simulated server restart in the middle. The test
  * prints a report and asserts each of the ten pilot criteria with its numbers, then the safety properties. The same seed

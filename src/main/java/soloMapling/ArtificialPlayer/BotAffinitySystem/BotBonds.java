@@ -58,7 +58,7 @@ import java.util.function.LongSupplier;
  * ({@link BondRules#scale}). A bond crossing into FRIEND pushes the bot's chart point once ({@code PARTY} for party-like
  * events, else {@code CHAT}), through {@link LifeMemory#push}, plasticity-weighted there.
  *
- * <p><b>Stage 2 (ticket 181):</b> every bond also carries eight relationship axes and a {@link Stage}
+ * <p><b>Stage 2 (ticket 271):</b> every bond also carries eight relationship axes and a {@link Stage}
  * ({@link Axis}, {@link AxisTable}, {@link #axes}, {@link #stage}); {@code score} still moves by the event's own delta,
  * so {@link #state}, crews and every other score reader are untouched. Unobserved maps get a bounded <i>background</i>
  * tier: {@link #backgroundMaps()} of them (2) per step, {@link #backgroundPairsPerMap()} pair(s) each, the same NEAR /
@@ -260,7 +260,7 @@ public final class BotBonds {
     }
 
     /**
-     * Ticket 181 stage 5: bot {@code botId}'s own edge toward bot {@code otherId} moves because {@code otherId} kept
+     * Ticket 271 stage 5: bot {@code botId}'s own edge toward bot {@code otherId} moves because {@code otherId} kept
      * ({@code kept}) or broke a promise to {@code botId}: trust, respect and obligation up, or trust and respect down
      * with a little resentment ({@link AxisTable#promise}). Axes only; the score and its hooks are untouched. Only an
      * edge that already exists moves (a promise between strangers leaves no bond behind); false when there is none, when

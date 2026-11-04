@@ -1536,7 +1536,7 @@ public final class AutoQaCatalog {
                 .minutes(2)
                 .expect(probe("makerBatch"))
                 .build());
-        // ticket 181 stage 7 (the Henesys pilot): the social layer's four read-only probes (Probes164Social). Each
+        // ticket 271 stage 7 (the Henesys pilot): the social layer's four read-only probes (Probes164Social). Each
         // samples counters the server has already accumulated and SKIPs with a reason while there is too little of
         // it, so none of them stages a scene or moves a bot
         // modes (-Dslums.modeswitch): after 8 bots x 30 min of mode decisions, the census holds all three modes,

@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Ticket 181 stage 7: the routine is a bias, never a script. New code, so the fail-before is that none of it existed;
+ * Ticket 271 stage 7: the routine is a bias, never a script. New code, so the fail-before is that none of it existed;
  * what is pinned: the shape of a day, the bounds of every bias, needs overriding the schedule, the neutral overload of
  * {@code ModeSwitch.decide}, similar minds picking the same place, a group's event pulling its members, and the switch.
  */

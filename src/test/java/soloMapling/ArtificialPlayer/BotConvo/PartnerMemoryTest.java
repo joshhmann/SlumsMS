@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Ticket 181 Stage 3: bot-to-bot talk is grounded in what the two really remember of each other. The prompts of
+ * Ticket 271 Stage 3: bot-to-bot talk is grounded in what the two really remember of each other. The prompts of
  * {@link BotThreads} and {@link BotTalk} carry the partner's real memories (written only by server events); no memory
  * leaves them as they were; a memory that names anyone else never reaches a prompt; the model cannot write a memory.
  */

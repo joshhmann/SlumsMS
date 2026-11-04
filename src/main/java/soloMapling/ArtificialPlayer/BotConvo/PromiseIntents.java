@@ -10,7 +10,7 @@ import soloMapling.ArtificialPlayer.BotSocialSystem.SocialSim;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Ticket 181 stage 5: where an agreement becomes an intention. The two places a bot's yes already turns into an action
+ * Ticket 271 stage 5: where an agreement becomes an intention. The two places a bot's yes already turns into an action
  * - a bot-to-bot yes in {@link BotTalk} ({@link TalkPromises#promised}) and a player's request the gates said yes to
  * ({@link ConvoActions}) - also record a {@link SocialIntent}, so the promise to meet, help, come along or party outlives the
  * lines and the immediate act and is checked at its deadline. Nothing is removed: the act that ran before still runs.

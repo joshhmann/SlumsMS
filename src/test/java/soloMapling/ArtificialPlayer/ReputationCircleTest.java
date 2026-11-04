@@ -24,7 +24,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Ticket 181 Stage 3: what a bot knows of a reputation comes from its own circle (guild, crew, bond neighbours), never
+ * Ticket 271 Stage 3: what a bot knows of a reputation comes from its own circle (guild, crew, bond neighbours), never
  * from bots it has no bond to. The all-bots counts ({@code Reputation.totals}, {@code BotMemory.kindCounts(int)}) are
  * deliberately aggregate statistics for operators; the restricted forms are what a bot may act on.
  */
