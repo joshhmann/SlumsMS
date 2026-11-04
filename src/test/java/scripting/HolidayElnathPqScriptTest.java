@@ -67,6 +67,10 @@ class HolidayElnathPqScriptTest {
     }
 
     public static final class FakeEim {
+        public Object getInstanceMap(int id) {
+            return new Object();
+        }
+
         public int getIntProperty(String k) {
             return k.equals("level") ? 1 : 0;
         }
@@ -189,8 +193,7 @@ class HolidayElnathPqScriptTest {
     void elnathNpcStartsTheEventForAPartyWithoutQuest6192() throws Exception {
         ScriptEngine engine = new Loader().load("npc/2020008.js");
         assertNotNull(engine);
-        ElnathCm cm = new ElnathCm() {
-        };
+        ElnathCm cm = new ElnathCm();
         engine.put("cm", cm);
         ((Invocable) engine).invokeFunction("start");
         assertEquals(1, cm.em.started, cm.ok);
