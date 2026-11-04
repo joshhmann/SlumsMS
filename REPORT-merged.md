@@ -40,7 +40,7 @@ test-creating lanes both wrote.
 
 ## Every conflict and how it was resolved
 
-46 conflicts in all, across eleven merges (18 in steps 3-8, 10 in step 9, 5 in step 10, 12 in step 11, 1 in step 12).
+46 conflicts in all, across eleven merges (18 in steps 3-8, 10 in step 9, 5 in step 10, 12 in step 11, 1 in step 12); the zenumist merge (step 13) conflicted in nothing.
 Only the ones that needed a decision are listed; the rest were whole-block additions where both sides were kept
 verbatim.
 
