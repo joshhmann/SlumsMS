@@ -27,6 +27,11 @@ Read-only audit of the server code (eleven lanes). Documented, not changed.
 | # | Ticket | Purpose |
 |---|---|---|
 | [183](183-bot-alt-improvements-1-6-4.md) | Cheap bot and alt improvements that need no owner decision | Owned-lifetime sweep, mint/destroy ledger (observation only), alt lockout/boot line/follow message (restock receipt and wear predicate parked, see 184); no economy numbers |
+## Possible overlaps (owner direction, 2026-11-03)
+
+| # | Ticket | Purpose |
+|---|---|---|
+| [184](184-possible-overlaps-1-6-4.md) | Possible overlaps to revisit | Parking list of places where in-flight 1.6.4 work could collide, with how to check each and what to do; check before starting or merging |
 
 ## 1.6.2 release closure (owner direction, 2026-10-31)
 
