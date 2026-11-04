@@ -278,6 +278,9 @@ public final class SocialActions {
             }
             SocialMetrics.countAct(kind, !out.happened() ? "refused" : out.landed() ? "ok"
                     : out.reason().startsWith("rejected") ? "rejected" : "failed");
+            if (out.happened() && !out.landed() && !out.reason().startsWith("rejected")) {
+                SocialMetrics.countAct(kind, "failed: " + SocialMetrics.shortReason(out.reason()));
+            }
             if (out.happened()) {
                 SocialPilot.onAct(actorCharId, kind, out.landed()); // stage 7: pilot counters (memory only)
             }

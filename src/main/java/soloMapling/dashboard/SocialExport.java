@@ -8,6 +8,7 @@ import soloMapling.ArtificialPlayer.BotSocialSystem.SocialBudget;
 import soloMapling.ArtificialPlayer.BotSocialSystem.SocialIntents;
 import soloMapling.ArtificialPlayer.BotSocialSystem.SocialMetrics;
 import soloMapling.ArtificialPlayer.BotSocialSystem.SocialPilot;
+import soloMapling.ArtificialPlayer.BotSocialSystem.SocialYield;
 import soloMapling.ArtificialPlayer.GCMoveSystem.BotPerformanceMonitor;
 
 import java.util.LinkedHashMap;
@@ -24,6 +25,7 @@ import java.util.Map;
  *   social.modes        {enabled, census: {training, social, town}, stats: ModeSwitch counters}
  *   social.budget       {enabled, counters: SocialBudget counters (allowed, denied per reason, recorded, ...)}
  *   social.acts         {enabled, counters: SocialMetrics act and decision counters ("KIND.ok", "KIND.rejected"...), open: invites, avoids, together}
+ *   social.yield        {kinds: {KIND: {count, mesos, receivers, perHour, mesosPerHour}}, playerHoursOnline, playerHoursInPilotMap, sinceHours}  bot gifts to real players
  *   social.talk         {on, ticks, avgTickMs, avgCpuMs, talks, greets, actsOk, actsFailed}  BotTalk, since boot
  *   social.socialTick   {calls, totalMs, msPerS, callsPerS}  the social-tick cost phase, rate over the interval
  *   social.bonds        {bonds, holders, text}  BotBonds totals
@@ -45,6 +47,7 @@ final class SocialExport {
         out.put("modes", modes());
         out.put("budget", budget());
         out.put("acts", acts());
+        out.put("yield", yieldBlock(now));
         out.put("talk", talk());
         out.put("socialTick", socialTick(now, phases));
         out.put("bonds", SocialMetrics.bondTotals());
@@ -71,6 +74,29 @@ final class SocialExport {
         m.put("enabled", SocialBudget.enabled());
         m.put("counters", new LinkedHashMap<>(SocialBudget.counters()));
         return m;
+    }
+
+    private static Map<String, Object> yieldBlock(long now) {
+        int players = 0, inPilot = 0;
+        try {
+            int pilotMap = SocialPilot.homeMap();
+            for (net.server.world.World world : net.server.Server.getInstance().getWorlds()) {
+                if (world != null) {
+                    for (client.Character chr : world.getPlayerStorage().getAllCharacters()) {
+                        if (chr != null && !soloMapling.ArtificialPlayer.BotHelpers.isBot(chr)) {
+                            players++;
+                            if (chr.getMapId() == pilotMap) {
+                                inPilot++;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (RuntimeException | LinkageError e) {
+            // worlds not up: sample zero
+        }
+        SocialYield.sample(players, inPilot, now);
+        return SocialYield.snapshot(now);
     }
 
     private static Map<String, Object> acts() {

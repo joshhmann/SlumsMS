@@ -182,6 +182,8 @@ public final class BotGiftAsks {
         String line = String.format("%s gave %s %d x %s (asked for %s)", bot.getName(), player.getName(), landed,
                 BotShops.nameOf(pick.itemId()), what);
         BotGifts.record(bot, player, line);
+        soloMapling.ArtificialPlayer.BotSocialSystem.SocialYield.record("GIFT_ASKED", player.getId(),
+                BotGifts.unitValue(new Item(pick.itemId(), (short) 0, (short) 1)) * landed);
         log.info("[GiftAsk] {}", line);
         return new Result(Outcome.GAVE, new Pick(pick.itemId(), landed, pick.said()));
     }
