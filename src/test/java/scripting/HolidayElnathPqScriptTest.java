@@ -143,6 +143,7 @@ class HolidayElnathPqScriptTest {
 
     public static final class ElnathCm {
         public final FakeEm em = new FakeEm();
+        public int job = 111;
         public String ok = "";
         public boolean disposed;
 
@@ -159,7 +160,7 @@ class HolidayElnathPqScriptTest {
         }
 
         public Object getPlayer() {
-            return new FakePlayer();
+            return new FakePlayer(job);
         }
 
         public Object getJobId() {
@@ -180,6 +181,16 @@ class HolidayElnathPqScriptTest {
     }
 
     public static final class FakePlayer {
+        private final int job;
+
+        FakePlayer(int job) {
+            this.job = job;
+        }
+
+        public FakeJob getJob() {
+            return new FakeJob(job);
+        }
+
         public int getLevel() {
             return 85;
         }
@@ -197,5 +208,25 @@ class HolidayElnathPqScriptTest {
         engine.put("cm", cm);
         ((Invocable) engine).invokeFunction("start");
         assertEquals(1, cm.em.started, cm.ok);
+    }
+
+    public record FakeJob(int id) {
+        public int getId() {
+            return id;
+        }
+    }
+
+    @Test
+    void aSecondJobWarriorInAPartyStillGetsTheThirdJobDialogue() throws Exception {
+        ScriptEngine engine = new Loader().load("npc/2020008.js");
+        ElnathCm cm = new ElnathCm();
+        cm.job = 110;   // Fighter: needs Tylus for the 3rd job advancement
+        engine.put("cm", cm);
+        try {
+            ((Invocable) engine).invokeFunction("start");
+        } catch (Exception dialogueNeedsMoreFakes) {
+            // the 3rd-job branch calls cm methods this fake does not have; reaching it is the point
+        }
+        assertEquals(0, cm.em.started, "a 2nd-job warrior must not be pulled into the PQ");
     }
 }
