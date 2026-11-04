@@ -1,10 +1,9 @@
 # Merge lane, 1.6.4 - everything in one tree (branch `164-all-merge`)
 
 Worktree `/root/work/164-all`, branch `164-all-merge` off `release-1.6.4` @ `6d18f961e`, push URL disabled, nothing
-pushed, nothing deployed, live server untouched. **Last merge commit `32e612d73`** (the code head; the only commit
-after it that touches `src/` is `3bc765541`, which is comment lines and two version strings), **197 commits** over the
-release tip; the suite and the WZ pass ran on `839ff8e91`, whose only difference from the code head is `docs/` (checked
-with `git diff 32e612d73 839ff8e91 -- src/ scripts/`).
+pushed, nothing deployed, live server untouched. **Last merge commit `73fdf507d`** (the code head - every commit after
+it changes reports, docs, the conf or the roadmap only, `git diff 73fdf507d HEAD -- src/ scripts/` empty), **201
+commits** over the release tip; the final suite and the WZ pass ran on it (logs `/tmp/final9.log`, `/tmp/wz8.log`).
 
 This is the one branch that carries every 1.6.4 lane: the base game's two rows, the boss lane's 27, the party-quest
 lane's 18, the real-run lane's ten, and the engine-seam lane's Guild Quest and Zenumist band - **57 rows, 29 `kind: BOSS`
@@ -31,6 +30,7 @@ lane's 18, the real-run lane's ten, and the engine-seam lane's Guild Quest and Z
 | 14 | `164-expedpolicy` @ `1b2911fad` | `4468e2da9` | owner answers 1 and 2: a bot may captain an expedition (`slums.exped.botcaptain`, on) with a real player always outranking it, an owned alt follows its owner into any expedition and takes a membership slot (`slums.exped.altfollow`, on), and `!mechanics boss <TYPE> [n]` → `BossStaging` → `ExpeditionBots.startAsCaptain` is the one caller in 1.6.4 |
 | 15 | `164-amoria` @ `c83bfabbf` | `23789b44a` | owner answer 5: a bot counts as an Amoria party member behind `slums.mechanics.amoriapq.botcount`, **default off, TEST only**; no Amoria row was written, because stages 2-4 are hand-work by the script's own design |
 | 16 | `164-botmortal` @ `015f59667` | `afdc47150` | owner answer 4, reversed: bots are **mortal** in an event instance (`-Dslums.bots.immortal` default **false**). A lethal hit kills a bot, a dead bot is a lost member whose hold goes back, only a Bishop's Resurrection clears the dead state, `revivepause` turns a death into a wait the run resumes from, and a bot's death spends the expedition death budget when `deathcount` is on (it stays off) |
+| 17 | `164-tierpay` @ `5779738be` | `73fdf507d` | owner answers 10/11's reward half: a level-2 (HARD) run of Kerning, Henesys, Ludi and Orbis pays **the same item ids at twice the quantity**, with EXP **identical** at both levels (`expStages` sits outside the level branch; `TierPayTest` asserts the equality). Seam is `KpqStaging.difficulty(tier)` - NORMAL is the literal 1 the scripts hardcoded, so an untiered run is byte-identical to today. Off with the tier switch |
 
 `164-bossfight`, `164-ex2qa` and `164-bossproof` are ancestors of `164-bossrows`/`164-opq`, so merging them adds
 nothing; every head was verified with `git for-each-ref` and `git merge-base --is-ancestor` before it was merged.
@@ -47,7 +47,7 @@ mortality (`BotDeaths`, `BotVitals`, `StatEffect`, `EventInstanceManager`, `Expe
 
 ## Every conflict and how it was resolved
 
-46 conflicts in all, across eleven merges (18 in steps 3-8, 10 in step 9, 5 in step 10, 12 in step 11, 1 in step 12); the zenumist merge (step 13), the expedition-policy merge (step 14) and the Amoria merge (step 15) conflicted in nothing. The mortality merge (step 16) also conflicted in nothing: it touches BotDeaths/BotVitals, `StatEffect`, `EventInstanceManager`, `ExpeditionDeathCount`, `MechanicsRuns` and `Orchestrator`, and of those only `Orchestrator` and `MechanicsRuns` had been touched before - both by lanes that never edited the death paths. The Amoria branch did add four comment lines to `docs/release/1.6.4.conf`, which the earlier rules would have made a conflict; git placed them inside the "stays off" list, where they belong, and the conf was then extended by hand with the two expedition-policy defaults-on entries (below).
+46 conflicts in all, across eleven merges (18 in steps 3-8, 10 in step 9, 5 in step 10, 12 in step 11, 1 in step 12); the zenumist merge (step 13), the expedition-policy merge (step 14) and the Amoria merge (step 15) conflicted in nothing. The mortality merge (step 16) also conflicted in nothing: it touches BotDeaths/BotVitals, `StatEffect`, `EventInstanceManager`, `ExpeditionDeathCount`, `MechanicsRuns` and `Orchestrator`, and of those only `Orchestrator` and `MechanicsRuns` had been touched before - both by lanes that never edited the death paths. The Amoria branch did add four comment lines to `docs/release/1.6.4.conf`, which the earlier rules would have made a conflict; git placed them inside the "stays off" list, where they belong, and the conf was then extended by hand with the two expedition-policy defaults-on entries (below). The tier-reward merge (step 17) conflicted in nothing either: it edits four `scripts/event/*.js` files and adds two test classes, and the branch's seam was already in the tree.
 Only the ones that needed a decision are listed; the rest were whole-block additions where both sides were kept
 verbatim.
 
@@ -227,7 +227,7 @@ party-quest row only when `Mechanics.enabled() && Mechanics.rowFlagOn(content)`.
 | `slums.mechanics.opq` / `.lpq` / `.hpq` / `.cafepq` / `.ludimazepq` / `.piratepq` / `.treasurepq` / `.dellibattle` / `.magatiapq` / `.magatiapqz` / `.ellinpq` / `.cwkpq` / `.bossrush` / `.zakumpq` / `.guildquest` | off | the named row (`.cafepq` covers areas 1-6, `.bossrush` all eight waves, `.guildquest` the seven-stage run) |
 | `slums.mechanics.nwill` / `.nlucid` / `.nverus` / `.ndarknell` | off | the four Hard-boss rows, **on top of** `slums.mechanics.boss` (each is an expedition script that already exists, so the extra flag is how a server opts into the harder instance) |
 | `slums.chaos.zakum` | off | the `zakum-chaos` row, on top of `slums.mechanics.boss` |
-| `slums.mechanics.tiers` | off | reading a row's `tiers:` block at all; four rows (`kpq`, `hpq`, `lpq`, `opq`) carry a HARD tier, and with the switch off their rooms keep their WZ numbers |
+| `slums.mechanics.tiers` | off | reading a row's `tiers:` block at all; four rows (`kpq`, `hpq`, `lpq`, `opq`) carry a HARD tier, and with the switch off their rooms keep their WZ numbers **and their stock rewards** - the level is 1 before anything is read, so an untiered run is byte-identical to today. On, a HARD run pays the same item ids at twice the quantity and the same EXP (`5779738be`, `TierPayTest`) |
 | `slums.mechanics.tier` | unset (NORMAL) | which tier a run asks for; a tier the row does not name is NORMAL, not an error |
 | `slums.mechanics.realruns` | unset = unlimited | how many bot-only runs may play for real at once. A run with a real player, or a GM/QA staged run, never counts |
 | `slums.mechanics.simruns` | 8 | how many simulated runs may stand in for refused ones |
@@ -343,26 +343,28 @@ through the client path, but the proof map does not claim them.
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Full suite, every switch unset | `mvn -o test` | **`Tests run: 9121, Failures: 0, Errors: 0, Skipped: 140`**, BUILD SUCCESS, `EXIT=0`, 34:58 (log `/tmp/final7.log`, on `839ff8e91`) |
+| Full suite, every switch unset | `mvn -o test` | **`Tests run: 9128, Failures: 0, Errors: 0, Skipped: 140`**, BUILD SUCCESS, `EXIT=0`, 33:05 (log `/tmp/final9.log`, on `73fdf507d` + the docs of this commit) |
 | Property leaks, both orders | `mvn -o test -Dtest='EventLootScrambleTest,EventSchedulerTest'`, the reverse, and `-Dsurefire.runOrder=reversealphabetical -Dtest='soloMapling.worldevents.*Test'` | green three times over (`testutil.PropsRestoredTest` 3) |
 | Row data, row simulation, tiers, the late-spawn leash | `mvn -o test -Dtest='MechanicsDataFilesTest,StageDataTest,RowRunSimulationTest,TierScalingTest,LateSpawnGraceTest'` | green; `RowRunSimulationTest` 47, `TierScalingTest` 13, `LateSpawnGraceTest` 5 |
 | The whole mechanics package | `mvn -o test -Dtest='soloMapling.mechanics.*Test,soloMapling.MechanicsDataFilesTest'` | **`Tests run: 725, Failures: 0, Errors: 0, Skipped: 2`** (log `/tmp/mech.log`) |
-| Every row against the WZ dump | `mvn -o test -Dwz-path=/root/work/SlumsMS-170-evan/wz -Dtest='ContentRowWzIntegrityTest,MechanicsRowWzIntegrityTest'` | `Tests run: 3, Failures: 0, Errors: 0, Skipped: 0`, `EXIT=0` (log `/tmp/wz7.log`): **57 rows, 163 map ids, 129 mob ids, 14 reactor ids, 1 door item (`4000381`)** - unchanged by the two policy merges, which add no row |
+| Every row against the WZ dump | `mvn -o test -Dwz-path=/root/work/SlumsMS-170-evan/wz -Dtest='ContentRowWzIntegrityTest,MechanicsRowWzIntegrityTest'` | `Tests run: 3, Failures: 0, Errors: 0, Skipped: 0`, `EXIT=0` (log `/tmp/wz8.log`): **57 rows, 163 map ids, 129 mob ids, 14 reactor ids, 1 door item (`4000381`)** - unchanged by the two policy merges, which add no row |
 | Hotfix parity with the last shipped release | `tools/release/hotfix-parity release-1.6.3` | `ok: HEAD has every commit of release-1.6.3`, `EXIT=0` |
 | Every named reactor stands on its stage's own ground | same run (`MechanicsRowWzIntegrityTest:93`) | green: 86 reactor references across 57 rows, 0 mismatches, with a negative control |
 
 ### Suite totals
 
-`mvn -o test`, every switch unset, on `839ff8e91` - the merged tip, after every lane including mortality:
+`mvn -o test`, every switch unset, on `73fdf507d` - the release tip, after every lane:
 
 ```
-Tests run: 9121, Failures: 0, Errors: 0, Skipped: 140     BUILD SUCCESS, EXIT=0, 34:58 (2099 s)   (log /tmp/final7.log)
+Tests run: 9128, Failures: 0, Errors: 0, Skipped: 140     BUILD SUCCESS, EXIT=0, 33:05 (1986 s)   (log /tmp/final9.log)
 ```
 
-Log `/tmp/final7.log`. The run before mortality (on `3b82d7cf0`) was `9100 / 0 / 0 / 140` (`/tmp/final6.log`); the 21 over
-that are the mortality lane's own - `BotMortalityTest`, `BotResurrectionTest`, `BotDeathCountTest`, `DeadMemberTest`, the
-added cases in `ExpeditionDeathCountTest`/`ExpeditionDeathCountRunTest`/`MechanicsRunsInstancesTest`, and the new
-seam case in `PlatformGroundTest`. The code head is `32e612d73`; the commit after it changes reports and docs only. Zero `<<< FAILURE` markers, no surefire temp-directory collision. The 140 skips are the tests that
+Log `/tmp/final9.log`. Counting back: the tier-reward merge added 7 (`TierPayTest` 6, `TierPaySeamTest` 1) over the
+mortality tip's `9121` (`/tmp/final7.log`), which was 21 over the pre-mortality `9100` (`/tmp/final6.log`) -
+`BotMortalityTest`, `BotResurrectionTest`, `BotDeathCountTest`, `DeadMemberTest`, the added cases in
+`ExpeditionDeathCountTest`/`ExpeditionDeathCountRunTest`/`MechanicsRunsInstancesTest`, and the new seam case in
+`PlatformGroundTest`. One attempt before this one (`/tmp/final8.log`) died on a single auto-QA lane flake, described under
+test hygiene; the re-run above is the one that counts. The code head is `73fdf507d`; the commit after it changes reports and docs only. Zero `<<< FAILURE` markers, no surefire temp-directory collision. The 140 skips are the tests that
 need a WZ dump (`ContentRowWzIntegrityTest`, `MechanicsRowWzIntegrityTest`), the tests that need a real client, and the
 `@EnabledIfSystemProperty` rows for switches this run leaves unset; the WZ pair is re-run green in the table above.
 
@@ -391,6 +393,17 @@ asserted between 1,000 and 2,000), so the release test now asserts the mechanism
 off in one tick (`stay >= 1`; all 40 skipping has probability 0.15^40) and every stayer outlasts the drops' ownership
 window. No sleep, no retry, no `@FixMethodOrder`, no filter, no threshold lowered to taste: the section that measured the
 tail is in the comment.
+
+**The third flake, and the one to fix next.** One full-suite attempt (`/tmp/final8.log`, `EXIT=1`) died on
+`soloMapling.autoqa.AutoQaLanesTest.twoLanesRunTwoChecksAtOnceAndTheResultsKeepCatalogueOrder`:
+`java.lang.NullPointerException: Cannot invoke "java.lang.Integer.intValue()" because the return value of
+"java.util.Map.get(Object)" is null` at `AutoQaLanesTest.java:104` (`int lane = m.laneOf.get(id)`), i.e. a check produced
+a result without ever running a step. It passes 8/8 alone and 8/8 in the re-run, and no commit on this branch touches
+`soloMapling/autoqa` - so it is the harness, not the product: `AutoQaRunnerTest.FakeWorld` keeps `actors`, `qa`, `said`
+and `pending` as plain `ArrayList`s and `actor(int slot)` does `while (actors.size() < slot) actors.add(...)`; two lanes
+login concurrently, and an unsynchronised `ArrayList` add can throw, which the lane wrapper reports as `error:` with zero
+steps (hence no `laneOf` entry). Reported rather than patched: redrawing that test harness is not this release's work, and
+the release ran green twice with it in place.
 
 **The leak class.** A sweep of `src/test` found 184 files that write a system property and 44 that set at least one
 property no site in the same file ever puts back. Under `reuseForks=false` that cannot cross a class boundary, but inside
@@ -440,7 +453,7 @@ comments, run chatter, mortality, the GM/QA wiring, and the tests over them), ke
 assertion message: `git diff 32e612d73 3bc765541 --stat -- src/` is `40 files changed, 49 insertions(+), 49
 deletions(-)`, and no statement, condition or signature moved. `mvn -o -q test-compile` is clean and the suites that cover
 those files ran green (`Tests run: 1493, Failures: 0, Errors: 0, Skipped: 6`, 8:53, `/tmp/relabel.log`), so the
-`9121 / 0 / 0 / 140` totals from `/tmp/final7.log` still describe this tree's behaviour. No relabelled comment claimed a
+relabel changed no code, which the final `9128 / 0 / 0 / 140` (`/tmp/final9.log`) confirms on the tip itself. No relabelled comment claimed a
 behaviour difference between the two versions that the code does not have, so there is no owner question behind this: it
 was a labelling defect.
 
@@ -509,7 +522,7 @@ Two things a reader must not take as settled, because the answer is the owner's:
 
 ## Deploy note
 
-**Branch:** `164-all-merge` (worktree `/root/work/164-all`), last merge commit `87205b607`. Nothing was pushed, tagged
+**Branch:** `164-all-merge` (worktree `/root/work/164-all`), last merge commit `73fdf507d`. Nothing was pushed, tagged
 or staged; the owner pushes and deploys. **For a real release the settings live in `docs/release/1.6.4.conf`** (draft,
 written by this lane for the owner/Server Dev) - the block below is the same set spelled out for a hand-edited TEST
 `start-test.sh`.
