@@ -3,9 +3,11 @@ package client.command.commands.gm3;
 import client.Character;
 import client.Client;
 import client.command.Command;
+import soloMapling.mechanics.BossStaging;
 import soloMapling.mechanics.KpqStaging;
 import soloMapling.mechanics.Mechanics;
 import soloMapling.mechanics.MechanicsRuns;
+import server.expeditions.ExpeditionType;
 import soloMapling.server.ExecutorServiceManager;
 
 import java.util.Locale;
@@ -29,6 +31,13 @@ import static soloMapling.BotLogger.log;
  *                                         "hold" (1.6.2, with stage2-4, implies perfect): the bots take that stage's
  *                                         positions (ropes, platforms, barrels) and wait on them without checking,
  *                                         until !mechanics release or stop (a QA aid for screenshots).
+ *   !mechanics boss TYPE [bots] [channel] a boss run whose CAPTAIN is a bot (1.6.4): spawn "bots" bots (the row's
+ *                                         minimum when omitted) on that type's recruit map, make the first one the
+ *                                         party leader, and open the room through ExpeditionBots.startAsCaptain. The
+ *                                         answer prints the door's value (STARTED, HUMAN_LEADS, ROOM_TAKEN, NO_SCRIPT,
+ *                                         TOO_FEW, SWITCH_OFF, REFUSED) and a sentence. Refused when
+ *                                         -Dslums.mechanics.boss is off or the type has no content row. This command is
+ *                                         the ONLY trigger for a bot-captained run: nothing opens a boss room on its own.
  *   !mechanics status                     the runs going on
  *   !mechanics release                    let every held run go on (the leader checks, the stage clears)
  *   !mechanics stop                       end every run now (bots released, staged bots despawned); a run that
@@ -39,7 +48,7 @@ import static soloMapling.BotLogger.log;
  */
 public class MechanicsCommand extends Command {
     {
-        setDescription("Test server: bots play the mechanics (ticket 130). !mechanics kpq [me] [bots] [perfect]");
+        setDescription("Test server: bots play the mechanics (ticket 130). !mechanics kpq [me] [bots] | boss TYPE [bots]");
     }
 
     /** A parsed {@code !mechanics kpq ...}: who plays and how many bots. */
@@ -58,7 +67,51 @@ public class MechanicsCommand extends Command {
     }
 
     static final String USAGE = "Syntax: !mechanics kpq [me] [bots 2-4] [perfect] [stage1-5] [to1-5] [hold]"
-            + " | status | release | stop | dispose kpq [channel]";
+            + " | boss TYPE [bots] | status | release | stop | dispose kpq [channel]";
+
+    /** A parsed {@code !mechanics boss TYPE [bots]}: the expedition type and how many bots to spawn. */
+    public record BossRequest(ExpeditionType type, int bots) {
+    }
+
+    /** Parses {@code boss TYPE [bots]} after the subcommand; null when the words make no sense. */
+    public static BossRequest parseBoss(String[] params, int from) {
+        if (params.length <= from) {
+            return null;
+        }
+        ExpeditionType type;
+        try {
+            type = ExpeditionType.valueOf(params[from].trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+        int bots = 0;
+        if (params.length > from + 1) {
+            try {
+                bots = Integer.parseInt(params[from + 1].trim());
+            } catch (NumberFormatException e) {
+                return null;
+            }
+            if (bots < 0) {
+                return null;
+            }
+        }
+        if (params.length > from + 2) {
+            return null;
+        }
+        return new BossRequest(type, bots);
+    }
+
+    /**
+     * Runs {@code !mechanics boss}: stages the crew and opens the room, then says what the door answered. Blocking
+     * (it spawns bots and plays their arrival), so the command calls it off the packet thread.
+     */
+    public static String runBoss(Character gm, BossRequest req) {
+        BossStaging.Staged s = BossStaging.start(gm, req.type(), req.bots());
+        String answer = "Boss run " + req.type().name() + (req.bots() > 0 ? " with " + req.bots() + " bots" : "")
+                + " -> " + s.door().name() + ": " + s.why();
+        log("[Mechanics] " + answer + " (" + gm.getName() + ")");
+        return answer;
+    }
 
     /** Parses {@code dispose kpq [channel]}: the channel to look on ({@code here} when none is given), or -1. */
     public static int parseDispose(String[] params, int here) {
@@ -127,11 +180,13 @@ public class MechanicsCommand extends Command {
     @Override
     public void execute(Client c, String[] params) {
         Character gm = c.getPlayer();
-        if (!Mechanics.enabled()) {
+        String what = params.length == 0 ? "" : params[0].toLowerCase(Locale.ROOT);
+        // "boss" answers to its own switch (-Dslums.mechanics.boss), so it must still refuse cleanly when only that
+        // one is off, instead of dying behind the mechanics switch with a message about the wrong switch
+        if (!Mechanics.enabled() && !"boss".equals(what)) {
             gm.yellowMessage("Mechanics is off: the server runs without -D" + Mechanics.FLAG + "=true.");
             return;
         }
-        String what = params.length == 0 ? "" : params[0].toLowerCase(Locale.ROOT);
         switch (what) {
             case "kpq" -> {
                 KpqRequest req = parseKpq(params, 1);
@@ -182,6 +237,23 @@ public class MechanicsCommand extends Command {
                     } catch (RuntimeException e) { // never leave the GM at "Staging KPQ..." with no answer
                         log("[Mechanics] KPQ staging failed: " + e);
                         gm.yellowMessage("KPQ run did not start: " + e.getMessage());
+                    }
+                });
+            }
+            case "boss" -> {
+                BossRequest req = parseBoss(params, 1);
+                if (req == null) {
+                    gm.yellowMessage("Syntax: !mechanics boss TYPE [bots]  (types: "
+                            + java.util.Arrays.toString(ExpeditionType.values()) + ")");
+                    return;
+                }
+                gm.yellowMessage("Staging a bot-captained " + req.type().name() + " run...");
+                ExecutorServiceManager.getExecutorService().execute(() -> {
+                    try {
+                        gm.yellowMessage(runBoss(gm, req));
+                    } catch (RuntimeException e) { // never leave the GM at "Staging..." with no answer
+                        log("[Mechanics] boss staging failed: " + e);
+                        gm.yellowMessage("Boss run did not start: " + e);
                     }
                 });
             }

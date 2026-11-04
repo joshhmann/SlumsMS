@@ -452,6 +452,13 @@ public class EventManager {
         if (this.isDisposed()) {
             return false;
         }
+        // 1.6.4 (-Dslums.exped.botcaptain): a real player always outranks a bot. Decided here, before the instance is
+        // made, because the setup script's channel, the instance's leader and every expedition.getLeader() below come
+        // from this one value. With the switch off, or a human already leading, this returns the argument unchanged.
+        leader = soloMapling.ArtificialPlayer.BotPartySystem.ExpeditionBots.preferredLeader(exped, leader);
+        if (leader == null) {
+            return false;
+        }
 
         try {
             if (!playerPermit.contains(leader.getId()) && startSemaphore.tryAcquire(7777, MILLISECONDS)) {

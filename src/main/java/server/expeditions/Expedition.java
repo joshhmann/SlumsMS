@@ -86,7 +86,7 @@ public class Expedition {
             MobId.FURIOUS_TARGA,
     };
 
-    private final Character leader;
+    private Character leader;
     private final ExpeditionType type;
     private boolean registering;
     private final MapleMap startMap;
@@ -463,6 +463,18 @@ public class Expedition {
 
     public boolean isLeader(int playerid) {
         return leader.getId() == playerid;
+    }
+
+    /**
+     * 1.6.4 expedition policy (-Dslums.exped.botcaptain): a real player always outranks a bot as captain, including at
+     * start time, so the leadership of a bot-led expedition moves to the human in it. The caller decides and logs why
+     * ({@code ExpeditionBots.preferredLeader}); this only records the answer, because every script and event step reads
+     * {@code expedition.getLeader()}.
+     */
+    public void promote(Character chr) {
+        if (chr != null && chr.getId() != leader.getId()) {
+            leader = chr;
+        }
     }
 
     public boolean isRegistering() {

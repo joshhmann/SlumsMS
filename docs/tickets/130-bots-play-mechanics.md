@@ -891,3 +891,75 @@ Row keys and steps these add to the stage data format (all optional; a row witho
 2. Ragequit: allowed to sink a run that a real player is in, or only bot-only runs?
 3. World cap on concurrent bot-only PQ runs (CPU), and PQ hours.
 4. Should bots ever take a stage's leader role when a real player is in the party?
+
+## Expedition policy: a bot captain, and an alt that counts (branch `164-expedpolicy`, 1.6.4)
+
+Owner, 2026-11-03: "a bot may be an expedition captain", "an owned alt may follow its owner into any expedition the
+owner is a member of", "it should count as party". Two switches, both defaulting on because the owner said yes:
+
+| switch | default | what it changes |
+| --- | --- | --- |
+| `-Dslums.exped.botcaptain` | **on** | a bot-led expedition registers its party's bots, and a bot captain can open the run |
+| `-Dslums.exped.altfollow` | **on** | an owned alt joins an expedition its owner is a member of, whoever leads it |
+
+- **Who leads.** `ExpeditionBots.preferredLeader` (`EventManager.startInstance`, `EventManager.java:455-460`) runs
+  before the instance is made, so the setup script's channel, the instance's leader and every later
+  `expedition.getLeader()` all see the same person. A real player always outranks a bot: the run moves to the human
+  and the log says which rule decided (`a real player outranks a bot, so <human> leads instead of <bot>`). Only
+  expedition members can be promoted - a human in the bot's party who never registered has nothing to lead, and the
+  bot captain's door answers `HUMAN_LEADS` instead of starting without him.
+- **The bot captain's door.** Nothing in the tree creates an expedition except an NPC script
+  (`AbstractPlayerInteraction.createExpedition`, call sites in `scripts/npc/2030013.js` and friends), so a bot captain
+  has no door unless we give it one: `ExpeditionBots.startAsCaptain(captain, type)` is the three steps the recruiter
+  takes - create, register, set `leader`/`channel`, `EventManager.startInstance` - and the script name comes from
+  `RebirthBosses.Boss`, the tree's own type-to-script table. A type with no entry there answers `NO_SCRIPT`.
+- **The alt counts.** `Expedition.members` is the only membership record; `getMemberList()` (the recruiters' size
+  gate), `getActiveMembers()` (broadcasts and the boss log), and the max-size check all read it, so an admitted alt
+  counts exactly like a party bot. `ExpeditionBots.skip` was the only place that excluded it, and that is the rule
+  this changes: an owned alt is admitted when its owner is a member of that expedition. A bot that merely follows
+  someone (a population bot) is not an owned alt and keeps the 1.6.0 rule. Deliberately unchanged: a bot never
+  displaces a human leader, and a dead/banned/out-of-band bot is still skipped.
+
+### The alt counts: `-Dslums.exped.altfollow`
+
+1.6.0 admitted only the leader's own bots (its companion or its `@botme` alt); an alt was skipped with reason
+`owner` unless its owner led the expedition. The owner's answer changes the rule: an **owned alt** is admitted when
+**its owner is a member** of that expedition, whoever leads it. A population bot's "owner" is only whoever it
+follows, so it keeps the 1.6.0 rule; an alt whose owner is not a member, or whose owner logged off (`ownerId == -2`),
+is still skipped.
+
+Counts, audited (`Expedition.java`): `members` (a map id → name) is the single membership record. `getMemberList()`
+is what the recuiters' `size() < getMinSize()` gate reads (`scripts/npc/2030013.js:182-187`), `getActiveMembers()` is what
+`broadcastExped` and `registerExpeditionAttempt` walk, and `getMaxSize()` is compared against `members.size()` in
+`addMember`/`addMemberInt`. All three include a bot the moment it is registered, so an admitted alt counts exactly
+like a party bot - there was no count to change, only the rule that kept it out. A bot resolves as "active" through
+`Character.isPresentInWorld()` (`Character.java:532-534`), which is true for a bot standing on a map. One count that
+does deliberately exclude bot-kind members is left alone: `RebirthBossRuns.helperOk` keeps owned alts out of the
+rebirth helper pool (`!c.isOwnedAlt()`), because helpers are population bots hired for a fight, not party members.
+
+## Expedition policy: the one caller of a bot captain (1.6.4, branch `164-expedpolicy`)
+
+A bot captain was refused by `ExpeditionBots.autoJoin` and had no way to answer a recruiter's door (`scripts/npc/2030013.js:150-216`
+is a player conversation), so `ExpeditionBots.startAsCaptain` - the capability - was unreachable in game and would have
+shipped as dead code. `!mechanics boss TYPE [bots]` is now its **only** caller.
+
+**In 1.6.4 a bot-captained run is reachable only by that command.** `-Dslums.exped.botcaptain` (on by default) governs
+whether a bot *may* captain a party whose leader is a bot; it does **not** make bots open boss rooms on their own. There
+is no scheduler, no lobby tick and no autonomous trigger of any kind - the command is the trigger, because a bot that
+opens boss rooms by itself is bot farming, which the owner has not asked for and which needs an economy decision first.
+
+- **What the command does** (`client/command/commands/gm3/MechanicsCommand.java:243-258`, `soloMapling/mechanics/BossStaging.java`):
+  reads the type (`ExpeditionType.valueOf`, case-insensitive), spawns `bots` bots (the row's `minPlayers` when omitted,
+  capped at `maxPlayers`) on that row's recruit map at `max(minLevel, 30)..+5`, makes the **first bot** the party leader,
+  fills the party, and calls `ExpeditionBots.startAsCaptain(captain, type)`. On anything but `STARTED` the spawned bots
+  are taken out again (`KpqStaging.cleanup`) so a refusal leaves no loose party behind.
+- **Every answer is printed, never swallowed:** `STARTED`, `HUMAN_LEADS`, `ROOM_TAKEN`, `NO_SCRIPT`, `TOO_FEW`,
+  `SWITCH_OFF`, `REFUSED`, each with a sentence (`BossStaging.sentence`), and logged as `[Mechanics] ...`.
+- **Clean refusals:** `-Dslums.mechanics.boss` off answers `SWITCH_OFF` before any bot spawns (the command's
+  `Mechanics.enabled()` guard deliberately does not swallow `boss`, so the message names the right switch); a type with
+  no content row answers `NO_SCRIPT`; a room already held answers `ROOM_TAKEN`; a human in the party answers
+  `HUMAN_LEADS` - a bot never overrides a human.
+- **Tests** (`src/test/java/soloMapling/mechanics/BossStagingTest.java`, 6): the command reaches `STARTED` and the
+  script's `leader`/`channel`/`startInstance` are set; a human in the party answers `HUMAN_LEADS` through the command;
+  the boss switch off refuses with the switch named and nothing started; a rowless type answers `NO_SCRIPT`; a refused
+  start leaves `spawned()` empty; every `Door` value has a sentence.
