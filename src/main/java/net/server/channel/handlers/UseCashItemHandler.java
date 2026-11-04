@@ -365,6 +365,9 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
                     Server.getInstance().broadcastMessage(c.getWorld(), PacketCreator.getMultiMegaphone(msg2, c.getChannel(), whisper));
                     PlayerMegaphones.onUse(player, String.join(" ", msg2).replace(medal + player.getName() + " : ", ""));
                     break;
+                default: // no broadcast exists for this sub-type: keep the item
+                    c.sendPacket(PacketCreator.enableActions());
+                    return;
             }
             remove(c, position, itemId);
         } else if (itemType == 508) {   // thanks tmskdl12 for graduation banner; thanks ratency for first pointing lack of Kite handling
