@@ -215,6 +215,7 @@ public class SocialBot extends BotSM {
         if (life != null && getRunning()) {
             long now = System.currentTimeMillis();
             life.tick(now); // 1.6.0 S8: the brain (30 s cadence, skips unchanged ticks)
+            soloMapling.ArtificialPlayer.BotSocialSystem.SocialIntents.onTick(getChr()); // 1.6.4 stage 5: promises that fell due
             soloMapling.ArtificialPlayer.BotLifeSystem.ModeSwitch.maybeSwitch(this, life.lifeRuntime(), now); // 1.6.4: last act
         }
     }

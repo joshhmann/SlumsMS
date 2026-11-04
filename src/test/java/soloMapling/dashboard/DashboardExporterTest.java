@@ -157,7 +157,7 @@ class DashboardExporterTest {
             assertFalse(SocialBudget.allow(2, 1, 9, SocialBudget.GREET, DAY1 + 1_000).allowed());
             r.runOnce(DAY1);
             Map<?, ?> first = (Map<?, ?>) read("live.json").get("social");
-            assertEquals(List.of("modes", "budget", "talk", "socialTick", "bonds", "minds"), List.copyOf(first.keySet()));
+            assertEquals(List.of("modes", "budget", "talk", "socialTick", "bonds", "intents", "minds"), List.copyOf(first.keySet()));
             assertNull(((Map<?, ?>) first.get("socialTick")).get("msPerS"), "the first export has no interval yet");
 
             fake.socialNanos = 3_000_000_000L;   // 3 s of social ticks over the next minute, in 6 passes
@@ -176,6 +176,13 @@ class DashboardExporterTest {
             assertEquals(1L, ((Number) counters.get("denied pair-cooldown")).longValue());
             assertEquals(1L, ((Number) counters.get("recorded")).longValue());
             assertTrue(counters.containsKey("denied backoff") && counters.containsKey("denied turn-limit"));
+
+            Map<?, ?> intents = (Map<?, ?>) social.get("intents"); // ticket 181 stage 5: the promise counters
+            assertEquals(true, intents.get("enabled"));
+            Map<?, ?> intentCounters = (Map<?, ?>) intents.get("counters");
+            for (String key : List.of("created", "kept", "broken", "expired", "cancelled", "refused", "deferred")) {
+                assertTrue(intentCounters.containsKey(key), key);
+            }
 
             Map<?, ?> tick = (Map<?, ?>) social.get("socialTick");
             assertEquals(6L, ((Number) tick.get("calls")).longValue());

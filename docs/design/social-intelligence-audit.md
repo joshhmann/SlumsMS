@@ -101,7 +101,7 @@ rollback. What a swap drops (grind spot, the old runtime's pending friend or pla
 | 2 | 8-axis bonds, migration 059, background formation | axis table, directedness, hysteresis, eviction, restart and legacy-row round trips, background tier, simulated-days tests | built (`164-social-bonds`, `f03304844`); migration 059 not yet applied on TEST; no decision reads the axes yet |
 | 3 | Memory extension (migration 060), relevance recall, knowledge boundaries, memory in bot-bot talk | knowledge-boundary tests | built (`164-social-memory`): subject type, place, confidence, valence, provenance, other party; `BotMemory.recall(.., Query, ..)` and `remember(..)` writer; repeats merge; world news only from witnesses or tellers; circle-restricted counts; `BotThreads`/`BotTalk` prompts carry the partner's real memories. Unit-tested only; TEST not run |
 | 4 | `SocialAction` registry, missing actions, gifts, emotion/memory into `TalkBrain` and `LifeDecision` | per-action outcome tests | planned |
-| 5 | Intentions (memory in `BotThreads`/`BotTalk` prompts moved to Stage 3) | dialogue-to-intention test | planned |
+| 5 | Intentions (memory in `BotThreads`/`BotTalk` prompts moved to Stage 3) | dialogue-to-intention test | built (`164-social-intents`): see section 8; unit-tested only; performer is an unwired seam until Stage 4 merges; TEST not run |
 | 6 | Social LOD, loop breaker, metrics in dashboard and inspect | perf measurement | 6a built (`164-social-observe`): `SocialBudget` loop breaker (per-pair cooldown, per-bot, per-map and global rates, A-B turn limit, failed-act backoff; hooked into `BotTalk`), `social` block in `live.json`, mode/mind/bonds in `/bots/{cid}`, mode and mind lines in `!botwhy`; unit tests only, no perf measurement and no TEST run yet. 6b social LOD planned |
 | 7 | 20-bot Henesys pilot, TEST (mapletest) live check | real execution evidence | planned |
 
@@ -147,3 +147,46 @@ Nothing here has run in a real client or on TEST yet.
 Proof: `RelationAxesTest`, `BotBondsAxesTest`, `TieAxesTest`, `AxisColumnsTest`, `BotBondsSimulatedDaysTest`. Not done: no
 database run of migration 059 (no MySQL in the unit tests; the JDBC mapping is tested against mocked result sets and the
 SQL by string checks), nothing on TEST, no decision reads the axes yet.
+
+## 8. Stage 5 as built: persisted intentions
+
+A bot that agrees to meet, help, come along or party has made a promise. Before: `TalkPromises` judged a bot-bot yes after
+the fact and `ConvoActions` acted on a player's request at once; nothing was remembered once the lines and the act were
+over, and `BotCommitments` held a bot only for trades, invites, expeditions and runs. After:
+
+- **Records** (`AP/BotSocialSystem`): `SocialIntent(id, actor, target, kind, createdAt, dueAt, expiresAt, mapId, origin)`;
+  `IntentBook` (at most 3 live per actor, ordered by due time then id, plus the last 5 endings; id = actor in the high 32
+  bits, a never-reused per-actor sequence below); `SocialIntents` (create, due, complete, cancel, expire, tick, counters,
+  `whyLine`). The book lives in the bot's `LifeMemory` JSON under `"intents"` (lazy, written back as read, a read never
+  dirties it, a bad row is skipped), so it is saved and restored with the rest of the bot's life memory and the roster's
+  existing sweep. Nothing reads a table; a bot whose memory is not loaded gets no intent.
+- **Creation is server-only.** Two existing yes paths call `PromiseIntents`: `TalkPromises.promised` (bot-bot yes: PARTY
+  gives INVITE, HELP gives OFFER_HELP, COME_ALONG gives SPEND_TIME; a deal or a story promises nothing later) and
+  `ConvoActions.carryOut` (a player's "come" or "help" that passed `ConvoGates` and sends the bot to another map: SPEND_TIME,
+  OFFER_HELP). Both run after the act that already ran; nothing was removed. The model's text, a `[do:x]` tag the gates refused
+  and a `SayDo` claim reach none of it. A real player is only a target if `SocialGate.check` (so `@quiet bots`, PlayerBusy)
+  and `BotAffinity.optedOut` (`@botdrama off`) say yes, at creation and again at the due time.
+- **Lifecycle.** A bot-bot yes falls due 2 minutes after `TalkPromises`' own window, so a promise the talk's act kept is
+  ended KEPT by that verdict (`PromiseIntents.onBacked`); one that was not gets a second try. A player-addressed intent is due 4
+  (come) or 5 (help) minutes out. `SocialIntents.tick` (from the bot's own tick, in the three bot types, before
+  `ModeSwitch.maybeSwitch`): at the due time, if the target is online, reachable, the actor is free (the brain's
+  `commitBlocker` and `BotPopulationDirector.mayLogOut`, with the actor's own intent exempt) and `SocialBudget.allow`, the
+  `Performer` carries it out; success ends it KEPT; failure retries every 45 s; at the deadline it ends BROKEN (CANCELLED if the
+  target went offline, EXPIRED with no consequence if the deadline passed over 10 minutes ago).
+- **Consequences.** Kept: the promised-to bot's own edge toward the actor gains trust, respect and obligation
+  (`BotBonds.promise`, axes only, `AxisTable` rows), the actor's pride rises. Broken: that edge loses trust and respect and gains a
+  little resentment, the promised-to bot keeps a `BROKEN` note (`BotMemory.Kind.BROKEN`, valence -0.6; named short because the Kind
+  column is VARCHAR(8), so no migration), the actor's anxiety and embarrassment rise. The legacy score never moves.
+- **Committed while due soon.** `BotCommitments.inFlight` has one more clause, `SocialIntents.dueSoon` (an intent due within 2
+  minutes, memory only), so `BotPopulationDirector.mayLogOut` keeps the bot online and `ModeSwitch.blocker` (which asks
+  `inFlight`) does not swap its mode; `LfgParty` and the brain's own free check see it as busy too.
+- **Switch and metrics.** `-Dslums.intents=false`: nothing is created, ticked or counted as a commitment. Counters (created,
+  kept, broken, expired, cancelled, refused, deferred, each by kind) in `live.json` `social.intents`; `!botwhy` has an `Intents:`
+  line.
+- **The one integration point.** `SocialIntents.performer` is a static field that starts as "no performer" (every try fails
+  with that reason). When Stage 4 is merged: `SocialIntents.performer = (a, t, k, now) -> { var o = SocialActions.perform(a, t, k,
+  now); return new SocialIntents.Result(o.happened(), o.reason()); };`. Until then intents are created and persisted but only the
+  talk's own verdict can keep one.
+
+Proof: `SocialIntentsTest`, `SocialIntentsConsequencesTest`, `PromiseIntentsTest`, `BotCommitmentsIntentsTest`,
+`ModeSwitchIntentsTest`. Not done: no TEST run, no client, no run with the real `SocialActions`; the performer is a seam.

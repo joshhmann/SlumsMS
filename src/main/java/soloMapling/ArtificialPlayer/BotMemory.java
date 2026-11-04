@@ -122,10 +122,16 @@ public final class BotMemory {
         /** Slot: an inside joke (a line one of them laughed at). */
         JOKE,
         /** Slot: how the player looked when these two last talked (their level), written when the chat ends. */
-        PROGRESS;
+        PROGRESS,
+        /**
+         * Stage 5 (ticket 181), bot to bot: the subject promised to do something with or for the bot and did not (the
+         * promise's deadline passed). Written by code (SocialIntents), negative valence. Named short: the Kind column is
+         * VARCHAR(8) (migration 030), so no migration is needed.
+         */
+        BROKEN;
 
         public boolean episode() {
-            return ordinal() >= PQ.ordinal() && ordinal() <= TOLD.ordinal();
+            return ordinal() >= PQ.ordinal() && ordinal() <= TOLD.ordinal() || this == BROKEN;
         }
 
         /** The most a merged note of this kind can weigh: small talk never becomes a heavy memory. */
@@ -143,6 +149,7 @@ public final class BotMemory {
                 case FAME -> 4;
                 case GIFT -> 6;
                 case FAVOR, FEELING -> 5;
+                case BROKEN -> 4;
                 case SCAM -> 9;
                 case CHAT, ASKED, TOLD, NOTE -> 2;
                 default -> 3;

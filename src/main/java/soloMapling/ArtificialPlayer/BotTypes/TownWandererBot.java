@@ -156,6 +156,7 @@ public class TownWandererBot extends BotSM {
         boolean cooled = (System.currentTimeMillis() - lastMapChangeMs) > MAP_CHANGE_COOLDOWN_MS;
         if (life != null) {
             life.tick(System.currentTimeMillis()); // 1.6.0 S8: the brain decides when to hop (MOVE_MAP)
+            soloMapling.ArtificialPlayer.BotSocialSystem.SocialIntents.onTick(getChr()); // 1.6.4 stage 5: promises that fell due
             if (wanderState == WanderState.CHANGE_MAP) return;
             // 1.6.4: the brain may move this bot to training or a social mode; a swap is the last act of the tick.
             if (soloMapling.ArtificialPlayer.BotLifeSystem.ModeSwitch.maybeSwitch(this, life.lifeRuntime(),

@@ -188,6 +188,18 @@ public final class SocialMetrics {
         return lines;
     }
 
+    // ── ticket 181 stage 5: intentions ──
+
+    /** The {@code !botwhy} line of this bot's live intents (memory only; never empty). */
+    public static List<String> intentLines(int botId, long now) {
+        return List.of(SocialIntents.whyLine(botId, now));
+    }
+
+    /** Intent counters for the dashboard: created, kept, broken, expired, cancelled, refused, deferred, and each by kind. */
+    public static Map<String, Long> intentCounters() {
+        return SocialIntents.counters();
+    }
+
     // ── the dashboard's bond counts ──
 
     /**

@@ -74,7 +74,20 @@ final class AxisTable {
         TIE.put(AffinityEvent.HEARSAY_BAD,  row(0,    -0.03, -0.02,  0,     0,     0,     0.01,  0));
     }
 
+    /**
+     * Ticket 181 stage 5, a promise between two bots, on the PROMISED-TO bot's own edge toward the one who promised (the
+     * only edge that learns of it). Kept: it trusts and respects a little more and feels it owes a little back. Broken: trust
+     * and respect fall, a touch of resentment. Not a {@link BondEvent}: the score does not move, only the axes.
+     */
+    private static final double[] PROMISE_KEPT = row(0.02, 0.05, 0.01, 0.02, 0, 0, 0, 0.03);
+    private static final double[] PROMISE_BROKEN = row(0.01, -0.06, -0.02, -0.02, 0, 0, 0.03, 0);
+
     private AxisTable() {
+    }
+
+    /** The promise row (kept or broken) after the holder's character; a new vector. */
+    static double[] promise(boolean kept, Persona p) {
+        return scaled((kept ? PROMISE_KEPT : PROMISE_BROKEN).clone(), 1.0, p);
     }
 
     /** The raw row of a bond event (a copy). */

@@ -107,6 +107,7 @@ public final class TalkPromises {
             return;
         }
         open.add(new Promise(talkId, ask, bot.getId(), bot.getName(), asker.getId(), asker.getName(), town, now));
+        PromiseIntents.onYes(ask, bot, asker, now); // 1.6.4 stage 5: the yes is also a persisted intention
     }
 
     /** The act of talk {@code talkId} went through or not (a deal, a story: nothing to see later). */
@@ -144,6 +145,9 @@ public final class TalkPromises {
                 out.add(v);
                 done.add(p);
                 record(p, v);
+                if (v.backed()) {
+                    PromiseIntents.onBacked(p.ask, p.botId, p.askerId, now); // the intention is kept
+                }
             }
         }
         if (!done.isEmpty()) {

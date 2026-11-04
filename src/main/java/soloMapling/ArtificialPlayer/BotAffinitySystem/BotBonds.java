@@ -260,6 +260,32 @@ public final class BotBonds {
     }
 
     /**
+     * Ticket 181 stage 5: bot {@code botId}'s own edge toward bot {@code otherId} moves because {@code otherId} kept
+     * ({@code kept}) or broke a promise to {@code botId}: trust, respect and obligation up, or trust and respect down
+     * with a little resentment ({@link AxisTable#promise}). Axes only; the score and its hooks are untouched. Only an
+     * edge that already exists moves (a promise between strangers leaves no bond behind); false when there is none, when
+     * bonds are off, or for anything that is not two distinct bots.
+     */
+    public static boolean promise(int botId, int otherId, boolean kept, long now) {
+        if (!enabled() || botId == otherId || !isBot(botId) || !isBot(otherId)) {
+            return false;
+        }
+        Persona persona = Persona.of(botId, disposition.shares(botId)); // memory only; read before the set's lock is taken
+        BondSet set = sets.get(botId);
+        if (set == null) {
+            return false;
+        }
+        synchronized (set) {
+            Bond bond = set.bonds.get(otherId);
+            if (bond == null || !BondRules.nudge(bond, AxisTable.promise(kept, persona), now)) {
+                return false;
+            }
+        }
+        dirtyBots.add(botId);
+        return true;
+    }
+
+    /**
      * Keeps at most {@link #maxBonds()} bonds in the set, dropping the least significant (faded neutral ones first,
      * {@link BondRules#significance}: never an estranged, rival or close edge while a faded neutral one is held); false when the bond
      * of {@code touched} was itself dropped. Caller holds the set's lock.
