@@ -41,8 +41,11 @@ class BotMortalityTest {
         when(c.getId()).thenReturn(BOT);
         when(c.getHp()).thenReturn(hp);
         when(c.getMaxHp()).thenReturn(maxHp);
+        when(c.getCurrentMaxHp()).thenReturn(maxHp);
         when(c.getLevel()).thenReturn(120);
         when(c.getEventInstance()).thenReturn(eim);
+        when(c.getInventory(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(mock(client.inventory.Inventory.class)); // an empty bag: no potion to drink
         return c;
     }
 
@@ -91,6 +94,39 @@ class BotMortalityTest {
             verify(bot, times(1)).updateHp(0); // and nothing after it: a corpse takes no hits and is not healed
             assertTrue(BotDeaths.isDead(BOT));
         }
+    }
+
+    // ---- item 5: nothing heals a corpse back to life --------------------------------------------------
+
+    @Test
+    void noHealPathBringsADeadBotBack() {
+        Character bot = bot(0, 1_000, mock(EventInstanceManager.class));
+        try (var movement = mockStatic(GCMovement.class)) {
+            BotDeaths.die(bot);
+            assertTrue(BotDeaths.isDead(BOT));
+
+            BotVitals.heal(bot, 400);          // a party Heal's share
+            BotVitals.regen(bot, 60_000);      // the 10 s recovery tick, sixty seconds of it
+            BotVitals.topUp(bot);              // potions
+
+            verify(bot, times(1)).updateHp(0); // only the death itself; nothing raised the corpse
+            assertTrue(BotDeaths.isDead(BOT), "a dead bot stays dead until something actually revives it");
+        }
+    }
+
+    @Test
+    void aResurrectedBotIsHealedAndRegeneratedAgain() {
+        Character bot = bot(0, 1_000, null);
+        BotDeaths.die(bot);
+        BotDeaths.revived(bot); // what StatEffect's resurrection branch calls
+        assertFalse(BotDeaths.isDead(BOT));
+
+        when(bot.getHp()).thenReturn(300);
+        BotVitals.heal(bot, 400);
+        var raised = org.mockito.ArgumentCaptor.forClass(Integer.class);
+        verify(bot, org.mockito.Mockito.atLeastOnce()).updateHp(raised.capture());
+        assertTrue(raised.getAllValues().stream().anyMatch(hp -> hp > 0),
+                "a revived bot is healed again: " + raised.getAllValues());
     }
 
     @Test
