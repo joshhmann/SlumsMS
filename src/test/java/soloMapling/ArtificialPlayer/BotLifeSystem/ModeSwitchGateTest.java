@@ -50,7 +50,7 @@ class ModeSwitchGateTest {
     private Character chr;
     private TrainingBot training;
     private LifeRuntime runtime;
-    private boolean townMap, hasChat, committed, hasParty;
+    private boolean townMap, hasChat, committed, hasParty, coupled;
     private String brainBlocker;
 
     @BeforeEach
@@ -66,7 +66,7 @@ class ModeSwitchGateTest {
             return swapAnswer;
         });
         townMap = true;
-        hasChat = committed = hasParty = false;
+        hasChat = committed = hasParty = coupled = false;
         brainBlocker = null;
         chr = mock(Character.class);
         when(chr.getId()).thenReturn(ID);
@@ -114,12 +114,16 @@ class ModeSwitchGateTest {
              MockedStatic<BotPopulationDirector> director = org.mockito.Mockito.mockStatic(BotPopulationDirector.class);
              MockedStatic<BotCommitments> commitments = org.mockito.Mockito.mockStatic(BotCommitments.class);
              MockedStatic<BotConversation> chats = org.mockito.Mockito.mockStatic(BotConversation.class);
-             MockedStatic<LifeTowns> towns = org.mockito.Mockito.mockStatic(LifeTowns.class)) {
+             MockedStatic<LifeTowns> towns = org.mockito.Mockito.mockStatic(LifeTowns.class);
+             MockedStatic<soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples> couples =
+                     org.mockito.Mockito.mockStatic(soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.class)) {
             storage.when(() -> CharacterStorage.getBotById(ID)).thenReturn(bot);
             director.when(() -> BotPopulationDirector.mayLogOut(bot)).thenAnswer(c -> !committed);
             commitments.when(() -> BotCommitments.inFlight(bot)).thenReturn(false);
             chats.when(() -> BotConversation.hasAnyChat(ID)).thenAnswer(c -> hasChat);
             towns.when(() -> LifeTowns.isTownMap(anyInt())).thenAnswer(c -> townMap);
+            couples.when(() -> soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.partnerOf(ID))
+                    .thenAnswer(c -> coupled ? ID + 1 : -1);
             when(chr.getParty()).thenAnswer(c -> hasParty ? mock(net.server.world.Party.class) : null);
             for (int i = 0; i < minutes; i++) {
                 clock.addAndGet(61_000);
@@ -151,7 +155,8 @@ class ModeSwitchGateTest {
                 "committed", t -> t.committed = true,
                 "in a party", t -> t.hasParty = true,
                 "in a chat", t -> t.hasChat = true,
-                "not in a town", t -> t.townMap = false);
+                "not in a town", t -> t.townMap = false,
+                "coupled", t -> t.coupled = true);
         for (var hold : holds.entrySet()) {
             ModeSwitch.reset();
             ModeSwitch.useForTest((c, type) -> {
@@ -160,7 +165,7 @@ class ModeSwitchGateTest {
             });
             swaps.clear();
             townMap = true;
-            hasChat = committed = hasParty = false;
+            hasChat = committed = hasParty = coupled = false;
             brainBlocker = null;
             hold.getValue().accept(this);
             assertFalse(runUntilSwitch(training, 120), hold.getKey());

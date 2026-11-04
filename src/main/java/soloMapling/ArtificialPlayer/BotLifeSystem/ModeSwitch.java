@@ -241,7 +241,7 @@ public final class ModeSwitch {
      * Why this bot may not change mode now, or null when it may. The swap drops the old instance's session state,
      * so it needs a bot nothing holds: the brain's own free-phase check ({@link LifeRuntime#commitBlocker}), the
      * log-out gate (party with a real player, scene, ceremony, boss gathering, open trade), no open chat, a town
-     * map, no errand, and the registered instance.
+     * map, no errand, no couple partner, and the registered instance.
      */
     static String blocker(BotSM bot, LifeRuntime runtime, long now) {
         Character chr = bot.getChr();
@@ -255,6 +255,8 @@ public final class ModeSwitch {
         if (BotConversation.hasAnyChat(chr.getId())) return "in a chat";
         if (!LifeTowns.isTownMap(chr.getMapId())) return "not in a town";
         if (bot instanceof TrainingBot training && training.onErrand()) return "on an errand";
+        // A couple sits and dates as social bots (BotCouples checks the type): a swap would break the date.
+        if (soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.partnerOf(chr.getId()) > 0) return "coupled";
         return null;
     }
 
