@@ -632,4 +632,44 @@ class SocialActsTest extends SocialActTestBase {
             SocialIntents.resetForTest();
         }
     }
+
+    // ── 1.6.4 measurement: failure reasons and yield to real players ──
+
+    @Test
+    void aMissedActCountsItsShortReasonAndNoNameLeaks() {
+        alone();
+        SocialTestKit.meet(ALICE, BOB, now());
+        mem(ALICE).mind(m -> { m.feel(Emotion.LONELINESS, 0.5, now()); return null; });
+        flows.failing.add(SocialActKind.CONVERSE);
+        Outcome failed = SocialActions.perform(ALICE, BOB, SocialActKind.CONVERSE, now());
+        assertTrue(failed.happened() && !failed.landed(), failed.reason());
+        String key = "CONVERSE.failed: " + SocialMetrics.shortReason(failed.reason());
+        assertEquals(1L, SocialMetrics.actCounters().get(key), SocialMetrics.actCounters().toString());
+        assertEquals(1L, SocialMetrics.actCounters().get("CONVERSE.failed"));
+        assertEquals("could not go through with it", SocialMetrics.shortReason("could not go through with it: Bob 12 missing"));
+        assertEquals("rejected", SocialMetrics.shortReason("rejected: Bob would not hear it"));
+        assertEquals("a long reason without a colon that keeps", SocialMetrics.shortReason("a long reason without a colon that keeps going on and on 123"));
+    }
+
+    @Test
+    void aBotGiftToAPlayerRaisesTheYieldAndABotToBotGiftDoesNot() {
+        SocialYield.resetForTest();
+        int player = 123, otherPlayer = 124;
+        SocialYield.sample(2, 1, 0);
+        SocialYield.record("GIFT_MESOS", player, 200_000);
+        SocialYield.record("GIFT_MESOS", player, 100_000);
+        SocialYield.record("GIFT_MESOS", otherPlayer, 100_000);
+        SocialYield.record("GIFT_MESOS", soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE + 5, 999_999);
+        SocialYield.sample(2, 1, 3_600_000);
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> mesos = (java.util.Map<String, Object>)
+                ((java.util.Map<String, Object>) SocialYield.snapshot(3_600_000).get("kinds")).get("GIFT_MESOS");
+        assertEquals(3L, mesos.get("count"));
+        assertEquals(400_000L, mesos.get("mesos"));
+        assertEquals(2, mesos.get("receivers"));
+        assertEquals(3.0, (Double) mesos.get("perHour"), 1e-9);
+        assertEquals(2.0, (Double) SocialYield.snapshot(3_600_000).get("playerHoursOnline"), 1e-9);
+        assertEquals(1.0, (Double) SocialYield.snapshot(3_600_000).get("playerHoursInPilotMap"), 1e-9);
+        SocialYield.resetForTest();
+    }
 }

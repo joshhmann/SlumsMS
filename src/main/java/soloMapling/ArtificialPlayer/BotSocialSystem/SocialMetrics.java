@@ -43,6 +43,19 @@ public final class SocialMetrics {
         ACTS.computeIfAbsent(kind.name() + "." + outcome, k -> new java.util.concurrent.atomic.LongAdder()).increment();
     }
 
+    /** A low-cardinality reason key: the text before the first ':' (max 40 chars), digits stripped, no names. */
+    public static String shortReason(String reason) {
+        if (reason == null || reason.isBlank()) {
+            return "unknown";
+        }
+        int colon = reason.indexOf(':');
+        String s = (colon > 0 ? reason.substring(0, colon) : reason).replaceAll("[0-9,]+", "").trim();
+        if (s.length() > 40) {
+            s = s.substring(0, 40).trim();
+        }
+        return s.isEmpty() ? "unknown" : s;
+    }
+
     /** A free-standing decision counter ({@code decisions}, {@code decided}, {@code idle}, {@code skipped-...}). */
     public static void countDecision(String what) {
         ACTS.computeIfAbsent("decision." + what, k -> new java.util.concurrent.atomic.LongAdder()).increment();

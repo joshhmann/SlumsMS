@@ -295,6 +295,7 @@ public final class BotGifts {
         if (landed <= 0) {
             return null;
         }
+        soloMapling.ArtificialPlayer.BotSocialSystem.SocialYield.record("GIFT_POTIONS", player.getId(), cost);
         greet(bot, player, "have some pots :)");
         return String.format("%s gave %s %d x %s (bought for %,d)", bot.getName(), player.getName(), landed,
                 BotShops.nameOf(p[0]), cost);
@@ -305,6 +306,7 @@ public final class BotGifts {
         if (pick == null || BotHoldings.payOut(bot, pick.getItemId(), 1, player, player.getPosition()) <= 0) {
             return null;
         }
+        soloMapling.ArtificialPlayer.BotSocialSystem.SocialYield.record("GIFT_SCROLL", player.getId(), unitValue(pick));
         greet(bot, player, "found this, u can have it");
         return String.format("%s gave %s a %s from its bag", bot.getName(), player.getName(),
                 BotShops.nameOf(pick.getItemId()));
@@ -388,6 +390,7 @@ public final class BotGifts {
         player.gainMeso((int) amount, true);
         EconomyMeters.add(EconomyMeters.GIFT_MESOS, amount);
         player.dropMessage(5, String.format("%s gave you %,d mesos.", bot.getName(), amount));
+        soloMapling.ArtificialPlayer.BotSocialSystem.SocialYield.record("GIFT_MESOS", player.getId(), amount);
         greet(bot, player, "here, for pots or whatever");
         return String.format("%s gave %s %,d mesos", bot.getName(), player.getName(), amount);
     }
