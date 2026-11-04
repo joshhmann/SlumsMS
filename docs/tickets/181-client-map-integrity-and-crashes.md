@@ -178,6 +178,40 @@ no player or database data was accessed. No native client test or definitive cra
 
 ## Acceptance and targeted proof
 
+### Fresh data sweep and archive-source follow-up (2026-11-04 08:12 UTC / 12:12 AM PST)
+
+Owner directed a data-only sweep using Silvia's QA Data and current TEST Map.wz, then asked to check
+the Community and MapleRoot archives for missing-transfer versus missing-source evidence. Work is on
+client branch `client-164-mapart-fixes`, commit `58799bb` (with the existing checker cherry-pick `490ca55`).
+
+- Fresh sweep: 11,352 unique TEST map IDs, 13,935 findings; 102 maps with missing object references
+  (97 missing internal nodes, five absent whole images), plus1,461 maps with absent BGM images under
+  the existing checker policy. The raw1,643-row list includes106 already-guarded canvas-shape maps;
+  it is not a count of reproduced crashes and must not be bulk-imported into routing.
+- The corrected checker now lists `272000000` with its17 pillar_old and10 crack object placements.
+  The new saved trace in `agent-runs/client/evidence/trace-272000000/run2-wztrace.log` records
+  the missing pillar_old lookup immediately before E_POINTER in the object-build path. Earlier
+  internal-node notes did not justify calling this safe; that checker classification is repaired.
+- All49,750 original MapleRoot Game Files images in the copied categories are present in fresh QA.
+  ZIP member sizes/CRC32 differ only for23 Free Market maps and login.img; no original files are
+  missing. Source acc10 and sampled missing-image evidence agrees with the retained full .164 reference.
+  The main missing nodes are inherited from source packs, not shown lost during QA transfer.
+- Neither archive contains pillar_old/crack, Obj/mario.img or Obj/starPlanet.img. Exact source
+  revisions remain unidentified. Content-era leads (not exact image revisions) are Kinesis v169,
+  Heroes of Maple v174–175 and MONAD/Abrup v197, with primary-source links in the report.
+- Community Repack contains genuine BM1/boss/spine/0 and Lacheln/Boss/obj/9,/10 nodes. A pinned
+  additive Custom.wz candidate restores exactly7 references across maps450009400/450009450/
+  450009500/450003840/450004150, preserving unrelated leaves/images in offline checks. It contains
+  Spine metadata and has not been installed or verified rendering in a client. Five-map data proof
+  is not full map-playability proof and does not close this ticket.
+- Proof:13 checker tests and4 restoration tests pass, with fail-before receipts; full sweep exits0.
+  No game, QA worker, native build, restart, deployment or drop change was performed.
+
+Review [the sweep/source report](/root/work/client/src-164-mapart-fixes/docs/map-data-sweep-164/README.md)
+and [source checklist](/root/work/client/src-164-mapart-fixes/docs/map-data-sweep-164/source-shopping-list.csv).
+Full inputs, all-class findings, archive comparison, candidate hashes and before/after receipts:
+`/root/work/agent-runs/client/164-map-data-sweep/`. Keep source-version hunting and targeted runtime proof open.
+
 - [ ] Reproduce the owner's Temple menu → `272000000` path, record the exact symptom, and prove
       arrival, onward transitions and the return portal separately using the route plan above.
 - [ ] Re-run inventory against the exact QA/release Data set and record hashes, counts, errors and findings.
