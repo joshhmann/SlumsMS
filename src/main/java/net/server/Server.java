@@ -1026,6 +1026,9 @@ public class Server {
 
         OpcodeConstants.generateOpcodeNames();
         CommandsExecutor.getInstance();
+        // AL-4 (ticket 183): one line naming every owned-alt switch, so a conf that leaves the master off is visible
+        // in the boot log instead of an @botme "not available yet" nobody can explain.
+        log.info(YamlConfig.config.server.ownedAltSwitchesLine());
 
         for (Channel ch : this.getAllChannels()) {
             ch.reloadEventScriptManager();

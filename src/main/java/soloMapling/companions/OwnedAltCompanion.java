@@ -342,10 +342,12 @@ public final class OwnedAltCompanion {
                 if (s.fighting) {
                     standDown(owner, alt, s);
                 }
-                if (why.tell != null && s.told != why) {
-                    tell(owner, why.tell);
+                // AL-2 (ticket 183): the line names the alt the reason is about, once per gate
+                String whyLine = why.tell(alt.getName());
+                if (whyLine != null && s.told != why) {
+                    tell(owner, whyLine);
                 }
-                s.told = why.tell != null ? why : s.told;
+                s.told = whyLine != null ? why : s.told;
                 keepFollowing(owner, alt);
                 s.doing = "following (gate " + why + ")";
                 return;
