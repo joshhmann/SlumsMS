@@ -67,9 +67,9 @@
   setInterval(tick, 30000);
 })();
 
-/* Secrets: twenty-one hidden Slums-chan stickers for signed-in players, each one a card in My cards (market/cards.html).
-   The Konami code; typing "slums", "bustin", "henesys", "kerning", "slime", "maple", "peace", "heart", "rebirth" or
-   "zzz" outside a text box; clicking the hero
+/* Secrets: twenty-two hidden Slums-chan stickers for signed-in players, each one a card in My cards (market/cards.html).
+   The Konami code; typing "slums", "bustin", "henesys", "kerning", "slime", "maple", "peace", "heart", "rebirth",
+   "zzz" or "summer" outside a text box; clicking the hero
    picture 7 times in a row, a page's Slums-chan 5 times or the footer line 3 times; waking the sleeping one on the 404
    page (3 clicks); clicking her speech bubble 5 times; trying all three colour dots within 10 seconds; a visit between
    2 and 5 AM or on a Sunday; 5 minutes without touching a page; or 5 clicks on a face-down card in My cards. The pictures live in secret/, which only the private build has and nginx serves only with a
@@ -122,7 +122,9 @@
     sunday: { src: "sunday.webp", w: 979, name: "Lazy Sunday", hint: "She takes it easy one day a week.",
               alt: "Slums-chan lies on her front with her boots in the air" },
     zzz: { src: "daydream.webp", w: 957, name: "Daydream", hint: "Make a sleepy sound.",
-           alt: "Slums-chan lies with her chin in her hand, smiling sleepily" }
+           alt: "Slums-chan lies with her chin in her hand, smiling sleepily" },
+    summer: { src: "summer.webp", w: 885, name: "Summer!", hint: "Say her favourite season.",
+              alt: "Slums-chan in a bikini, sunglasses on her cap, raising a cold drink" }
   };
   var IDS = Object.keys(SECRETS), THEME = ["konami", "slums", "clicks"];
   var THEME_ONLY = [{ src: "shy.webp", w: 582, alt: "Slums-chan kneels with a shy smile" },
@@ -243,7 +245,7 @@
     keys = keys.concat(k).slice(-KONAMI.length);
     if (keys.join() === KONAMI.join()) { keys = []; reveal("konami"); return; }
     typed = (typed + (k.length === 1 ? k : " ")).slice(-8);
-    ["slums", "bustin", "henesys", "kerning", "slime", "maple", "peace", "heart", "rebirth", "zzz"].forEach(function (w) {
+    ["slums", "bustin", "henesys", "kerning", "slime", "maple", "peace", "heart", "rebirth", "zzz", "summer"].forEach(function (w) {
       if (typed.slice(-w.length) === w) { typed = ""; reveal(w); }
     });
   });

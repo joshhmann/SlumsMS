@@ -221,7 +221,7 @@ class StoreTest(Base):
     def test_cards_are_per_account_and_rewards_follow_the_secrets(self):
         out = self.store.found(self.me, {"ids": ["konami", "slums", "made-up", 5]})
         self.assertEqual(set(out["found"]), {"konami", "slums"})
-        self.assertEqual(out["total"], 24)
+        self.assertEqual(out["total"], 25)
         self.clock.t += 60
         out = self.store.found(self.me, {"ids": ["clicks", "konami"]})
         self.assertIn("theme", out["found"])  # the first three unlock the theme card
@@ -230,7 +230,7 @@ class StoreTest(Base):
         self.assertNotIn("all", out["found"])
         self.assertEqual(self.store.cards(self.other)["found"], {})
         out = self.store.found(self.me, {"ids": list(ms.SECRET_CARDS)})
-        self.assertEqual(len(out["found"]), 24)
+        self.assertEqual(len(out["found"]), 25)
         for bad in ({"ids": "konami"}, {}, {"ids": ["x"] * 99}):
             with self.assertRaises(ms.Refused):
                 self.store.found(self.me, bad)
@@ -238,11 +238,11 @@ class StoreTest(Base):
 
     def test_double_peace_stays_at_the_first_fourteen_and_every_card_needs_them_all(self):
         # ticket 172: seven more secrets; Double peace still needs only the old 14, so nobody loses it, and the new
-        # "every" reward needs all 21
+        # "every" reward needs all of them (22 with the summer one)
         first = ("konami", "slums", "clicks", "bustin", "sidekick", "wake",
                  "henesys", "owl", "kerning", "colours", "afk", "footer", "slime", "bubble")
         self.assertEqual(ms.SECRET_CARDS[:14], first)
-        self.assertEqual(ms.SECRET_CARDS[14:], ("maple", "peace", "heart", "shh", "rebirth", "sunday", "zzz"))
+        self.assertEqual(ms.SECRET_CARDS[14:], ("maple", "peace", "heart", "shh", "rebirth", "sunday", "zzz", "summer"))
         out = self.store.found(self.me, {"ids": list(first)})
         self.assertIn("all", out["found"])
         self.assertNotIn("every", out["found"])

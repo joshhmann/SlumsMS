@@ -37,7 +37,8 @@ they wait for the owner's picks.
 - 7 cards from the singles: one of each near-twin pair (03 wink, 05 finger heart, 04 cross-legged) plus 02, 06, 07
   and 10. Mixed into the secrets, each with its own trigger (the owner approved the list in docs/site/SECRETS.md,
   cards 15-21).
-- Double peace keeps its old rule (the first 14). A new reward, "All of them" (twin 08), needs all 21.
+- Double peace keeps its old rule (the first 14). A new reward, "All of them" (twin 08), needs every secret.
+- 20:26 UTC: the bikini sticker from sheet 12 joins as card 22, "Summer!" (type `summer`). 25 cards.
 - Launcher images: the chibi stickers from sheets 12 and 13 (server life, holidays, weather), never the cheeky cards.
   That's launcher work, filed as its own ticket for the launcher lane.
 

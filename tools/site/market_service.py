@@ -72,7 +72,7 @@ KINDS = ("WTB", "WTS")
 # every card, which the secret/ pictures already allow anyone signed in.
 FIRST_CARDS = ("konami", "slums", "clicks", "bustin", "sidekick", "wake",
                "henesys", "owl", "kerning", "colours", "afk", "footer", "slime", "bubble")
-SECRET_CARDS = FIRST_CARDS + ("maple", "peace", "heart", "shh", "rebirth", "sunday", "zzz")
+SECRET_CARDS = FIRST_CARDS + ("maple", "peace", "heart", "shh", "rebirth", "sunday", "zzz", "summer")
 REWARD_CARDS = {"theme": ("konami", "slums", "clicks"), "all": FIRST_CARDS, "every": SECRET_CARDS}
 DIRS = ("below", "above")
 

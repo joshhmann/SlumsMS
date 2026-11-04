@@ -804,7 +804,7 @@ class WorldTest(unittest.TestCase):
         with open(os.path.join(build.SRC, "assets", "theme.js"), encoding="utf-8") as f:
             js = f.read()
         words = re.search(r'\[([^\]]*)\]\.forEach\(function \(w\)', js).group(1)
-        for w in ("maple", "peace", "heart", "rebirth", "zzz"):
+        for w in ("maple", "peace", "heart", "rebirth", "zzz", "summer"):
             self.assertIn('"%s"' % w, words)
         self.assertIn('closest(".card.back")', js)
         self.assertIn('reveal("shh")', js)

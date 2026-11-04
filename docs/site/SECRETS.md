@@ -14,7 +14,7 @@ show face up with the date. The rest show a "?" and the hint in the last column 
   case both work.
 - "Clicks in a row" means each click within 0.8 seconds of the last one.
 
-## The 24 cards
+## The 25 cards
 
 | # | Card | Id | How to unlock it | Picture | Hint shown on My cards |
 |---|---|---|---|---|---|
@@ -39,11 +39,12 @@ show face up with the date. The rest show a "?" and the hint in the last column 
 | 19 | Big plans | `rebirth` | Type `rebirth` | `plans.webp` | Say what you do when you've done it all. |
 | 20 | Lazy Sunday | `sunday` | Open any page on a Sunday (your own computer's clock) and wait 4 seconds | `sunday.webp` | She takes it easy one day a week. |
 | 21 | Daydream | `zzz` | Type `zzz` | `daydream.webp` | Make a sleepy sound. |
-| 22 | Shy | `theme` | **Reward:** find cards 1, 2 and 3. This also unlocks the Slums-chan colour theme (the 4th dot) | `shy.webp` | Unlock the Slums-chan theme. |
-| 23 | Double peace | `all` | **Reward:** find the first 14 secrets (cards 1-14) | `dpeace.webp` | Find the first fourteen secrets. |
-| 24 | All of them | `every` | **Reward:** find all 21 secrets (cards 1-21) | `wink2.webp` | Find every secret. |
+| 22 | Summer! | `summer` | Type `summer` | `summer.webp` | Say her favourite season. |
+| 23 | Shy | `theme` | **Reward:** find cards 1, 2 and 3. This also unlocks the Slums-chan colour theme (the 4th dot) | `shy.webp` | Unlock the Slums-chan theme. |
+| 24 | Double peace | `all` | **Reward:** find the first 14 secrets (cards 1-14) | `dpeace.webp` | Find the first fourteen secrets. |
+| 25 | All of them | `every` | **Reward:** find all 22 secrets (cards 1-22) | `wink2.webp` | Find every secret. |
 
-Cards 15-21 and 24 came in ticket 172 (November 2026). Double peace kept its old rule, so nobody who had it lost it.
+Cards 15-22 and 25 came in ticket 172 (November 2026). Double peace kept its old rule, so nobody who had it lost it.
 
 ## The Slums-chan theme
 
