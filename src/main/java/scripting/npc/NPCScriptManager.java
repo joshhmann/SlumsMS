@@ -142,6 +142,7 @@ public class NPCScriptManager extends AbstractScriptManager {
                     cm.resetItemScript();
                 }
                 if (engine == null) {
+                    log.warn("No script for npc {} (file {}, item script {}): nothing to run", npc, fileName, itemScript);
                     dispose(c);
                     return false;
                 }
@@ -161,6 +162,10 @@ public class NPCScriptManager extends AbstractScriptManager {
                 }
             } else {
                 c.sendPacket(PacketCreator.enableActions());
+                if (itemScript) {
+                    log.warn("Item script {} (npc {}) refused: clicked too soon after the last NPC click", fileName, npc);
+                    return false;
+                }
             }
             return true;
         } catch (Exception e) {

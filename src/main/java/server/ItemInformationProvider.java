@@ -2700,7 +2700,7 @@ public class ItemInformationProvider {
         return qcItem;
     }
 
-    public class ScriptedItem {
+    public static class ScriptedItem {
 
         private final boolean runOnPickup;
         private final int npc;
