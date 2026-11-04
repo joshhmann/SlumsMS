@@ -19,6 +19,14 @@ var expedMap = "Audience Room";
 var list = "What would you like to do?#b\r\n\r\n#L1#View current Expedition members#l\r\n#L2#Start the fight!#l\r\n#L3#Stop the expedition.#l";
 
 function start() {
+    // 1.6.4 (owner 2026-11-04): the corridor is open, the fight keeps rebirth 1 (HyperTPHandler.vonLeonRefusal)
+    var reborns = Java.type('config.YamlConfig').config.server.USE_REBIRTH_SYSTEM ? cm.getPlayer().getReborns() : 0;
+    var refusal = Java.type('net.server.channel.handlers.HyperTPHandler').vonLeonRefusal(reborns);
+    if (refusal != null) {
+        cm.sendOk(refusal);
+        cm.dispose();
+        return;
+    }
     if (cm.isQuestStarted(3171) || cm.isQuestCompleted(3171)) {
         action(1, 0, 0);
     } else {

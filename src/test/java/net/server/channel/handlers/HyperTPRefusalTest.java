@@ -44,8 +44,21 @@ class HyperTPRefusalTest {
 
     @Test void rebirthGatesStillHold() {
         // 1.6.1 b040: only Von Leon's wing of Lion King's Castle keeps rebirth 1
-        assertNotNull(go(HENESYS, false, 211070000, 0, NONE));
-        assertNull(HyperTPHandler.refusal(HENESYS, false, true, 211070000, 0, NONE, 1));
+        assertNotNull(go(HENESYS, false, 211070100, 0, NONE));
+        assertNull(HyperTPHandler.refusal(HENESYS, false, true, 211070100, 0, NONE, 1));
+    }
+
+    /** 1.6.4 (owner 2026-11-04): only the Audience Room fight is gated; the corridor, prisons and roofs are open. */
+    @Test void onlyTheVonLeonFightKeepsTheRebirthGate() {
+        for (int map : new int[]{211070000, 211070101, 211070102, 211070110, 211070550}) {
+            assertNull(HyperTPHandler.gateRefusal(map, 0, 117), "Hyper Rock to " + map);
+            assertTrue(soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(map, 0, 117), "bots to " + map);
+        }
+        for (int map : new int[]{211070100, 211070200, 211070500}) {
+            assertNotNull(HyperTPHandler.gateRefusal(map, 0, 200), "fight room " + map);
+        }
+        assertNotNull(HyperTPHandler.vonLeonRefusal(0));
+        assertNull(HyperTPHandler.vonLeonRefusal(1));
     }
 
     /** 1.6.1 b040: the notes present Lion King's Castle and the Rose Garden as open lv 117-134 training. */
@@ -55,7 +68,7 @@ class HyperTPRefusalTest {
             assertNull(HyperTPHandler.gateRefusal(map, 0, 117), "Hyper Rock to " + map);
             assertTrue(soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(map, 0, 117), "bots to " + map);
         }
-        assertNotNull(HyperTPHandler.gateRefusal(211070000, 0, 200), "Von Leon's wing keeps rebirth 1");
+        assertNotNull(HyperTPHandler.gateRefusal(211070100, 0, 200), "the Von Leon fight room keeps rebirth 1");
         assertFalse(soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(211070100, 0, 200));
         for (String f : new String[]{"in_lkc", "211060000.4", "out_VLRoof4", "gotoNext1", "gotoNext2_1", "gotoNext2_2",
                 "gotoNext3_1", "gotoNext3_2", "gotoNext3_3", "gotoNext4", "1stTowerTop", "2ndTowerTop", "3rdTowerTop"}) {

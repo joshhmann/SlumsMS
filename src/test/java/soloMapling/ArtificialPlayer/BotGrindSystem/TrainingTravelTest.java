@@ -26,7 +26,7 @@ class TrainingTravelTest {
     private static final Map<Integer, List<TrainingMap>> AROUND = Map.of(
             ORBIS, List.of(new TrainingMap(200010000, 40, 2), new TrainingMap(200010100, 42, 3)),
             LEAFRE, List.of(new TrainingMap(240010200, 80, 3), new TrainingMap(240020100, 82, 4)),
-            EL_NATH, List.of(new TrainingMap(211070000, 80, 5)),
+            EL_NATH, List.of(new TrainingMap(211070100, 80, 5)),
             HENESYS, List.of(new TrainingMap(100020000, 10, 1)));
 
     private final AtomicLong clock = new AtomicLong(1_000_000L);

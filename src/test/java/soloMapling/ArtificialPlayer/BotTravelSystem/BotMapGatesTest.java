@@ -34,7 +34,7 @@ class BotMapGatesTest {
         assertTrue(BotMapGates.mayEnter(211000000, 0));
         assertTrue(BotMapGates.mayEnter(211040100, 0));
         assertTrue(BotMapGates.mayEnter(211060100, 0), "Lion King's Castle is open training (1.6.1 b040)");
-        assertFalse(BotMapGates.mayEnter(211070000, 0), "Von Leon's wing keeps rebirth 1");
+        assertFalse(BotMapGates.mayEnter(211070100, 0), "the Von Leon fight room keeps rebirth 1");
     }
 
     // Ticket 81 round 4: bots get the players' level-120 rule for the Future and lower Grandis.
@@ -51,7 +51,7 @@ class BotMapGatesTest {
         assertFalse(BotMapGates.mayEnter(450001010, 1, 200), "Arcane River needs 2 rebirths");
         assertTrue(BotMapGates.mayEnter(450001010, 2, 1));
         assertFalse(BotMapGates.mayEnter(271030100, 3, 200), "the Knight Stronghold stays closed");
-        assertFalse(BotMapGates.mayEnter(211070000, 0, 200), "Von Leon's wing stays rebirth 1");
+        assertFalse(BotMapGates.mayEnter(211070100, 0, 200), "the Von Leon fight room stays rebirth 1");
         assertFalse(BotMapGates.mayEnter(410000002, 0, 200), "the Fox Tree is deeper Grandis (1.6.1 b039)");
         assertFalse(BotMapGates.mayEnter(410000010, 0), "no level known: the rebirth rule");
     }

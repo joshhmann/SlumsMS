@@ -105,9 +105,9 @@ class UseCashItemTrockTest {
     }
 
     @Test void rebirthGatesReachTheRock() {
-        assertNotNull(UseCashItemHandler.trockRefusal(at(HENESYS), 211070000, map(0, MapId.NONE)));
+        assertNotNull(UseCashItemHandler.trockRefusal(at(HENESYS), 211070100, map(0, MapId.NONE)));
         Character reborn = at(HENESYS);
         when(reborn.getReborns()).thenReturn(1);
-        assertNull(UseCashItemHandler.trockRefusal(reborn, 211070000, map(0, MapId.NONE)));
+        assertNull(UseCashItemHandler.trockRefusal(reborn, 211070100, map(0, MapId.NONE)));
     }
 }

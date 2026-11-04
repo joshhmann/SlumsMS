@@ -2138,8 +2138,8 @@ final class Probes160 {
     static final int[] LADDER_DEEPER = {410000002, 400020300, 401000002, 402000400, 402000401, 402000402};
     /** t-ld-1 (1.6.1 b040): Lion King's Castle training maps open with no rebirth (lv 117 character, Hyper Rock). */
     static final int[] LADDER_LKC_OPEN = {211060000, 211060100, 211060300, 211060830, 211080100};
-    /** t-ld-1 (1.6.1 b040): Von Leon's wing keeps its rebirth 1. */
-    static final int LADDER_LKC_BOSS_WING = 211070000;
+    /** t-ld-1 (1.6.1 b040): the Von Leon fight room keeps its rebirth 1 (1.6.4: the corridor 211070000 is open). */
+    static final int LADDER_LKC_BOSS_WING = 211070100;
     /** t-ld-1 (1.6.1 b040): the Gate of Time's lower-Grandis destination. */
     static final int LADDER_GATE_GRANDIS = 400000000;
     /** t-ld-1 (owner 2026-10-29): the Gate of Time's third choice, Leafre of the Past (Crack in Time), and a field. */
@@ -2317,7 +2317,7 @@ final class Probes160 {
             }
         }
         if (net.server.channel.handlers.HyperTPHandler.gateRefusal(LADDER_LKC_BOSS_WING, 0, 200) == null) {
-            bad.add("Von Leon's wing " + LADDER_LKC_BOSS_WING + " lets a rebirth-0 character in by Hyper Rock");
+            bad.add("Von Leon's fight room " + LADDER_LKC_BOSS_WING + " lets a rebirth-0 character in by Hyper Rock");
         }
         try {
             for (String f : List.of("portal/in_lkc.js", "portal/211060000.4.js", "portal/out_VLRoof4.js",

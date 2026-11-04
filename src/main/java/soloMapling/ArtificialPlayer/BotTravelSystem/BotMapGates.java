@@ -7,8 +7,7 @@ import server.maps.AreaGates;
 
 // MapleRoot's rebirth gates, as bots must respect them (ticket 03). HyperTPHandler only stops the Hyper
 // Teleport Rock, but a bot treats the same id ranges as a hard rule even where a portal would let it walk in:
-//   Von Leon's wing         rebirth 1 (1.6.1 b040: the castle's walls and towers and the Rose Garden are open
-//                           training, as for players; HyperTPHandler.isLionKingBossWing)
+//   Von Leon's fight rooms  rebirth 1 (1.6.4: the rest of the castle incl. the corridor is open, as for players; HyperTPHandler.isVonLeonFight)
 //   Twilight Perion range   rebirth 1 or level 120 (owner 2026-10-29, was 2; also covers Gate to the Future, Dark
 //                           Ereve, Leafre of Past)
 //   Grandis / Arcane        owner 2026-10-29: deeper Grandis rebirth 1, Arcane River rebirth 2, lower Grandis 1
@@ -39,7 +38,7 @@ public final class BotMapGates {
         if (HyperTPHandler.isTwilightPerion(mapId) || mapId == WARRIOR_GROUNDS) {
             return AreaGates.FUTURE_REBIRTHS; // owner 2026-10-29: level 120 or the 1st rebirth (was 2)
         }
-        if (HyperTPHandler.isLionKingBossWing(mapId)) {
+        if (HyperTPHandler.isVonLeonFight(mapId)) {
             return 1;
         }
         return 0;
@@ -66,7 +65,7 @@ public final class BotMapGates {
         if (HyperTPHandler.isRestrictedMap(mapId)) {
             return false;
         }
-        if (HyperTPHandler.isLionKingBossWing(mapId) && rebirths < 1) {
+        if (HyperTPHandler.isVonLeonFight(mapId) && rebirths < 1) {
             return false;
         }
         return AreaGates.denyReason(mapId, level, rebirths) == null;

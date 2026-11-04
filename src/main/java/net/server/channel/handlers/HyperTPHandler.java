@@ -96,9 +96,9 @@ public class HyperTPHandler extends AbstractPacketHandler {
         if (isRestrictedMap(toMapId)) {
             return "You are not allowed to teleport to this map.";
         }
-        // 1.6.1 b040: Lion King's Castle and the Rose Garden are open training; only Von Leon's wing keeps rebirth 1
-        if (reborns < 1 && isLionKingBossWing(toMapId)) {
-            return "You need to be Rebirth level 1 or higher.";
+        // 1.6.1 b040: Lion King's Castle and the Rose Garden are open training; only the Von Leon fight rooms keep rebirth 1
+        if (isVonLeonFight(toMapId) && vonLeonRefusal(reborns) != null) {
+            return vonLeonRefusal(reborns);
         }
         // ticket 81 round 3: the Future and lower Grandis open at level 120; owner 2026-10-29: deeper Grandis at
         // rebirth 1, Arcane River at rebirth 2 (server.maps.AreaGates says which, and the refusal text)
@@ -141,9 +141,18 @@ public class HyperTPHandler extends AbstractPacketHandler {
         return mapid >= 211060000 && mapid <= 211070550;
     }
 
-    /** Von Leon's wing (Audience Room corridor, the fight, the Aerial Prison): still rebirth 1 by Hyper Rock. */
-    public static boolean isLionKingBossWing(int mapid) {
-        return mapid >= 211070000 && mapid <= 211070550;
+    /**
+     * 1.6.4 (owner 2026-11-04, "gate the boss but the other areas are fine"): only the Audience Room fight rooms keep
+     * rebirth 1. The corridor, the Aerial Prisons and the Resurrection Tower roofs are open like the rest of the castle.
+     */
+    public static boolean isVonLeonFight(int mapid) {
+        return mapid == 211070100 || mapid == 211070104 || mapid == 211070200 || mapid == 211070300
+                || mapid == 211070400 || mapid == 211070500;
+    }
+
+    /** The refusal for the Von Leon fight (Hyper Rock, the recruiter NPC, the expedition entry), or null. */
+    public static String vonLeonRefusal(int reborns) {
+        return reborns < 1 ? "You need to be Rebirth level 1 or higher." : null;
     }
 
     public static boolean isTwilightPerion(int mapid) {
