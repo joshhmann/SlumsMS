@@ -298,3 +298,11 @@ audio playback, deployment or publication was performed. Detailed source pins, r
 remaining-map list: [v232 results](/root/work/client/src-164-mapart-fixes/docs/map-data-sweep-164/v232-results.md).
 Private package: `/root/work/agent-runs/client/164-map-data-sweep/v232-repair/`.
 Native compatibility and targeted map-entry proof remain required before installation/publication.
+
+## Swordie v271 source review
+
+Read-only review of the owner's `Z:\swordie 271` archives found useful Rose Garden behavior, Temple
+portal and missing-loot references, but no full client art pack or included client hook source.
+All ten inspected low-level Edelstein gap mobs have candidate base drop rows; no rates were imported.
+[Source hashes, exact paths, compatibility limits and loot leads](181-swordie271-source-review.md).
+Rose Garden crash/missing mario art remain unresolved; the downloaded Steam assets require a separate sweep.
