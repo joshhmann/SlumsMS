@@ -10311,6 +10311,8 @@ public class Character extends AbstractCharacterObject {
                 }
 
                 if (storage != null && usedStorage && !isOwnedAlt()) {
+                    // b294: this throws on a failed save so the catch below rolls the transaction back. usedStorage
+                    // stays true on purpose: the rows were not written, so the next save has to retry them.
                     storage.saveToDB(con);
                     usedStorage = false;
                 }
