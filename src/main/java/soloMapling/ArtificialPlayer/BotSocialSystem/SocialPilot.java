@@ -165,6 +165,8 @@ public final class SocialPilot {
                 if (!members.isEmpty()) {
                     members = Set.of();
                 }
+                refreshedAt = 0; // switched on again later: the roster is read at once
+                scannedAt = 0;
                 return;
             }
             register();

@@ -198,7 +198,7 @@ public final class SocialGroups {
 
     private static volatile Source source = GAME;
     private static volatile Snapshot snapshot = Snapshot.EMPTY;
-    private static volatile long computedAt = Long.MIN_VALUE;
+    private static volatile long computedAt = -1;
     private static final Object LOCK = new Object();
     private static int recomputes;
 
@@ -212,11 +212,11 @@ public final class SocialGroups {
         if (!enabled()) {
             return Snapshot.EMPTY;
         }
-        if (now - computedAt < RECOMPUTE_MS && now >= computedAt) {
+        if (fresh(now)) {
             return snapshot;
         }
         synchronized (LOCK) {
-            if (now - computedAt < RECOMPUTE_MS && now >= computedAt) {
+            if (fresh(now)) {
                 return snapshot;
             }
             snapshot = compute(now, source);
@@ -224,6 +224,12 @@ public final class SocialGroups {
             recomputes++;
             return snapshot;
         }
+    }
+
+    /** Whether the snapshot is younger than {@link #RECOMPUTE_MS} (a clock that went backwards recomputes). */
+    private static boolean fresh(long now) {
+        long at = computedAt;
+        return at >= 0 && now >= at && now - at < RECOMPUTE_MS;
     }
 
     /** How many times the snapshot was recomputed (the throttle's evidence). */
@@ -280,21 +286,12 @@ public final class SocialGroups {
         return new Snapshot(now, List.copyOf(groups), Map.copyOf(byBot), Map.copyOf(tension));
     }
 
-    /** A member's favourite place at the group's hour: the largest taste x what the place is for then. */
+    /** A member's favourite place at the group's hour: the largest of {@link SocialRoutine#placeWeights}. */
     static int favourite(SocialRoutine.Profile p, double hour, int spots) {
-        SocialRoutine.Day d = SocialRoutine.at(p, hour);
+        double[] w = SocialRoutine.placeWeights(p, SocialRoutine.at(p, hour), Math.min(spots, p.spotTaste().length));
         int best = 0;
-        double top = -1;
-        for (int i = 0; i < Math.min(spots, p.spotTaste().length); i++) {
-            double time = switch (i % 4) {
-                case 0 -> 0.5 + 0.5 * d.company();
-                case 1 -> 0.3 + 0.7 * d.gather();
-                case 2 -> 0.35 + 0.65 * d.evening();
-                default -> 0.35 + 0.65 * Math.max(d.evening(), 0.5 * d.gather());
-            };
-            double v = p.spotTaste()[i] * time;
-            if (v > top) {
-                top = v;
+        for (int i = 1; i < w.length; i++) {
+            if (w[i] > w[best]) {
                 best = i;
             }
         }
@@ -424,7 +421,7 @@ public final class SocialGroups {
 
     static void resetForTest() {
         snapshot = Snapshot.EMPTY;
-        computedAt = Long.MIN_VALUE;
+        computedAt = -1;
         recomputes = 0;
     }
 }

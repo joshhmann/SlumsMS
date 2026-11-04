@@ -110,10 +110,10 @@ public final class SocialRoutine {
             double[] taste = new double[Math.max(1, spots)];
             for (int i = 0; i < taste.length; i++) {
                 taste[i] = switch (i % 4) {
-                    case 0 -> 0.45 + 0.40 * soc + 0.15 * conf;                      // the square: for the sociable
-                    case 1 -> 0.25 + 0.45 * amb + 0.25 * conf + 0.10 * soc;         // the market: busy and useful
-                    case 2 -> 0.20 + 0.40 * cur + 0.30 * agr + 0.20 * (1 - soc);    // the park: calm and curious
-                    default -> 0.15 + 0.55 * cur + 0.25 * (1 - amb);                // the pet park: curious, unhurried
+                    case 0 -> 0.20 + 0.70 * soc;                                  // the square: the sociable, who like a crowd
+                    case 1 -> 0.20 + 0.60 * amb + 0.20 * conf;                    // the market: the ambitious and confident
+                    case 2 -> 0.20 + 0.50 * agr + 0.30 * (1 - soc);               // the park: the agreeable and the quiet
+                    default -> 0.20 + 0.70 * cur;                                 // the pet park: the curious
                 };
             }
             return new Profile(shift, soc, amb, cur, conf, agr, taste);
@@ -263,15 +263,9 @@ public final class SocialRoutine {
         double sum = 0;
         boolean starved = self.n(Need.COMPANIONSHIP) >= 0.7 || self.e(Emotion.LONELINESS) >= 0.35;
         double pull = eventPull(group, hour);
+        double[] base = placeWeights(p, d, n);
         for (int i = 0; i < n; i++) {
-            double time = switch (i % 4) {
-                case 0 -> 0.5 + 0.5 * d.company();
-                case 1 -> 0.3 + 0.7 * d.gather();
-                case 2 -> 0.35 + 0.65 * d.evening();
-                default -> 0.35 + 0.65 * Math.max(d.evening(), 0.5 * d.gather());
-            };
-            double x = p.spotTaste()[i] * time;
-            x *= x;
+            double x = base[i];
             if (group != null && group.spotIndex() == i) {
                 x *= 1.4 + 3.0 * pull;
                 if (starved) {
@@ -299,6 +293,26 @@ public final class SocialRoutine {
         String why = group != null && group.spotIndex() == pick && pull > 0.3 ? "its group's gathering"
                 : starved ? "company" : "its taste at this hour";
         return new Spot(pick, maps[pick], why);
+    }
+
+    /**
+     * Taste x what each place is for at this hour, squared so a taste shows: the weight of each of the first {@code n}
+     * gathering places for a bot with this profile. The square is for company all day, the market for the lunchtime
+     * gathering, the park and the pet park for the evening. Pure.
+     */
+    public static double[] placeWeights(Profile p, Day d, int n) {
+        double[] w = new double[n];
+        for (int i = 0; i < n; i++) {
+            double time = switch (i % 4) {
+                case 0 -> 0.6 + 0.4 * d.company();
+                case 1 -> 0.35 + 0.65 * d.gather();
+                case 2 -> 0.4 + 0.6 * d.evening();
+                default -> 0.4 + 0.6 * Math.max(d.evening(), 0.5 * d.gather());
+            };
+            double x = p.spotTaste()[i] * time;
+            w[i] = x * x;
+        }
+        return w;
     }
 
     /** The map the bot's town stay goes to now, or 0 (not in the pilot, routine off, mind not in memory). */

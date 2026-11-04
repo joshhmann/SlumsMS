@@ -219,28 +219,7 @@ class SocialSimulationTest extends SocialActTestBase {
     /** No pair repeats the same act family inside the budget's gap, no bot exceeds its per-minute rate. */
     private void assertNoLoops(List<ActEvent> log) {
         SocialBudget.Limits limits = SocialBudget.Limits.defaults();
-        Map<String, Long> last = new HashMap<>();
-        Map<Integer, java.util.ArrayDeque<Long>> perBot = new HashMap<>();
-        int worst = 0;
-        for (ActEvent e : log) {
-            String family = SocialBudget.family(SocialActions.budgetKey(e.kind()));
-            if (e.kind() == SocialActKind.ACCEPT || e.kind() == SocialActKind.DECLINE) {
-                continue; // an answer to an invitation: the invitation was the paced act
-            }
-            long pair = SocialBudget.pair(e.actor(), e.target());
-            String key = pair + "/" + family;
-            Long before = last.put(key, e.now());
-            if (before != null) {
-                assertTrue(e.now() - before >= limits.cooldownOf(family) - 1,
-                        family + " between the same pair twice within " + limits.cooldownOf(family) / MIN + " min: " + (e.now() - before) / MIN);
-            }
-            java.util.ArrayDeque<Long> window = perBot.computeIfAbsent(e.actor(), k -> new java.util.ArrayDeque<>());
-            window.addLast(e.now());
-            while (e.now() - window.peekFirst() >= MIN) {
-                window.pollFirst();
-            }
-            worst = Math.max(worst, window.size());
-        }
+        int worst = SocialTestKit.assertWithinBudget(log);
         System.out.println("SIM busiest bot did at most " + worst + " acts in one minute (limit " + limits.actorPerMin() + ")");
         assertTrue(worst <= limits.actorPerMin(), "no bot above the per-minute actor rate");
         Map<String, Long> counters = SocialBudget.counters();

@@ -25,7 +25,7 @@ final class SocialTestKit {
     }
 
     /** A world that records what the acts do to it: chat lines, emotes, walks, memories. Memory dedupes like the real one. */
-    static final class FakeWorld implements SocialWorld {
+    static class FakeWorld implements SocialWorld {
         record Said(int id, String text) {
         }
 
@@ -277,6 +277,62 @@ final class SocialTestKit {
             BotBonds.together(invite.from(), invite.to(), BondEvent.PARTY);
             return super.accept(invite, now);
         }
+    }
+
+    /**
+     * A world whose memory is the REAL {@link BotMemory} (over a {@code FakeMemoryTable} the test installs): the notes the
+     * acts write and the recall the decisions read go through the production code, rows and all.
+     */
+    static final class MemoryWorld extends FakeWorld {
+        MemoryWorld(LongSupplier clock) {
+            super(clock);
+        }
+
+        @Override
+        public List<BotMemory.Note> recall(int botCharId, int subjectId, BotMemory.Query q, long now, int limit) {
+            return BotMemory.recallIfCached(botCharId - BASE, subjectId, q, now, limit);
+        }
+
+        @Override
+        public void remember(int botCharId, int subjectId, BotMemory.Kind kind, String text, double valence, int mapId,
+                             long now) {
+            BotMemory.remember(botCharId - BASE, subjectId, kind, text, valence, mapId, BotMemory.Provenance.WITNESSED,
+                    Double.NaN, 0, now);
+        }
+    }
+
+    /**
+     * The budget's limits as the log of carried-out acts shows them: no pair repeats an act family inside its gap and no
+     * bot goes above the per-minute actor rate. Fails with a message on the first breach; returns the most acts any bot
+     * did inside one minute.
+     */
+    static int assertWithinBudget(List<SocialActions.ActEvent> log) {
+        SocialBudget.Limits limits = SocialBudget.Limits.defaults();
+        Map<String, Long> last = new java.util.HashMap<>();
+        Map<Integer, java.util.ArrayDeque<Long>> perBot = new java.util.HashMap<>();
+        int worst = 0;
+        for (SocialActions.ActEvent e : log) {
+            String family = SocialBudget.family(SocialActions.budgetKey(e.kind()));
+            if (e.kind() == SocialActKind.ACCEPT || e.kind() == SocialActKind.DECLINE) {
+                continue; // an answer to an invitation: the invitation was the paced act
+            }
+            long pair = SocialBudget.pair(e.actor(), e.target());
+            Long before = last.put(pair + "/" + family, e.now());
+            if (before != null && e.now() - before < limits.cooldownOf(family) - 1) {
+                throw new AssertionError(family + " between the same pair twice within " + limits.cooldownOf(family) / 60_000L
+                        + " min: " + (e.now() - before) / 60_000L);
+            }
+            java.util.ArrayDeque<Long> window = perBot.computeIfAbsent(e.actor(), x -> new java.util.ArrayDeque<>());
+            window.addLast(e.now());
+            while (e.now() - window.peekFirst() >= 60_000L) {
+                window.pollFirst();
+            }
+            worst = Math.max(worst, window.size());
+        }
+        if (worst > limits.actorPerMin()) {
+            throw new AssertionError("a bot above the per-minute actor rate: " + worst);
+        }
+        return worst;
     }
 
     /** {@code a}'s edge to {@code b} pushed up to FRIEND (or beyond with {@code close}) by shared events. */
