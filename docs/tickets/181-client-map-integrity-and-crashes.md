@@ -45,7 +45,8 @@ wrong destination or inability to proceed), error code and timing still need to 
 
 Source trace:
 
-1. Temple map `270000000`, `portal1` (index 10), opens `scripts/portal/270000000.10.js`.
+1. Temple map `270000000`, `portal1` (index 10), is intended to use
+   `scripts/portal/270000000.10.js`; the follow-up below identifies a wiring discrepancy.
 2. That script opens keeper NPC `2140000` with `scripts/npc/gateOfTime.js`.
 3. The third menu choice (selection 2) checks `AreaGates.denyReason` and calls `cm.warp(272000000, 0)`.
 4. Retained client map `272000000` has `in00`, type **10**, targeting `272000100/out00`.
@@ -81,6 +82,58 @@ Evidence outputs: `/root/work/agent-runs/client/map-audit-20261103/temple-route-
 `temple-route-check.err`, `temple-route-notes.txt`; copied checker tools in `temple-route-tools/`.
 The Sound root is absent from this retained Data subset, so the checker skipped BGM validation.
 No fresh client run, runtime script proof or diagnosis of this route's reported error is claimed.
+
+### Follow-up: all seven route maps checked, plus read-only TEST files
+
+Recorded 2026-11-04 06:39 UTC (2026-11-03 10:39 PM PST). Owner asked to check these maps even
+without knowing which transition failed. No service, QA worker or game was started or changed.
+
+**Stronger findings:**
+
+- All **27** internal-object misses occur in **`272000000` itself**: `acc10/timeTemple/pillar_old`
+  and `acc10/timeTemple/crack`. The six Leafre fields `272000100..272000600` produced **zero
+  checker findings**. This is the checked subset, not proof that those fields render or play correctly.
+- Parsed every portal in the Temple hub and the seven destination maps. Their portal data agrees
+  between the retained client inventory, retained server XML and **current TEST XML read on .111**.
+  All checked destination maps exist. The only absent target portal name is the previously noted
+  `272000000/west00 -> 270000000/east00`.
+- `GenericPortal.attemptTeleportForUnscriptedPortal` explicitly falls back to destination portal 0
+  when the named portal does not exist. Both maps have portal 0. Therefore the return mismatch is
+  confirmed bad destination metadata, but this source path should fall back rather than dereference
+  that missing portal. Verify the actual landing location; do not attribute initial-entry closure to it.
+
+**New menu-wiring discrepancy to reproduce before changing code:**
+
+- Current TEST `270000000` portal 10 is named `portal1`, has no explicit `script` node and directly
+  targets `271000000/out00` (the Future). The corresponding retained client/server data agrees.
+- The source `PortalFactory.loadPortal` looks for an explicit script or the fallback filename
+  **`270000000.portal1.js`**, constructed from map ID plus portal **name**, not index.
+- Current TEST has `scripts/portal/270000000.10.js` (SHA256
+  `2aa3db631837c76cfbae41a28e79448da234c3d3f6959968e9cc809d860b59e6`, matching this branch)
+  but no `270000000.portal1.js`. The inspected source therefore does not wire the intended menu
+  to this XML portal via the fallback. Existing script tests load `.10.js` directly and miss this gap.
+- This is source plus current TEST file evidence, not proof of the running jar's portal behavior or
+  Live's data. The owner's reported selection may come from different runtime data or code. Capture
+  which actual portal/menu runs and compare deployed resolver behavior before selecting a fix.
+- Add an integration regression that constructs the portal from actual map data through
+  `PortalFactory` and verifies the menu script binding; a direct script invocation is insufficient.
+  A repair can use the established portal-name fallback or a deliberate WZ script binding after review.
+
+**Missing entry scripts are not established crash causes:**
+
+- Current TEST also lacks both `map/onUserEnter/q31165e.js` (`272000000`) and
+  `map/onUserEnter/undomorphblackdraco.js` (`272000600`). The map XML requests them.
+- Inspected `AbstractScriptManager.getInvocableScriptEngine` returns null for an absent file;
+  `MapScriptManager.runMapScript` returns false in that case. `MapleMap` ignores that return.
+  This source path skips the missing entry behavior; it does not throw because the script is absent.
+  Establish the intended quest/morph behavior before adding or deleting scripts.
+- Portal types 10 and 7 are accepted as `GenericPortal` by the server factory. Native-client
+  activation remains unverified; packet capture is still needed if an onward portal does nothing.
+
+New artifacts beside the original audit: `inspect_temple_route.py`, `temple-route-structure.json`
+(map hashes, info, portals and destination-name checks), and `temple-test-portals.json`
+(read-only TEST XML extraction). TEST reads were limited to these map files and named scripts;
+no player or database data was accessed. No native client test or definitive crash diagnosis yet.
 
 - The inspected release-1.6.4 `src/main/resources/soloMapling/map-routing.tsv` already lists all five
   missing-art maps and all seven Rose Garden maps as `client-crash`, with fallback destinations.
