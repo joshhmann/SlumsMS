@@ -27,9 +27,10 @@ action registry, and a social LOD. Build that layer inside the existing systems;
 | 4 | Identity today | Bartle-based `SocialProfile` + `LifeProfile` (7 channels) + canned `BotPersona`; one derived mood scalar; 6 derived needs, none stored. No real emotions. |
 | 5 | Decision to action | `LifeExecutor`, `ConvoActions`, `BotTalk.act` call the existing party, trade, movement, buddy systems. Server-authoritative, LLM-voices-only already holds (`ConvoGates`, `ReplyPlanner`). |
 | 6 | Persistence | `botbond` (3-minute batch), `botmemory` (write-through, LRU 16,384 pairs), `botaffinity`, `botlifeprofile` (JSON, versioned), `botcouple`. Highest migration 058. Emotions and needs persisted nowhere. |
-| 7 | World APIs | `GCMovement.move/follow/teleportTo`, `BotSpeak/BotChatbubble/BotEmote`, `botSitChair`, `LfgParty`, `BotBotTrade`. No single "walk to bot X, face, talk" helper; no bot-to-bot item gift (`BotGifts` gives to players only). |
+| 7 | World APIs | `GCMovement.move/follow/teleportTo`, `BotSpeak/BotChatbubble/BotEmote`, `botSitChair`, `LfgParty`, `BotBotTrade`. No single "walk to bot X, face, talk" helper. A bot-to-bot gift now exists (`BotBotGift`, Stage 4); `BotGifts` still
+gives to players only. |
 | 8 | Bot-bot without a player | Yes: `BotTalk` (needs 2+ bots on a map), `BotGossip`, couples, bond events. `BotThreads` and `BotChatter` need a watching player. |
-| 9 | Offscreen | Bots stay online; unobserved, the macro tick drops to 60-120 s and movement goes coarse (`ObserverTracker`). No social LOD. |
+| 9 | Offscreen | Bots stay online; unobserved, the macro tick drops to 60-120 s and movement goes coarse (`ObserverTracker`). The social layer now has its own LOD (Stage 6b, `BotSocialSystem/SocialLod`): ACTIVE / BACKGROUND / DORMANT, 5-minute background maintenance, one bounded catch-up per login. |
 | 10 | Scheduling | `BotTickService` (one driver, virtual threads, governor stretches all periods up to 4x), bot DB access capped at 6 permits (`BotDbGate`; virtual threads drop writes rather than wait). |
 
 ## 3. Gap by phase
@@ -42,10 +43,11 @@ action registry, and a social LOD. Build that layer inside the existing systems;
 | 2 Relationships | PARTIAL | Directed `Bond` (bot-bot) and `Tie` (bot-player) exist; one scalar -100..100 plus `kind`/`hostile` counters, 4 derived states. No 8 axes, no player-to-bot edge, no hysteresis. |
 | 3 Memory | PARTIAL | `botmemory`: DIRECT/HEARSAY, kind, weight, half-life decay, 10-note cap, LLM merge. Subject is a real player only; no location, confidence, relevance recall. |
 | 4 Reasoning | PARTIAL | `TalkBrain` uses traits, bond, mood, goal; no emotion or memory input. |
-| 5 Actions | PARTIAL | Bespoke flows (greet, chat, party, trade, help, gossip, spat, crush, couple, wedding, guild beef). No registry. Missing: compliment, bot-bot gift, apologize/reconcile, avoid, spend-time-together. |
+| 5 Actions | PARTIAL | Bespoke flows (greet, chat, party, trade, help, gossip, spat, crush, couple, wedding, guild beef). No registry. Missing: compliment, apologize/reconcile, avoid, spend-time-together (bot-to-bot gifts exist as `BotBotGift`, not yet
+reachable from a decision). |
 | 6 LLM | PARTIAL | Memory reaches player chats only; `BotThreads`/`BotTalk` do not read `BotMemory`. `BotCommitments` is only a tick keep-awake; promises are judged after the fact by `SayDo`/`TalkPromises`, never scheduled. |
 | 7 Routines, groups | PARTIAL | Crews, guilds, couples, `Reputation`, `Fads`. Schedule = login window and session length only. |
-| 8 LOD, guards, observability | PARTIAL | Movement LOD, `BotTalk`/`SocialGate` budgets, `SocialTrace`. No social LOD, no generic bot-bot loop breaker, no social metrics in the dashboard. |
+| 8 LOD, guards, observability | PARTIAL | Movement LOD, `BotTalk`/`SocialGate` budgets, `SocialTrace`; social LOD built in Stage 6b (`SocialLod`, tiers, counters in `stats()` and a 10-minute info line). No generic bot-bot loop breaker, no social metrics in the dashboard yet. |
 | 9 Henesys pilot | MISSING | Henesys targets about 63 bots over 4 maps plus `HenesysBot` waves; no 20-agent social pilot. |
 
 Defects found that shape the design: bonds form only on maps a real player observes (so unwatched bots never relate);
@@ -71,13 +73,22 @@ social bots lose their `LifeMemory` is stale: `LifeMemoryStore` saves it for eve
    after. Player-facing ones keep `SocialGate`.
 5. **Intentions.** A persisted intent record written at `ConvoActions.carryOut` / `TalkPromises.promised`, consumed through
    `BotCommitments.inFlight` and a `SocialInitiative`-style scheduler.
-6. **LOD.** `ObserverTracker` is the active/background signal; background bots get bond and need catch-up on a slow
-   timer, dormant bots on login. New work is costed in the `social-tick` phase.
+6. **LOD.** `ObserverTracker` (through `GCMovement.isMapObserved`) is the active/background signal; `SocialLod` turns
+   it into three tiers with a 30 s hold, gives background bots their need maintenance at most once per 5 minutes, and
+   replays a bounded catch-up at login for bots that were away. New work is costed in the `social-tick` phase. Bonds are
+   still not caught up this way (Stage 2 work).
 7. **Test seam.** `SocialSim` (one clock, per-(bot, purpose) seeded RNG) for all new code.
 8. **Gifts (owner, non-economic).** A gift is an affinity effect, or gear that fits the receiver's job and level, or gear
    that fits every job (earrings and similar), or a usable; chosen by the receiver's `SocialMind` needs, with a per-pair
-   cooldown. The item comes from the giver's own holdings, so nothing is minted. Needs the bot-to-bot item hand-over
-   that does not exist yet (Stage 4).
+   cooldown. The item comes from the giver's own holdings, so nothing is minted.
+   Built as `AP/BotSocialSystem/BotBotGift`: `choose(giver, receiver, minds, now)` returns a plan (equip, potions or a
+   gesture with no item) and `give(plan)` performs it. The equip side reuses `GearUpgrades.spares` and the optimizer's
+   own `Scorer` for "the receiver would wear it, the giver would not"; potions come from `BotVitals.potionStacks` with
+   `SupplyNeeds.LOW_POTIONS` and a giver that keeps a trip's worth; a gift records `BondEvent.GIFT` for the receiver
+   only (the `BotBonds.onTrade` precedent) and pushes `SocialProfile.Push.GIFTED` plus a memory note. The transfer is
+   `BotHoldings`' primitives under its own locks, not `BotBotTrade.swap` (that one prices in mesos). Limits are one
+   `Limits` record from `-D` properties (giver 6 h, pair 24 h, 3 a day per receiver, 15 an hour world-wide, 100k mesos
+   at NPC prices), flag `-Dslums.botgifts` on by default. Not yet called by the brain or the talk planner.
 
 ## 5. Modes: training, social, town (Stage 0b, done)
 
@@ -91,7 +102,34 @@ log-out gate `BotPopulationDirector.mayLogOut`, no party, no open chat, no trade
 registered instance. A switched mode survives a restart (`BotRoster.resumeChoice`). `-Dslums.modeswitch=false` is the
 rollback. What a swap drops (grind spot, the old runtime's pending friend or plan) is why it waits for a safe point.
 
-## 6. Staged plan
+## 6. Social level of detail (Stage 6b)
+
+Before: every online bot paid the social layer's full cadence whether or not a real player could see it, and a bot that
+came back after hours away came back with exactly the needs it left with, as if the time had not passed. After
+(`BotSocialSystem/SocialLod`, one accessor `SocialLod.tierOf(BotSM)`):
+
+- **Tiers.** The tier is a pure function of (observed, online, lastActiveAt, now): offline is DORMANT, an observed map
+  instance (`GCMovement.isMapObserved`) is ACTIVE, and the bot stays ACTIVE for 30 s after the last observer left, so a
+  player walking past does not make bots flicker in and out of detail. `-Dslums.sociallod=false` makes every bot ACTIVE
+  and is the rollback.
+- **ACTIVE** keeps every current behaviour; the tier only says "this bot may be watched, keep it detailed".
+- **BACKGROUND** (online, nobody watching): the population director's tick calls `SocialLod.maybeStep` once, which
+  refreshes every online bot's tier and gives each BACKGROUND bot its need maintenance at most once per 5 minutes - its
+  companionship and belonging needs fall by a small fixed rate per hour covered (0.03/h and 0.012/h), a coarse stand-in
+  for the contact it would have had. A bot with no `LifeMemory` in use this run is skipped rather than given a row just
+  to nudge it. Never per bot tick, never a new poller.
+- **DORMANT** (not online): nothing runs and nothing is stored per tick. `BotRoster.recordLogin` calls
+  `SocialLod.catchUpOnLogin` once per login with the bot's last logout time; the relief covers the time away, capped at
+  24 h, skipped below one minute and when the logout time is unknown, idempotent for the same login, and the mind clamps
+  the needs at zero. The record is written with the next profile save (the hourly autosave or the logout), not at login.
+- **Cost and census.** The whole sweep is timed into the existing `social-tick` phase (`BotPerformanceMonitor`), and
+  `SocialLod.stats()` / `census()` report tier changes, maintenance done and skipped, catch-ups and relief minutes next
+  to `ModeSwitch`'s counters, with one info line every 10 minutes.
+
+Not in this stage: bonds are not caught up in the background (Stage 2), no loop breaker, and the counters are not yet on
+the dashboard.
+
+## 7. Staged plan
 
 | Stage | Deliverable | Proof | State |
 |---|---|---|---|
@@ -100,9 +138,9 @@ rollback. What a swap drops (grind spot, the old runtime's pending friend or pla
 | 1 | `SocialMind` (traits, emotions, needs), decay, persistence | decay and restart round-trip tests | built (`164-social-mind`); TEST persistence check pending; no decision reads it yet |
 | 2 | 8-axis bonds, migration 059, background formation | axis table, directedness, hysteresis, eviction, restart and legacy-row round trips, background tier, simulated-days tests | built (`164-social-bonds`, `f03304844`); migration 059 not yet applied on TEST; no decision reads the axes yet |
 | 3 | Memory extension (migration 060), relevance recall, knowledge boundaries, memory in bot-bot talk | knowledge-boundary tests | built (`164-social-memory`): subject type, place, confidence, valence, provenance, other party; `BotMemory.recall(.., Query, ..)` and `remember(..)` writer; repeats merge; world news only from witnesses or tellers; circle-restricted counts; `BotThreads`/`BotTalk` prompts carry the partner's real memories. Unit-tested only; TEST not run |
-| 4 | `SocialAction` registry, missing actions, gifts, emotion/memory into `TalkBrain` and `LifeDecision` | per-action outcome tests, utility ordering, Alice/Bob/Clara scene, 3-day 12-bot simulation | built (`164-social-acts`): section 8; unit and simulation tests only, TEST not run |
-| 5 | Intentions (memory in `BotThreads`/`BotTalk` prompts moved to Stage 3) | dialogue-to-intention test | planned |
-| 6 | Social LOD, loop breaker, metrics in dashboard and inspect | perf measurement | 6a built (`164-social-observe`): `SocialBudget` loop breaker (per-pair cooldown, per-bot, per-map and global rates, A-B turn limit, failed-act backoff; hooked into `BotTalk`), `social` block in `live.json`, mode/mind/bonds in `/bots/{cid}`, mode and mind lines in `!botwhy`; unit tests only, no perf measurement and no TEST run yet. 6b social LOD planned |
+| 4 | `SocialAction` registry, missing actions, gifts, emotion/memory into `TalkBrain` and `LifeDecision` | per-action outcome tests, utility ordering, Alice/Bob/Clara scene, 3-day 12-bot simulation | built (`164-social-acts`): section 9; unit and simulation tests only, TEST not run |
+| 5 | Intentions (memory in `BotThreads`/`BotTalk` prompts moved to Stage 3) | dialogue-to-intention test | built (`164-social-intents`, `81a7faa31`): see section 8; unit-tested only; performer is an unwired seam until Stage 4 merges; TEST not run |
+| 6 | Social LOD, loop breaker, metrics in dashboard and inspect | perf measurement | 6a built (`164-social-observe`): `SocialBudget` loop breaker (per-pair cooldown, per-bot, per-map and global rates, A-B turn limit, failed-act backoff; hooked into `BotTalk`), `social` block in `live.json`, mode/mind/bonds in `/bots/{cid}`, mode and mind lines in `!botwhy`; unit tests only, no perf measurement and no TEST run yet. 6b social LOD planned **6b:** 6b social LOD built (`164-social-lod`: tier/hold, 5-minute maintenance, catch-up bounds, flag-off tests, full suite); loop breaker and dashboard metrics planned |
 | 7 | 20-bot Henesys pilot, TEST (mapletest) live check | real execution evidence | planned |
 
 Nothing here has run in a real client or on TEST yet.
@@ -148,7 +186,50 @@ Proof: `RelationAxesTest`, `BotBondsAxesTest`, `TieAxesTest`, `AxisColumnsTest`,
 database run of migration 059 (no MySQL in the unit tests; the JDBC mapping is tested against mocked result sets and the
 SQL by string checks), nothing on TEST, no decision reads the axes yet.
 
-## 8. Stage 4 as built: the social act registry and the decision tick
+## 8. Stage 5 as built: persisted intentions
+
+A bot that agrees to meet, help, come along or party has made a promise. Before: `TalkPromises` judged a bot-bot yes after
+the fact and `ConvoActions` acted on a player's request at once; nothing was remembered once the lines and the act were
+over, and `BotCommitments` held a bot only for trades, invites, expeditions and runs. After:
+
+- **Records** (`AP/BotSocialSystem`): `SocialIntent(id, actor, target, kind, createdAt, dueAt, expiresAt, mapId, origin)`;
+  `IntentBook` (at most 3 live per actor, ordered by due time then id, plus the last 5 endings; id = actor in the high 32
+  bits, a never-reused per-actor sequence below); `SocialIntents` (create, due, complete, cancel, expire, tick, counters,
+  `whyLine`). The book lives in the bot's `LifeMemory` JSON under `"intents"` (lazy, written back as read, a read never
+  dirties it, a bad row is skipped), so it is saved and restored with the rest of the bot's life memory and the roster's
+  existing sweep. Nothing reads a table; a bot whose memory is not loaded gets no intent.
+- **Creation is server-only.** Two existing yes paths call `PromiseIntents`: `TalkPromises.promised` (bot-bot yes: PARTY
+  gives INVITE, HELP gives OFFER_HELP, COME_ALONG gives SPEND_TIME; a deal or a story promises nothing later) and
+  `ConvoActions.carryOut` (a player's "come" or "help" that passed `ConvoGates` and sends the bot to another map: SPEND_TIME,
+  OFFER_HELP). Both run after the act that already ran; nothing was removed. The model's text, a `[do:x]` tag the gates refused
+  and a `SayDo` claim reach none of it. A real player is only a target if `SocialGate.check` (so `@quiet bots`, PlayerBusy)
+  and `BotAffinity.optedOut` (`@botdrama off`) say yes, at creation and again at the due time.
+- **Lifecycle.** A bot-bot yes falls due 2 minutes after `TalkPromises`' own window, so a promise the talk's act kept is
+  ended KEPT by that verdict (`PromiseIntents.onBacked`); one that was not gets a second try. A player-addressed intent is due 4
+  (come) or 5 (help) minutes out. `SocialIntents.tick` (from the bot's own tick, in the three bot types, before
+  `ModeSwitch.maybeSwitch`): at the due time, if the target is online, reachable, the actor is free (the brain's
+  `commitBlocker` and `BotPopulationDirector.mayLogOut`, with the actor's own intent exempt) and `SocialBudget.allow`, the
+  `Performer` carries it out; success ends it KEPT; failure retries every 45 s; at the deadline it ends BROKEN (CANCELLED if the
+  target went offline, EXPIRED with no consequence if the deadline passed over 10 minutes ago).
+- **Consequences.** Kept: the promised-to bot's own edge toward the actor gains trust, respect and obligation
+  (`BotBonds.promise`, axes only, `AxisTable` rows), the actor's pride rises. Broken: that edge loses trust and respect and gains a
+  little resentment, the promised-to bot keeps a `BROKEN` note (`BotMemory.Kind.BROKEN`, valence -0.6; named short because the Kind
+  column is VARCHAR(8), so no migration), the actor's anxiety and embarrassment rise. The legacy score never moves.
+- **Committed while due soon.** `BotCommitments.inFlight` has one more clause, `SocialIntents.dueSoon` (an intent due within 2
+  minutes, memory only), so `BotPopulationDirector.mayLogOut` keeps the bot online and `ModeSwitch.blocker` (which asks
+  `inFlight`) does not swap its mode; `LfgParty` and the brain's own free check see it as busy too.
+- **Switch and metrics.** `-Dslums.intents=false`: nothing is created, ticked or counted as a commitment. Counters (created,
+  kept, broken, expired, cancelled, refused, deferred, each by kind) in `live.json` `social.intents`; `!botwhy` has an `Intents:`
+  line.
+- **The one integration point.** `SocialIntents.performer` is a static field that starts as "no performer" (every try fails
+  with that reason). When Stage 4 is merged: `SocialIntents.performer = (a, t, k, now) -> { var o = SocialActions.perform(a, t, k,
+  now); return new SocialIntents.Result(o.happened(), o.reason()); };`. Until then intents are created and persisted but only the
+  talk's own verdict can keep one.
+
+Proof: `SocialIntentsTest`, `SocialIntentsConsequencesTest`, `PromiseIntentsTest`, `BotCommitmentsIntentsTest`,
+`ModeSwitchIntentsTest`. Not done: no TEST run, no client, no run with the real `SocialActions`; the performer is a seam.
+
+## 9. Stage 4 as built: the social act registry and the decision tick
 
 Package `AP/BotSocialSystem` (new: `SocialActKind`, `SocialAction`, `SocialActions`, `SocialActs`, `SocialContext`,
 `SocialDecider`, `SocialLines`, and the seams `SocialWorld`, `SocialFlows`, `GiftSeam`); `AP/BotConvo` holds the game

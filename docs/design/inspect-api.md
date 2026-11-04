@@ -128,6 +128,7 @@ lock, no pass over the bots. A failing read leaves `social: null` and the rest o
 | `social.talk` | `BotTalk` since boot: `on`, `ticks`, `avgTickMs` (wall) and `avgCpuMs` (the tick thread's CPU; null before the first tick), `talks`, `greets`, `actsOk`, `actsFailed` |
 | `social.socialTick` | the `social-tick` cost phase: `calls`, `totalMs` since boot, and `msPerS`, `callsPerS` over the export interval (null on the first export); null when the phase is missing |
 | `social.bonds` | `bonds` (all bot-bot bonds held), `holders` (bots holding at least one), `text` (`BotBonds.stats()`); the counts are null if that line stops saying `bonds N held by M bots` |
+| `social.intents` | `enabled` (`-Dslums.intents`) and `counters` from `SocialIntents` (stage 5): `created`, `kept`, `broken`, `expired`, `cancelled`, `refused`, `deferred` (always present) and each by kind as `kept INVITE`, `created OFFER_HELP`... (a kind with none is left out) |
 | `social.minds` | `memoriesLoaded`: bots whose life memory (and so social mind) is in RAM |
 
 ### The loop breaker (`SocialBudget`)

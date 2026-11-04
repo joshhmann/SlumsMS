@@ -236,6 +236,7 @@ public final class ConvoActions {
                         effects.walkTo(chr, f.targetMap(), player);
                     }
                 }
+                PromiseIntents.onPlayerYes(action, chr, player, f.targetIsHere()); // 1.6.4 stage 5: it promised to be there
                 return result(Outcome.COME_YES, f.targetIsHere() ? "Say you are already here with them."
                         : "Say yes, you are on your way to " + (where == null ? "them" : where) + " now (omw).",
                         "come_yes");
@@ -249,6 +250,7 @@ public final class ConvoActions {
                     markWalked(chr.getId(), player.getId(), now);
                 }
                 effects.grindAt(bot, f.targetMap());
+                PromiseIntents.onPlayerYes(action, chr, player, f.targetIsHere()); // 1.6.4 stage 5: it promised to help
                 return result(Outcome.HELP_YES, f.targetIsHere() ? "Say yes, you will help kill the mobs here with them."
                         : "Say yes, you are coming to help them hunt (omw).", "help_yes");
             }

@@ -246,6 +246,9 @@ public final class BotRoster {
             last = new Activity("", last.homeMapId(), Map.of());
         }
         pendingResume.put(charId, last);
+        // 1.6.4 S6b: the social level of detail - a bot that was away comes back partly resocialised, once, bounded.
+        soloMapling.ArtificialPlayer.BotSocialSystem.SocialLod.catchUpOnLogin(charId, now,
+                member.lastLogoutAt() != 0 ? member.lastLogoutAt() : member.lastLoginAt(), now);
     }
 
     /** Where a member was placed when it logged in this run, for the GM read-out and the proof harness. */

@@ -139,6 +139,25 @@ public final class BondRules {
         return true;
     }
 
+    /**
+     * Ticket 181 stage 5: moves the axes only by {@code row} (already scaled) at {@code now}: the score, kind and
+     * hostile counters stay as they are, so nothing that reads the legacy score sees it; the stage moves at most one
+     * rung. A row of nothing changes nothing and returns false.
+     */
+    public static boolean nudge(Bond bond, double[] row, long now) {
+        if (AxisTable.isZero(row)) {
+            return false;
+        }
+        double[] axes = axesAt(bond, now);
+        Stage prev = Stage.settle(bond.stage, axes, false);
+        bond.score = scoreAt(bond, now); // the score is stored as of updatedAt: bring it to now before the stamp moves
+        bond.axes = Axes.plus(axes, row);
+        bond.stage = Stage.step(prev, bond.axes, true);
+        bond.updatedAt = now;
+        bond.dirty = true;
+        return true;
+    }
+
     /** GM / QA staging: puts the bond squarely in a state as of now. */
     public static void stage(Bond bond, AffinityState state, long now) {
         switch (state) {

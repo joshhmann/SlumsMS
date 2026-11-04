@@ -32,8 +32,8 @@ change.
 | 2 | 8-axis `Bond`/`Tie`, migration 059, background bond formation | built on branch `164-social-bonds` (`f03304844`): 8 directed axes with per-axis decay, `Stage` with hysteresis, significance eviction, background tier on unobserved maps (`-Dslums.bonds.background`), `BotBonds.axes/stage`; migration 059 not yet applied anywhere; nothing reads the axes yet (Stage 4) |
 | 3 | `botmemory` extension (migration 060), relevance recall, knowledge boundaries, memory in bot-bot talk | built on branch `164-social-memory`; unit-tested, not run on TEST or in a client |
 | 4 | `SocialAction` registry, missing actions, gifts seam, emotion and memory into the decision model | built on branch `164-social-acts`: 16 acts in `SocialActions` (wrapped: greet, chat, help ask and offer, invite/accept/decline, share info, rumor; built: compliment, apologize, reconcile, argue, avoid, spend time, gift through `GiftSeam`), utility from needs, emotions, traits, the directed edge, memory and the target's company, `SocialDecider` in the bot-talk tick, mind inputs in `TalkBrain`'s inputs and a small SOCIAL-need bonus in `LifeRuntime`; `-Dslums.socialacts=false` is the rollback; unit and 3-day 12-bot simulation tests only, not run on TEST |
-| 5 | Persisted intentions (memory in bot-bot prompts moved to Stage 3) | planned |
-| 6 | Social LOD, loop breaker, metrics | 6a built on branch `164-social-observe`: `SocialBudget` loop breaker hooked into `BotTalk` (greet, chat, ask acts), social metrics in `live.json`, `/bots/{cid}` and `!botwhy` (`docs/design/inspect-api.md`); 6b social LOD planned; no migration; not run on TEST |
+| 5 | Persisted intentions: `SocialIntent`/`IntentBook`/`SocialIntents` inside `LifeMemory`, dialogue-to-intention, kept/broken consequences, commitment clause, counters, `!botwhy` line | built on branch `164-social-intents` (`81a7faa31`); unit-tested; the performer is a seam (`SocialIntents.performer`, not wired until Stage 4 is merged); TEST not run |
+| 6 | Social LOD, loop breaker, metrics | 6a built on branch `164-social-observe`: `SocialBudget` loop breaker hooked into `BotTalk` (greet, chat, ask acts), social metrics in `live.json`, `/bots/{cid}` and `!botwhy` (`docs/design/inspect-api.md`); 6b social LOD planned; no migration; not run on TEST **6b:** 6b social LOD built on branch `164-social-lod` (`SocialLod`: ACTIVE/BACKGROUND/DORMANT, 30 s hold, 5-minute background maintenance, one bounded login catch-up; `-Dslums.sociallod=false` is the rollback). Loop breaker and dashboard metrics still planned; TEST run pending |
 | 7 | Henesys pilot and live verification | planned |
 
 ## Acceptance (from the brief)
@@ -45,5 +45,9 @@ it has run; the audit file says what has and has not.
 
 ## Switches
 
-`slums.botlife.enabled`, `slums.botlife.execute`, `slums.bottalk`, `slums.crews`, `slums.modeswitch`, `slums.socialbudget`, `slums.socialacts`:
+`slums.botlife.enabled`, `slums.botlife.execute`, `slums.bottalk`, `slums.crews`, `slums.modeswitch`, `slums.socialbudget`, `slums.socialacts`, `slums.intents`, `slums.sociallod`:
 all `-D` JVM properties, on unless set to `false`. None is a `config.yaml` key.
+
+Gifts (`BotBotGift`): `slums.botgifts` (on unless `false`), and the limits
+`slums.botgifts.giver.cooldownMin` (360), `slums.botgifts.pair.cooldownMin` (1440), `slums.botgifts.receiver.perDay`
+(3), `slums.botgifts.perHour` (15), `slums.botgifts.valueCap` (100000 mesos at NPC prices).

@@ -5,6 +5,7 @@ import soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemoryStore;
 import soloMapling.ArtificialPlayer.BotLifeSystem.ModeSwitch;
 import soloMapling.ArtificialPlayer.BotSocialSystem.SocialActions;
 import soloMapling.ArtificialPlayer.BotSocialSystem.SocialBudget;
+import soloMapling.ArtificialPlayer.BotSocialSystem.SocialIntents;
 import soloMapling.ArtificialPlayer.BotSocialSystem.SocialMetrics;
 import soloMapling.ArtificialPlayer.GCMoveSystem.BotPerformanceMonitor;
 
@@ -25,6 +26,7 @@ import java.util.Map;
  *   social.talk         {on, ticks, avgTickMs, avgCpuMs, talks, greets, actsOk, actsFailed}  BotTalk, since boot
  *   social.socialTick   {calls, totalMs, msPerS, callsPerS}  the social-tick cost phase, rate over the interval
  *   social.bonds        {bonds, holders, text}  BotBonds totals
+ *   social.intents      {enabled, counters: SocialIntents counters (created, kept, broken, expired, cancelled, refused, deferred, by kind)}
  *   social.minds        {memoriesLoaded}  bots whose life memory (and so social mind) is in RAM
  * </pre>
  */
@@ -45,6 +47,7 @@ final class SocialExport {
         out.put("talk", talk());
         out.put("socialTick", socialTick(now, phases));
         out.put("bonds", SocialMetrics.bondTotals());
+        out.put("intents", intents());
         Map<String, Object> minds = new LinkedHashMap<>();
         minds.put("memoriesLoaded", LifeMemoryStore.size());
         out.put("minds", minds);
@@ -73,6 +76,13 @@ final class SocialExport {
         m.put("enabled", SocialActions.enabled());
         m.put("counters", new LinkedHashMap<>(SocialMetrics.actCounters()));
         m.put("open", new LinkedHashMap<>(SocialActions.openState()));
+        return m;
+    }
+
+    private static Map<String, Object> intents() {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("enabled", SocialIntents.enabled());
+        m.put("counters", new LinkedHashMap<>(SocialMetrics.intentCounters()));
         return m;
     }
 
