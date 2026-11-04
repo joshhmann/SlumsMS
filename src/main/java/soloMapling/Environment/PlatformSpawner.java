@@ -21,7 +21,16 @@ import java.util.Random;
  */
 public class PlatformSpawner {
 
-    private static final Random random = new Random();
+    /**
+     * The source of the scattering. One shared, unseeded generator at the default call site, so live spawns stay
+     * varied; {@link #useRandom} exists so a test can pin the sample it is about (and put the shared one back).
+     */
+    private static Random random = new Random();
+
+    /** Pins the generator for a test; {@code null} restores the shared unseeded one. */
+    static void useRandom(Random source) {
+        random = source == null ? new Random() : source;
+    }
 
     /** Minimum horizontal spacing between objects (can be adjusted) */
     private static final int MIN_SPACING = 30;
@@ -102,9 +111,14 @@ public class PlatformSpawner {
         return groundPoint(platform, x);
     }
 
-    /** The point at {@code x} on the platform's real ground (1.5.1: a FLAT range's single Y stood bots off it). */
+    /**
+     * The point at {@code x} on the platform's real ground (1.5.1: a FLAT range's single Y stood bots off it). The x
+     * that counts is {@link Platform#spawnX}, which keeps a spawn off the exact seam between two footholds - there the
+     * level is the query's tie-break, not a fact, and a bot standing on it reads as off its level.
+     */
     private static Point groundPoint(Platform platform, int x) {
-        return new Point(x, platform.getYAtX(x));
+        int on = platform.spawnX(x);
+        return new Point(on, platform.getYAtX(on));
     }
 
     /**

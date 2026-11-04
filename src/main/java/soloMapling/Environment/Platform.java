@@ -94,6 +94,28 @@ public class Platform {
     }
 
     /**
+     * The x a spawn actually uses: never the exact meeting point of two footholds. At that one pixel the two levels
+     * touch, so which of them a point "is on" is the tie-break of whichever query asked - the recorded height's own
+     * settle says one, a drop from above says the other - and neither is a fact about the map. One pixel inward is
+     * inside one level for certain, and {@link #getYAtX} then answers the level of the recorded height there.
+     */
+    int spawnX(int x) {
+        if (ground == null) {
+            return x;
+        }
+        int ends = 0;
+        for (server.maps.Foothold f : ground.getAllFootholds()) {
+            if (f.getX1() == x || f.getX2() == x) {
+                ends++;
+            }
+        }
+        if (ends < 2) {
+            return x;
+        }
+        return x + 1 <= maxX ? x + 1 : x - 1;
+    }
+
+    /**
      * The height the recording (or the drawn band) suggests at {@code x}, interpolated between the two nearest
      * recorded points. Unclamped callers should clamp first; this clamps x to the platform's bounds.
      */
