@@ -1,9 +1,9 @@
 # Merge lane, 1.6.4 - everything in one tree (branch `164-all-merge`)
 
 Worktree `/root/work/164-all`, branch `164-all-merge` off `release-1.6.4` @ `6d18f961e`, push URL disabled, nothing
-pushed, nothing deployed, live server untouched. **Last merge commit `87205b607`** (code head; `git diff 87205b607 HEAD -- src/main` is empty), 176 commits over the release tip; the
-suite ran on it, and every commit after the code head changes reports, docs and `tools/` only (checked with `git diff
-<code head> HEAD -- src/`).
+pushed, nothing deployed, live server untouched. **Last merge commit `23789b44a`** (the code head; `git diff 23789b44a
+HEAD -- src/main` is empty), 184 commits over the release tip; the suite and the WZ pass ran on `3b82d7cf0`, whose tree
+differs from the code head only in `docs/` (checked with `git diff 23789b44a HEAD -- src/`).
 
 This is the one branch that carries every 1.6.4 lane: the base game's two rows, the boss lane's 27, the party-quest
 lane's 18, the real-run lane's ten, and the engine-seam lane's Guild Quest and Zenumist band - **57 rows, 29 `kind: BOSS`
@@ -27,6 +27,8 @@ lane's 18, the real-run lane's ten, and the engine-seam lane's Guild Quest and Z
 | 11 | `164-opq` final @ `96484cf9a` | `4e495c09b` | the lane's last 67 commits: the four Hard-boss rows, `Mechanics.bossEnabledFor`, tiers on four rows, `MechanicsRowWzIntegrityTest` |
 | 12 | `164-seams` follow-up @ `6e8011250` | `39276532a` | one test line: the shipped-row list names `guildquest` |
 | 13 | `164-zenumist` @ `242274259` | `87205b607` | `magatiapq` stage 3 moved to the room its beakers stand in, the Zenumist band row `magatiapqz`, and `MechanicsRowWzIntegrityTest.everyStageThatNamesAReactorHasItOnItsOwnGround` |
+| 14 | `164-expedpolicy` @ `1b2911fad` | `4468e2da9` | owner answers 1 and 2: a bot may captain an expedition (`slums.exped.botcaptain`, on) with a real player always outranking it, an owned alt follows its owner into any expedition and takes a membership slot (`slums.exped.altfollow`, on), and `!mechanics boss <TYPE> [n]` → `BossStaging` → `ExpeditionBots.startAsCaptain` is the one caller in 1.6.4 |
+| 15 | `164-amoria` @ `c83bfabbf` | `23789b44a` | owner answer 5: a bot counts as an Amoria party member behind `slums.mechanics.amoriapq.botcount`, **default off, TEST only**; no Amoria row was written, because stages 2-4 are hand-work by the script's own design |
 
 `164-bossfight`, `164-ex2qa` and `164-bossproof` are ancestors of `164-bossrows`/`164-opq`, so merging them adds
 nothing; every head was verified with `git for-each-ref` and `git merge-base --is-ancestor` before it was merged.
@@ -40,7 +42,7 @@ test-creating lanes both wrote.
 
 ## Every conflict and how it was resolved
 
-46 conflicts in all, across eleven merges (18 in steps 3-8, 10 in step 9, 5 in step 10, 12 in step 11, 1 in step 12); the zenumist merge (step 13) conflicted in nothing.
+46 conflicts in all, across eleven merges (18 in steps 3-8, 10 in step 9, 5 in step 10, 12 in step 11, 1 in step 12); the zenumist merge (step 13), the expedition-policy merge (step 14) and the Amoria merge (step 15) conflicted in nothing. The Amoria branch did add four comment lines to `docs/release/1.6.4.conf`, which the earlier rules would have made a conflict; git placed them inside the "stays off" list, where they belong, and the conf was then extended by hand with the two expedition-policy defaults-on entries (below).
 Only the ones that needed a decision are listed; the rest were whole-block additions where both sides were kept
 verbatim.
 
@@ -228,8 +230,11 @@ party-quest row only when `Mechanics.enabled() && Mechanics.rowFlagOn(content)`.
 | `slums.mechanics.<row>.lobby` | off | the bot lobby for that row (needs the row armed first) |
 | `slums.mechanics.<row>.runs` | 1 | how many lobbies a row may run at once |
 | `slums.mechanics.lobbyRuns` | 2 | Kerning's own lobby (`KpqLobby`), which is a different mechanism |
-| `slums.mechanics.chatter` | **on** | the run's win/loss chat line - the only default that is on, chat only, and it does nothing unless a row is armed |
+| `slums.mechanics.chatter` | **on** | the run's win/loss chat line - chat only, and it does nothing unless a row is armed. One of the deliberate defaults-on, with the two `slums.exped.*` policy switches above |
 | `slums.mechanics.dir` | the packaged content directory | where rows load from (tests only) |
+| `slums.exped.botcaptain` | **on** (policy) | whether a bot may captain an expedition at all: `ExpeditionBots.preferredLeader` lets a bot lead a bot party, and a real player in the party always outranks it. It does **not** make bots open boss rooms on their own - in 1.6.4 the GM command `!mechanics boss <TYPE> [n]` is the only trigger, and it is a command, not a scheduler |
+| `slums.exped.altfollow` | **on** (policy) | an owned alt joins any expedition its owner is a member of, whoever leads, and takes a membership slot - so the recruiters' size gate, the broadcasts and the max-size check count it exactly like a party bot |
+| `slums.mechanics.amoriapq.botcount` | off | a bot counts as an Amoria PQ party member. **TEST only** in 1.6.4: it changes what a real player's party is admitted to, and no Amoria row exists (stages 2-4 are hand-work by the script's own design) |
 
 The three boss-policy switches the boss lane settled earlier are still off and still pinned by their own tests
 (`slums.altfight.instanceleash`, `slums.bossfight.reach`, `slums.bossfight.revivepause`; the revive-pause one is
@@ -331,30 +336,31 @@ through the client path, but the proof map does not claim them.
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Full suite, every switch unset | `mvn -o test` | **`Tests run: 9074, Failures: 0, Errors: 0, Skipped: 140`**, BUILD SUCCESS, `EXIT=0`, 35:13 (log `/tmp/final5.log`, on `3f78a573a`) |
+| Full suite, every switch unset | `mvn -o test` | **`Tests run: 9100, Failures: 0, Errors: 0, Skipped: 140`**, BUILD SUCCESS, `EXIT=0` (log `/tmp/final6.log`, on `3b82d7cf0`) |
 | Property leaks, both orders | `mvn -o test -Dtest='EventLootScrambleTest,EventSchedulerTest'`, the reverse, and `-Dsurefire.runOrder=reversealphabetical -Dtest='soloMapling.worldevents.*Test'` | green three times over (`testutil.PropsRestoredTest` 3) |
 | Row data, row simulation, tiers, the late-spawn leash | `mvn -o test -Dtest='MechanicsDataFilesTest,StageDataTest,RowRunSimulationTest,TierScalingTest,LateSpawnGraceTest'` | green; `RowRunSimulationTest` 47, `TierScalingTest` 13, `LateSpawnGraceTest` 5 |
 | The whole mechanics package | `mvn -o test -Dtest='soloMapling.mechanics.*Test,soloMapling.MechanicsDataFilesTest'` | **`Tests run: 725, Failures: 0, Errors: 0, Skipped: 2`** (log `/tmp/mech.log`) |
-| Every row against the WZ dump | `mvn -o test -Dwz-path=/root/work/SlumsMS-170-evan/wz -Dtest='ContentRowWzIntegrityTest,MechanicsRowWzIntegrityTest'` | `Tests run: 3, Failures: 0, Errors: 0, Skipped: 0`, `EXIT=0`: **57 rows, 163 map ids, 129 mob ids, 14 reactor ids, 1 door item (`4000381`)** |
+| Every row against the WZ dump | `mvn -o test -Dwz-path=/root/work/SlumsMS-170-evan/wz -Dtest='ContentRowWzIntegrityTest,MechanicsRowWzIntegrityTest'` | `Tests run: 3, Failures: 0, Errors: 0, Skipped: 0`, `EXIT=0` (log `/tmp/wz6.log`): **57 rows, 163 map ids, 129 mob ids, 14 reactor ids, 1 door item (`4000381`)** - unchanged by the two policy merges, which add no row |
+| Hotfix parity with the last shipped release | `tools/release/hotfix-parity release-1.6.3` | `ok: HEAD has every commit of release-1.6.3`, `EXIT=0` |
 | Every named reactor stands on its stage's own ground | same run (`MechanicsRowWzIntegrityTest:93`) | green: 86 reactor references across 57 rows, 0 mismatches, with a negative control |
 
 ### Suite totals
 
-`mvn -o test`, every switch unset, on `3f78a573a` - the merged tip plus the test-hygiene commit. That commit changes no
-shipped code (`git diff 87205b607 HEAD -- src/main` is empty; the code head is still `87205b607`), so the run measures the
-same tree the lanes produced, with three more tests in it (the property-restore extension's own):
+`mvn -o test`, every switch unset, on `3b82d7cf0` - the merged tip after the two owner-answered merges:
 
 ```
-Tests run: 9074, Failures: 0, Errors: 0, Skipped: 140     BUILD SUCCESS, EXIT=0, 35:13 (2113 s)
+Tests run: 9100, Failures: 0, Errors: 0, Skipped: 140     BUILD SUCCESS, EXIT=0   (log /tmp/final6.log)
 ```
 
-Log `/tmp/final5.log`. The earlier accepted run on `87205b607` was `9071 / 0 / 0 / 140` in 33:42 (`/tmp/final4.log`); the
-difference is exactly `PropsRestoredTest`. Zero `<<< FAILURE` markers, no surefire temp-directory collision. The 140 skips are the tests that
+Log `/tmp/final6.log`. The run before the two policy merges (on `3f78a573a`) was `9074 / 0 / 0 / 140` (`/tmp/final5.log`);
+the difference is the two lanes' own tests - `BossStagingTest` (6), `ExpeditionBotsCaptainTest`, `ExpeditionBotsTest` and
+`AmoriaBotCountTest`. The code head is `23789b44a`; the two commits after it change reports and docs only. Zero `<<< FAILURE` markers, no surefire temp-directory collision. The 140 skips are the tests that
 need a WZ dump (`ContentRowWzIntegrityTest`, `MechanicsRowWzIntegrityTest`), the tests that need a real client, and the
 `@EnabledIfSystemProperty` rows for switches this run leaves unset; the WZ pair is re-run green in the table above.
 
 For scale, the lanes' own suites: `164-bossrows` 8575/138, `164-opq` 8635/138 (final head 9071/140 on its own tree),
-`164-realruns` 8766/137, `164-seams` 8799/137, `164-zenumist` 9071/140. The merged tree is at or above every one of them.
+`164-realruns` 8766/137, `164-seams` 8799/137, `164-zenumist` 9071/140, `164-expedpolicy` 9096/140, `164-amoria`
+9078/140. The merged tree is at or above every one of them.
 
 **The one flake, and what it actually was.** The first full-suite run on this tip (`/tmp/final3.log`) failed one test:
 `soloMapling.worldevents.EventLootScrambleTest.whenTheCakeFallsTheCalledBotsGetALootWindow` —
@@ -486,7 +492,11 @@ schema, so TEST's `config.yaml` needs **no change**. Add the flags to the java l
 ```
 
 That is the full sweep: all 57 rows armed, no lobby. Drop a line and its rows are inert; drop all of them and the
-server behaves exactly as `release-1.6.4` does, because every switch defaults off.
+server behaves exactly as `release-1.6.4` does, because every row switch defaults off.
+
+Two switches ship **on** and therefore appear in no line above: `-Dslums.exped.botcaptain` and `-Dslums.exped.altfollow`
+(owner answers 1 and 2). `docs/release/1.6.4.conf` names both so Server Dev can see the policy; turning either off is
+one word (`-Dslums.exped.botcaptain=false`) and takes effect on the next start.
 
 **Keep off:**
 - `slums.mechanics.<row>.lobby` - the bot lobbies take a whole party quest out of players' hands (and
@@ -495,6 +505,8 @@ server behaves exactly as `release-1.6.4` does, because every switch defaults of
   9) and has been played nowhere; turning it on hands four rows' rooms scaled mobs with no client ever having seen it.
 - `slums.mechanics.realruns` / `.simruns` / `.simfloor` - leave the quota unset (unlimited = today's behaviour) until
   someone has watched it under load.
+- `slums.mechanics.amoriapq.botcount` - TEST only (owner answer 5): it changes what a real player's party is admitted
+  to, and no Amoria row exists to go with it.
 - the fishing and bot-life flags `docs/HANDOFF.md` and `docs/release/1.6.0-qa.md` already say stay off on shared TEST.
   (Chaos Zakum is no longer in that group: `-Dslums.chaos.zakum=true` is part of the 1.6.4 row set and is in the conf.)
 
@@ -503,4 +515,6 @@ DelliBattle, Magatia, Ellin, Crimsonwood Keep and Sharenian Guild Quest party qu
 party shares Zakum, Horntail, Chaos Zakum, the five Twin Dragon caves, Maha, Castellan, Papulatus, Krexel, Showa,
 Balrog, Scarga, Elemental Thanatos, Pink Bean, Captain Latanica, Magnus, the four Hard bosses (Will, Lucid, Verus Hilla,
 Darknell), the six GuardianNex caves, the eight BossRush waves and the Zakum-mines chest hunt instead of standing
-outside; and every run that ends can leave one chat line (chatter is on by default, chat only).
+outside; your own alt follows you into any expedition you are already in and counts as one of the party (both
+`slums.exped.*` policy switches are on by default); a GM can stage a bot-captained expedition with `!mechanics boss
+<TYPE> [n]`; and every run that ends can leave one chat line (chatter is on by default, chat only).
