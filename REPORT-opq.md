@@ -1517,3 +1517,48 @@ So stage 3 of the Zenumist PQ cannot be passed **by a player either** - it is a 
 engine, and the row is not written. The costed copy (`magatiapqz`, `92610xxx` band, the same six solvers) is one small
 change away the day `2619000.js` counts the way `2618000.js` does; writing it now would ship a row that stalls at stage 3
 with a "held" note that blames our engine for the script's missing line.
+
+## Amoria PQ: the bot count is a switch, and the row stops at three lines that prove why
+
+The owner's item was two halves. The first shipped; the second stopped, and this section is the proof rather than an
+opinion.
+
+**Shipped: a bot counts as a party member when the server says so.** `-Dslums.mechanics.amoriapq.botcount`, default off.
+`scripts/event/AmoriaPQ.js` gained `botCounts()` (reads `soloMapling.mechanics.Mechanics.amoriaBotCount()` through the
+`Java.type` host-class access 314 scripts already use) and a named predicate `countsAsMember(ch)`, which
+`getEligibleParty` now calls instead of the inline `chr == null || chr.isBot()` at `:105`. Off, the behaviour is the
+old one exactly; on, a bot's presence satisfies Amoria's `minPlayers` (2) and `maxPlayers` (6). `AmoriaBotCountTest` (4)
+pins both halves, including that a five-member party that is half bots counts two against the minimum before the switch
+and five after.
+
+**Not changed, deliberately: the three counters that decide what the party must physically do.** Counting bots there
+would not make the quest easier, it would make it impossible:
+
+- `scripts/npc/9201044.js:71-85` `partySize` -> `comboSlots`, the number of members who must stand on the crates:
+  `Math.max(1, Math.min(5, partySize(eim)))`. With three bots and one human, counting bots demands four members on the
+  platforms while exactly one can get there. The test pins `comboSlots == 1` for that party.
+- `scripts/npc/9201044.js:148-153` `comboOccupancy` counts who is actually standing on an area; a bot counted there would
+  either inflate the answer or block the exact-match check (`playersOnCombo == slots`).
+- `scripts/npc/9201045.js:36-41` `humanParty` feeds `stageItemRequirement` (`:77`, `Math.ceil(50 * humans / 6)`) and
+  `takePartyItems` (`:57`). Counting bots raises the trial-item requirement above the hands able to hand items over; the
+  test pins `stageItemRequirement == 9` for one human plus three bots.
+
+**Why the row stops.** Every stage does write a clear (`Nstageclear` through `clearStage`, `9201044.js:133`,
+`9201045.js:94`), so the blocker is not "no writable clear" - it is that a bot-only party cannot reach them, by the
+script's own rules, and a row that announced a clear no bot party can get would be the partial row this lane forbids:
+
+1. Stages 2 and 3 (`670010300`, `670010400`) are the crate combo: the party must stand exactly `comboSlots` members on the
+   generated areas and match `stage2combo`/`stage3combo`. With the bots excluded from the count, the human alone must
+   stand there and every bot must stay off the areas, or `playersOnCombo != slots` and the guess never registers.
+2. Stage 4 (`670010500`) counts and takes `4031597` through `humanParty` only, so a party of bots counts zero for ever
+   however much the bots farm.
+3. Stage 1's clear needs `4031595` (`scripts/npc/9201047.js:59-60`), and **no script in the tree grants it**: `grep -rn
+   4031595` finds the event's exclusive-item list (`AmoriaPQ.js:78`) and the NPC's removal, nothing else, and no SQL or
+   Java file mentions it. Its source is a database drop, so whether the item exists at all cannot be settled from this
+   tree.
+
+What would make the row writable is a decision, not code: **a mixed party** (one human plus bots) - the human solves the
+crates and holds the trial items while the bots kill, farm and hand items over, and stages 1, 5 and 6 are bot-drivable
+(fight the mirror's rooms, open the seven gate reactors, kill the Geist Balrog and hand the leader `4031594`). That is
+the shape the row would take, and the owner's "a real player does that stage" clause covers it - but it is the owner's
+call whether a row whose middle three stages are the human's counts as "bots play Amoria".
