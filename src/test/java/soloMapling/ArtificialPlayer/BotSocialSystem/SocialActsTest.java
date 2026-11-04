@@ -591,4 +591,38 @@ class SocialActsTest extends SocialActTestBase {
         assertTrue(again.reason().contains("social budget"), again.reason());
         assertEquals(1L, SocialMetrics.actCounters().get("COMPLIMENT.budget"));
     }
+
+    @Test
+    void theLiveGiftSeamNeverFakesAGiftWhenTheGiftPrimitiveCannotRun() {
+        alone();
+        SocialTestKit.befriend(ALICE, BOB, false, now());
+        SocialActions.giftSeam = new BotGiftSeam(); // the real seam: BotBotGift, with no real characters behind the ids
+        Outcome o = SocialActions.perform(ALICE, BOB, SocialActKind.GIVE_GIFT, now());
+        assertFalse(o.happened(), "nobody to hand anything to: " + o.reason());
+        assertTrue(world.notes.isEmpty() && flows.calls.isEmpty());
+        assertEquals("one of them is gone", new BotGiftSeam().blocker(ALICE, BOB, now()));
+        System.setProperty("slums.botgifts", "false");
+        try {
+            assertEquals("gifts are switched off", new BotGiftSeam().blocker(ALICE, BOB, now()));
+        } finally {
+            System.clearProperty("slums.botgifts");
+        }
+    }
+
+    @Test
+    void aKeptPromiseIsASocialActPerformedThroughTheRegistry() {
+        alone();
+        SocialTestKit.meet(ALICE, BOB, now());
+        SocialActions.wireIntents();
+        try {
+            SocialIntents.Result kept = SocialIntents.performer.perform(ALICE, BOB, SocialActKind.GREET, now());
+            assertTrue(kept.happened(), kept.reason());
+            assertEquals(SocialActKind.GREET, flows.calls.get(0).kind());
+            SocialIntents.Result refused = SocialIntents.performer.perform(ALICE, BOB, SocialActKind.APOLOGIZE, now());
+            assertFalse(refused.happened(), "a promise the registry refuses is not kept");
+            assertTrue(refused.reason().contains("no fight"), refused.reason());
+        } finally {
+            SocialIntents.resetForTest();
+        }
+    }
 }

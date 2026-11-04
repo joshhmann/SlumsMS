@@ -84,7 +84,7 @@ class SocialSimulationTest extends SocialActTestBase {
     void twelveBotsThreeDaysNoPlayer() {
         SimFlows sim = new SimFlows(world);
         flows = sim;
-        SocialActions.useForTest(world, sim, null);
+        SocialActions.useForTest(world, sim, GiftSeam.AFFINITY_ONLY);
         Random env = new Random(2024);
         int[] ids = new int[BOTS];
         for (int i = 0; i < BOTS; i++) {

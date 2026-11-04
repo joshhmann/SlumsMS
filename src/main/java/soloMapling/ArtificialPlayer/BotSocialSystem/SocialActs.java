@@ -585,6 +585,7 @@ final class SocialActs {
             if (r == null || !r.done()) {
                 return Outcome.missed(kind(), 0, r == null ? "the gift seam gave nothing" : r.reason());
             }
+            BotBonds.record(a, t, BondEvent.GIFT_GIVEN, now, false); // the giver's own edge: a little fonder, the other owes it
             SocialActions.mind(t, m -> {
                 m.feel(Emotion.AFFECTION, 0.15, now);
                 m.feel(Emotion.HAPPINESS, 0.10, now);

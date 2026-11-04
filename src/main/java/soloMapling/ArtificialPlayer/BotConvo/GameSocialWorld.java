@@ -159,6 +159,20 @@ public final class GameSocialWorld implements SocialWorld {
         }
     }
 
+    /** The social level of detail: a watched bot decides at the normal pace, an unwatched one four times less often. */
+    @Override
+    public double paceFactor(int charId) {
+        try {
+            return switch (soloMapling.ArtificialPlayer.BotSocialSystem.SocialLod.tierOf(sm(charId))) {
+                case ACTIVE -> 1.0;
+                case BACKGROUND -> 4.0;
+                case DORMANT -> Double.POSITIVE_INFINITY;
+            };
+        } catch (RuntimeException | LinkageError e) {
+            return 1.0;
+        }
+    }
+
     @Override
     public boolean sameParty(int a, int b) {
         try {

@@ -42,6 +42,7 @@ final class SocialTestKit {
         final Map<Long, List<BotMemory.Note>> notes = new LinkedHashMap<>();
         final AtomicLong noteIds = new AtomicLong(1);
         boolean sayOk = true;
+        double pace = 1.0;
         final LongSupplier clock;
 
         FakeWorld(LongSupplier clock) {
@@ -116,6 +117,11 @@ final class SocialTestKit {
             if (bodies.containsKey(charId)) {
                 place(charId, x, bodies.get(charId).y());
             }
+        }
+
+        @Override
+        public double paceFactor(int charId) {
+            return pace;
         }
 
         @Override

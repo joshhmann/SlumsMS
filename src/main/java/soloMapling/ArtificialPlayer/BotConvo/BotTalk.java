@@ -188,6 +188,7 @@ public final class BotTalk {
 
     /** Starts the tick (EnvironmentManager, with the threads). */
     public static synchronized void start() {
+        SocialActions.wireIntents(); // 1.6.4 stage 5: a kept promise is a social act performed through the registry
         if (running || !on()) {
             return;
         }

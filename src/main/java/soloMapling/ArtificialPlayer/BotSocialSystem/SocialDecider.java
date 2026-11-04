@@ -166,7 +166,9 @@ public final class SocialDecider {
         if (mem != null) {
             eager = mem.mind(m -> 0.5 * m.trait(Trait.SOCIABILITY) + 0.5 * m.need(Need.COMPANIONSHIP, now));
         }
-        return (long) (PACE_MIN_MS + span * draw * (1.3 - 0.8 * eager));
+        double detail = SocialActions.world().paceFactor(id); // the social LOD: unwatched bots decide less often
+        long base = (long) (PACE_MIN_MS + span * draw * (1.3 - 0.8 * eager));
+        return Double.isInfinite(detail) ? Long.MAX_VALUE / 4 : (long) (base * Math.max(1.0, detail));
     }
 
     /**

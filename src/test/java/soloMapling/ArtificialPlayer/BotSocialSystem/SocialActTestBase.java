@@ -31,7 +31,7 @@ abstract class SocialActTestBase {
         SocialDecider.resetForTest();
         world = new FakeWorld(clock::get);
         flows = new FakeFlows(world);
-        SocialActions.useForTest(world, flows, null);
+        SocialActions.useForTest(world, flows, GiftSeam.AFFINITY_ONLY);
         System.clearProperty(SocialActions.SWITCH);
     }
 

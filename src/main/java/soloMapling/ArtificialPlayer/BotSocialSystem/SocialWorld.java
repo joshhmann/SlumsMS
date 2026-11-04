@@ -67,6 +67,14 @@ public interface SocialWorld {
     /** The bot writes a note about {@code subjectId} (written in the background; the text names nobody). */
     void remember(int botCharId, int subjectId, BotMemory.Kind kind, String text, double valence, int mapId, long now);
 
+    /**
+     * How much slower than normal this bot's social decisions run (1: as normal): the social level of detail. A bot that
+     * nobody can see decides a few times less often; {@link Double#POSITIVE_INFINITY} means not at all.
+     */
+    default double paceFactor(int charId) {
+        return 1.0;
+    }
+
     /** Whether the two are in one party (spending time then counts as PARTY_TIME). */
     default boolean sameParty(int a, int b) {
         return false;

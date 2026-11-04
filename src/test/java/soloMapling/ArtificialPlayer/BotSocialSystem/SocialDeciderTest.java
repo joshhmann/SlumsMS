@@ -124,4 +124,19 @@ class SocialDeciderTest extends SocialActTestBase {
         assertTrue(in.companionship() >= 0 && in.companionship() <= 1);
         assertFalse(in.sociability() < 0);
     }
+
+    @Test
+    void unwatchedBotsDecideLessOftenAndDormantOnesNever() {
+        pair();
+        world.pace = 1.0;
+        SocialSim.useForTest(clock::get, 5L); // the same draw each time, so only the factor differs
+        long normal = SocialDecider.pace(ALICE, now());
+        world.pace = 4.0;
+        SocialSim.useForTest(clock::get, 5L);
+        long background = SocialDecider.pace(ALICE, now());
+        SocialSim.useForTest(clock::get, 5L);
+        assertTrue(background > 3 * normal, "the social LOD stretches a background bot's pace: " + normal + " -> " + background);
+        world.pace = Double.POSITIVE_INFINITY;
+        assertTrue(SocialDecider.pace(ALICE, now()) > 24L * 3_600_000L * 365, "a dormant bot is never due again");
+    }
 }

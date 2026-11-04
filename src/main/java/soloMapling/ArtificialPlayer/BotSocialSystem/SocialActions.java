@@ -122,8 +122,8 @@ public final class SocialActions {
 
     private static volatile SocialWorld world;
     private static volatile SocialFlows flows;
-    /** The gift primitive GIVE_GIFT calls: affinity only by default; the bot-to-bot gift plugs in here. */
-    public static volatile GiftSeam giftSeam = GiftSeam.AFFINITY_ONLY;
+    /** The gift primitive GIVE_GIFT calls: {@code BotBotGift} (equip, potions or a gesture); tests plug in their own. */
+    public static volatile GiftSeam giftSeam = new BotGiftSeam();
 
     private static final Map<SocialActKind, SocialAction> REGISTRY = new EnumMap<>(SocialActKind.class);
     private static final Map<Long, Invite> invites = new ConcurrentHashMap<>();
@@ -172,6 +172,17 @@ public final class SocialActions {
         return f;
     }
 
+    /**
+     * Stage 5's promises are kept through here: {@code SocialIntents.performer} is {@link #perform} (a landed act is a
+     * promise kept). Called once at start ({@code BotTalk.start}); a test that replaces the performer is left alone.
+     */
+    public static void wireIntents() {
+        SocialIntents.performer = (actor, target, kind, now) -> {
+            Outcome o = perform(actor, target, kind, now);
+            return new SocialIntents.Result(o.landed(), o.reason());
+        };
+    }
+
     /** The registered action of a kind (every kind has one). */
     public static SocialAction action(SocialActKind kind) {
         return REGISTRY.get(kind);
@@ -181,7 +192,7 @@ public final class SocialActions {
     public static void useForTest(SocialWorld testWorld, SocialFlows testFlows, GiftSeam testGifts) {
         world = testWorld;
         flows = testFlows;
-        giftSeam = testGifts != null ? testGifts : GiftSeam.AFFINITY_ONLY;
+        giftSeam = testGifts != null ? testGifts : new BotGiftSeam();
         observer = null;
         resetForTest();
     }
