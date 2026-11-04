@@ -73,7 +73,7 @@ public final class SocialDecider {
 
     /** One bot's decision; true when it did something. */
     private static boolean decideOne(int id, SocialWorld world, long now) {
-        if (LifeMemoryStore.peek(id) == null) {
+        if (!world.mindReady(id)) {
             SocialMetrics.countDecision("skipped-no-mind");
             return false;
         }

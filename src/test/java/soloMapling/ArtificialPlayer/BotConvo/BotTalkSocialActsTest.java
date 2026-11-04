@@ -123,6 +123,7 @@ class BotTalkSocialActsTest {
     void theTalkTickCallsTheDecisionTickOnlyWhenTheSwitchIsOn() {
         SocialWorld world = mock(SocialWorld.class);
         when(world.free(anyInt())).thenReturn(false);
+        when(world.mindReady(anyInt())).thenReturn(true);
         SocialActions.useForTest(world, null, null);
         MapleMap map = mock(MapleMap.class, Mockito.withSettings().stubOnly());
         when(map.getId()).thenReturn(100000000);

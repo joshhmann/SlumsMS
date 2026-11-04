@@ -574,6 +574,13 @@ class SocialActsTest extends SocialActTestBase {
             assertEquals("social acts are off", o.reason());
         }
         assertTrue(SocialActions.best(ALICE, java.util.List.of(BOB), now()).isEmpty());
+        SocialActions.wireIntents();
+        try {
+            assertEquals("social acts are off", SocialIntents.performer.perform(ALICE, BOB, SocialActKind.GREET, now()).reason(),
+                    "a promise cannot be kept through a registry that is off");
+        } finally {
+            SocialIntents.resetForTest();
+        }
         assertTrue(world.said.isEmpty() && world.walks.isEmpty() && flows.calls.isEmpty() && world.notes.isEmpty());
         assertTrue(SocialMetrics.actCounters().isEmpty());
     }

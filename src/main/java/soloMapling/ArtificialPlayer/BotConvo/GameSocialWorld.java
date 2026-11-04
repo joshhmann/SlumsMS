@@ -159,6 +159,17 @@ public final class GameSocialWorld implements SocialWorld {
         }
     }
 
+    /** A social or town bot has no brain that loaded its life memory: the talk tick's own loader does (as for its notes). */
+    @Override
+    public boolean mindReady(int charId) {
+        try {
+            return soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemoryStore.peek(charId) != null
+                    || BotTalk.memoryOf(charId) != null;
+        } catch (RuntimeException | LinkageError e) {
+            return false;
+        }
+    }
+
     /** The social level of detail: a watched bot decides at the normal pace, an unwatched one four times less often. */
     @Override
     public double paceFactor(int charId) {

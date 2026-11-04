@@ -68,6 +68,14 @@ public interface SocialWorld {
     void remember(int botCharId, int subjectId, BotMemory.Kind kind, String text, double valence, int mapId, long now);
 
     /**
+     * Whether the bot's mind is in memory, loading it once if the world can (the decision tick runs on the talk tick's own
+     * thread, which already loads life memories for its notes). Default: only if it is already loaded.
+     */
+    default boolean mindReady(int charId) {
+        return soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemoryStore.peek(charId) != null;
+    }
+
+    /**
      * How much slower than normal this bot's social decisions run (1: as normal): the social level of detail. A bot that
      * nobody can see decides a few times less often; {@link Double#POSITIVE_INFINITY} means not at all.
      */
