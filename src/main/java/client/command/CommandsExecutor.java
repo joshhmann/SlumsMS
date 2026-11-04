@@ -293,6 +293,7 @@ public class CommandsExecutor {
         addCommand("alts", client.command.commands.gm0.AltsCommand.class);   // 1.6.2 ticket 99: companion orders
         addCommand("botdrama", client.command.commands.gm0.BotDramaCommand.class);   // ticket 58
         addCommand("romance", client.command.commands.gm0.RomanceCommand.class);   // 1.5.0 bot drama: romance opt-in
+        addCommand("bonds", client.command.commands.gm0.BondsCommand.class);   // 1.6.4 @bonds, behind -Dslums.bonds
         addCommand("guildwar", client.command.commands.gm0.GuildWarCommand.class);   // 1.5.0 bot drama: guild wars
         addCommand("price", client.command.commands.gm0.PriceCommand.class);   // 1.5.0 rc3: the price board
         addCommand("settings", client.command.commands.gm0.SettingsCommand.class);   // 1.5.0: bot settings menu
