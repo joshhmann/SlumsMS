@@ -51,6 +51,12 @@ final class AxisTable {
         // the giver: knows the other a little better, a touch fonder, and the other owes it (negative obligation)
         BOND.put(BondEvent.GIFT_GIVEN, row(0.03,  0.01,  0.03,  0.01,  0,     0,     0,    -0.06));
         BOND.put(BondEvent.NEAR,       row(0.02,  0,     0.005, 0,     0,     0,     0,     0));
+        // stage 4 social acts: a compliment warms and earns respect; an apology and a reconciliation release resentment
+        // and rivalry (negative numbers) and rebuild trust; an argument is a harder SPAT
+        BOND.put(BondEvent.COMPLIMENT, row(0.02,  0.01,  0.04,  0.03,  0,     0,     0,     0));
+        BOND.put(BondEvent.APOLOGY,    row(0.02,  0.08,  0.08,  0.01,  0,    -0.08, -0.22,  0));
+        BOND.put(BondEvent.RECONCILE,  row(0.04,  0.12,  0.12,  0.03,  0,    -0.12, -0.25,  0));
+        BOND.put(BondEvent.ARGUE,      row(0.03, -0.08, -0.12, -0.05,  0,     0.08,  0.20,  0));
         BOND.put(BondEvent.KS,         row(0.02, -0.04, -0.05, -0.03,  0,     0.05,  0.08,  0));
         BOND.put(BondEvent.SPAT,       row(0.03, -0.03, -0.05, -0.02,  0,     0.05,  0.05,  0));
 

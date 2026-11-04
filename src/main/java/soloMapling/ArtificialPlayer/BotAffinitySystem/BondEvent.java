@@ -32,11 +32,19 @@ public enum BondEvent {
     GIFT_GIVEN(0, 30 * 60),
     /** A sampled minute on the same observed map: a nod, barely anything on its own. */
     NEAR(1, 30 * 60),
+    /** Stage 4 (ticket 181): the other paid it a compliment (a social act, {@code SocialActions}). */
+    COMPLIMENT(2, 60 * 60),
+    /** Stage 4: an apology was made or taken: the grudge eases and trust grows back (resentment falls). */
+    APOLOGY(3, 20 * 60),
+    /** Stage 4: two bots made up after a fight: the stronger repair (resentment and rivalry fall further). */
+    RECONCILE(6, 30 * 60),
     // Lowered by
     /** The other bot took this bot's mob on an observed map. */
     KS(-6, 5 * 60),
     /** A guild-beef thread between the two. */
-    SPAT(-5, 20 * 60);
+    SPAT(-5, 20 * 60),
+    /** Stage 4: a direct argument, harder than a beef thread's spat (the social act ARGUE). */
+    ARGUE(-8, 20 * 60);
 
     private final int defaultDelta;
     private final int defaultCooldownSec;

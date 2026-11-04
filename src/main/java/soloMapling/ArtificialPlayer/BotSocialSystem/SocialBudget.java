@@ -67,9 +67,22 @@ public final class SocialBudget {
 
         public static final long MINUTE = 60_000L;
 
+        /**
+         * Per-pair gaps by act family. The first three are the bot-talk acts; the rest are the stage-4 social acts
+         * ({@code SocialActions.budgetKey}): a repeat of the same act between the same two bots waits this long, so a
+         * grudge is not re-argued every tick and a compliment is not repeated.
+         */
+        static final Map<String, Long> ACT_GAPS = Map.ofEntries(Map.entry(GREET, 10 * MINUTE),
+                Map.entry(CHAT, MINUTE), Map.entry(ASK, 15_000L),
+                Map.entry("compliment", 45 * MINUTE), Map.entry("argue", 30 * MINUTE),
+                Map.entry("apologize", 20 * MINUTE), Map.entry("reconcile", 30 * MINUTE),
+                Map.entry("avoid", 15 * MINUTE), Map.entry("spendtime", 20 * MINUTE),
+                Map.entry("gift", 60 * MINUTE), Map.entry("invite", 10 * MINUTE),
+                Map.entry("reply", 5_000L), Map.entry("offerhelp", 15 * MINUTE),
+                Map.entry("shareinfo", 5 * MINUTE), Map.entry("rumor", 20 * MINUTE));
+
         public static Limits defaults() {
-            return new Limits(30_000L, Map.of(GREET, 10 * MINUTE, CHAT, MINUTE, ASK, 15_000L),
-                    10, 40, 200, 6, 90_000L, 3, 30_000L, 60 * MINUTE, 6 * 60 * MINUTE);
+            return new Limits(30_000L, ACT_GAPS, 10, 40, 200, 6, 90_000L, 3, 30_000L, 60 * MINUTE, 6 * 60 * MINUTE);
         }
 
         /**

@@ -42,6 +42,9 @@ class RelationAxesTest {
             assertFalse(AxisTable.isZero(row), e + " has an axis effect");
             if (e.hostile()) {
                 assertTrue(row[Axis.AFF] < 0 && row[Axis.REN] > 0 && row[Axis.RIV] > 0, e + " sours the holder");
+            } else if (e == BondEvent.APOLOGY || e == BondEvent.RECONCILE) {
+                assertTrue(row[Axis.AFF] > 0 && row[Axis.TRU] > 0 && row[Axis.REN] < 0 && row[Axis.RIV] < 0,
+                        e + " warms the holder and releases resentment and rivalry (stage 4 repair acts)");
             } else {
                 assertTrue(row[Axis.AFF] > 0 && row[Axis.REN] == 0, e + " warms the holder");
             }

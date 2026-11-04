@@ -434,6 +434,9 @@ public final class LifeRuntime {
             long socialSince = memory.lastSocial() > 0 ? memory.lastSocial() : bornAt;
             needs.put(Need.SOCIAL, Math.min(1, Math.max(0, now - socialSince)
                     / (double) (SOCIAL_PERIOD_FACTOR * memory.profile().townDurationMs())));
+            // 1.6.4 stage 4: a lonely, company-starved mind raises the SOCIAL need a little (at most about 0.3)
+            needs.merge(Need.SOCIAL, soloMapling.ArtificialPlayer.BotSocialSystem.SocialDecider.socialPull(
+                    chr.getId(), now), (time, mind) -> Math.min(1, time + mind));
             needs.put(Need.PROGRESS, memory.goals().stream().filter(g -> g.kind().progression())
                     .mapToDouble(LifeGoals.Goal::pressure).max().orElse(0));
             List<String> unknown = new ArrayList<>(original.unknown());

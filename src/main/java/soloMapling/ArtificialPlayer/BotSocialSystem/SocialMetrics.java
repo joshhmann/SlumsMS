@@ -33,6 +33,33 @@ public final class SocialMetrics {
     private SocialMetrics() {
     }
 
+    // ── stage 4: social act counters ──
+
+    private static final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.LongAdder> ACTS =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** One act outcome: {@code kind} and what became of it ({@code ok}, {@code rejected}, {@code refused}, {@code budget}, {@code error}). */
+    public static void countAct(SocialActKind kind, String outcome) {
+        ACTS.computeIfAbsent(kind.name() + "." + outcome, k -> new java.util.concurrent.atomic.LongAdder()).increment();
+    }
+
+    /** A free-standing decision counter ({@code decisions}, {@code decided}, {@code idle}, {@code skipped-...}). */
+    public static void countDecision(String what) {
+        ACTS.computeIfAbsent("decision." + what, k -> new java.util.concurrent.atomic.LongAdder()).increment();
+    }
+
+    /** Every act and decision counter, sorted (stable shape for the dashboard and the QA log). */
+    public static Map<String, Long> actCounters() {
+        Map<String, Long> out = new java.util.TreeMap<>();
+        ACTS.forEach((k, v) -> out.put(k, v.sum()));
+        return out;
+    }
+
+    /** Test seam: forgets the act counters. */
+    public static void resetActCountersForTest() {
+        ACTS.clear();
+    }
+
     /** One emotion as read now: its value and how far that is from where it settles. */
     public record Felt(SocialMind.Emotion emotion, double value, double deviation) {
     }
