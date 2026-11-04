@@ -52,14 +52,15 @@ class ExpeditionDeathCountTest {
     }
 
     @Test
-    void onlyHumansCount() {
+    void humansAndBotsCountButNotAnOwnedAlt() {
         Character human = player(false, false);
         Character bot = player(true, false);
         Character alt = player(false, true);
 
         assertTrue(ExpeditionDeathCount.counts(human));
-        assertFalse(ExpeditionDeathCount.counts(bot), "a population bot dying costs the party nothing");
-        assertFalse(ExpeditionDeathCount.counts(alt), "an owned alt dying costs the party nothing");
+        assertTrue(ExpeditionDeathCount.counts(bot),
+                "1.7.0: bots are mortal, so a wiped bot party must spend the budget too");
+        assertFalse(ExpeditionDeathCount.counts(alt), "an owned alt's death penalty is its player's own");
         assertFalse(ExpeditionDeathCount.counts(null));
     }
 

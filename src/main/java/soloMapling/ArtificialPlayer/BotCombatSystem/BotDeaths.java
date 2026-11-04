@@ -185,6 +185,15 @@ public final class BotDeaths {
         // One line per death so a soak can count them (the world cap is WORLD_PER_10_MIN).
         log.info("[BotDeaths] {}{} (lv {}) died on map {}", bot.getName(), bot.isOwnedAlt() ? " (owned alt)" : "",
                 bot.getLevel(), bot.getMapId());
+        // 1.7.0: a bot death spends a death of an armed expedition's budget, like a human's does
+        scripting.event.EventInstanceManager eim = bot.getEventInstance();
+        if (eim != null) {
+            try {
+                eim.botKilled(bot);
+            } catch (RuntimeException ignored) {
+                // the budget's own messages are best effort; the death itself already happened
+            }
+        }
         if (!bot.isOwnedAlt()) { // 1.6.1 ticket 13: an owned alt's death is its player's, not a population count
             try {
                 soloMapling.worldevents.WorldEvents.getInstance().onBotDied(bot); // 1.6.0: counted at a world event

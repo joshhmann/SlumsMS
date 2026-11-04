@@ -13,11 +13,11 @@ import static soloMapling.BotLogger.log;
  * The death budget of one event instance (ticket 130, phase 5, phase 1), ported from BotStory
  * {@code server/expeditions/ExpeditionDeathCount.java} (reviewed at sha 81a3b1df).
  *
- * <p>One counter per instance, charged on every death, and <b>only humans are charged</b>: a population bot
- * ({@link Character#isBot()}) or an owned alt ({@link Character#isOwnedAlt()}) dying costs the party nothing, because
- * a bot party that wipes is not the run's loss and would otherwise end a human's expedition. When the budget runs out
- * the instance ends: the party hears the line, everyone is taken out and the instance is disposed (see
- * {@code EventInstanceManager#endForDeathCount}).
+ * <p>One counter per instance, charged on every <b>human or bot</b> death (1.7.0: bots are mortal by default, and a
+ * budget a bot party could spend for free would measure nothing - the owner wants to see whether the bots survive, which
+ * is meaningless if their deaths cost the run nothing). An owned alt's death is not charged: it is the player's own
+ * character, and its death penalty is already the player's. When the budget runs out the instance ends: the party hears
+ * the line, everyone is taken out and the instance is disposed (see {@code EventInstanceManager#endForDeathCount}).
  *
  * <p>Armed from a switch, off by default: {@code -Dslums.bossfight.deathcount=true}, with the cap per run from
  * {@code -Dslums.bossfight.deathcount.cap} (default {@value #DEFAULT_CAP}); one boss type may override it with
@@ -113,6 +113,6 @@ public final class ExpeditionDeathCount {
 
     /** Only humans are charged: a bot or an owned alt dying is not the party's loss. */
     public static boolean counts(Character chr) {
-        return chr != null && !chr.isBot() && !chr.isOwnedAlt();
+        return chr != null && !chr.isOwnedAlt();
     }
 }
