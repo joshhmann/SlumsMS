@@ -1,5 +1,11 @@
 # SlumsMS tickets
 
+## Monster loot coverage (owner request, 2026-11-03 Pacific)
+
+| # | Ticket | State |
+|---|---|---|
+| [182](182-missing-monster-and-boss-loot-tables.md) | Missing mob/boss loot tables, with gear progression overlap | Read-only audit; candidate list needs reward/source triage and targeted kills |
+
 ## Promise audit (2026-11-01, pending triage)
 
 | # | Ticket | State |
