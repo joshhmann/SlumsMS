@@ -651,12 +651,11 @@ off or there is too little history to judge. Runbook: `docs/qa/social-test-runbo
   attempts, the turn limit must bite (at least one `denied turn-limit` in 200+ allowed acts) but not dominate, and no
   single kind may be refused more than it lands with 10+ attempts. SKIPs when `-Dslums.socialacts=false` or under 20
   attempts have been made.
-- **t-pi-1 (the Henesys pilot), not registered yet:** the probe `socialPilot` reads `SocialPilot.stats()` and
-  `SocialPilot.enabled()` through a `Class.forName` seam (a test can swap in fixed answers), and its verdicts are
-  unit-tested, but the check is **not** in `AutoQaCatalog`: until the pilot class exists it could only SKIP, and a
-  release run FAILs on an unexpected SKIP. The commit that lands `SocialPilot` adds the catalogue line (spelled out
-  in a comment there) and `Probes164SocialTest` fails if it forgets. Id is `t-pi-1` because `t-sp-1` is already the
-  1.6.2 "bots spread out" check.
+- **t-pi-1 (the Henesys pilot):** registered. The probe `socialPilot` reads `SocialPilot.stats()` and
+  `SocialPilot.enabled()` (through a seam a test can swap) and its verdicts are unit-tested. It SKIPs when
+  `-Dslums.socialpilot=false`, when no pilot bot is online yet (`online` is 0), or when the class is absent; it FAILs
+  on a negative counter or on a pilot with bots online whose counters are all still 0. Id is `t-pi-1` because `t-sp-1`
+  is already the 1.6.2 "bots spread out" check.
 
 ### bt-1: bots talk to bots (1.6.1, ticket 114)
 

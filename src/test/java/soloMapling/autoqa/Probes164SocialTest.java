@@ -269,9 +269,10 @@ class Probes164SocialTest {
         stats.put("bots", 20L);
         stats.put("greetings", 4L);
         stats.put("routines", 11L);
+        stats.put("online", 5L);
         Probes164Social.usePilotForTest(() -> true, () -> stats);
         List<String> out = Probes164Social.probe("socialPilot", null);
-        assertEquals("PASS the pilot reports 3 counter(s)", out.get(0));
+        assertEquals("PASS the pilot reports 4 counter(s)", out.get(0));
         assertTrue(out.contains("greetings 4"), out.toString());
     }
 

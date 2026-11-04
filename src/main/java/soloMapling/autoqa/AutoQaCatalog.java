@@ -1558,13 +1558,12 @@ public final class AutoQaCatalog {
                 .laneOnly().minutes(2)
                 .expect(probe("socialActs"))
                 .build());
-        // The Henesys pilot's own counters (probe "socialPilot", Probes164Social) get id t-pi-1 - t-sp-1 is the 1.6.2
-        // "bots spread out" check - but the check is NOT registered here yet. It could only SKIP ("pilot not built")
-        // until SocialPilot exists, a release run FAILs on any SKIP outside the allow-list (ticket 164 b222), and that
-        // list is pinned to the MANUAL client-only checks (AutoQaReleaseTest). Stage 8 adds this line in the commit
-        // that lands SocialPilot; Probes164SocialTest fails the moment the class exists without it:
-        //   c.add(Check.auto("t-pi-1", "Henesys pilot: its own counters report work").laneOnly().minutes(2)
-        //           .expect(probe("socialPilot")).build());
+        // The Henesys pilot's own counters (probe "socialPilot", Probes164Social). The id is t-pi-1 because t-sp-1 is
+        // the 1.6.2 "bots spread out" check. SocialPilot exists now, so the check is registered.
+        c.add(Check.auto("t-pi-1", "Henesys pilot: its own counters report work")
+                .laneOnly().minutes(2)
+                .expect(probe("socialPilot"))
+                .build());
         return List.copyOf(c);
     }
 

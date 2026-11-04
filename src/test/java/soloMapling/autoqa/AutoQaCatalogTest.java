@@ -26,7 +26,7 @@ class AutoQaCatalogTest {
             "t-oa-1", "t-tw-1", "t-hp-1", "t-au-1", "t-ds-1", "t-np-4", "t-ck-1", "t-sc-3", "t-ss-1", "t-xc-1", "t-xc-2", "t-xc-3", "t-xc-4", "t-xc-5", "t-fy-1", "t-fy-2", "t-fy-3", "t-fy-4", "t-ti-1", "t-rb-1", "t-rb-2", "t-rb-3", "t-ac-1", "t-ac-2", "t-pg-1", "t-nc-1", "t-ld-1", "t-iv-1", "t-iv-2", "t-sn-1", "t-bt-1", "t-bt-2", "t-bt-3", "t-br-1", "t-nv-1", "t-mx-1", "t-mx-2",
             "t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2", "t-gb-3", "t-gb-4", "t-gb-5", "t-gb-6", "t-su-1", "t-su-2", "t-su-3", "t-jb-1", "t-jb-2", "t-nn-1", "t-nn-2",
             "t-mx-3", "t-mx-4", "t-mx-5", "t-mx-6", "t-gr-1", "t-gr-2", "t-nv-2", "t-nv-3", "t-mp-1", "t-mk-2",
-            "t-ms-1", "t-sm-1", "t-sa-1");
+            "t-ms-1", "t-sm-1", "t-sa-1", "t-pi-1");
 
     @Test
     void everyPageCheckIsThereOnceInPageOrder() {

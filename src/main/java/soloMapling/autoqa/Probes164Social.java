@@ -446,6 +446,7 @@ final class Probes164Social {
         if (!on) return List.of("SKIP the pilot is off");
         Map<String, Long> stats = pilotStats.get();
         if (stats == null) return List.of("SKIP pilot not built (no " + PILOT + ".stats())");
+        if (stats.getOrDefault("online", 0L) == 0L) return List.of("SKIP no pilot bot is online yet");
         String problem = pilotProblem(stats);
         if (problem != null) return List.of("FAIL " + problem);
         List<String> out = new ArrayList<>();

@@ -205,5 +205,5 @@ t-ms-1	src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/ModeSwitch.java	
 t-sm-1	src/main/java/soloMapling/ArtificialPlayer/BotSocialSystem/SocialMind.java	emotions, needs, mood and their seeds
 t-sa-1	src/main/java/soloMapling/ArtificialPlayer/BotSocialSystem/SocialActions.java	the act registry and its outcomes
 t-sa-1	src/main/java/soloMapling/ArtificialPlayer/BotSocialSystem/SocialBudget.java	the loop breaker: cooldowns, rate windows, turn cap
-# t-pi-1 (the Henesys pilot's own counters, probe "socialPilot" in Probes164Social) is deliberately absent until
-# stage 8 registers it in AutoQaCatalog: a check that can only SKIP would fail every release run.
+t-pi-1	src/main/java/soloMapling/autoqa/Probes164Social.java	probe socialPilot
+t-pi-1	src/main/java/soloMapling/ArtificialPlayer/BotSocialSystem/SocialPilot.java	the pilot: selection, hold, counters
