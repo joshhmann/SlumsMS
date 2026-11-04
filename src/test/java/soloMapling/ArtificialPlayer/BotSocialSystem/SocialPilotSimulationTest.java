@@ -473,6 +473,8 @@ class SocialPilotSimulationTest {
                             + stranger.card() + "\"");
                 }
             }
+            System.out.println("PILOT (8) on the first visit the familiar player partied with and helped " + s.friendedByPlayer.size() + " bots until each read FRIEND"
+                    + " (events needed: " + s.friendedByPlayer.values().stream().map(a -> a[0]).toList() + ")");
             System.out.println("PILOT (8) " + differ + " of " + familiarPairs + " (bot, visit) readings treat the familiar player as a friend and"
                     + " the stranger plainly, " + bots.size() + " different bots. Harness limit: AffinityReactions.pickFriendly/pickSideEye"
                     + " (the chosen act) are package-private and need a BotSM; the state, the prompt line and the relationship card they"

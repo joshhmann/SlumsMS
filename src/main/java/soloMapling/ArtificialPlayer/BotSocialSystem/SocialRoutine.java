@@ -53,15 +53,37 @@ public final class SocialRoutine {
 
     private static volatile ZoneId zone;
 
-    /** The time zone the hours are read in ({@code -Dslums.socialroutine.zone}, else the server's own). */
+    private static volatile String zoneName;
+    private static volatile ZoneId zoneCache;
+
+    /**
+     * The time zone the hours are read in: {@code -Dslums.socialroutine.zone}, else the population director's own
+     * ({@code BOT_ROSTER_TIMEZONE}, so a bot's routine and its play window use the same clock), else the server's.
+     */
     static ZoneId zone() {
         ZoneId z = zone;
         if (z != null) {
             return z;
         }
         String name = System.getProperty("slums.socialroutine.zone");
+        if (name == null || name.isBlank()) {
+            try {
+                name = config.YamlConfig.config.server.BOT_ROSTER_TIMEZONE;
+            } catch (RuntimeException | LinkageError e) {
+                name = null;
+            }
+        }
+        if (name == null || name.isBlank()) {
+            return ZoneId.systemDefault();
+        }
+        if (name.equals(zoneName)) {
+            return zoneCache;
+        }
         try {
-            return name == null || name.isBlank() ? ZoneId.systemDefault() : ZoneId.of(name.trim());
+            ZoneId parsed = ZoneId.of(name.trim());
+            zoneCache = parsed;
+            zoneName = name;
+            return parsed;
         } catch (RuntimeException e) {
             return ZoneId.systemDefault();
         }

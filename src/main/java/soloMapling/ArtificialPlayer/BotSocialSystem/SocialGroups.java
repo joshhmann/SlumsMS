@@ -333,20 +333,11 @@ public final class SocialGroups {
 
     /** What the groups add to the score of {@code kind} from {@code actor} toward {@code target}: 0 .. {@link #MAX_CONFLICT_BONUS}. */
     public static double adjust(SocialActKind kind, int actor, int target, long now) {
-        if (!enabled()) {
-            return 0;
+        boolean mates = kind == SocialActKind.SPEND_TIME || kind == SocialActKind.INVITE;
+        if (!mates && kind != SocialActKind.ARGUE && kind != SocialActKind.AVOID || !enabled()) {
+            return 0; // the common case: not one of the four acts, nothing read
         }
-        switch (kind) {
-            case SPEND_TIME, INVITE -> {
-                return sameGroup(actor, target, now) ? MATE_BONUS : 0;
-            }
-            case ARGUE, AVOID -> {
-                return conflictBonus(tensionBetween(actor, target, now));
-            }
-            default -> {
-                return 0;
-            }
-        }
+        return mates ? (sameGroup(actor, target, now) ? MATE_BONUS : 0) : conflictBonus(tensionBetween(actor, target, now));
     }
 
     /** The conflict bonus of a tension: 0 below the floor, then 0.4 per unit above it, never above the maximum. */

@@ -141,7 +141,7 @@ the dashboard.
 | 4 | `SocialAction` registry, missing actions, gifts, emotion/memory into `TalkBrain` and `LifeDecision` | per-action outcome tests, utility ordering, Alice/Bob/Clara scene, 3-day 12-bot simulation | built (`164-social-acts`): section 9; unit and simulation tests only, TEST not run |
 | 5 | Intentions (memory in `BotThreads`/`BotTalk` prompts moved to Stage 3) | dialogue-to-intention test | built (`164-social-intents`, `81a7faa31`): see section 8; unit-tested only; performer is a seam, wired to `SocialActions.perform` by Stage 4 (section 9); TEST not run |
 | 6 | Social LOD, loop breaker, metrics in dashboard and inspect | perf measurement | 6a built (`164-social-observe`): `SocialBudget` loop breaker (per-pair cooldown, per-bot, per-map and global rates, A-B turn limit, failed-act backoff; hooked into `BotTalk`), `social` block in `live.json`, mode/mind/bonds in `/bots/{cid}`, mode and mind lines in `!botwhy`; unit tests only, no perf measurement and no TEST run yet. 6b social LOD planned **6b:** 6b social LOD built (`164-social-lod`: tier/hold, 5-minute maintenance, catch-up bounds, flag-off tests, full suite); loop breaker and dashboard metrics planned |
-| 7 | 20-bot Henesys pilot, TEST (mapletest) live check | real execution evidence | planned |
+| 7 | 20-bot Henesys pilot, TEST (mapletest) live check | real execution evidence | built (`164-social-pilot`): section 10; routine, groups, pilot selection, hold, counters; a 7-day, 20-bot harness asserts the ten pilot criteria in a fake world; nothing run on TEST or in a client |
 
 Nothing here has run in a real client or on TEST yet.
 
@@ -276,3 +276,56 @@ scene with seeded runs, stability, norms), `SocialDeciderTest`, `SocialSimulatio
 printed), `BotTalkSocialActsTest` (mind inputs on and off, avoid records, the tick hook). Not done: no sitting together
 (SPEND_TIME stands beside the target), no PQ choice on INVITE beyond what `WorldSense.offers` allows, nothing on TEST or in
 a client.
+
+## 10. Stage 7 as built: the Henesys pilot, routines and groups
+
+Package `AP/BotSocialSystem`: `SocialPilot`, `SocialRoutine`, `SocialGroups`. Switches (all `-D`, on unless `false`): `slums.socialpilot` (the whole stage; `.size` 20,
+`.map` 100000000), `slums.socialroutine`, `slums.socialgroups` (each also needs the pilot). `=false` restores the old behaviour exactly: no members, no hold, no bias, no groups.
+
+- **Who.** `SocialPilot.select`: the active roster slots with the lowest `rank(slot)` (a mixed 64-bit hash, fixed), sticky: a member stays while it is active, a replacement is the next
+  lowest hash; the roster is read at most every 10 minutes from the director's tick. Same roster, same 20; enrolling new bots never reshuffles them.
+- **Director hold.** In `BotPopulationDirector.candidates()` a pilot bot inside its own play window is built with a zero session length and no leave-now permission, so `plan()` neither
+  ends its session nor trims it above the curve; pilot bots also get a login weight of 3. Outside the window, and for every other reason a session ends (a stop, a GM, a rage quit, death
+  or a commitment gate), nothing changed. `LifeTownSlots.reserve` lets a pilot bot into a full Henesys map (`+size` headroom over the usual cap).
+- **Placement.** `LifeRuntime.townDestination` returns the bot's `SocialRoutine` spot (source `LifeTowns.Source.PILOT`) after friend, crew and plan and before the generic town pull;
+  `TownWandererBot.pickNextMap` prefers it; `SocialPilot.LIFE_BIAS` (a `LifePolicy` plug-in, at most 0.25) adds a hang-out pull at the hours its routine gathers. The gathering places are the
+  home map's town family (Henesys: town, market, park, pet park); no in-map anchors (no map data here to place them on).
+- **Routine as soft structure.** `SocialRoutine`: four smooth hour weights per bot (work/training, a lunchtime gathering, an evening hangout, rest) from its traits and a per-bot phase, read
+  in the director's zone. They only ever reach decisions as (i) `ModeSwitch.decide(.., ModeBias)`: two multipliers on the pull scores, always in `[0.5, 1.8]`, pulled toward 1 by a strong
+  companionship need, loneliness or tiredness (the old three-argument overload is the neutral bias); (ii) `spotFor`: the bot's taste for each place (traits: sociable to the square, ambitious
+  to the market, agreeable and quiet to the park, curious to the pet park) times what the place is for at that hour, plus its group's gathering, one stable draw per 30 minutes; (iii) the
+  hang-out bias. Bots with like minds like the same place and so meet there again and again; that repeated proximity is what forms the bonds.
+- **Groups.** `SocialGroups`: connected components, of at least 3, of the mutual FRIEND/CLOSE_FRIEND graph over the pilot (recomputed at most every 3 minutes by whichever decision asks,
+  memory only). A group's place is its members' most common favourite at its event hour (the circular mean of their evening hours); `adjust` adds 0.10 to SPEND_TIME and INVITE toward a group mate
+  and up to 0.12 to ARGUE and AVOID toward members of a group in conflict (tension = mean over cross pairs and both ways of max(resentment, 0.8 x rivalry), above 0.10); the decision tick lists group
+  mates first; `reputation(group, subject)` averages the members' `Reputation.known` (no store); `/bots/{cid}` has a `group` field.
+- **Counters.** `SocialPilot.stats()` (also `social.pilot` in `live.json`): members, online, held, `mode.*`, `acts.<KIND>`, `friendships.edges/formed/mutualPairs`, `conflicts.*`, `memories`,
+  `intents.kept/broken`, `gifts`, `avoids`, `restartsSurvived`, `placements`, `routineBiases`, `groups`, `groupedBots`.
+
+### The ten pilot criteria, as shown
+
+`SocialPilotSimulationTest` (with `SocialPilotSim`): 20 bots from the real selection, 7 simulated days on the `SocialSim` clock (seed 20261103), 3 visits of a familiar and a stranger player, one
+restart on day 4 at noon. Real: the mind, `ModeSwitch.decide` with the real bias, `SocialPilot.destination`, `SocialDecider`, `SocialActions`, `SocialBudget`, `SocialGroups`, `BotBonds` (axes, stages)
+over a memory store, `BotMemory` over `FakeMemoryTable`, the intent book, `BotAffinity`, `AffinityReactions.promptLine`, `RelationshipCard`. Faked: positions, who is busy, who stood near whom (the
+sampling of `BotBonds.step` replayed over ids with the same caps and 12 other maps competing for the background tier), the chat flow, what a grind and a hang-out do to needs, the map from needs to
+`ModeSwitch.Inputs`, the sessions, mob thefts and the players. Same seed, same report (compared byte for byte).
+
+| # | criterion | how shown (last run) | needs TEST |
+|---|---|---|---|
+| 1 | independent routines | at 12 of 13 afternoon/evening hours online bots stood at 3 or more different places (training, square, market, park, pet park); mean pairwise agreement of hourly place 0.30 (lock-step 1.0); each bot's town share 0.43..0.75; 4 favourite places | harness only for the numbers; TEST: look at 20 bots at three hours of a day, `stats()` mode census, the real director hold and the real mode swap |
+| 2 | friendships by repeated interaction | 75 directed edges reached FRIEND with 6..44 NEAR+SPEND_TIME+CONVERSE first (median 16); of the most-interacting quarter of pairs 72% are friends, of the least 0% | harness only (the fake replays `BotBonds` sampling); TEST: bond stages in `/bots/{cid}` after a few hours |
+| 3 | conflicting personalities, different acts | the most agreeable/patient and the most impulsive/disagreeable pilot bot choose different acts in 2 of 4 fixed situations (GREET or APOLOGIZE against ARGUE); ARGUE actors' mean agreeableness 0.52, APOLOGIZE actors' 0.57 | harness only (utilities of the real acts) |
+| 4 | relationships change after events | 4 scripted events (gift, two stolen mobs, a PQ): affection +0.48 after the gift, resentment +0.22 and +0.40 and trust down after the thefts; 3 changed the stage | harness only |
+| 5 | agents remember | 21 apologies, each decided from an earlier remembered fight read back through `BotMemory.recall` | the SQL path of migration 060 on a real database: TEST |
+| 6 | bots start conversations | 718 CONVERSE by 20 different bots across 102 pairs (695 greetings) | real lines (`BotTalk.run`, the model): TEST |
+| 7 | emotion and memory change decisions | ARGUE utility 0.25 calm -> 0.61 angry, SPEND_TIME 0.09 met -> 0.76 lonely; a remembered open fight makes APOLOGIZE legal (0.78) and changes the choice from ARGUE to APOLOGIZE | harness only |
+| 8 | a familiar player against a stranger | after the first visit 3 bots treat the player as a friend; on later visits the bots there read FRIEND, a warm prompt line and a card of shared memories for the familiar player, "you don't really know them" and no line for the stranger | harness covers the state, the prompt line and the card; the chosen act (`AffinityReactions.pickFriendly`/`pickSideEye`) is package-private and needs a `BotSM`; real players and a client: TEST |
+| 9 | state survives a restart | mind (12 traits, 9 emotions, 8 needs) identical to 1e-9, 110 edges with a feeling within 3e-8 (floats) and the same stages, 109 pairs of memories, the intent books and the resumed modes equal; lost: faint edges (familiarity only: 88 of 270 are pruned by `BotBonds` on flush and load, by design), open avoid records, invitations and spend-time pairs, `SocialBudget` history, the decision pace, act timestamps, all counters | harness only: no real MySQL (botbond, botmemory, botlifeprofile run on memory fakes and a mocked JDBC pool), no real roster rows: TEST |
+| 10 | interaction with no player | 1,609 landed acts on the 4 days with no visit (days 1, 3, 5, 7) | harness only |
+
+Safety over the week (asserted): no pair repeats an act family inside its budget gap, busiest bot 2 acts in a minute (limit 10), memory notes per pair at most 8 (cap 10), no act failed more than 2 times in an hour
+for one (actor, target), at most 13 acts in one bot-hour (mean 1.70).
+
+Not in this stage: nothing run on TEST or in a client; the harness world is the only world; component groups merge a dense town into one big group (14 of the 20 here), so the conflict between two groups is
+only exercised by unit tests on constructed graphs; no in-map gathering anchors; group reputation has a read API and no consumer yet.
+
