@@ -63,8 +63,12 @@ class AlcasterCrystalScriptTest {
     }
 
     @Test
-    void doesNothingFarAwayOrInOtherMap() {
-        org.junit.jupiter.api.Assertions.assertFalse(run(211060400, new Point(-900, 164)));
+    void doesNothingInOtherMap() {
         org.junit.jupiter.api.Assertions.assertFalse(run(100000000, new Point(100, 164)));
+    }
+
+    @Test
+    void completesOnTheRightMapEvenWithAStalePosition() {   // TEST 2026-11-04: a fresh warp left the server position far off
+        org.junit.jupiter.api.Assertions.assertTrue(run(211060400, new Point(-900, 164)));
     }
 }

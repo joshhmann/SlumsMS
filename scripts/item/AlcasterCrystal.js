@@ -21,12 +21,11 @@ function action(mode, type, selection) {
         }
 
         if (status == 0) {
+            // 1.6.4: the map is enough. The old 310 px check against portal east00 read the server-side position, which is
+            // stale after a warp or channel change until the player moves, so the crystal silently did nothing.
             if (im.getMapId() == 211060400) {
-                var portal = im.getMap().getPortal("east00");
-                if (portal != null && portal.getPosition().distance(im.getPlayer().getPosition()) < 310) {
-                    im.gainItem(2430159, -1);
-                    im.completeQuest(3182);
-                }
+                im.gainItem(2430159, -1);
+                im.completeQuest(3182);
             }
             im.dispose();
         }
