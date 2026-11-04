@@ -933,6 +933,12 @@ public class StatEffect {
             return false;
         }
 
+        // 1.7.0: a Resurrection reaches a bot like any other party member - its HP is back, so it must stop being a
+        // corpse (BotDeaths is what holds it down: no hits, no acting, no run driving it)
+        if (isResurrection() && applyto.isBot()) {
+            soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.revived(applyto);
+        }
+
         if (moveTo != -1) {
             if (moveTo != applyto.getMapId()) {
                 MapleMap target;

@@ -199,6 +199,19 @@ public final class BotDeaths {
         }
     }
 
+    /**
+     * 1.7.0: something brought a dead bot back - a Bishop's Resurrection, a revive item, an admin - so it stops being a
+     * corpse: it may take hits again and a run drives it again. Called from {@code StatEffect}'s resurrection branch;
+     * a bot that was not dead is left alone.
+     */
+    public static void revived(Character bot) {
+        if (bot == null || lyingUntil.remove(bot.getId()) == null) {
+            return;
+        }
+        GCMovement.releaseCommitmentHold(bot); // the hold the death took, so the revived bot can walk again
+        log.info("[BotDeaths] {} is up again on map {}", bot.getName(), bot.getMapId());
+    }
+
     /** True while the bot lies dead (TrainingBot holds everything). */
     public static boolean isDead(int botId) {
         return lyingUntil.containsKey(botId);
