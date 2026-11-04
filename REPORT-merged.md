@@ -1,9 +1,10 @@
 # Merge lane, 1.6.4 - everything in one tree (branch `164-all-merge`)
 
 Worktree `/root/work/164-all`, branch `164-all-merge` off `release-1.6.4` @ `6d18f961e`, push URL disabled, nothing
-pushed, nothing deployed, live server untouched. **Last merge commit `32e612d73`** (the code head; `git diff 32e612d73
-HEAD -- src/` is empty), 196 commits over the release tip (this report's own commit is the last); the suite and the WZ pass ran on `839ff8e91`, whose tree
-differs from the code head only in `docs/` (checked with `git diff 32e612d73 HEAD -- src/ scripts/`).
+pushed, nothing deployed, live server untouched. **Last merge commit `32e612d73`** (the code head; the only commit
+after it that touches `src/` is `3bc765541`, which is comment lines and two version strings), **197 commits** over the
+release tip; the suite and the WZ pass ran on `839ff8e91`, whose only difference from the code head is `docs/` (checked
+with `git diff 32e612d73 839ff8e91 -- src/ scripts/`).
 
 This is the one branch that carries every 1.6.4 lane: the base game's two rows, the boss lane's 27, the party-quest
 lane's 18, the real-run lane's ten, and the engine-seam lane's Guild Quest and Zenumist band - **57 rows, 29 `kind: BOSS`
@@ -430,6 +431,18 @@ papered over.
 rng seam there (a package-private setter or an argument) would let the release tests be exact; that is `src/` behaviour,
 so it is reported, not done.
 
+
+**The labels say 1.6.4.** 49 occurrences over 40 files read `1.7.0` - the work had been authored against the roadmap's
+next release and owner decision 24 pulled it forward, so the candidate described itself as the wrong version in exactly
+the diffs a reviewer reads. Commit `3bc765541` relabels each site to `1.6.4` (mechanics engine and the rows' tier
+comments, run chatter, mortality, the GM/QA wiring, and the tests over them), keeping the provenance in
+`docs/roadmap/1.7.0.md` and `docs/roadmap/1.6.4.md`. The diff is comments, YAML comments, one QA scenario title and one
+assertion message: `git diff 32e612d73 3bc765541 --stat -- src/` is `40 files changed, 49 insertions(+), 49
+deletions(-)`, and no statement, condition or signature moved. `mvn -o -q test-compile` is clean and the suites that cover
+those files ran green (`Tests run: 1493, Failures: 0, Errors: 0, Skipped: 6`, 8:53, `/tmp/relabel.log`), so the
+`9121 / 0 / 0 / 140` totals from `/tmp/final7.log` still describe this tree's behaviour. No relabelled comment claimed a
+behaviour difference between the two versions that the code does not have, so there is no owner question behind this: it
+was a labelling defect.
 
 ### Paperwork
 
