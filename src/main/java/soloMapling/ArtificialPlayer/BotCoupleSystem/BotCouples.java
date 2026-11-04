@@ -467,12 +467,22 @@ public final class BotCouples {
         Couple ready = weddingCouple(all(), now);
         if (ready != null && now - lastWeddingAt >= hours("weddingGapHours", 24) && !BotWeddings.running()
                 && soloMapling.worldevents.WorldEvents.curveFraction() >= 0.5 && rng.nextDouble() < 0.1) {
-            lastWeddingAt = now;
-            String problem = BotWeddings.start(ready, "couples");
-            if (problem != null) {
-                log.info("A bot wedding could not start: {}", problem);
-            }
+            tryStartWedding(ready, now, c -> BotWeddings.start(c, "couples"));
         }
+    }
+
+    /** Starts the wedding; the day's one window is only used up when it really started. */
+    static void tryStartWedding(Couple ready, long now, java.util.function.Function<Couple, String> starter) {
+        String problem = starter.apply(ready);
+        if (problem != null) {
+            log.info("A bot wedding could not start: {}", problem);
+        } else {
+            lastWeddingAt = now;
+        }
+    }
+
+    static long lastWeddingAtForTest() {
+        return lastWeddingAt;
     }
 
     /**
