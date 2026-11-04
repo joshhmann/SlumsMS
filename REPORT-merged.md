@@ -522,10 +522,15 @@ Two things a reader must not take as settled, because the answer is the owner's:
 
 ## Deploy note
 
-**Branch:** `164-all-merge` (worktree `/root/work/164-all`), last merge commit `73fdf507d`. Nothing was pushed, tagged
-or staged; the owner pushes and deploys. **For a real release the settings live in `docs/release/1.6.4.conf`** (draft,
+**Branch:** `164-all-merge` (worktree `/root/work/164-all`), last merge commit `73fdf507d`, tip `100257510`. Nothing was
+pushed, tagged or staged; the owner pushes and deploys. **For a real release the settings live in `docs/release/1.6.4.conf`** (draft,
 written by this lane for the owner/Server Dev) - the block below is the same set spelled out for a hand-edited TEST
 `start-test.sh`.
+
+**Two sentences for the release note.** With the sweep flags on, the first thing a player notices is that **bots can
+die**: a lethal hit kills one outright, only a Bishop's Resurrection brings it back, and with revive-pause on the party's
+run waits for its dead bot instead of ending. After that, the party quests pay a HARD run the same items twice and the
+same EXP (off by default), and every boss room and PQ row that was a script on paper is now a row the bots walk through.
 
 The mechanics switches are **JVM flags**, not `config.yaml` keys - there is no `slums.mechanics*` key in any config
 schema, so TEST's `config.yaml` needs **no change**. Add the flags to the java line in TEST's `start-test.sh`
