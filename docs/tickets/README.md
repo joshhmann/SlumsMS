@@ -16,6 +16,12 @@ Read-only audit of the server code (eleven lanes). Documented, not changed.
 | [178](178-sibling-only-upgrade-handover.md) | Sibling-only upgrade offer cannot start a handover | Source-confirmed; coordinator + submitter triage required |
 | [179](179-qa-worker-loses-batched-ready-events.md) | Client readiness events lost between waits | Reproduced locally; coordinator + submitter triage required |
 
+## Bot and alt improvements (owner direction, 2026-11-03)
+
+| # | Ticket | Purpose |
+|---|---|---|
+| [183](183-bot-alt-improvements-1-6-4.md) | Cheap bot and alt improvements that need no owner decision | Owned-lifetime sweep, mint/destroy ledger (observation only), alt lockout/boot line/follow message (restock receipt and wear predicate parked, see 184); no economy numbers |
+
 ## 1.6.2 release closure (owner direction, 2026-10-31)
 
 | # | Ticket | Purpose |
