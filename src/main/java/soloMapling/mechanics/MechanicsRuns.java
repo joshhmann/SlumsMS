@@ -389,6 +389,36 @@ public final class MechanicsRuns {
         keepPhysics(driven, GCMovement::holdFullPhysics);
         upkeep(driven, now);
         scaleRoom(a);
+        if (!a.run.ended()) {
+            get().releaseLostMembers(a);
+        }
+    }
+
+    /**
+     * 1.7.0: a bot the run has lost - it died, or was walked out - is not driven any more, so its brain goes back to it.
+     * Without this the hold would leave a live, revived bot standing in the room for the rest of the instance, which is
+     * exactly the "they just stand there" a player reports. The one exception is the member a paused run is waiting
+     * for: that one stays held until it is back or the run ends, because the pause is what is keeping it in the run.
+     */
+    void releaseLostMembers(Active a) {
+        RunState.Waiter waiter = a.run.waitingFor();
+        int waitedFor = waiter == null || waiter.member() == null ? -1 : waiter.member().characterId();
+        for (Integer id : new ArrayList<>(a.bots.keySet())) {
+            if (id == waitedFor || a.run.member(id) != null) {
+                continue;
+            }
+            Character bot = a.bots.remove(id);
+            a.pausedBrains.remove(id);
+            MechanicsHold.release(id);
+            executor.forget(id);
+            BotSM brain = CharacterStorage.getBotById(id);
+            if (bot != null && brain != null && !brain.getRunning()) {
+                BotTypeManager.manuallyStartBot(bot);
+            }
+            if (bot != null) {
+                a.reporter.accept("RUN " + bot.getName() + " is out of the run: its own brain has it again");
+            }
+        }
     }
 
     /** 1.7.0 difficulties (item C): the tier's numbers reach the room, once per tick, behind their own switch. */
