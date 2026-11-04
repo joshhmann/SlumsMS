@@ -31,10 +31,15 @@
 })();
 
 /* Hero art takes turns: a new picture every 7 seconds, paused while the tab is hidden. With reduced motion asked for,
-   one picture is picked per visit and stays. The list is live: the Slums-chan theme adds the secrets to it. */
+   one picture is picked per visit and stays. The list is live: the Slums-chan theme adds the secrets to it. The season
+   pictures (data-months, 1-12) take part only in their months, on the visitor's own clock. */
 (function () {
   var box = document.querySelector("[data-rotor]");
   if (!box) return;
+  var month = String(new Date().getMonth() + 1);
+  Array.prototype.slice.call(box.querySelectorAll("[data-months]")).forEach(function (img) {
+    if (img.getAttribute("data-months").split(" ").indexOf(month) < 0) img.remove();
+  });
   var pics = box.children, at = 0;
   function show(i) {
     pics[at].classList.remove("is-on");

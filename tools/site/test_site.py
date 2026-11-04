@@ -814,6 +814,30 @@ class WorldTest(unittest.TestCase):
         with open(os.path.join(os.path.dirname(market.__file__), "market.py"), encoding="utf-8") as f:
             self.assertIn("Three more come as rewards", f.read())  # My cards' intro counts the third reward
 
+    def test_every_buddy_picture_exists_and_the_chibis_have_their_topics(self):
+        # 2026-11-04: the owner's chibi stickers take the topics that borrowed a general picture
+        from sections import buddy
+        for pic in set(p for p, _ in buddy.SLOTS.values()):
+            self.assertIn(pic, buddy.PICTURES)
+            self.assertIn(pic, buddy.ALT)
+            for w in (360, 560):
+                self.assertTrue(os.path.isfile(os.path.join(build.SRC, "assets", "brand", f"{pic}-{w}.webp")), pic)
+        self.assertEqual(buddy.SLOTS["market/exchange"][0], "chibi-computer")
+        self.assertEqual(buddy.SLOTS["report"][0], "chibi-wrench")
+        self.assertFalse([p for p in buddy.PICTURES if "slime" in p or "robot" in p])  # owner: none with slimes or robots
+
+    def test_home_hero_has_a_season_picture_every_month_and_no_retired_ones(self):
+        # owner 2026-11-04: of the full and cut pictures keep only the SLUMS MS heart and the sitting peace
+        home = self.read("index.html")
+        for gone in ("cut-peace", "cut-crossed", "cut-point", "cut-cozy", "full-peace-", "full-wink", "full-crossed",
+                     "full-cap-tip"):
+            self.assertNotIn(gone, home)
+            self.assertFalse(os.path.exists(os.path.join(build.SRC, "assets", "brand", gone.rstrip("-") + "-360.webp")))
+        self.assertIn("cut-heart-640.webp", home)
+        months = set(" ".join(re.findall(r'data-months="([\d ]+)"', home)).split())
+        self.assertEqual(months, {str(m) for m in range(1, 13)})
+        self.assertIn("full-sit-peace-360.webp", self.read("guide/getting-started.html"))
+
     def test_board_post_shows_the_items_price(self):
         # w09: picking an item for a post shows its price; summary.json carries the day's low/high, sales and date
         import json as _json
