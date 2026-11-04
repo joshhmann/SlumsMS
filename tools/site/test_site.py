@@ -799,6 +799,18 @@ class WorldTest(unittest.TestCase):
         self.assertEqual(re.findall(r"^    (\w+): \{ src", rewards[:rewards.index("};")], re.M),
                          list(market_service.REWARD_CARDS))
 
+    def test_the_seven_new_secrets_have_triggers(self):
+        # ticket 172: five typed words, five clicks on a face-down card in My cards, and a quiet Sunday visit
+        with open(os.path.join(build.SRC, "assets", "theme.js"), encoding="utf-8") as f:
+            js = f.read()
+        words = re.search(r'\[([^\]]*)\]\.forEach\(function \(w\)', js).group(1)
+        for w in ("maple", "peace", "heart", "rebirth", "zzz"):
+            self.assertIn('"%s"' % w, words)
+        self.assertIn('closest(".card.back")', js)
+        self.assertIn('reveal("shh")', js)
+        self.assertRegex(js, r'getDay\(\) === 0\) setTimeout\(function \(\) \{ reveal\("sunday", true\)')
+        self.assertIn('every: { src: "wink2.webp"', js)
+
     def test_board_post_shows_the_items_price(self):
         # w09: picking an item for a post shows its price; summary.json carries the day's low/high, sales and date
         import json as _json

@@ -8,13 +8,13 @@ show face up with the date. The rest show a "?" and the hint in the last column 
 
 ## Who can find them
 
-- Only **signed-in** players. A signed-out visitor who sets off a secret gets "Sign in to see it" instead. The two
-  passive ones (late night and idle) do nothing for signed-out visitors, so they never pop up uninvited.
+- Only **signed-in** players. A signed-out visitor who sets off a secret gets "Sign in to see it" instead. The three
+  passive ones (late night, Sunday and idle) do nothing for signed-out visitors, so they never pop up uninvited.
 - "Typing" means pressing the keys on a page with nothing selected, **not** in a search box or form. Upper or lower
   case both work.
 - "Clicks in a row" means each click within 0.8 seconds of the last one.
 
-## The 16 cards
+## The 24 cards
 
 | # | Card | Id | How to unlock it | Picture | Hint shown on My cards |
 |---|---|---|---|---|---|
@@ -32,8 +32,18 @@ show face up with the date. The rest show a "?" and the hint in the last column 
 | 12 | Small print | `footer` | Click the line of small print at the bottom of any page ("SlumsMS is Slums Story...") 3 times in a row | `glance.webp` | Read the small print at the bottom. Then poke it. |
 | 13 | Slime hug | `slime` | Type `slime` | `hug.webp` | Say her favourite pet. |
 | 14 | Caught you! | `bubble` | Click Slums-chan's speech bubble (beside any page's heading) 5 times in a row | `peek.webp` | Keep poking what she says. |
-| 15 | Shy | `theme` | **Reward:** find cards 1, 2 and 3. This also unlocks the Slums-chan colour theme (the 4th dot) | `shy.webp` | Unlock the Slums-chan theme. |
-| 16 | Double peace | `all` | **Reward:** find all 14 secrets (cards 1-14) | `dpeace.webp` | Find every secret. |
+| 15 | Hat tip | `maple` | Type `maple` | `hattip.webp` | Name the leaf on her cap. |
+| 16 | Wink | `peace` | Type `peace` | `wink.webp` | Say what she's throwing. |
+| 17 | Finger heart | `heart` | Type `heart` | `fheart.webp` | Say what she's making. |
+| 18 | Shh! | `shh` | My cards: click any face-down card 5 times in a row | `shh.webp` | Stop peeking at the cards. |
+| 19 | Big plans | `rebirth` | Type `rebirth` | `plans.webp` | Say what you do when you've done it all. |
+| 20 | Lazy Sunday | `sunday` | Open any page on a Sunday (your own computer's clock) and wait 4 seconds | `sunday.webp` | She takes it easy one day a week. |
+| 21 | Daydream | `zzz` | Type `zzz` | `daydream.webp` | Make a sleepy sound. |
+| 22 | Shy | `theme` | **Reward:** find cards 1, 2 and 3. This also unlocks the Slums-chan colour theme (the 4th dot) | `shy.webp` | Unlock the Slums-chan theme. |
+| 23 | Double peace | `all` | **Reward:** find the first 14 secrets (cards 1-14) | `dpeace.webp` | Find the first fourteen secrets. |
+| 24 | All of them | `every` | **Reward:** find all 21 secrets (cards 1-21) | `wink2.webp` | Find every secret. |
+
+Cards 15-21 and 24 came in ticket 172 (November 2026). Double peace kept its old rule, so nobody who had it lost it.
 
 ## The Slums-chan theme
 
@@ -55,7 +65,7 @@ show face up with the date. The rest show a "?" and the hint in the last column 
 - **Saving:** the market service (`tools/site/market_service.py`).
   - `SECRET_CARDS` and `REWARD_CARDS` list the cards. The `cards` table in the market DB stores which account found
     which card, and when.
-  - Endpoints: `GET /api/market/cards` and `POST /api/market/cards {ids: [...]}`. Unknown ids are ignored. The two
+  - Endpoints: `GET /api/market/cards` and `POST /api/market/cards {ids: [...]}`. Unknown ids are ignored. The three
     reward cards are worked out by the service, never posted.
   - The browser also keeps its list (localStorage `slums-secrets`). Once per visit, the browser and the account merge
     both ways.
@@ -73,8 +83,9 @@ show face up with the date. The rest show a "?" and the hint in the last column 
 5. Run `python3 -m unittest discover -s tools/site -p 'test_*.py'`. A test fails if the two lists don't match or a
    picture is missing.
 
-The "Double peace" card needs every secret, so a player who had it before a new card was added loses it until they
-find the new one.
+"Double peace" needs only the first 14 secrets and "All of them" needs every secret. A new card added later counts
+toward "All of them", so a player who had that one loses it until they find the new card. To avoid that, give the new
+card its own reward the way ticket 172 did.
 
 ## Testing and resetting
 

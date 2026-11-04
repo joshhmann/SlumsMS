@@ -67,11 +67,12 @@
   setInterval(tick, 30000);
 })();
 
-/* Secrets: fourteen hidden Slums-chan stickers for signed-in players, each one a card in My cards (market/cards.html).
-   The Konami code; typing "slums", "bustin", "henesys", "kerning" or "slime" outside a text box; clicking the hero
+/* Secrets: twenty-one hidden Slums-chan stickers for signed-in players, each one a card in My cards (market/cards.html).
+   The Konami code; typing "slums", "bustin", "henesys", "kerning", "slime", "maple", "peace", "heart", "rebirth" or
+   "zzz" outside a text box; clicking the hero
    picture 7 times in a row, a page's Slums-chan 5 times or the footer line 3 times; waking the sleeping one on the 404
    page (3 clicks); clicking her speech bubble 5 times; trying all three colour dots within 10 seconds; a visit between
-   2 and 5 AM; or 5 minutes without touching a page. The pictures live in secret/, which only the private build has and nginx serves only with a
+   2 and 5 AM or on a Sunday; 5 minutes without touching a page; or 5 clicks on a face-down card in My cards. The pictures live in secret/, which only the private build has and nginx serves only with a
    sign-in, so nothing loads until a signed-in player finds one; a signed-out visitor gets a hint to sign in instead
    (not for the late-night and idle ones, which would pop up uninvited). Found ones are kept in localStorage and saved
    to the account (the market service, /api/market/cards), merged both ways once per visit, so they follow the player
@@ -107,14 +108,31 @@
     slime: { src: "hug.webp", w: 457, name: "Slime hug", hint: "Say her favourite pet.",
              alt: "Slums-chan hugs a blue slime and winks" },
     bubble: { src: "peek.webp", w: 750, name: "Caught you!", hint: "Keep poking what she says.",
-              alt: "Slums-chan, caught looking back over her shoulder" }
+              alt: "Slums-chan, caught looking back over her shoulder" },
+    maple: { src: "hattip.webp", w: 770, name: "Hat tip", hint: "Name the leaf on her cap.",
+             alt: "Slums-chan tips her cap and smiles back over her shoulder" },
+    peace: { src: "wink.webp", w: 812, name: "Wink", hint: "Say what she&rsquo;s throwing.",
+             alt: "Slums-chan winks and throws a peace sign" },
+    heart: { src: "fheart.webp", w: 811, name: "Finger heart", hint: "Say what she&rsquo;s making.",
+             alt: "Slums-chan winks and makes a finger heart" },
+    shh: { src: "shh.webp", w: 709, name: "Shh!", hint: "Stop peeking at the cards.",
+           alt: "Slums-chan looks back over her shoulder, a finger to her lips" },
+    rebirth: { src: "plans.webp", w: 623, name: "Big plans", hint: "Say what you do when you&rsquo;ve done it all.",
+               alt: "Slums-chan sits cross-legged, chin in her hand, smiling" },
+    sunday: { src: "sunday.webp", w: 979, name: "Lazy Sunday", hint: "She takes it easy one day a week.",
+              alt: "Slums-chan lies on her front with her boots in the air" },
+    zzz: { src: "daydream.webp", w: 957, name: "Daydream", hint: "Make a sleepy sound.",
+           alt: "Slums-chan lies with her chin in her hand, smiling sleepily" }
   };
   var IDS = Object.keys(SECRETS), THEME = ["konami", "slums", "clicks"];
   var THEME_ONLY = [{ src: "shy.webp", w: 582, alt: "Slums-chan kneels with a shy smile" },
                     { src: "dpeace.webp", w: 650, alt: "Slums-chan kneels and throws two peace signs" }];
   var REWARDS = {  // the market service hands these out itself (market_service.py REWARD_CARDS)
     theme: { src: "shy.webp", w: 582, name: "Shy", hint: "Unlock the Slums-chan theme.", alt: THEME_ONLY[0].alt },
-    all: { src: "dpeace.webp", w: 650, name: "Double peace", hint: "Find every secret.", alt: THEME_ONLY[1].alt }
+    all: { src: "dpeace.webp", w: 650, name: "Double peace", hint: "Find the first fourteen secrets.",
+           alt: THEME_ONLY[1].alt },
+    every: { src: "wink2.webp", w: 797, name: "All of them", hint: "Find every secret.",
+             alt: "Slums-chan winks with a peace sign, chin in her hand" }
   };
   var root = document.documentElement;
   var me = document.querySelector('script[src$="assets/theme.js"]');
@@ -225,7 +243,7 @@
     keys = keys.concat(k).slice(-KONAMI.length);
     if (keys.join() === KONAMI.join()) { keys = []; reveal("konami"); return; }
     typed = (typed + (k.length === 1 ? k : " ")).slice(-8);
-    ["slums", "bustin", "henesys", "kerning", "slime"].forEach(function (w) {
+    ["slums", "bustin", "henesys", "kerning", "slime", "maple", "peace", "heart", "rebirth", "zzz"].forEach(function (w) {
       if (typed.slice(-w.length) === w) { typed = ""; reveal(w); }
     });
   });
@@ -264,6 +282,7 @@
   // late at night (the visitor's own clock), and 5 minutes on a page without touching it
   var h = new Date().getHours();
   if (h >= 2 && h < 5) setTimeout(function () { reveal("owl", true); }, 4000);
+  if (new Date().getDay() === 0) setTimeout(function () { reveal("sunday", true); }, 4000);
   var idle;
   function still() {
     clearTimeout(idle);
@@ -282,6 +301,17 @@
     if (j) try { sessionStorage.setItem("slums-cards", "1"); } catch (err) {}
     if (grid) cards(grid, j);
   });
+  // My cards: a face-down card clicked 5 times in a row (the grid is redrawn, so listen on the grid itself)
+  if (grid) {
+    var peek = 0, peekAt = 0;
+    grid.addEventListener("click", function (e) {
+      if (!e.target.closest || !e.target.closest(".card.back")) return;
+      var t = Date.now();
+      peek = t - peekAt < 800 ? peek + 1 : 1;
+      peekAt = t;
+      if (peek >= 5) { peek = 0; reveal("shh"); }
+    });
+  }
 
   // My cards (market/cards.html): found ones face up with the date, the rest face down with a hint
   function cards(ul, j) {
@@ -318,7 +348,8 @@
     if (!ok) return;
     var got = found();
     var set = IDS.filter(function (id) { return got.indexOf(id) >= 0; }).map(function (id) { return SECRETS[id]; })
-      .concat(REWARDS.theme, IDS.every(function (id) { return got.indexOf(id) >= 0; }) ? [REWARDS.all] : []);
+      .concat(REWARDS.theme, IDS.slice(0, 14).every(function (id) { return got.indexOf(id) >= 0; }) ? [REWARDS.all] : [],
+              IDS.every(function (id) { return got.indexOf(id) >= 0; }) ? [REWARDS.every] : []);
     var start = 0;
     for (var i = 0; i < location.pathname.length; i++) start = (start * 31 + location.pathname.charCodeAt(i)) % 9973;
     document.querySelectorAll("img.sidekick, .notfound img, .empty.nap img").forEach(function (img, n) {

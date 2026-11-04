@@ -66,12 +66,14 @@ MAX_TOTAL = 2_147_483_647  # qty x price must fit one trade window (Site board c
 WRITES_PER_MIN = 30
 MAX_BODY = 2048
 KINDS = ("WTB", "WTS")
-# The Slums-chan cards (theme.js SECRETS): one per hidden secret, plus two the service hands out itself: "theme" for the
-# three that unlock the theme, "all" for every secret. Nothing here is worth anything; a player who posts every id by
-# hand just sees every card, which the secret/ pictures already allow anyone signed in.
-SECRET_CARDS = ("konami", "slums", "clicks", "bustin", "sidekick", "wake",
-                "henesys", "owl", "kerning", "colours", "afk", "footer", "slime", "bubble")
-REWARD_CARDS = {"theme": ("konami", "slums", "clicks"), "all": SECRET_CARDS}
+# The Slums-chan cards (theme.js SECRETS): one per hidden secret, plus three the service hands out itself: "theme" for
+# the three that unlock the theme, "all" for the first fourteen (so nobody who had it loses it when cards are added),
+# "every" for every secret (ticket 172). Nothing here is worth anything; a player who posts every id by hand just sees
+# every card, which the secret/ pictures already allow anyone signed in.
+FIRST_CARDS = ("konami", "slums", "clicks", "bustin", "sidekick", "wake",
+               "henesys", "owl", "kerning", "colours", "afk", "footer", "slime", "bubble")
+SECRET_CARDS = FIRST_CARDS + ("maple", "peace", "heart", "shh", "rebirth", "sunday", "zzz")
+REWARD_CARDS = {"theme": ("konami", "slums", "clicks"), "all": FIRST_CARDS, "every": SECRET_CARDS}
 DIRS = ("below", "above")
 
 SCHEMA = """

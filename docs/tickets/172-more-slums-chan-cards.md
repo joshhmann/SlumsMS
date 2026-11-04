@@ -32,10 +32,14 @@ already on the cheeky side (from behind, bend, lying, lounge). Site art changes 
 /root/work/agent-runs/site/172-cards/ (README lists each one; not in git, about 40 MB). Owner: "Don't add these yet":
 they wait for the owner's picks.
 
-## Owner decisions needed
-- How many cards, and the art sheets.
-- Mixed into the current secrets, or a separate "after dark" set?
-- Does the all-found reward need the new ones too?
+## Owner decisions (2026-11-04, Website session)
+- Go to build it: "those stickers you can start working on now that we have usage!" (~17:35 UTC).
+- 7 cards from the singles: one of each near-twin pair (03 wink, 05 finger heart, 04 cross-legged) plus 02, 06, 07
+  and 10. Mixed into the secrets, each with its own trigger (the owner approved the list in docs/site/SECRETS.md,
+  cards 15-21).
+- Double peace keeps its old rule (the first 14). A new reward, "All of them" (twin 08), needs all 21.
+- Launcher images: the chibi stickers from sheets 12 and 13 (server life, holidays, weather), never the cheeky cards.
+  That's launcher work, filed as its own ticket for the launcher lane.
 
 ## Not in scope
 Any change to the existing 16 cards or to the hero art; anything outside the signed-in site.
