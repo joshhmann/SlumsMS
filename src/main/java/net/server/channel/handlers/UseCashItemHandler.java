@@ -604,10 +604,10 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
             final int curlevel = toScroll.getLevel();
             c.sendPacket(PacketCreator.sendVegaScroll(0x40));
 
-            // MapleRoot's level-based enhancement; null is a "boom" on a superior item. It used to throw here,
-            // leaving the cash shop blocked and nothing used up, so a boom was a free retry. Until the owner
-            // decides whether a boom should destroy the item, it counts as a failure that keeps the item.
-            final Equip enhanced = (Equip) ii.scrollEquipWithId(toScroll);
+            // The fed scroll's own roll, boosted by the spell (vegaItemId); null is that scroll's "boom". It used
+            // to throw here, leaving the cash shop blocked and nothing used up, so a boom was a free retry. Until
+            // the owner decides whether a boom should destroy the item, it counts as a failure that keeps the item.
+            final Equip enhanced = (Equip) ii.scrollEquipWithId(toScroll, uitem.getItemId(), false, itemId, player.isGM());
             final Equip scrolled = enhanced != null ? enhanced : toScroll;
             c.sendPacket(PacketCreator.sendVegaScroll(scrolled.getLevel() > curlevel ? 0x41 : 0x43));
             //opcodes 0x42, 0x44: "this item cannot be used"; 0x39, 0x45: crashes
