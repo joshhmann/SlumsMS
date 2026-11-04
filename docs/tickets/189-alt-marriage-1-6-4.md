@@ -1,6 +1,6 @@
 # 189 — Marriage with your own alts (altbots) for 1.6.4
 
-Status: stages 1 and 2 built on branch 164-altmarry (switch -Dslums.ownedalts.marry, default OFF), awaiting review and the TEST checklist; stage 3 (bonuses) still open with the owner, nothing built (2026-11-04 20:50 UTC). Earlier: open, docs only. Decided by the owner on 2026-11-03 (20:55 UTC / 12:55 PST, recorded at filing). Target: 1.6.4.
+Status: stages 1 and 2 built on branch 164-altmarry (switch -Dslums.ownedalts.marry, default OFF), awaiting review and the TEST checklist; stage 3 (marriage EXP bonus +10% playerbot spouse, +5% out altbot spouse) built on branch 164-marrybonus behind -Dslums.marriage.expbonus (default OFF), awaiting review and TEST (2026-11-04). Earlier: open, docs only. Decided by the owner on 2026-11-03 (20:55 UTC / 12:55 PST, recorded at filing). Target: 1.6.4.
 Economy: none changed beyond one wedding ticket paid as a fee (stage 2). Economy numbers touched: marriage EXP bonus +10% playerbot spouse, +5% altbot spouse (stage 3), and the wedding ticket fee (one `5251000`, stage 2).
 
 ## Why
