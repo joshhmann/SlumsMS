@@ -147,7 +147,7 @@ public final class SocialDecider {
 
     /**
      * What this bot's mind adds to the daily-life brain's SOCIAL need: the part of companionship above its comfortable
-     * level and its loneliness, at most about 0.3. 0 when its memory is not loaded or social acts are off. A small
+     * level and its loneliness, at most about 0.4. 0 when its memory is not loaded or social acts are off. A small
      * context bonus, so a lonely bot is a little more likely to pick a hang-out, never a different brain.
      */
     public static double socialPull(int botId, long now) {

@@ -91,6 +91,13 @@ public final class SocialActions {
         }
     }
 
+    /** One act that was carried out, as the observer (QA trace, tests) sees it. */
+    public record ActEvent(long now, int actor, int target, SocialActKind kind, Outcome outcome) {
+    }
+
+    /** Called after every act that was carried out (landed or not); null by default. Must not throw. */
+    public static volatile java.util.function.Consumer<ActEvent> observer;
+
     /** One scored (act, target): {@code utility} is the act's own, {@code score} adds the noise. */
     public record Scored(SocialActKind kind, int targetId, double utility, double score) {
     }
@@ -175,6 +182,7 @@ public final class SocialActions {
         world = testWorld;
         flows = testFlows;
         giftSeam = testGifts != null ? testGifts : GiftSeam.AFFINITY_ONLY;
+        observer = null;
         resetForTest();
     }
 
@@ -259,6 +267,10 @@ public final class SocialActions {
             }
             SocialMetrics.countAct(kind, !out.happened() ? "refused" : out.landed() ? "ok"
                     : out.reason().startsWith("rejected") ? "rejected" : "failed");
+            java.util.function.Consumer<ActEvent> watch = observer;
+            if (watch != null && out.happened()) {
+                watch.accept(new ActEvent(now, actorCharId, targetCharId, kind, out));
+            }
             return out;
         } catch (RuntimeException | LinkageError e) {
             SocialMetrics.countAct(kind, "error");
