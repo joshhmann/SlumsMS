@@ -1,7 +1,7 @@
 # Merge lane, 1.6.4 - everything in one tree (branch `164-all-merge`)
 
 Worktree `/root/work/164-all`, branch `164-all-merge` off `release-1.6.4` @ `6d18f961e`, push URL disabled, nothing
-pushed, nothing deployed, live server untouched. **Last merge commit `87205b607`**, 171 commits over the release tip; the
+pushed, nothing deployed, live server untouched. **Last merge commit `87205b607`** (code head; `git diff 87205b607 HEAD -- src/main` is empty), 176 commits over the release tip; the
 suite ran on it, and every commit after the code head changes reports, docs and `tools/` only (checked with `git diff
 <code head> HEAD -- src/`).
 
@@ -331,7 +331,8 @@ through the client path, but the proof map does not claim them.
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Full suite, every switch unset | `mvn -o test` | **`Tests run: 9071, Failures: 0, Errors: 0, Skipped: 140`**, BUILD SUCCESS, `EXIT=0`, 33:42 (log `/tmp/final4.log`) |
+| Full suite, every switch unset | `mvn -o test` | **`Tests run: 9074, Failures: 0, Errors: 0, Skipped: 140`**, BUILD SUCCESS, `EXIT=0`, 35:13 (log `/tmp/final5.log`, on `3f78a573a`) |
+| Property leaks, both orders | `mvn -o test -Dtest='EventLootScrambleTest,EventSchedulerTest'`, the reverse, and `-Dsurefire.runOrder=reversealphabetical -Dtest='soloMapling.worldevents.*Test'` | green three times over (`testutil.PropsRestoredTest` 3) |
 | Row data, row simulation, tiers, the late-spawn leash | `mvn -o test -Dtest='MechanicsDataFilesTest,StageDataTest,RowRunSimulationTest,TierScalingTest,LateSpawnGraceTest'` | green; `RowRunSimulationTest` 47, `TierScalingTest` 13, `LateSpawnGraceTest` 5 |
 | The whole mechanics package | `mvn -o test -Dtest='soloMapling.mechanics.*Test,soloMapling.MechanicsDataFilesTest'` | **`Tests run: 725, Failures: 0, Errors: 0, Skipped: 2`** (log `/tmp/mech.log`) |
 | Every row against the WZ dump | `mvn -o test -Dwz-path=/root/work/SlumsMS-170-evan/wz -Dtest='ContentRowWzIntegrityTest,MechanicsRowWzIntegrityTest'` | `Tests run: 3, Failures: 0, Errors: 0, Skipped: 0`, `EXIT=0`: **57 rows, 163 map ids, 129 mob ids, 14 reactor ids, 1 door item (`4000381`)** |
@@ -339,30 +340,72 @@ through the client path, but the proof map does not claim them.
 
 ### Suite totals
 
-`mvn -o test`, every switch unset, on the merged tip (`87205b607`; the commits after it change `docs/` and `tools/ops`
-only):
+`mvn -o test`, every switch unset, on `3f78a573a` - the merged tip plus the test-hygiene commit. That commit changes no
+shipped code (`git diff 87205b607 HEAD -- src/main` is empty; the code head is still `87205b607`), so the run measures the
+same tree the lanes produced, with three more tests in it (the property-restore extension's own):
 
 ```
-Tests run: 9071, Failures: 0, Errors: 0, Skipped: 140     BUILD SUCCESS, EXIT=0, 33:42 (2023 s)
+Tests run: 9074, Failures: 0, Errors: 0, Skipped: 140     BUILD SUCCESS, EXIT=0, 35:13 (2113 s)
 ```
 
-Log `/tmp/final4.log`. Zero `<<< FAILURE` markers, no surefire temp-directory collision. The 140 skips are the tests that
+Log `/tmp/final5.log`. The earlier accepted run on `87205b607` was `9071 / 0 / 0 / 140` in 33:42 (`/tmp/final4.log`); the
+difference is exactly `PropsRestoredTest`. Zero `<<< FAILURE` markers, no surefire temp-directory collision. The 140 skips are the tests that
 need a WZ dump (`ContentRowWzIntegrityTest`, `MechanicsRowWzIntegrityTest`), the tests that need a real client, and the
 `@EnabledIfSystemProperty` rows for switches this run leaves unset; the WZ pair is re-run green in the table above.
 
 For scale, the lanes' own suites: `164-bossrows` 8575/138, `164-opq` 8635/138 (final head 9071/140 on its own tree),
 `164-realruns` 8766/137, `164-seams` 8799/137, `164-zenumist` 9071/140. The merged tree is at or above every one of them.
 
-**One flake seen, once, and not on the final run.** The first full-suite run on this tip (`/tmp/final3.log`) failed one
-test: `soloMapling.worldevents.EventLootScrambleTest.whenTheCakeFallsTheCalledBotsGetALootWindow` —
-`most of the crowd stays for the pile: 24/40 ==> expected: <true> but was: <false>` — a probabilistic test
-(`EventLootScramble.SKIP_SHARE = 0.15`, drawn from `ThreadLocalRandom` in `WorldEventReactions.release`) in a package
-this branch does not touch (the file and its source are unchanged from `release-1.6.4`: `git log 6d18f961e..HEAD --
-src/main/java/soloMapling/worldevents src/test/java/soloMapling/worldevents` is empty). It passes alone 10 runs out of 10
-and passed in the re-run of the whole suite. Reported rather than silenced: a 15%-skip draw producing 16 skips out of 40
-is not binomial noise, so the most likely explanation is state left by another test in the same JVM (the sibling test in
-the same class sets `solomapling.worldEvents.lootAftermath=false` globally and never restores it), and that is a
-pre-existing order-dependence, not this merge's.
+**The one flake, and what it actually was.** The first full-suite run on this tip (`/tmp/final3.log`) failed one test:
+`soloMapling.worldevents.EventLootScrambleTest.whenTheCakeFallsTheCalledBotsGetALootWindow` —
+`most of the crowd stays for the pile: 24/40 ==> expected: <true> but was: <false>`. The first reading of it here was
+wrong, and the measurement says so. It is not leaked state: surefire forks one JVM per test class
+(`pom.xml:254-255`, `forkCount 1` + `reuseForks false`), the class clears the property in `@BeforeEach` and `@AfterEach`,
+and the file is untouched by this branch. It is the assertion itself: `WorldEventReactions.release` draws
+`ThreadLocalRandom` and `EventLootScramble.SKIP_SHARE` is 0.15, so `stay` is a binomial(40, 0.85) draw and the threshold
+`stay >= 25` fails by chance. Measured directly against the shipped class (2,000,000 simulated 40-bot releases):
+`P(skips >= 16) = 0.0118%`, one run in about 8,500. Fixed in the test, not silenced - see "Test hygiene" below.
+
+## Test hygiene (owner report, the release candidate)
+
+Two things were wrong, and only one of them was the one that got reported.
+
+**The flake.** `whenTheCakeFallsTheCalledBotsGetALootWindow` asserted "at least 25 of 40 stay", which on an unseeded
+`ThreadLocalRandom` is a coin toss with a 1-in-8,500 tail. The share itself is already pinned exactly by
+`mostBotsStayLongEnoughToOutlastTheOwnershipAndSomeDoNotBother` (seeded `new Random(7)`, 10,000 draws, skip count
+asserted between 1,000 and 2,000), so the release test now asserts the mechanism it is there for - the crowd is not sent
+off in one tick (`stay >= 1`; all 40 skipping has probability 0.15^40) and every stayer outlasts the drops' ownership
+window. No sleep, no retry, no `@FixMethodOrder`, no filter, no threshold lowered to taste: the section that measured the
+tail is in the comment.
+
+**The leak class.** A sweep of `src/test` found 184 files that write a system property and 44 that set at least one
+property no site in the same file ever puts back. Under `reuseForks=false` that cannot cross a class boundary, but inside
+a class it is exactly how a test starts passing only because another test ran first. `testutil/PropsRestored` is a JUnit
+5 extension that snapshots the whole property table before each test and restores it after - a property the test set
+disappears, a property it overwrote gets the *previous* value back (not `null`), and anything the JVM or the static
+initialiser set is in the snapshot and survives. 48 classes carry `@ExtendWith(PropsRestored.class)` now:
+
+| Package | Classes | The properties they were leaving behind |
+| --- | --- | --- |
+| `soloMapling/ArtificialPlayer/GCMoveSystem` | 12 | `wz-path` (set for a WZ-backed graph, never cleared) |
+| `soloMapling/ArtificialPlayer` (+ `BotLifeSystem` 6) | 14 | `slums.botlife.enabled/execute/metrics/reach`, `solomapling.chat.*`, `solomapling.convo.*`, `solomapling.megaWeight.*`, `solomapling.wealthIndex*`, `solomapling.enabled`, `solomapling.template-id`, `slums.tradePacing.scale` |
+| `soloMapling/mechanics` | 4 | `Mechanics.FLAG`, `Mechanics.BOSS_FLAG`, `Mechanics.DIR_PROPERTY`, row switches, `<row>.runs` |
+| `soloMapling/worldevents` | 3 | `solomapling.worldEvents*`, `WorldEventFeed.PROPERTY` |
+| `soloMapling/{fishing,inspect,server}`, `BotProgressionSystem`, `BotQuestSystem` | 7 | `slums.fishing.*`, `BotInspectApi.*`, `BotQuests.PROP`, `TempleOfTime.PROP` |
+| `server/{life,maps}`, `net/server*`, `scripting` | 8 | `wz-path`, `solomapling.enabled`, `solomapling.template-id`, `polyglot.engine.WarnInterpreterOnly` |
+| `testutil` | 1 | the extension's own test |
+
+`PropsRestoredTest` drives the extension directly (three assertions: a set property is gone, an overwritten property
+gets its old value, an untouched one survives) so the guarantee is a test, not a claim. Nothing was patched blind: no
+`src/` behaviour changed, and no test was found that only passes because another test ran first - the reversals proved it
+(`-Dtest='EventLootScrambleTest,EventSchedulerTest'`, the reverse, and `-Dsurefire.runOrder=reversealphabetical` over the
+whole `soloMapling.worldevents` package, all green), and the full suite below re-ran everything with the extension on.
+
+**A card for the owner, not a silent fix.** `WorldEventReactions.release` reaches for `ThreadLocalRandom` directly
+(`WorldEventReactions.java:297`), which is why a test that wants to assert a share has to assert a coin toss. A testable
+rng seam there (a package-private setter or an argument) would let the release tests be exact; that is `src/` behaviour,
+so it is reported, not done.
+
 
 ### Paperwork
 
