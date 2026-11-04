@@ -102,7 +102,7 @@ rollback. What a swap drops (grind spot, the old runtime's pending friend or pla
 | 3 | Memory extension, relevance recall, knowledge boundaries | knowledge-boundary tests | planned |
 | 4 | `SocialAction` registry, missing actions, gifts, emotion/memory into `TalkBrain` and `LifeDecision` | per-action outcome tests | planned |
 | 5 | Intentions; memory in `BotThreads`/`BotTalk` prompts | dialogue-to-intention test | planned |
-| 6 | Social LOD, loop breaker, metrics in dashboard and inspect | perf measurement | planned |
+| 6 | Social LOD, loop breaker, metrics in dashboard and inspect | perf measurement | 6a built (`164-social-observe`): `SocialBudget` loop breaker (per-pair cooldown, per-bot, per-map and global rates, A-B turn limit, failed-act backoff; hooked into `BotTalk`), `social` block in `live.json`, mode/mind/bonds in `/bots/{cid}`, mode and mind lines in `!botwhy`; unit tests only, no perf measurement and no TEST run yet. 6b social LOD planned |
 | 7 | 20-bot Henesys pilot, TEST (mapletest) live check | real execution evidence | planned |
 
 Nothing here has run in a real client or on TEST yet.

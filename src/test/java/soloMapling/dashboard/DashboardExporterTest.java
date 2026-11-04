@@ -2,6 +2,7 @@ package soloMapling.dashboard;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import soloMapling.ArtificialPlayer.BotSocialSystem.SocialBudget;
 import soloMapling.ArtificialPlayer.GCMoveSystem.BotPerformanceMonitor;
 import soloMapling.server.Json;
 
@@ -18,6 +19,7 @@ import java.util.function.IntFunction;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Ticket 35: the live snapshot exporter. */
@@ -33,6 +35,7 @@ class DashboardExporterTest {
     private static final class Fake implements DashboardExporter.Sources {
         List<LiveSnapshot.BotSample> bots = new ArrayList<>();
         long tickNanos;
+        long socialNanos, socialCalls;
         RuntimeException fail;
         int accountReads;
 
@@ -62,7 +65,9 @@ class DashboardExporterTest {
                     List.of(new BotPerformanceMonitor.PhaseTotal("macro-tick", BotPerformanceMonitor.Bucket.BACKGROUND,
                                     false, tickNanos, tickNanos / 1000, 0),
                             new BotPerformanceMonitor.PhaseTotal("pathfind", BotPerformanceMonitor.Bucket.BACKGROUND,
-                                    true, tickNanos / 2, 10, 0)));
+                                    true, tickNanos / 2, 10, 0),
+                            new BotPerformanceMonitor.PhaseTotal("social-tick", BotPerformanceMonitor.Bucket.BACKGROUND,
+                                    false, socialNanos, socialCalls, 0)));
         }
 
         @Override
@@ -138,6 +143,53 @@ class DashboardExporterTest {
         assertEquals(List.of("2026-10-19"), read("days.json").get("series"));
         try (var files = Files.list(dir)) {
             assertTrue(files.noneMatch(f -> f.getFileName().toString().endsWith(".tmp")), "no temp files left behind");
+        }
+    }
+
+    /** Ticket 181 stage 6a: {@code live.json} carries a {@code social} block of memory-only counters. */
+    @Test
+    void liveJsonCarriesTheSocialBlock() throws Exception {
+        SocialBudget.resetForTest();
+        try {
+            Fake fake = new Fake();
+            DashboardExporter.Runner r = runner(fake, new DerivedEconomy(UTC));
+            SocialBudget.record(new SocialBudget.Outcome(1, 2, 9, SocialBudget.GREET, DAY1, true));
+            assertFalse(SocialBudget.allow(2, 1, 9, SocialBudget.GREET, DAY1 + 1_000).allowed());
+            r.runOnce(DAY1);
+            Map<?, ?> first = (Map<?, ?>) read("live.json").get("social");
+            assertEquals(List.of("modes", "budget", "talk", "socialTick", "bonds", "minds"), List.copyOf(first.keySet()));
+            assertNull(((Map<?, ?>) first.get("socialTick")).get("msPerS"), "the first export has no interval yet");
+
+            fake.socialNanos = 3_000_000_000L;   // 3 s of social ticks over the next minute, in 6 passes
+            fake.socialCalls = 6;
+            r.runOnce(DAY1 + 60_000);
+            Map<?, ?> social = (Map<?, ?>) read("live.json").get("social");
+
+            Map<?, ?> modes = (Map<?, ?>) social.get("modes");
+            assertTrue(modes.get("enabled") instanceof Boolean);
+            assertEquals(List.of("training", "social", "town"), List.copyOf(((Map<?, ?>) modes.get("census")).keySet()));
+            assertTrue(((Map<?, ?>) modes.get("stats")).containsKey("evaluations"));
+
+            Map<?, ?> budget = (Map<?, ?>) social.get("budget");
+            assertEquals(true, budget.get("enabled"));
+            Map<?, ?> counters = (Map<?, ?>) budget.get("counters");
+            assertEquals(1L, ((Number) counters.get("denied pair-cooldown")).longValue());
+            assertEquals(1L, ((Number) counters.get("recorded")).longValue());
+            assertTrue(counters.containsKey("denied backoff") && counters.containsKey("denied turn-limit"));
+
+            Map<?, ?> tick = (Map<?, ?>) social.get("socialTick");
+            assertEquals(6L, ((Number) tick.get("calls")).longValue());
+            assertEquals(50.0, ((Number) tick.get("msPerS")).doubleValue(), 0.001, "3 s over 60 s");
+            assertEquals(0.1, ((Number) tick.get("callsPerS")).doubleValue(), 0.001);
+
+            Map<?, ?> talk = (Map<?, ?>) social.get("talk");
+            assertTrue(talk.keySet().containsAll(List.of("on", "ticks", "avgTickMs", "avgCpuMs", "talks", "greets",
+                    "actsOk", "actsFailed")), String.valueOf(talk.keySet()));
+            Map<?, ?> bonds = (Map<?, ?>) social.get("bonds");
+            assertTrue(bonds.containsKey("bonds") && bonds.containsKey("holders") && bonds.get("text") instanceof String);
+            assertTrue(((Map<?, ?>) social.get("minds")).get("memoriesLoaded") instanceof Number);
+        } finally {
+            SocialBudget.resetForTest();
         }
     }
 

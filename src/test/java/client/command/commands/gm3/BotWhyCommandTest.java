@@ -36,6 +36,12 @@ class BotWhyCommandTest {
         when(runtime.lastDecision()).thenReturn(new soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.DecisionSnapshot(1000,report));
         when(bot.lifeActivityState()).thenReturn(state);
         when(bot.lifePhase()).thenReturn(new soloMapling.ArtificialPlayer.BotTypes.TrainingBot.LifePhase("GO_TOWN",1500));
+        // 1.6.4 stage 6a: an angry bot with a loaded memory
+        soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemoryStore.of(1000005001).mind(m -> {
+            m.feel(soloMapling.ArtificialPlayer.BotSocialSystem.SocialMind.Emotion.ANGER, 0.9,
+                    soloMapling.ArtificialPlayer.BotSocialSystem.SocialSim.now());
+            return null;
+        });
         try (var flag=mockStatic(soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.class);
              var observation=mockStatic(soloMapling.ArtificialPlayer.BotLifeSystem.LifeObservation.class,CALLS_REAL_METHODS)) {
             flag.when(soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime::enabled).thenReturn(true);
@@ -50,6 +56,10 @@ class BotWhyCommandTest {
             assertTrue(lines.stream().anyMatch(s->s.startsWith("Bartle "+leading+" (")&&s.contains(", plastic ")&&s.contains(" from seed (")&&s.contains("rival pull")),lines.toString());
             assertTrue(lines.stream().anyMatch(s->s.startsWith("Life channels grinder ")),lines.toString());
             assertTrue(lines.stream().anyMatch(s->s.startsWith("Persona ")&&s.contains("voice ")),lines.toString());
+            // 1.6.4 stage 6a: the mode, then the mind: mood, its top emotions, its strongest need (memory only)
+            assertTrue(lines.stream().anyMatch(s->s.startsWith("Mode training")),lines.toString());
+            assertTrue(lines.stream().anyMatch(s->s.startsWith("Mind: mood ")&&s.contains("feels anger ")
+                    &&s.contains("; strongest need ")),lines.toString());
             observation.verify(()->soloMapling.ArtificialPlayer.BotLifeSystem.LifeObservation.capture(bot,5000),never());
             verify(bot,never()).submitLifeActivity(any());
         }

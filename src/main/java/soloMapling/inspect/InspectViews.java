@@ -13,6 +13,7 @@ import soloMapling.ArtificialPlayer.BotLifeSystem.SocialSelf;
 import soloMapling.ArtificialPlayer.BotMemory;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog;
 import soloMapling.ArtificialPlayer.BotSM;
+import soloMapling.ArtificialPlayer.BotSocialSystem.SocialMetrics;
 import soloMapling.ArtificialPlayer.BotTypes.TrainingBot;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 
@@ -71,6 +72,9 @@ public final class InspectViews {
         m.put("goals", runtime == null ? null : safe(() -> goals(runtime)));
         m.put("plan", runtime == null ? null : safe(runtime::describePlan));
         m.put("memory", safe(() -> memory(chr.getId(), runtime)));
+        m.put("mode", sm == null ? null : safe(() -> SocialMetrics.mode(sm)));
+        m.put("mind", safe(() -> SocialMetrics.mindView(chr.getId(), now)));
+        m.put("bonds", safe(() -> SocialMetrics.bondsView(chr.getId())));
         m.put("learning", safe(() -> LifeLearning.describe(chr.getId(), chr.getLevel(), now)));
         m.put("why", sm == null || !BotWhyCommand.isEnabled() ? null
                 : safe(() -> BotWhyCommand.inspectionLines(sm, now)));
