@@ -91,6 +91,19 @@ function setEventRewards(eim) {
     eim.setEventClearStageExp(expStages);
 }
 
+function botCounts() {      //-Dslums.mechanics.amoriapq.botcount, off unless the server operator asks for it
+    return Java.type('soloMapling.mechanics.Mechanics').amoriaBotCount();
+}
+
+function countsAsMember(ch) {   //a bot counts as a party member only when the server says so (see botCounts)
+    var chr = ch.getPlayer();
+
+    if (chr == null) {
+        return false;
+    }
+    return !chr.isBot() || botCounts();
+}
+
 function getEligibleParty(party) {      //selects, from the given party, the team that is allowed to attempt this event
     var eligible = [];
     var hasLeader = false, hasNotMarried = false;
@@ -102,8 +115,8 @@ function getEligibleParty(party) {      //selects, from the given party, the tea
             var ch = partyList[i];
             var chr = ch.getPlayer();
 
-            if (chr == null || chr.isBot()) {   // bots cannot climb the puzzle platforms nor hold the stage items, so they never count as party members
-                continue;
+            if (!countsAsMember(ch)) {   // bots cannot climb the puzzle platforms nor hold the stage items; they count as
+                continue;                // members only under -Dslums.mechanics.amoriapq.botcount (countsAsMember)
             }
             if (ch.getMapId() == recruitMap && ch.getLevel() >= minLevel && ch.getLevel() <= maxLevel) {
                 if (ch.isLeader()) {

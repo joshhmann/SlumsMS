@@ -63,6 +63,28 @@ public final class Mechanics {
     /** Magatia PQ's own switch ({@code -Dslums.mechanics.magatiapq}). */
     public static final String MAGATIA_FLAG = "slums.mechanics.magatiapq";
 
+    /**
+     * Amoria PQ's bot-membership switch: {@code -Dslums.mechanics.amoriapq.botcount} (default <b>{@code false}</b>).
+     *
+     * <p>Amoria's event and its two host NPCs skip bots in every count - {@code scripts/event/AmoriaPQ.js:105} says why:
+     * "bots cannot climb the puzzle platforms nor hold the stage items, so they never count as party members". That
+     * judgement is right about the puzzle and wrong about the party: a party of three humans and three bots cannot start
+     * the quest because the eligibility list comes back empty. With this switch on, {@code getEligibleParty} counts a bot
+     * as a member, so a bot's presence satisfies the party-size arithmetic; the three counters that decide what the party
+     * must physically do are untouched (see {@code AmoriaBotCountTest}, which pins both halves).
+     *
+     * <p>It is deliberately NOT part of {@link #FLAG}: it changes a live party quest's admission for real players too, so
+     * it is a server operator's decision, off unless asked for. Scripts read it through
+     * {@code Java.type('soloMapling.mechanics.Mechanics').amoriaBotCount()} - the same host-class access 314 scripts
+     * already use.
+     */
+    public static final String AMORIA_BOTCOUNT_FLAG = "slums.mechanics.amoriapq.botcount";
+
+    /** Whether Amoria PQ counts a bot as a party member. Off by default; see {@link #AMORIA_BOTCOUNT_FLAG}. */
+    public static boolean amoriaBotCount() {
+        return Boolean.getBoolean(AMORIA_BOTCOUNT_FLAG);
+    }
+
     /** Ellin PQ's own switch ({@code -Dslums.mechanics.ellinpq}). */
     public static final String ELLIN_FLAG = "slums.mechanics.ellinpq";
 
