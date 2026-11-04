@@ -676,22 +676,23 @@ class BotScrollingTest {
     }
 
     @Test
-    void aFinishedFailureWithNoValueIsTossedAndAGoodOneListedOrKept() throws Exception {
+    void aFinishedFailureWithNoKnownValueIsKeptAndOnlyAWorthlessOneIsTossed() throws Exception {
         Character bot = newBot(50);
-        Equip junk = sword(bot, (short) 1, 0);
-        BotScrolling.useForTest(new BotScrolling.Facts() {
-            @Override public ScrollFacts scroll(int id) { return facts.scroll(id); }
-            @Override public List<Integer> reqs(int s) { return List.of(); }
-            @Override public List<Integer> catalogFor(int e) { return List.of(); }
-            @Override public int totalSlots(Equip e) { return 7; }
-            @Override public boolean cash(int i) { return false; }
-            @Override public String name(int i) { return "Sword"; }
-            @Override public Integer marketValue(int i) { return null; }
-            @Override public Integer equipValue(Equip e) { return null; }
-        }, roller, (b, n, t, k) -> true, now::get);
+        Equip unknown = sword(bot, (short) 1, 0);   // finished, a complete failure, and the valuation has no value
+        BotScrolling.useForTest(equipValue(null), roller, (b, n, t, k) -> true, now::get);
 
-        assertEquals("tossed it", BotScrolling.afterRoll(bot, junk, BotScrolling.Outcome.FAIL, false));
-        assertNull(bot.getInventory(InventoryType.EQUIP).getItem((short) 1));
+        assertNull(BotScrolling.afterRoll(bot, unknown, BotScrolling.Outcome.FAIL, false),
+                "an equip the valuation has no value for is not junk");
+        assertSame(unknown, bot.getInventory(InventoryType.EQUIP).getItem((short) 1), "it stays in the bag");
+        assertEquals(0, ScrollLedger.dropped.get(), "nothing is destroyed for a value that is not known");
+        assertTrue(ScrollLedger.report().get(2).contains("1 kept (no value known)"),
+                "and the ledger counts the keep: " + ScrollLedger.report().get(2));
+
+        Equip worthless = sword(bot, (short) 2, 0);
+        BotScrolling.useForTest(equipValue(0), roller, (b, n, t, k) -> true, now::get);
+        assertEquals("tossed it", BotScrolling.afterRoll(bot, worthless, BotScrolling.Outcome.FAIL, false),
+                "a finished failure the valuation prices at 0 is still junk");
+        assertNull(bot.getInventory(InventoryType.EQUIP).getItem((short) 2));
         assertEquals(1, ScrollLedger.dropped.get());
 
         BotScrolling.useForTest(facts, roller, (b, n, t, k) -> true, now::get);
@@ -701,6 +702,20 @@ class BotScrollingTest {
         assertNull(BotScrolling.afterRoll(bot, good, BotScrolling.Outcome.SUCCESS, false));
         assertSame(good, bot.getInventory(InventoryType.EQUIP).getItem((short) 2));
         assertNull(BotScrolling.afterRoll(bot, good, BotScrolling.Outcome.CURSE, false));
+    }
+
+    /** The item data above with one change: what the valuation says an equip is worth. */
+    private BotScrolling.Facts equipValue(Integer value) {
+        return new BotScrolling.Facts() {
+            @Override public ScrollFacts scroll(int id) { return facts.scroll(id); }
+            @Override public List<Integer> reqs(int scrollId) { return List.of(); }
+            @Override public List<Integer> catalogFor(int equipItemId) { return List.of(); }
+            @Override public int totalSlots(Equip equip) { return 7; }
+            @Override public boolean cash(int itemId) { return false; }
+            @Override public String name(int itemId) { return "Sword"; }
+            @Override public Integer marketValue(int itemId) { return null; }
+            @Override public Integer equipValue(Equip equip) { return value; }
+        };
     }
 
     @Test

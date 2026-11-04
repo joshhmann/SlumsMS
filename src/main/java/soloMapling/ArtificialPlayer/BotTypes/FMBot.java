@@ -101,8 +101,10 @@ public class FMBot extends BotSM {
     private final Set<Object> deferredThisRoom = new HashSet<>();
     private boolean currentIsReal;
     private boolean seated;
-    // Equips this bot bought (oldest first): when its equip tab is full it lets the oldest go to make room.
-    private final Deque<Integer> boughtEquipIds = new ArrayDeque<>();
+    // Equips this bot bought (oldest first): when its equip tab is full it lets the oldest go to make room. Each
+    // entry is the instance the purchase put in the bag, never an item id: another copy of the same equip may
+    // already be in there and must not be the one that goes (b181 F-08).
+    private final Deque<Item> boughtEquips = new ArrayDeque<>();
 
     // b271: the item pool does not know every item's value (getItemMarketValue returns null for, e.g., an equip
     // the valuation refuses or a non-equip whose id is not in the pool). Such an item is never bought, and the
@@ -599,6 +601,10 @@ public class FMBot extends BotSM {
                 if (buymsg != null) {
                     currentTarget.chat(getChr(), buymsg);
                 }
+                // b181 F-08: remember the copy this purchase adds, so makeRoom never lets go of an older copy of it.
+                List<Item> equipsBefore = thisItem.getInventoryType() == InventoryType.EQUIP
+                        ? new ArrayList<>(getChr().getInventory(InventoryType.EQUIP).list())
+                        : List.of();
                 short bundlesBefore = pItem.getBundles();
                 if (currentTarget instanceof HiredMerchantAdapter) {
                     currentTarget.botBuyItem(getChr(), pItem, (short) 1);
@@ -618,7 +624,7 @@ public class FMBot extends BotSM {
                     FMBotWallet.refund(getChr().getId(), topUp);   // the allowance it drew is not spent
                 }
                 if (bought && thisItem.getInventoryType() == InventoryType.EQUIP) {
-                    boughtEquipIds.addLast(thisItem.getItemId());
+                    rememberBoughtEquip(equipsBefore);
                 }
                 if (qa) {
                     qaBuy(bought ? "BUY" : "buy failed", thisItem.getItemId(), itemPrice, itemMarketValue,
@@ -702,17 +708,33 @@ public class FMBot extends BotSM {
         return add;
     }
 
-    /** Lets go of the oldest equip this bot bought to free an equip slot; false when it holds none of them. */
+    /**
+     * Keeps the equip this purchase put in the bag (b181 F-08). The copy is found by identity, so an equip the bot
+     * already owned with the same item id is never mistaken for the purchase.
+     */
+    private void rememberBoughtEquip(List<Item> before) {
+        for (Item held : getChr().getInventory(InventoryType.EQUIP).list()) {
+            if (!before.contains(held)) {
+                boughtEquips.addLast(held);
+                return;
+            }
+        }
+    }
+
+    /**
+     * Lets go of the oldest equip this bot bought to free an equip slot; false when it holds none of them. The
+     * instance recorded at purchase time is the only one destroyed: {@link BotHoldings#destroyHeldItem} checks it is
+     * still that exact item before it goes (b181 F-08).
+     */
     private boolean makeRoom(InventoryType type) {
         if (type != InventoryType.EQUIP) {
             return false;
         }
-        Iterator<Integer> oldest = boughtEquipIds.iterator();
+        Iterator<Item> oldest = boughtEquips.iterator();
         while (oldest.hasNext()) {
-            int id = oldest.next();
+            Item bought = oldest.next();
             oldest.remove();
-            Item held = getChr().getInventory(InventoryType.EQUIP).findById(id);
-            if (held != null && BotHoldings.destroyHeldItem(getChr(), held)) {
+            if (BotHoldings.destroyHeldItem(getChr(), bought)) {
                 return true;
             }
         }

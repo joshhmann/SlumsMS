@@ -72,30 +72,27 @@ public class ShopOfferResponse {
         String itemName = offer.getItemName();
         String ownerName = shop.getOwner().getName();
         int ownerId = shop.getOwner().getId();
-        int itemIndex = offer.getItemIndex();
-        PlayerShopItem shopItem = offer.getShopItem();
-        String roomLabel = getFMRoomLabel(shop.getMapId());
+        int mapId = shop.getMapId();
         int delay = (5 + random.nextInt(26)) * 60 * 1000;
 
-        system.lockItem(ownerId, itemIndex);
+        // b181 F-05: the offer holds this exact listing until the price lands, and the task re-checks it then.
+        ShopOfferSystem.Hold hold = system.hold(shop, ownerId, offer.getItemIndex(), offer.getShopItem(), delay);
+        if (hold == null) {
+            log("[ShopOfferSystem] Another offer is already waiting on " + itemName + " at " + ownerName + "'s stall");
+            return;
+        }
 
         log("[ShopOfferSystem] AFK accept scheduled: " + itemName + " @ " + acceptedPrice + " for " + player.getName() + " (delay=" + (delay / 60000) + "min)");
 
-        MethodScheduler.runAfterDelay(() -> {
-            int written = ShopOfferPriceFloor.write(shopItem, acceptedPrice,
-                    ShopOfferPriceFloor.friend(ownerId, player));
-            shop.broadcast(PacketCreator.getPlayerShopItemUpdate(shop));
-
-            if (player.isLoggedin()) {
-                notifyPrice(player, ownerName, ownerId,
-                        "Hey, I updated the price on " + itemName + " to " + formatPrice(written) + ". Come grab it! " + roomLabel
-                );
-            }
-        }, delay);
+        MethodScheduler.runAfterDelay(
+                () -> runHeldAccept(player, hold, acceptedPrice, itemName, ownerName, mapId,
+                        () -> shop.broadcast(PacketCreator.getPlayerShopItemUpdate(shop))),
+                delay);
     }
 
     public static void handleHiredMerchantAFK(Character player, String ownerName, int ownerId, int mapId,
-                                               PlayerShopItem shopItem, OfferParser.ParsedOffer offer,
+                                               server.maps.HiredMerchant merchant, PlayerShopItem shopItem,
+                                               OfferParser.ParsedOffer offer,
                                                ShopOfferSystem system, Runnable broadcastUpdate) {
         OfferEvaluator.Decision decision = OfferEvaluator.evaluate(offer.getOfferPrice(), shopItem.getPrice());
 
@@ -105,25 +102,50 @@ public class ShopOfferResponse {
 
         long acceptedPrice = offer.getOfferPrice();
         String itemName = offer.getItemName();
-        int itemIndex = offer.getItemIndex();
-        String roomLabel = getFMRoomLabel(mapId);
         int delay = (5 + random.nextInt(26)) * 60 * 1000;
 
-        system.lockItem(ownerId, itemIndex);
+        ShopOfferSystem.Hold hold = system.hold(merchant, ownerId, offer.getItemIndex(), shopItem, delay);
+        if (hold == null) {
+            log("[ShopOfferSystem] Another offer is already waiting on " + itemName + " at " + ownerName + "'s stall");
+            return;
+        }
 
         log("[ShopOfferSystem] HiredMerchant AFK accept scheduled: " + itemName + " @ " + acceptedPrice + " for " + player.getName() + " (delay=" + (delay / 60000) + "min)");
 
-        MethodScheduler.runAfterDelay(() -> {
-            int written = ShopOfferPriceFloor.write(shopItem, acceptedPrice,
-                    ShopOfferPriceFloor.friend(ownerId, player));
-            if (broadcastUpdate != null) broadcastUpdate.run();
+        MethodScheduler.runAfterDelay(
+                () -> runHeldAccept(player, hold, acceptedPrice, itemName, ownerName, mapId, broadcastUpdate),
+                delay);
+    }
 
+    /**
+     * The delayed accept when its wait is over: it prices the listing it held, or tells the player the item is gone
+     * when that listing sold, was withdrawn or the shop shut while the offer waited (b181 F-05).
+     */
+    static void runHeldAccept(Character player, ShopOfferSystem.Hold hold, long acceptedPrice, String itemName,
+                              String ownerName, int mapId, Runnable broadcastUpdate) {
+        ShopOfferSystem system = ShopOfferSystem.getInstance();
+
+        if (!system.stillHeld(hold)) {
+            system.release(hold);
+            log("[ShopOfferSystem] Offer on " + itemName + " dropped, the listing is gone");
             if (player.isLoggedin()) {
-                notifyPrice(player, ownerName, ownerId,
-                        "Hey, I updated the price on " + itemName + " to " + formatPrice(written) + ". Come grab it! " + roomLabel
-                );
+                notifyPrice(player, ownerName, hold.slot().ownerId(),
+                        "Sorry, " + itemName + " is gone from my shop - that deal is off.");
             }
-        }, delay);
+            return;
+        }
+
+        // b181 market#F-03 (s1): the held listing is priced through the same floor helper as every other writer.
+        int ownerId = hold.slot().ownerId();
+        int written = ShopOfferPriceFloor.write(hold.listing(), acceptedPrice, ShopOfferPriceFloor.friend(ownerId, player));
+        system.release(hold);
+        if (broadcastUpdate != null) broadcastUpdate.run();
+
+        if (player.isLoggedin()) {
+            notifyPrice(player, ownerName, ownerId,
+                    "Hey, I updated the price on " + itemName + " to " + formatPrice(written) + ". Come grab it! "
+                            + getFMRoomLabel(mapId));
+        }
     }
 
     private static void notifyPrice(Character player, String owner, int ownerId, String line) {
@@ -148,7 +170,6 @@ public class ShopOfferResponse {
                 ShopOfferPriceFloor.friend(owner.getId(), player));
         shop.broadcast(PacketCreator.getPlayerShopItemUpdate(shop));
 
-        ShopOfferSystem.getInstance().lockItem(owner.getId(), offer.getItemIndex());
         ShopOfferSystem.getInstance().removeSession(player.getId());
 
         log("[ShopOfferSystem] Accepted: " + offer.getItemName() + " @ " + written + " for " + player.getName());
