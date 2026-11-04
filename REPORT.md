@@ -4,8 +4,9 @@ Branch `164-all-merge` in `/root/work/164-all`, built from `release-1.6.4` @ `6d
 (`b258879dd`, which carries the release tip), `164-opq` (`90e40c1fd`, the catch-up `d92443ce2`, then the final
 `96484cf9a`), `164-run-chatter` (`05b7db0c4`), `164-altinvite` (`3b546e834`), `164-ex2` (`0dd9dfc83`), `164-pqpolish`
 (`d30a22702`), `164-realruns` (`4aaf42e58`) and `164-seams` (`6d01def08`, plus the follow-up `6e8011250`). `164-bossfight`,
-`164-ex2qa` and `164-bossproof` were already ancestors. **Last merge commit `39276532a`**, 163 commits over the release
-tip; the suite ran on `4e495c09b` and nothing under `src/` changed after it (only reports did). Nothing pushed, nothing deployed.
+`164-ex2qa` and `164-bossproof` were already ancestors. **Last merge commit `39276532a`**, 168 commits over the release
+tip; the suite ran on `4e495c09b` and nothing under `src/` changed after it (only reports, and `tools/ops/autoqa-proof`
+with its test, did). Nothing pushed, nothing deployed.
 
 The one tree carries all 56 mechanics rows (29 boss + 27 party quest, 195 stages), their solvers, the PQ lobby, the
 run-chatter line, the alt-invite fix, the real-run quota and simulation, and the four engine seams with Guild Quest.

@@ -219,13 +219,35 @@ tools/ops/helper-checkout /root/work/164-all
 ## What auto-QA covers (`tools/ops/autoqa-proof 6d18f961e..b7da256e1`)
 
 The proof reads `src/main/resources/soloMapling/autoqa-coverage.tsv` against the 278 files this branch changes and
-answers `checks: every check (186) - a runner or platform file changed`, so the release run is
+answers
+
+```
+checks: every check (190) - 5 changed files change the engine they all run on:
+  src/main/java/soloMapling/autoqa/AutoQaCatalog.java
+  src/main/java/soloMapling/qa/GameQaWorld.java
+  src/main/java/soloMapling/qa/QaScenarios.java
+  src/main/java/soloMapling/qa/QaWorld.java
+  src/main/resources/soloMapling/autoqa-coverage.tsv
+```
+
+so the release run is
 
 ```
 tools/ops/autoqa-run all
 ```
 
-That is the answer for the branch as a whole: 42 distinct check ids appear against its changed files
+**The tool used to print a different answer here.** It said `every check (186) - a runner or platform file changed`: the
+186 was a literal in the script (the catalogue declares 190), and the whole-change sentence replaced the branch's id
+list exactly when a branch touched infrastructure - which this one does. Fixed on this branch: the count is now read
+from `AutoQaCatalog.java` (the same source `AutoQaCatalogTest` reads) and never written down; the answer names the files
+that caused it and prints the 190 ids grouped as ranges (`t-mx-1..t-mx-6`) so a subset can still be run; a coverage map
+that names a check the catalogue does not declare, or a catalogue that declares one twice, is a hard error with no
+number printed; and `tools/ops/test_autoqa_proof.py` fails if the tool's total differs from the catalogue's declaration
+count or if the digits of that count appear anywhere in the script. Before the fix the old tool printed
+`every check (186)` on a 190-check catalogue (reproduced from `git show 2756eb927:tools/ops/autoqa-proof`).
+
+That is the answer for the branch as a whole: **43** distinct check ids appear against its changed files (the number
+this report printed before, 42, was an arithmetic slip - the tool's per-file rows have always named these 43)
 (`t-at-1 t-bk-1 t-bk-3 t-cb-1 t-cb-2 t-cb-3 t-cv-1 t-ev-1 t-ev-3 t-ex-1 t-ex-2 t-fy-1 t-fy-2 t-fy-3 t-fy-4 t-gb-1
 t-gb-2 t-gb-3 t-gb-4 t-gb-5 t-gb-6 t-gu-1 t-in-3 t-ld-1 t-mr-1 t-mx-1 t-mx-2 t-mx-3 t-mx-4 t-mx-5 t-mx-6 t-nc-1
 t-oa-1 t-pb-1 t-pr-1 t-rb-1 t-sg-1 t-sg-2 t-sk-1 t-sk-2 t-su-1 t-su-3 t-vb-5`). Most of those belong to code the
@@ -254,8 +276,11 @@ The four Hard-boss rows and Guild Quest add **no new check id**: `autoqa-coverag
 the `src/main/java/soloMapling/mechanics/**` line (the same six ids plus `t-in-3`) because it lives in that tree. So the
 row-level obligation list for release QA is exactly the nine above.
 
-Sixteen changed files are named by the proof as covered by no check at all - worth handing to the release runner so
-nobody assumes they are tested: `scripts/event/ChaosZakumBattle.js`, `scripts/npc/2030013.js`,
+**21 changed files are named by no check at all** - the proof's own list has 21 entries and its `--json` view agrees
+(`"unmapped"` has 21), so the count is 21, not the 22 this page and the hand-over note first said and not the
+"sixteen" an earlier draft printed. The 22nd in that earlier count was `src/main/java/soloMapling/qa/BossRunScenarios.java`,
+which the map does cover: `autoqa-coverage.tsv:172` maps it to `t-ex-2`. Worth handing to the release runner so nobody
+assumes they are tested: `scripts/event/ChaosZakumBattle.js`, `scripts/npc/2030013.js`,
 `scripts/npc/9040009.js`, `scripts/reactor/2111001.js`, `client/BotClient.java`, `constants/id/MobId.java`,
 `net/server/Server.java`, `GuildOperationHandler.java`, `UseCatchItemHandler.java`, `guild/Guild.java`,
 `scripting/event/EventInstanceManager.java`, `scripting/event/EventManager.java`,
