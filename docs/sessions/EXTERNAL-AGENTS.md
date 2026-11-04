@@ -144,6 +144,8 @@ agent, it gives the owner the exact `!` line instead of working around it. Never
 with no cause found). Check `ps -o ppid= -p <pid>` is 1. Keep about 4 helpers running at once on 187 (each ends
 with a full mvn suite; 187 hit memory pressure with 5-6).
 
+**Claude helpers run on Sonnet** (owner, 2026-11-04): "moving forward helpers within Claude should be using sonnet unless it's complex, that's where the main lane agent would intervene." Every Claude helper or subagent uses model `sonnet` by default. When a task turns out complex (concurrency, live risk, economy design, cross-system review), the lane session takes it over itself instead of starting an Opus helper. Claude helpers start from `/root/work/START-HERE-CLAUDE.md`.
+
 ## 7. Lane details
 
 Each lane session writes its own part here. Where it is more specific than the sections above, it wins for that lane.

@@ -227,6 +227,8 @@ artifact pages, their databases) are not required for any step; use the repo fil
   `codex --yolo exec -m gpt-6.1-sol -c model_reasoning_effort='"medium"' -C <dir> -o <out.md> - < prompt.txt`.
   Always feed the prompt on stdin, or it waits forever. Use `-s read-only` for reviews. Verify everything it reports.
 
+**Claude helpers run on Sonnet** (owner, 2026-11-04): "moving forward helpers within Claude should be using sonnet unless it's complex, that's where the main lane agent would intervene." Every Claude helper or subagent uses model `sonnet` by default. When a task turns out complex (concurrency, live risk, economy design, cross-system review), the lane session takes it over itself instead of starting an Opus helper. Claude helpers start from `/root/work/START-HERE-CLAUDE.md`.
+
 ## 8. Handing back
 
 End every task with: what changed (files, branch, commit hashes), what you tested and how (suite counts, in-game or
