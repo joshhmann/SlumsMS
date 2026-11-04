@@ -294,6 +294,19 @@ public final class ModeSwitch {
         return out;
     }
 
+    /**
+     * Switches in the last hour per tracked bot, keyed by character id (bots with none are left out). Read-only:
+     * the QA check's cap and the dashboard both need the worst bot, which the totals cannot show.
+     */
+    public static Map<Integer, Integer> switchesLastHour(long now) {
+        Map<Integer, Integer> out = new TreeMap<>();
+        states.forEach((id, s) -> {
+            int n = s.lastHour(now);
+            if (n > 0) out.put(id, n);
+        });
+        return out;
+    }
+
     private static long lastSummaryAt;
 
     /** From the director's tick: one info line every ten minutes with the census and the counters. */
