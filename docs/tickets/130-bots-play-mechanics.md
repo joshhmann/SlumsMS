@@ -891,3 +891,31 @@ Row keys and steps these add to the stage data format (all optional; a row witho
 2. Ragequit: allowed to sink a run that a real player is in, or only bot-only runs?
 3. World cap on concurrent bot-only PQ runs (CPU), and PQ hours.
 4. Should bots ever take a stage's leader role when a real player is in the party?
+
+## Expedition policy: a bot captain, and an alt that counts (branch `164-expedpolicy`, 1.6.4)
+
+Owner, 2026-11-03: "a bot may be an expedition captain", "an owned alt may follow its owner into any expedition the
+owner is a member of", "it should count as party". Two switches, both defaulting on because the owner said yes:
+
+| switch | default | what it changes |
+| --- | --- | --- |
+| `-Dslums.exped.botcaptain` | **on** | a bot-led expedition registers its party's bots, and a bot captain can open the run |
+| `-Dslums.exped.altfollow` | **on** | an owned alt joins an expedition its owner is a member of, whoever leads it |
+
+- **Who leads.** `ExpeditionBots.preferredLeader` (`EventManager.startInstance`, `EventManager.java:455-460`) runs
+  before the instance is made, so the setup script's channel, the instance's leader and every later
+  `expedition.getLeader()` all see the same person. A real player always outranks a bot: the run moves to the human
+  and the log says which rule decided (`a real player outranks a bot, so <human> leads instead of <bot>`). Only
+  expedition members can be promoted - a human in the bot's party who never registered has nothing to lead, and the
+  bot captain's door answers `HUMAN_LEADS` instead of starting without him.
+- **The bot captain's door.** Nothing in the tree creates an expedition except an NPC script
+  (`AbstractPlayerInteraction.createExpedition`, call sites in `scripts/npc/2030013.js` and friends), so a bot captain
+  has no door unless we give it one: `ExpeditionBots.startAsCaptain(captain, type)` is the three steps the recruiter
+  takes - create, register, set `leader`/`channel`, `EventManager.startInstance` - and the script name comes from
+  `RebirthBosses.Boss`, the tree's own type-to-script table. A type with no entry there answers `NO_SCRIPT`.
+- **The alt counts.** `Expedition.members` is the only membership record; `getMemberList()` (the recruiters' size
+  gate), `getActiveMembers()` (broadcasts and the boss log), and the max-size check all read it, so an admitted alt
+  counts exactly like a party bot. `ExpeditionBots.skip` was the only place that excluded it, and that is the rule
+  this changes: an owned alt is admitted when its owner is a member of that expedition. A bot that merely follows
+  someone (a population bot) is not an owned alt and keeps the 1.6.0 rule. Deliberately unchanged: a bot never
+  displaces a human leader, and a dead/banned/out-of-band bot is still skipped.
