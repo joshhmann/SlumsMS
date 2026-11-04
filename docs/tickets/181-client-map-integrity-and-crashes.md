@@ -253,3 +253,27 @@ lines 4892–4896. Prior investigations: `/root/work/agent-runs/client/rosegarde
 This follow-up compared affected IDs against retained server filenames and inspected routing source/table
 and the candidate guard. No fresh client launch, native build/test, current deployment verification,
 internal canvas/BGM/mob/NPC/reactor validation or fix was performed. No economy changes.
+
+## v232 donor follow-up — 2026-11-04
+
+The owner's Steam app216150/depot216151 manifest4440651722208802215 was inspected read-only.
+Ten copied source files match Silvia by SHA256. A private, uninstalled candidate restores137
+exact object nodes across13 Obj images and adds13 legacy-key Sound images, preserving existing
+QA Custom.wz leaves and unrelated images. Linked pixels are materialized from genuine donor
+canvases; no portal, geometry, mob, loot or economy changes were made.
+
+The full11352-map offline candidate sweep removes920 missing object placements and1231 missing
+whole BGM-image references: fatal-class findings2468→317 across1539→247 map IDs. Fourteen newly
+exposed missing-track notes remain. These are static data results, not proven playable maps.
+All27 object failures in Crack in Time272000000 resolve, including pillar_old/7.
+
+**Rose Garden remains open:**211080100's separate b251 runtime failure is outside this asset
+repair;211080700 still has12 references to absent Obj/mario.img, which the v232 donor lacks.
+Do not close either case or remove routing restrictions based on this package.
+
+Proof:13 checker tests (including actual QA Rose-family input),4 prior restoration tests and7
+converter tests pass; full offline candidate sweep exits0. No native build, game launch, rendering,
+audio playback, deployment or publication was performed. Detailed source pins, reproduction and
+remaining-map list: [v232 results](/root/work/client/src-164-mapart-fixes/docs/map-data-sweep-164/v232-results.md).
+Private package: `/root/work/agent-runs/client/164-map-data-sweep/v232-repair/`.
+Native compatibility and targeted map-entry proof remain required before installation/publication.
