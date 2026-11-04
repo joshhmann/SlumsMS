@@ -61,6 +61,28 @@ function getMarriageInstance(player) {
     return null;
 }
 
+// Where and when this couple's wedding is booked, e.g. "Cathedral on Channel 2 - 12 minutes, 3 seconds from now".
+// A reservation lives in one channel's queue and the ceremony can only start there, so the channel is always named.
+// Returns null when no channel holds the reservation; the time text never says "null".
+function describeReservation(weddingId) {
+    var channels = cm.getClient().getWorldServer().getChannels();
+    for (var i = 0; i < channels.size(); i++) {
+        var ch = channels.get(i);
+        for (var v = 0; v < 2; v++) {
+            var inCathedral = (v == 0);
+            if (ch.getWeddingReservationStatus(weddingId, inCathedral) >= 0) {
+                var left = ch.getWeddingReservationTimeLeft(weddingId);
+                var when = (left == null) ? "" : String(left).replace(/^[^-]*- /, "");
+                if (when == "" || when.indexOf("null") >= 0) {
+                    when = "very soon";
+                }
+                return (inCathedral ? "Cathedral" : "Chapel") + " on Channel " + ch.getId() + " - " + when;
+            }
+        }
+    }
+    return null;
+}
+
 function start() {
     status = -1;
     action(1, 0, 0);
@@ -132,13 +154,21 @@ function action(mode, type, selection) {
                         cm.dispose();
                     }
                 } else {
-                    var placeTime = cserv.getWeddingReservationTimeLeft(wid);
-
-                    cm.sendOk("Yo. Your wedding is set to happen at the #r" + placeTime + "#k, get a decent apparel don't be late will you?");
+                    var place = describeReservation(wid);
+                    if (place == null) {
+                        cm.sendOk("Yo. Your wedding slot is just about to open, talk to me again in a moment, and get a decent apparel will you?");
+                    } else {
+                        cm.sendOk("Yo. Your wedding is set to happen at the #r" + place + "#k. It can only start on that channel, so get a decent apparel and don't be late will you?");
+                    }
                     cm.dispose();
                 }
             } else {
-                cm.sendOk("Aawww, I'm sorry but there are no reservations made for you at this channel for the time being.");
+                var elsewhere = describeReservation(wid);
+                if (elsewhere != null) {
+                    cm.sendOk("Aawww, your wedding is not on this channel. It is booked at the #r" + elsewhere + "#k, and it can only start there.");
+                } else {
+                    cm.sendOk("Aawww, I'm sorry but there are no reservations made for you at this channel for the time being. A booking only lasts for its own time slot, so if yours has passed you will have to book again.");
+                }
                 cm.dispose();
             }
         } else if (status == 2) {

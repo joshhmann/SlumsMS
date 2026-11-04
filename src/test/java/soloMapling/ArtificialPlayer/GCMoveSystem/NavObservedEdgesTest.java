@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer.GCMoveSystem;
 
 import client.BotClient;
 import client.Character;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
 import soloMapling.WzTestData;
@@ -25,8 +26,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import testutil.PropsRestored;
 
 /** bot-persistence ticket 17. The physics test needs the real wz/ and is skipped without it. */
+@ExtendWith(PropsRestored.class)
 class NavObservedEdgesTest {
 
     @TempDir

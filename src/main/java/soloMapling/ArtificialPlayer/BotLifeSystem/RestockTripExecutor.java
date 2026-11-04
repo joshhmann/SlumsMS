@@ -24,7 +24,7 @@ public final class RestockTripExecutor implements LifeAcceptance.Executor {
     }
 
     public Optional<LifeAcceptance.Accepted> start(Activity activity) {
-        if (!QaSuite.isEnabled() || !Boolean.getBoolean("slums.botlife.execute") || !supports(activity)
+        if (!QaSuite.isEnabled() || !LifeRuntime.executeOn() || !supports(activity)
                 || bot.getChr() == null || BotCommitments.inFlight(bot)
                 || BotConversation.hasAnyChat(bot.getChr().getId()) || !BotPopulationDirector.mayLogOut(bot)
                 || !((TrainingBot) bot).startLifeRestockTrip()) {

@@ -477,7 +477,7 @@ public final class BotQuests {
             if (chr.getMapId() != a.endMap) return Visit.NONE;
             syncReal(chr, log);
             if (!a.hunted()) return Visit.NOT_READY;
-            if (!watched || a.mode() != BotQuestLog.Mode.REAL) return record(chr, log, now);
+            if (!watched || a.mode() != BotQuestLog.Mode.REAL) return recordOffscreen(chr, log, now);
             if (!nearNpc(chr, a.endNpc)) return Visit.TOO_FAR;
             restore(chr, log);
             Boolean canComplete = gateSays(chr, a.questId, () -> gate.canComplete(chr, a.questId, a.endNpc));
@@ -487,13 +487,14 @@ public final class BotQuests {
                 return Visit.DROPPED;
             }
             if (!canComplete) {
-                // the log counted modelled kills the quest itself never saw (it hunted offscreen): no rewards
-                return record(chr, log, now);
+                // the log counted modelled kills the quest itself never saw (it hunted offscreen): no rewards, and
+                // ticket 181 F4: no COMPLETED in the quest map either - the NPC just said it cannot be completed
+                return recordRefused(log, now);
             }
             BotQuestIndex.QuestMeta q = BotQuestIndex.get().byId().get(a.questId);
             Reservation held = q == null ? Reservation.NONE : reserve(chr, q);
             if (held == null) {
-                if (log.defer() > MAX_DEFERRALS) return record(chr, log, now);
+                if (log.defer() > MAX_DEFERRALS) return recordRefused(log, now);
                 deferred.increment();
                 return Visit.DEFERRED;
             }
@@ -565,8 +566,12 @@ public final class BotQuests {
         }
     }
 
-    /** A completion only the log knows about: no rewards; a really started quest is marked done in the quest map. */
-    private static Visit record(Character chr, BotQuestLog log, long now) {
+    /**
+     * A completion only the log knows about, and the one that fills the quest map by design: the bot never stood at
+     * the NPC for this turn-in (offscreen, or a quest it took offscreen), so nothing else ever advances that quest -
+     * the map gets the COMPLETED a player holding it would have. No rewards.
+     */
+    private static Visit recordOffscreen(Character chr, BotQuestLog log, long now) {
         BotQuestLog.Active a = log.active();
         if (a == null) return Visit.NONE;
         if (chr.botQuestState()) {
@@ -578,6 +583,19 @@ public final class BotQuests {
                 LOG.warn("bot quest record failed for {}", chr.getId(), e);
             }
         }
+        log.complete(false, now);
+        modelledCompletes.increment();
+        return Visit.RECORDED;
+    }
+
+    /**
+     * Ticket 181 F4: the log gives up on the turn-in (the NPC would not let the bot complete it, or its rewards could
+     * not be held), and nothing else is touched. Writing COMPLETED into the quest map here burned the quest's daily
+     * slot and unlocked the quests that depend on it for a completion the NPC never gave; the bot's own log keeps the
+     * quest done-for-now, as a player who turns up short does.
+     */
+    private static Visit recordRefused(BotQuestLog log, long now) {
+        if (log.active() == null) return Visit.NONE;
         log.complete(false, now);
         modelledCompletes.increment();
         return Visit.RECORDED;

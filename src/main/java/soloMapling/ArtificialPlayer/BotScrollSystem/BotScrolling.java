@@ -571,7 +571,16 @@ public final class BotScrolling {
                 return "listed it for " + value + " in " + where;
             }
         }
-        if (equip.getLevel() == 0 && (value == null || value <= 0) && BotHoldings.destroyHeldItem(bot, equip)) {
+        if (value == null) {
+            // b181 F-14: no known value is not the same as worthless. It used to be destroyed here; keep it and
+            // count it, so a valuation gap never costs the bot gear.
+            if (ScrollLedger.unknownValue.incrementAndGet() == 1 || QaLog.on(QaLog.Topic.SCROLL)) {
+                log.info("[Scroll] {} (lv {}) kept {}: the valuation has no value for it", bot.getName(),
+                        bot.getLevel(), equip.getItemId());
+            }
+            return null;
+        }
+        if (equip.getLevel() == 0 && value <= 0 && BotHoldings.destroyHeldItem(bot, equip)) {
             ScrollLedger.dropped.incrementAndGet();
             return "tossed it";
         }

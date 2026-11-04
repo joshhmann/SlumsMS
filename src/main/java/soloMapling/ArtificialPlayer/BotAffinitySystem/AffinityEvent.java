@@ -55,6 +55,10 @@ public enum AffinityEvent {
         return this == HEARSAY_GOOD || this == HEARSAY_BAD;
     }
 
+    public int defaultDelta() {
+        return defaultDelta;
+    }
+
     public int delta() {
         return Integer.getInteger("solomapling.affinity." + key(), defaultDelta);
     }

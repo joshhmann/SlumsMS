@@ -954,10 +954,19 @@ public final class BotRomance {
         }
         Ring ring = player.getMarriageRing();
         if (ring == null) {
-            return "You are engaged, not married: drop your engagement box to break it off.";
+            if (player.getMarriageItemId() > 0) {
+                return "You are engaged, not married: drop your engagement box to break it off.";
+            }
+            // a marriage record whose ring item is gone: the record can still be ended
+            net.server.channel.handlers.RingActionHandler.breakMarriageRecord(player);
+            return "Divorced. You are no longer married.";
         }
         Item inEquip = player.getInventory(InventoryType.EQUIP).findById(ring.getItemId());
         if (inEquip == null) {
+            if (player.getInventory(InventoryType.EQUIPPED).findById(ring.getItemId()) == null) {
+                net.server.channel.handlers.RingActionHandler.breakMarriageRecord(player);
+                return "Divorced. You are no longer married.";
+            }
             return "Take your wedding ring off first (it must be in your equip inventory), then @romance divorce again.";
         }
         short slot = inEquip.getPosition();

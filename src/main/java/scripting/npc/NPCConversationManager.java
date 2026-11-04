@@ -34,6 +34,7 @@ import constants.inventory.ItemConstants;
 import constants.string.LanguageConstants;
 import net.server.Server;
 import net.server.channel.Channel;
+import net.server.coordinator.matchchecker.MatchCheckerCoordinator;
 import net.server.coordinator.matchchecker.MatchCheckerListenerFactory.MatchCheckerType;
 import net.server.guild.Alliance;
 import net.server.guild.Guild;
@@ -169,6 +170,17 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
 
     public void sendNextPrev(String text) {
         getClient().sendPacket(PacketCreator.getNPCTalk(npc, (byte) 0, text, "01 01", (byte) 0));
+    }
+
+    /**
+     * The client a script hands on to something that will run <em>another</em> script for this player later - a reactor it
+     * schedules ({@code getReactorByOid(..).delayedHitReactor(cm.getActingClient(), ..)}, Guild Quest's Gatekeeper). It is
+     * {@link #getClient()} for a player; a conversation held for a population bot overrides it with a client that has the
+     * bot as its player (the shared headless client has none). {@link #getClient()} itself is never changed: the dialogue
+     * sends and everything else that uses it behave as before.
+     */
+    public Client getActingClient() {
+        return getClient();
     }
 
     public void sendOk(String text) {
@@ -567,12 +579,42 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         getPlayer().changeRebirthJobCerezeth(Job.getById(jobid));
     }
 
-    public void changeJobById(int a) {
-        getPlayer().changeJob(Job.getById(a));
+    /**
+     * 1.6.4: a quest script that advances to a job this server has no entry for (2570.js asks for 501 Cannoneer,
+     * 23011.js for 3200 Battle Mage) gets null from Job.getById, and Character.changeJob(null) is a silent return.
+     * The script has already handed out its items and called forceCompleteQuest by then, so the player finished a
+     * job-advance quest without changing job and nothing anywhere said why. Refusing here, loudly and with a false
+     * the caller can act on, keeps a wrong job id from looking like success. Adding those jobs to the enum is a
+     * content decision for the owner; this only stops the silent no-op.
+     *
+     * @return true when the player now has that job, false when no such job exists and nothing was changed
+     */
+    public boolean changeJobById(int a) {
+        Job job = Job.getById(a);
+        if (job == null) {
+            log.error("Script {} asked for job id {}, which this server has no Job for: {} keeps their job {} (npc {})",
+                    getScriptName(), a, getPlayer().getName(), getPlayer().getJob(), npc);
+            return false;
+        }
+        getPlayer().changeJob(job);
+        return true;
     }
 
     public void changeJob(Job job) {
+        if (job == null) {
+            log.error("Script {} asked to change to a null job: {} keeps their job {} (npc {})",
+                    getScriptName(), getPlayer().getName(), getPlayer().getJob(), npc);
+            return;
+        }
         getPlayer().changeJob(job);
+    }
+
+    /**
+     * 1.6.4: the GM shop editor lists every shop it can manage (scripts/npc/ShopEditor.js:93) as
+     * #{shopid}# - #p{npcid}#, so the pair map is what it needs, not a Shop apiece.
+     */
+    public Map<Integer, Integer> getAllShopIds() {
+        return ShopFactory.getInstance().getAllShopIds();
     }
 
     public String getJobName(int id) {
@@ -1204,12 +1246,41 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         getPlayer().getMap().broadcastMessage(PacketCreator.getClock(time));
     }
 
-    private boolean sendCPQChallenge(String cpqType, int leaderid) {
+    /** SlumsMS (ticket 164): how long a CPQ challenge waits for the other party's leader before it is cancelled. */
+    static final long CPQ_CHALLENGE_TIMEOUT_MS = Long.getLong("slums.cpq.challengeTimeoutMs", 60_000L);
+
+    /**
+     * Cancels the challenger's CPQ challenge if that same match is still waiting for the other party's leader to
+     * answer. Nothing else ever expires a CPQ_CHALLENGE, and the coordinator refuses to pool a cid twice, so an
+     * ignored challenge dialog used to keep both party leaders out of every later match on the server.
+     */
+    static boolean expireCPQChallenge(MatchCheckerCoordinator coordinator, Character challenger, long matchId) {
+        if (!coordinator.expireMatchConfirmation(challenger.getId(), matchId)) {
+            return false;
+        }
+        log.info("CPQ challenge by {} timed out after {} ms waiting for the other party", challenger.getName(), CPQ_CHALLENGE_TIMEOUT_MS);
+        if (challenger.isLoggedinWorld()) {
+            challenger.dropMessage(1, "The CPQ challenge was cancelled because the other party's leader did not answer in time.");
+        }
+        return true;
+    }
+
+    boolean sendCPQChallenge(String cpqType, int leaderid) {
         Set<Integer> cpqLeaders = new HashSet<>();
         cpqLeaders.add(leaderid);
         cpqLeaders.add(getPlayer().getId());
 
-        return c.getWorldServer().getMatchCheckerCoordinator().createMatchConfirmation(MatchCheckerType.CPQ_CHALLENGE, c.getWorld(), getPlayer().getId(), cpqLeaders, cpqType);
+        MatchCheckerCoordinator coordinator = c.getWorldServer().getMatchCheckerCoordinator();
+        if (!coordinator.createMatchConfirmation(MatchCheckerType.CPQ_CHALLENGE, c.getWorld(), getPlayer().getId(), cpqLeaders, cpqType)) {
+            return false;
+        }
+
+        long matchId = coordinator.getMatchConfirmationId(getPlayer().getId());
+        if (matchId != -1) {
+            Character challenger = getPlayer();
+            TimerManager.getInstance().schedule(() -> expireCPQChallenge(coordinator, challenger, matchId), CPQ_CHALLENGE_TIMEOUT_MS);
+        }
+        return true;
     }
 
     public void answerCPQChallenge(boolean accept) {
@@ -1654,6 +1725,7 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
                 double boom = getBoom(nEquip); //boom chances
                 if (ItemConstants.SuperiorItemIds.contains(nEquip.getItemId())) {
                     if (rollSuccessChance(boom)) {
+                        destroyStarForceEquip(nEquip);
                         return null;
                     }
                     if (rollSuccessChance(prop)) {
@@ -1661,7 +1733,8 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
                         nEquip.setUpgradeSlots((byte) (nEquip.getUpgradeSlots() - 1));
                         nEquip.setLevel((byte) (nEquip.getLevel() + 1));
                         scrollSuccess = Equip.ScrollResult.SUCCESS;
-                    } else {
+                    } else if (nEquip.getLevel() > 0) {
+                        // 1.6.4: a failed superior enhancement loses the star; never below 0 stars.
                         nEquip.setUpgradeSlots((byte) (nEquip.getUpgradeSlots() + 1));
                         nEquip.setLevel((byte) (nEquip.getLevel() - 1));
                         improveSuperiorEquips(nEquip, true);
@@ -1676,7 +1749,8 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
                         nEquip.setUpgradeSlots((byte) (nEquip.getUpgradeSlots() - 1));
                         nEquip.setLevel((byte) (nEquip.getLevel() + 1));
                         scrollSuccess = Equip.ScrollResult.SUCCESS;
-                    } else if ((nEquip.getLevel() % 1) != 0) {
+                    } else if (nEquip.getLevel() > 0) {
+                        // 1.6.4: was (getLevel() % 1) != 0, which is never true, so a fail cost only the fee.
                         nEquip.setLevel((byte) (nEquip.getLevel() - 1));
                         nEquip.setUpgradeSlots((byte) (nEquip.getUpgradeSlots() + 1));
                         improveEquipStats(nEquip, true);
@@ -1690,6 +1764,23 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         c.sendPacket(PacketCreator.modifyInventory(true, mods));
         c.getPlayer().getMap().broadcastMessage(PacketCreator.getScrollEffect(c.getPlayer().getId(), scrollSuccess, false, false));
         return equip;
+    }
+
+    /** A superior boom: the item is destroyed, so the slot is emptied and the client is told (1.6.4). */
+    private void destroyStarForceEquip(Equip nEquip) {
+        Inventory equipInventory = c.getPlayer().getInventory(InventoryType.EQUIP);
+        equipInventory.lockInventory();
+        try {
+            equipInventory.removeItem(nEquip.getPosition());
+        } finally {
+            equipInventory.unlockInventory();
+        }
+
+        final List<ModifyInventory> mods = new ArrayList<>();
+        mods.add(new ModifyInventory(3, nEquip));
+        c.sendPacket(PacketCreator.modifyInventory(true, mods));
+        c.getPlayer().getMap().broadcastMessage(PacketCreator.getScrollEffect(c.getPlayer().getId(), Equip.ScrollResult.CURSE, false, false));
+        log.info("Star Force boom destroyed item {} ({} stars) for character {}", nEquip.getItemId(), nEquip.getLevel(), c.getPlayer().getName());
     }
 
     private static void applyStatAdditions(Equip nEquip, StarBoost boost, boolean fail) {
@@ -2280,9 +2371,12 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         equip.setDex(getShortMaxIfOverflow(equip.getDex() + starBoostBonus.getDex()));
         equip.setLuk(getShortMaxIfOverflow(equip.getLuk() + starBoostBonus.getLuk()));
         equip.setInt(getShortMaxIfOverflow(equip.getInt() + starBoostBonus.getInt()));
+        // Preserve the consumed equipment’s actual HP/MP through the upgrade.
+        equip.setHp(getShortMaxIfOverflow(equip.getHp() + equipItem.getHp()));
+        equip.setMp(getShortMaxIfOverflow(equip.getMp() + equipItem.getMp()));
 
         InventoryManipulator.removeFromSlot(c, equipItem.getInventoryType(), equipItem.getPosition(), equipItem.getQuantity(), false);
-        gainItem(4000999, getShortMaxIfOverflow(getStarForceEquipSpellTraceBonus(equip)));
+        gainItem(4000999, getShortMaxIfOverflow(getStarForceEquipSpellTraceBonus(equipItem)));
 
         return equip;
     }

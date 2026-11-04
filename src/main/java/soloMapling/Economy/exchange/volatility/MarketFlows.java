@@ -19,9 +19,6 @@ public final class MarketFlows {
     static final long HOUR = 3_600_000L;
     static final int HOURS = 24;
 
-    /** item id -> ticker id, for the hooks. */
-    static final Map<Integer, String> TICKER_OF = Map.of(4001126, "LEAF", 2049100, "CHAOS", 2340000, "WS",
-            2000005, "ELIXIR");
 
     private static final MarketFlows INSTANCE = new MarketFlows();
 
@@ -32,9 +29,18 @@ public final class MarketFlows {
         return INSTANCE;
     }
 
-    /** The ticker an item belongs to, or null (the hooks' fast filter). */
+    /** The ticker an item belongs to (the registry's reverse lookup), or null (the hooks' fast filter). */
     public static String tickerOf(int itemId) {
-        return TICKER_OF.get(itemId);
+        soloMapling.Economy.exchange.AssetRegistry.Asset a =
+                soloMapling.Economy.exchange.AssetRegistry.byItem(itemId);
+        return a == null ? null : a.id();
+    }
+
+    /** True for an item ticker the exchange knows; null and NX/MESO are false. */
+    public static boolean known(String ticker) {
+        soloMapling.Economy.exchange.AssetRegistry.Asset a =
+                soloMapling.Economy.exchange.AssetRegistry.of(ticker);
+        return a != null && a.item();
     }
 
     /** {@code qty} of {@code itemId} entered the world (a drop, a find). No-op for other items. */
@@ -55,7 +61,7 @@ public final class MarketFlows {
 
     /** An exchange fill on an item ticker: a taker buy is demand, a taker sell is supply. */
     public static void exchangeFill(String ticker, boolean takerBuys, long qty, long now) {
-        if (ticker != null && TICKER_OF.containsValue(ticker) && qty > 0) {
+        if (ticker != null && qty > 0 && known(ticker)) {
             INSTANCE.add(ticker, takerBuys ? 0 : qty, takerBuys ? qty : 0, now);
         }
     }

@@ -78,6 +78,40 @@ public final class GuildOperationHandler extends AbstractPacketHandler {
         return true;
     }
 
+    /**
+     * e02: an accepted guild invitation - the accept packet's body (0x06) made callable, so an owned alt answering its
+     * owner's invite joins through exactly the path a human's accept takes (invite answered, member row, guild info,
+     * tooltips, the bot guildmates' welcome). Returns false when there was no pending invite or the guild is full.
+     */
+    public static boolean joinAfterInvite(Character mc, int gid) {
+        if (mc == null || gid <= 0 || !Guild.answerInvitation(mc.getId(), mc.getName(), gid, true)) {
+            return false;
+        }
+
+        mc.getMGC().setGuildId(gid); // joins the guild
+        mc.getMGC().setGuildRank(5); // start at lowest rank
+        mc.getMGC().setAllianceRank(5);
+
+        if (Server.getInstance().addGuildMember(mc.getMGC(), mc) == 0) {
+            mc.dropMessage(1, "The guild you are trying to join is already full.");
+            mc.getMGC().setGuildId(0);
+            return false;
+        }
+
+        mc.sendPacket(GuildPackets.showGuildInfo(mc));
+
+        int allianceId = mc.getGuild().getAllianceId();
+        if (allianceId > 0) {
+            Server.getInstance().getAlliance(allianceId).updateAlliancePackets(mc);
+        }
+
+        mc.saveGuildStatus(); // update database
+        mc.getMap().broadcastPacket(mc, GuildPackets.guildNameChanged(mc.getId(), mc.getGuild().getName())); // thanks Vcoc for pointing out an issue with updating guild tooltip to players in the map
+        mc.getMap().broadcastPacket(mc, GuildPackets.guildMarkChanged(mc.getId(), mc.getGuild()));
+        soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.onPlayerJoined(mc); // 1.5.0: a bot guildmate says welcome
+        return true;
+    }
+
     @Override
     public void handlePacket(InPacket p, Client c) {
         Character mc = c.getPlayer();
@@ -167,32 +201,9 @@ public final class GuildOperationHandler extends AbstractPacketHandler {
                     return;
                 }
 
-                if (!Guild.answerInvitation(cid, mc.getName(), gid, true)) {
+                if (!joinAfterInvite(mc, gid)) {
                     return;
                 }
-
-                mc.getMGC().setGuildId(gid); // joins the guild
-                mc.getMGC().setGuildRank(5); // start at lowest rank
-                mc.getMGC().setAllianceRank(5);
-
-                int s = Server.getInstance().addGuildMember(mc.getMGC(), mc);
-                if (s == 0) {
-                    mc.dropMessage(1, "The guild you are trying to join is already full.");
-                    mc.getMGC().setGuildId(0);
-                    return;
-                }
-
-                c.sendPacket(GuildPackets.showGuildInfo(mc));
-
-                allianceId = mc.getGuild().getAllianceId();
-                if (allianceId > 0) {
-                    Server.getInstance().getAlliance(allianceId).updateAlliancePackets(mc);
-                }
-
-                mc.saveGuildStatus(); // update database
-                mc.getMap().broadcastPacket(mc, GuildPackets.guildNameChanged(mc.getId(), mc.getGuild().getName())); // thanks Vcoc for pointing out an issue with updating guild tooltip to players in the map
-                mc.getMap().broadcastPacket(mc, GuildPackets.guildMarkChanged(mc.getId(), mc.getGuild()));
-                soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.onPlayerJoined(mc); // 1.5.0: a bot guildmate says welcome
                 break;
             case 0x07:
                 cid = p.readInt();

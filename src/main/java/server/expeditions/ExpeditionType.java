@@ -67,6 +67,8 @@ public enum ExpeditionType {
 
         if (type == ZAKUM)
             return BossLogEntry.ZAKUM;
+        if (type == CHAOS_ZAKUM)
+            return BossLogEntry.CHAOS_ZAKUM;
         if (type == HORNTAIL)
             return BossLogEntry.HORNTAIL;
         if (type == PINKBEAN)

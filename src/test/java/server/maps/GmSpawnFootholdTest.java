@@ -3,6 +3,7 @@ package server.maps;
 import client.Character;
 import client.Client;
 import client.command.commands.gm3.SpawnCommand;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 import server.life.Monster;
 import server.life.MonsterStats;
@@ -21,6 +22,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import testutil.PropsRestored;
 
 /**
  * 1.6.1 (Will, mob 8880302, "!spawn does nothing"): a mob placed with spawnMonsterOnGroundBelow (the !spawn path and
@@ -28,6 +30,7 @@ import static org.mockito.Mockito.when;
  * under the corpse. The spawn now carries the foothold it landed on. And !spawn no longer returns without a word
  * when the mob will not load.
  */
+@ExtendWith(PropsRestored.class)
 class GmSpawnFootholdTest {
 
     @TempDir

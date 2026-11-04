@@ -22,7 +22,6 @@
 package server.quest.actions;
 
 import client.Character;
-import client.Client;
 import client.inventory.InventoryType;
 import client.inventory.Item;
 import client.inventory.manipulator.InventoryManipulator;
@@ -149,7 +148,7 @@ public class ItemAction extends AbstractQuestAction {
                 }
             }
 
-            InventoryManipulator.removeById(chr.getClient(), type, itemid, quantity, true, false);
+            InventoryManipulator.removeById(chr, type, itemid, quantity, true, false);
             chr.sendPacket(PacketCreator.getShowItemGain(itemid, (short) count, true));
         }
 
@@ -214,7 +213,6 @@ public class ItemAction extends AbstractQuestAction {
 
         if (!randomList.isEmpty()) {
             int result;
-            Client c = chr.getClient();
 
             List<Integer> rndUsed = new ArrayList(5);
             for (byte i = 0; i < 5; i++) {
@@ -224,7 +222,7 @@ public class ItemAction extends AbstractQuestAction {
             for (Pair<Item, InventoryType> it : randomList) {
                 int idx = it.getRight().getType() - 1;
 
-                result = InventoryManipulator.checkSpaceProgressively(c, it.getLeft().getItemId(), it.getLeft().getQuantity(), "", rndUsed.get(idx), false);
+                result = InventoryManipulator.checkSpaceProgressively(chr, it.getLeft().getItemId(), it.getLeft().getQuantity(), "", rndUsed.get(idx), false);
                 if (result % 2 == 0) {
                     announceInventoryLimit(Collections.singletonList(it.getLeft().getItemId()), chr);
                     return false;
@@ -319,7 +317,7 @@ public class ItemAction extends AbstractQuestAction {
                         return false;
                     }
 
-                    InventoryManipulator.addById(chr.getClient(), item.getId(), (short) missingQty);
+                    InventoryManipulator.addById(chr, item.getId(), (short) missingQty);
                     log.debug("Chr {} obtained {}x {} from questId {}", chr, itemid, missingQty, questID);
                 }
                 return true;

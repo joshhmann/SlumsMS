@@ -144,7 +144,11 @@ public final class MarketVolatility {
             return;
         }
         collectBotPayouts(ex);
-        fair.maybeUpdate(now, MarketFlows.get(), FairValue.game(events));
+        java.util.List<String> ids = new java.util.ArrayList<>();
+        for (Ticker k : ex.tickers()) {
+            ids.add(k.id());
+        }
+        fair.maybeUpdate(now, MarketFlows.get(), FairValue.game(events), ids);
         if (config.traders()) {
             traders.tick(ex, now, gameRoster(now), config, events, rumours);
         }
@@ -178,7 +182,7 @@ public final class MarketVolatility {
 
     /** b261: the scroll chances of every mob and map, kept across ticks (see {@link ScrollDropChances}). */
     static final ScrollDropChances SCROLL_CHANCES = new ScrollDropChances(MarketTraders.SCROLL_IDS.stream()
-            .mapToInt(id -> soloMapling.Economy.exchange.Ledger.Asset.valueOf(id).itemId()).toArray());
+            .mapToInt(id -> soloMapling.Economy.exchange.AssetRegistry.of(id).itemId()).toArray());
 
     /**
      * Called from a bot's off-screen loot accrual: a trader bot (traders on) also finds Maple Leaves at the leaf's
@@ -274,7 +278,7 @@ public final class MarketVolatility {
             // the bot's kills split evenly over the mobs on its map, like its averaged off-screen loot
             double[] perKill = scrollChancePerKill(mobs, bot.getMapId(), dropRate, bossRate, SCROLL_CHANCES);
             for (int slot = 0; slot < MarketTraders.SCROLL_IDS.size(); slot++) {
-                int itemId = soloMapling.Economy.exchange.Ledger.Asset.valueOf(
+                int itemId = soloMapling.Economy.exchange.AssetRegistry.of(
                         MarketTraders.SCROLL_IDS.get(slot)).itemId();
                 int n = MarketTraders.offscreenScroll(bot.getId(), slot, elapsedMs, KILLS_PER_MIN, perKill[slot],
                         findRate);

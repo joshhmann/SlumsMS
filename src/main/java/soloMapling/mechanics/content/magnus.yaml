@@ -1,0 +1,51 @@
+# Ticket 130 boss lane, branch 164-bossrows (round 3): Magnus (1.6.4).
+#
+# Read only when the server runs with -Dslums.mechanics.boss=true (off by default). One room, and the script itself
+# brings the boss five seconds in.
+#
+# What OUR scripts say the room is:
+#  - the gate is the script's own: 1-6 players, levels 200-256, one lobby (MagnusBattle.js:4-5,16);
+#  - entry is the expedition NPC (scripts/npc/3000131.js:29,152 -> startInstance(expedition)): one human character has to
+#    start it. The expedition's own gate on the party is the member quest 31166 (ExpeditionBots.memberQuest, :217-228),
+#    which the row cannot and must not write - a bot without it is simply not added;
+#  - 401060100 holds nothing but NPC 3004006 (Map.wz/Map/Map4/401060100.img.xml: no mobs, no reactor). The fight is the
+#    script's spawnMob1 (MagnusBattle.js:120-125), five seconds after setup (:91-92);
+#  - 8880002 has no revive (Mob.wz/8880002.img.xml): one form, and it is also the clear target;
+#  - the clear is clearPQ -> setEventCleared(MAGNUS) (MagnusBattle.js:206-209) when 8880002 dies (:211-220); "boss" is
+#    seeded "0" at :104 and never written again -> instance: true.
+#
+# 8880000 is never listed: the script spawns 8880002 only (:92), and 8880000 exists nowhere in this room.
+#
+# The wz facts are from /root/work/SlumsMS-170-evan/wz, which is not version-pinned to this branch (docs/PROVENANCE.md).
+id: magnus
+name: Magnus (expedition)
+kind: BOSS
+eventScript: MagnusBattle
+recruitMap: 401053002
+exitMap: 401053002
+minPlayers: 1
+maxPlayers: 6
+minLevel: 200
+maxLevel: 256
+timeLimitMinutes: 120
+sources:
+  - "scripts/event/MagnusBattle.js (ours, the truth): minPlayers 1 / maxPlayers 6 (:4), levels 200-256 (:5), entryMap 401060100 and exitMap 401053002 (:6-7), recruitMap 401053002 (:8), minMapId = maxMapId = 401060100 (:11-12), eventTime 120 (:14), maxLobbies 1 (:16), 'boss' seeded '0' (:104), clearPQ sets the instance's flag (:206-209), isMagnus = 8880002 (:211-214), monsterKilled -> eim.clearPQ() (:216-220)"
+  - "scripts/event/MagnusBattle.js:91-92,120-125 - the script's own spawnMob1 spawns 8880002 at (2592,-1355) five seconds after setup; nothing else in the room brings a mob"
+  - "Map.wz/Map/Map4/401060100.img.xml (dump /root/work/SlumsMS-170-evan/wz): the map's life is NPC 3004006 only. Mob.wz/8880002.img.xml has no info/revive"
+  - "scripts/npc/3000131.js:29,152 - the expedition NPC starts the event; ExpeditionBots.memberQuest(MAGNUS) = quest 31166, so a joining bot must have started it (the row cannot write quest state)"
+stages:
+  - stage: 1
+    map: 401060100
+    name: Magnus
+    solver: boss-phases
+    # the spawn is five seconds in (:91), inside the solver's own 30 s grace, so no spawnWaitSeconds is claimed
+    mobs:
+      - 8880002
+    objectives:
+      - id: boss
+        kind: DEFEAT
+        mob: 8880002
+        note: the only spawn, and the id isMagnus waits for
+    # MagnusBattle.js:206-209 writes no property; the instance's own flag is the clear.
+    clear:
+      instance: true

@@ -1,0 +1,65 @@
+# Ticket 130 boss lane, branch 164-bossrows: Bergamot (TD Battle 1, 1.6.4).
+#
+# Read only when the server runs with -Dslums.mechanics.boss=true (off by default). One map, three forms, and the clear is
+# the script's own clearPQ(): TD_Battle1.js writes no event property at all.
+#
+# What OUR scripts say the room is, and what our WZ dump says the room is:
+#  - gate: 1-6 players, levels 70-255, one lobby (TD_Battle1.js:26-28,41);
+#  - entry: scripts/portal/TD_Boss_enter.js:4-5 names TD_Battle1 for a portal standing in 240070202, and :20 calls
+#    em.startInstance(party, map, 1) - a party, not an expedition;
+#  - the fight starts as ONE monster and becomes three: the map instance's life is 7220003 (Map.wz/Map/Map2/
+#    240070203.img.xml, mobTime -1 at 570,392). Nothing in scripts/ or src/ spawns anything here - the chain is WZ
+#    info/revive: 7220003 revives as 7220004, which revives as 7220005. Monster.killBy reads getRevives(), schedules
+#    the child on the die1 animation, copies position, foothold and drops, and tells the instance (server/life/Monster
+#    .java:903-963), so no stage here has to spawn or find anything;
+#  - 7220005 is the script's tdBossId (TD_Battle1.js:37) and only its death clears the instance (:225-228);
+#  - timeout and playerExit both changeMap to 240070202 (:30), where this row ends a run.
+#
+# The three ids are listed in revive order and all in one stage: a stage boundary between them would be a boundary the
+# script does not have, and the solver must not look for 7220004 while 7220003 still stands.
+#
+# The wz facts are from /root/work/SlumsMS-170-evan/wz, which is not version-pinned to this branch (docs/PROVENANCE.md).
+id: bergamot
+name: Bergamot (TD Battle 1)
+kind: BOSS
+eventScript: TD_Battle1
+recruitMap: 240070202
+exitMap: 240070202
+minPlayers: 1
+maxPlayers: 6
+minLevel: 70
+maxLevel: 255
+timeLimitMinutes: 10
+sources:
+  - "scripts/event/TD_Battle1.js (ours, the truth): minPlayers 1 / maxPlayers 6 and levels 70-255 (:26-28), entryMap
+    240070203 and exitMap 240070202 (:29-30), minMapId = maxMapId = 240070203 (:34-35), tdBossId 7220005 (:37),
+    eventTime 10 (:39), maxLobbies 1 (:41); clearPQ sets the instance's flag and nothing else (:225-228)"
+  - "scripts/portal/TD_Boss_enter.js:4-5,20 - the portal names the event from its own map and calls
+    em.startInstance(party, map, 1)"
+  - "Map.wz/Map/Map2/240070203.img.xml (dump /root/work/SlumsMS-170-evan/wz): the map's life is 7220003, mobTime -1, at
+    (570,392)"
+  - "Mob.wz/7220003.img.xml info/revive/0 = 7220004, Mob.wz/7220004.img.xml info/revive/0 = 7220005,
+    Mob.wz/7220005.img.xml has no info/revive; all three carry boss=1. Same dump."
+  - "BotStory 81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364, agent-bosses/boss-rules.json neo_bergamot: targetPriority
+    [7220003,7220004,7220005] - the only upstream entry that records the chain order, and it agrees with the WZ revive
+    blocks above. Its component model, focus/keepOut bands, ledges and stagePortal are fork-specific and are not
+    imported"
+stages:
+  - stage: 1
+    map: 240070203
+    name: Bergamot
+    solver: boss-phases
+    # the first form is the instance's own life, so the room may stand empty for a moment while it arrives; 60 s is a
+    # policy number (respawn animations plus a map instance's build, with margin), not a WZ one.
+    spawnWaitSeconds: 60
+    mobs:
+      - 7220003
+      - 7220004
+      - 7220005
+    objectives:
+      - id: boss
+        kind: DEFEAT
+        mob: 7220005
+        note: the last form, and the script's tdBossId; its death is the clearPQ
+    clear:
+      instance: true

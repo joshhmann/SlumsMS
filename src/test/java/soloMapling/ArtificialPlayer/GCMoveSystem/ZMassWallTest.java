@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer.GCMoveSystem;
 
 import client.BotClient;
 import client.Character;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import testutil.PropsRestored;
 
 /*
  * NN-011, client wall collidability by zMass group (ported from nutnnut/Cosmic 43b9f06c8, their graph v70 part a,
@@ -32,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * (Foothold.isCollidableWall: a wall whose lower end chains into ground) blocks every ground step across it, so floor
  * bots heading right froze at x=-1316.
  */
+@ExtendWith(PropsRestored.class)
 class ZMassWallTest {
 
     private static final int DEITY_ROOM = 600020100;

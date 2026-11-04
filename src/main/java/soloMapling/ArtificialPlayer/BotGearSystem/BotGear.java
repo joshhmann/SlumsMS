@@ -176,6 +176,131 @@ public final class BotGear {
         }
     }
 
+    /* How putting one named equip on went (wear below). */
+    public enum Wear { ALREADY_WORN, WORN, NOT_CARRIED, REFUSED }
+
+    /* The outcome and, for anything but a success, the reason in words ("needs level 10, the bot is level 8"). */
+    public record WearResult(Wear outcome, String why) {
+        public boolean worn() {
+            return outcome == Wear.ALREADY_WORN || outcome == Wear.WORN;
+        }
+    }
+
+    /* Whether the bot has this item on its body (the equipped inventory, any slot): what a map's protect item asks. */
+    public static boolean wearing(Character bot, int itemId) {
+        return bot != null && bot.getInventory(InventoryType.EQUIPPED).findById(itemId) != null;
+    }
+
+    /*
+     * Mechanics runs (Guild Quest): a bot puts on one NAMED equip it carries - the review above dresses a bot by what
+     * improves its attack, never by id, and the Guild Quest earring 1032033 improves nothing (+10 magic defence): the
+     * maps from 990000300 on take 30000 HP a tick from whoever is not wearing it (Character.doHurtHp). The move is the
+     * review's own: the same wear rules (wearableNow: level, job, fame, stat needs, the rebirth gate), the same
+     * inventory move (apply: what the piece displaces goes to the bag slot it came from, the look goes out to the map,
+     * the totals are re-derived) - only the choice is the caller's. Returns how it went; never throws.
+     */
+    public static WearResult wear(Character bot, int itemId) {
+        if (bot == null || !BotHelpers.isBot(bot) || bot.getMap() == null || !EquipMetadataCache.isInitialized()) {
+            return new WearResult(Wear.REFUSED, "not a bot on a map with item data");
+        }
+        try {
+            return wear(bot, itemId, liveFacts(bot));
+        } catch (RuntimeException e) {
+            log.warn("Wearing {} on bot {} ({}) failed", itemId, bot.getId(), bot.getName(), e);
+            return new WearResult(Wear.REFUSED, "failed: " + e);
+        }
+    }
+
+    /* wear() with the item data handed in (tests). */
+    static WearResult wear(Character bot, int itemId, IntFunction<Known> facts) {
+        synchronized (bot) {
+            if (wearing(bot, itemId)) {
+                return new WearResult(Wear.ALREADY_WORN, "");
+            }
+            Equip carried = carriedEquip(bot, itemId);
+            if (carried == null) {
+                return new WearResult(Wear.NOT_CARRIED, "the bot does not carry " + itemId);
+            }
+            Known known = facts.apply(itemId);
+            if (known == null) {
+                return new WearResult(Wear.REFUSED, "the item data does not know " + itemId + " for this bot");
+            }
+            String need = whyNot(bot, known, itemId);
+            if (need != null) {
+                return new WearResult(Wear.REFUSED, need);
+            }
+            Inventory body = bot.getInventory(InventoryType.EQUIPPED);
+            Map<Short, Piece> worn = new LinkedHashMap<>();
+            for (short slot : BotGearPlanner.SLOTS) {
+                if (body.getItem(slot) instanceof Equip equip) {
+                    worn.put(slot, piece(equip, facts.apply(equip.getItemId())));
+                }
+            }
+            Piece on = piece(carried, known);
+            Map<Short, Piece> wear = new LinkedHashMap<>(worn);
+            wear.put(known.slot(), on);
+            if (apply(bot, worn, wear) && body.getItem(known.slot()) == carried) {
+                return new WearResult(Wear.WORN, "");
+            }
+            return new WearResult(Wear.REFUSED, "the move did not go through (a full bag, or the piece moved)");
+        }
+    }
+
+    /* Why this bot may not wear the item yet, in words, or null: the game's own level, job, fame and stat needs. */
+    public static String cannotWear(Character bot, int itemId) {
+        if (bot == null || !EquipMetadataCache.isInitialized()) {
+            return null;   // nothing to judge it by
+        }
+        try {
+            Known known = liveFacts(bot).apply(itemId);
+            return known == null ? "the item data does not know " + itemId + " for this bot"
+                    : whyNot(bot, known, itemId);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /* cannotWear with the item data handed in (tests). */
+    static String cannotWear(Character bot, int itemId, IntFunction<Known> facts) {
+        Known known = facts.apply(itemId);
+        return known == null ? "the item data does not know " + itemId + " for this bot" : whyNot(bot, known, itemId);
+    }
+
+    private static String whyNot(Character bot, Known k, int itemId) {
+        if (k.reqLevel() > bot.getLevel()) {
+            return itemId + " needs level " + k.reqLevel() + ", the bot is level " + bot.getLevel();
+        }
+        if (!BotGearPlanner.jobMayWear(bot.getJob().getJobNiche(), k.reqJob())) {
+            return itemId + " is not for the bot's job";
+        }
+        if (k.reqFame() > 0 && k.reqFame() > bot.getFame()) {
+            return itemId + " needs fame " + k.reqFame();
+        }
+        if (k.reqStr() > bot.getStr() || k.reqDex() > bot.getDex() || k.reqInt() > bot.getInt()
+                || k.reqLuk() > bot.getLuk()) {
+            return itemId + " needs more STR/DEX/INT/LUK than the bot's base";
+        }
+        if (rebirthLocked(bot, itemId)) {
+            return itemId + " is locked for the bot's rebirths";
+        }
+        return null;
+    }
+
+    private static Equip carriedEquip(Character bot, int itemId) {
+        Inventory carried = bot.getInventory(InventoryType.EQUIP);
+        carried.lockInventory();
+        try {
+            for (Item item : carried.list()) {
+                if (item instanceof Equip equip && item.getItemId() == itemId) {
+                    return equip;
+                }
+            }
+        } finally {
+            carried.unlockInventory();
+        }
+        return null;
+    }
+
     /* The review with its item data and its yardstick (given what the bot wears now) handed in - tests. */
     static boolean review(Character bot, IntFunction<Known> facts, Function<Map<Short, Piece>, Valuer> valuers) {
         synchronized (bot) {
@@ -279,12 +404,35 @@ public final class BotGear {
             }
             return BotGear.bestSet(chr, extras, liveFacts(chr), worn -> liveValuer(chr, worn));
         }
+
+        @Override
+        public double holdingValue(Character chr, Equip candidate) {
+            if (chr == null || candidate == null || !EquipMetadataCache.isInitialized()) {
+                return 0;
+            }
+            return BotGear.holdingValue(chr, candidate, liveFacts(chr), worn -> liveValuer(chr, worn));
+        }
     };
 
     /* GearScoring.upgradeValue with its item data and yardstick handed in (tests). */
     static double upgradeValue(Character chr, Equip candidate, IntFunction<Known> facts,
                                Function<Map<Short, Piece>, Valuer> valuers) {
-        Plan plan = planWith(chr, List.of(candidate), facts, valuers);
+        return gain(chr, candidate, chr.getLevel(), facts, valuers);
+    }
+
+    /* GearScoring.holdingValue with its item data and yardstick handed in (tests). */
+    static double holdingValue(Character chr, Equip candidate, IntFunction<Known> facts,
+                               Function<Map<Short, Piece>, Valuer> valuers) {
+        Known known = candidate == null ? null : facts.apply(candidate.getItemId());
+        // the piece's own required level: a bot too low to wear it still finds out what it would bring
+        int level = known == null ? chr.getLevel() : Math.max(chr.getLevel(), known.reqLevel());
+        return gain(chr, candidate, level, facts, valuers);
+    }
+
+    /* upgradeValue and holdingValue differ only in the level they plan at. */
+    private static double gain(Character chr, Equip candidate, int level, IntFunction<Known> facts,
+                               Function<Map<Short, Piece>, Valuer> valuers) {
+        Plan plan = planWith(chr, List.of(candidate), level, facts, valuers);
         if (plan == null) {
             return 0;
         }
@@ -299,7 +447,7 @@ public final class BotGear {
     /* GearScoring.upgradeFraction with its item data and yardstick handed in (tests). */
     static double upgradeFraction(Character chr, Equip candidate, IntFunction<Known> facts,
                                   Function<Map<Short, Piece>, Valuer> valuers) {
-        Plan plan = planWith(chr, List.of(candidate), facts, valuers);
+        Plan plan = planWith(chr, List.of(candidate), chr.getLevel(), facts, valuers);
         if (plan == null || plan.before() <= 0) {
             return 0;
         }
@@ -314,7 +462,7 @@ public final class BotGear {
     /* GearScoring.bestSet with its item data and yardstick handed in (tests). */
     static Map<Short, Equip> bestSet(Character chr, java.util.Collection<Equip> extras, IntFunction<Known> facts,
                                      Function<Map<Short, Piece>, Valuer> valuers) {
-        Plan plan = planWith(chr, extras, facts, valuers);
+        Plan plan = planWith(chr, extras, chr.getLevel(), facts, valuers);
         if (plan == null) {
             return Map.of();
         }
@@ -338,7 +486,7 @@ public final class BotGear {
      */
     static final long PLAN_CACHE_MS = 60_000;
     private static final int PLAN_CACHE_SIZE = 4_096;
-    private record PlanKey(int charId, long signature, String optimizer, List<Integer> extras) {
+    private record PlanKey(int charId, long signature, String optimizer, int level, List<Integer> extras) {
     }
     private record Cached(Plan plan, long at) {
     }
@@ -356,8 +504,8 @@ public final class BotGear {
     }
 
     // What the character's own planner would wear from its gear plus these extras; read only.
-    private static Plan planWith(Character chr, java.util.Collection<Equip> extras, IntFunction<Known> facts,
-                                 Function<Map<Short, Piece>, Valuer> valuers) {
+    private static Plan planWith(Character chr, java.util.Collection<Equip> extras, int level,
+                                 IntFunction<Known> facts, Function<Map<Short, Piece>, Valuer> valuers) {
         synchronized (chr) {
             // a candidate it already carries is in "owned" already: never planned twice, never a plan of its own
             Inventory bag = chr.getInventory(InventoryType.EQUIP);
@@ -370,19 +518,19 @@ public final class BotGear {
                 }
             }
             long now = System.currentTimeMillis();
-            PlanKey key = new PlanKey(chr.getId(), GearMemo.signature(chr), optimizer(), freshIds);
+            PlanKey key = new PlanKey(chr.getId(), GearMemo.signature(chr), optimizer(), level, freshIds);
             Cached hit = planCache.get(key);
             if (hit != null && now - hit.at() < PLAN_CACHE_MS) {
                 return hit.plan();
             }
-            Plan plan = planNow(chr, fresh, facts, valuers);
+            Plan plan = planNow(chr, fresh, level, facts, valuers);
             planCache.put(key, new Cached(plan, now));
             return plan;
         }
     }
 
-    private static Plan planNow(Character chr, java.util.Collection<Equip> extras, IntFunction<Known> facts,
-                                Function<Map<Short, Piece>, Valuer> valuers) {
+    private static Plan planNow(Character chr, java.util.Collection<Equip> extras, int level,
+                                IntFunction<Known> facts, Function<Map<Short, Piece>, Valuer> valuers) {
         {
             Inventory carried = chr.getInventory(InventoryType.EQUIP);
             Inventory body = chr.getInventory(InventoryType.EQUIPPED);
@@ -408,7 +556,7 @@ public final class BotGear {
                     worn.put(slot, piece(equip, facts.apply(equip.getItemId())));
                 }
             }
-            Wearer wearer = new Wearer(chr.getJob().getJobNiche(), chr.getLevel(), chr.getFame(), chr.getStr(),
+            Wearer wearer = new Wearer(chr.getJob().getJobNiche(), level, chr.getFame(), chr.getStr(),
                     chr.getDex(), chr.getInt(), chr.getLuk(), Math.max(carried.getNumFreeSlot(), extras.size()));
             Piece held = worn.get(BotGearPlanner.WEAPON);
             int heldId = held != null ? held.itemId() : 0;
@@ -660,10 +808,7 @@ public final class BotGear {
                 if (free < 0 || body.getItem(slot) != off) {
                     return changed;
                 }
-                body.removeSlot(slot);
-                bot.unequippedItem(off);
-                off.setPosition(free);
-                carried.addItemFromDB(off);
+                moveToBag(bot, carried, body, slot, off, free);
                 changed = true;
             }
             for (Map.Entry<Short, Piece> e : after.entrySet()) {
@@ -697,6 +842,46 @@ public final class BotGear {
             if (changed && bot.getMap() != null) {
                 bot.equipChanged();   // the new look to the map, and the stat totals re-derived
             }
+        }
+    }
+
+    /* One worn piece off the body into a free bag slot: the move apply() makes for a piece a plan takes off. */
+    private static void moveToBag(Character bot, Inventory carried, Inventory body, short slot, Equip off, short free) {
+        body.removeSlot(slot);
+        bot.unequippedItem(off);
+        off.setPosition(free);
+        carried.addItemFromDB(off);
+    }
+
+    /* How taking one named piece off went (takeOff below). */
+    public enum Off { TAKEN_OFF, NOT_WORN, NO_ROOM }
+
+    /*
+     * Mechanics runs (Guild Quest's last gate): a bot takes off the worn equip with this item id into its bag - the move
+     * apply() makes for a piece a plan takes off, with the choice made by the caller. The Ergoth gate takes one Protector
+     * Rock out of the party's hands ({@code Reactor.wz/9208009.img.xml}: item 1032033 x1 dropped in its box) and the item is
+     * one per character, so the member that gives it up has to have it in its BAG first (PlaceItem drops from the bag, not
+     * from the body). Never throws.
+     */
+    public static Off takeOff(Character bot, int itemId) {
+        if (bot == null) {
+            return Off.NOT_WORN;
+        }
+        synchronized (bot) {
+            Inventory body = bot.getInventory(InventoryType.EQUIPPED);
+            Inventory carried = bot.getInventory(InventoryType.EQUIP);
+            if (!(body.findById(itemId) instanceof Equip worn)) {
+                return Off.NOT_WORN;
+            }
+            short free = carried.getNextFreeSlot();
+            if (free < 0) {
+                return Off.NO_ROOM;
+            }
+            moveToBag(bot, carried, body, worn.getPosition(), worn, free);
+            if (bot.getMap() != null) {
+                bot.equipChanged();   // the look to the map, the totals re-derived
+            }
+            return Off.TAKEN_OFF;
         }
     }
 

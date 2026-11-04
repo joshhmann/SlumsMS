@@ -27,6 +27,22 @@ class ReplyCleanerTest {
                 ReplyCleaner.clean("xXSkyBladeXx: ya its from the halloween event\n\n(The bot smiles.)"));
     }
 
+    /**
+     * social#4: the voice check allowed two lines and {@code clean} then sent only the first, so half a reply vanished
+     * without a trace. Validation and cleaning now agree: a reply that is not one line is refused, so the bot falls
+     * back to a scripted answer instead of saying half of the model's.
+     */
+    @Test
+    void aTwoLineReplyIsRefusedInsteadOfCutToItsFirstLine() {
+        assertEquals("several lines", ReplyCleaner.voiceProblem("lol\nwhere u at?"),
+                "two lines are not one chat line");
+        assertEquals(Optional.empty(), ReplyCleaner.chat("lol\nwhere u at?"));
+        assertEquals("several lines", ReplyCleaner.voiceProblem(
+                "xXSkyBladeXx: ya its from the halloween event\n\n(The bot smiles.)"), "an action line is a line too");
+        assertEquals(Optional.of("lol where u at"), ReplyCleaner.chat("  lol where u at  \n\n"),
+                "one line with blank space around it is still one line");
+    }
+
     @Test
     void reasoningIsNeverAChatLine() {
         assertEquals(Optional.of("lol thanks"), ReplyCleaner.clean("<think>be casual</think>lol thanks"));

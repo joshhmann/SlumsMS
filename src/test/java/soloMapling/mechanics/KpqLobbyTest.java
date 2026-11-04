@@ -56,7 +56,7 @@ class KpqLobbyTest {
         client.Character other = org.mockito.Mockito.mock(client.Character.class);
         org.mockito.Mockito.when(other.getId()).thenReturn(2);
         assertFalse(org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> KpqLobby.start(KpqStageDataTest.kpq(),
-                List.of(leader, other), List.of(1, 2))));
+                List.of(leader, other), List.of(1, 2), RealRunPool.exempt(RealRunPool.Origin.STAGED))));
         org.mockito.Mockito.verify(other, org.mockito.Mockito.atLeastOnce()).getParty(); // disband looked at it
     }
 

@@ -1,7 +1,11 @@
 package soloMapling.ArtificialPlayer.BotDecoratorSystem;
 
 import client.Character;
+import client.inventory.Inventory;
+import client.inventory.InventoryType;
+import client.inventory.Item;
 import constants.inventory.EquipType;
+import constants.inventory.ItemConstants;
 import soloMapling.ArtificialPlayer.BotCustomization;
 
 import java.util.List;
@@ -11,6 +15,10 @@ import java.util.concurrent.ThreadLocalRandom;
 import static soloMapling.itemPool.ItemInformationProviderUtilities.getRandomEquipForWearing;
 
 public class BotDecorateEquips {
+
+    private static final short SLOT_TOP = -5;      // a coat or an overall
+    private static final short SLOT_PANTS = -6;
+
     /**
      * Full decoration pass. Equip selection is an in-memory EquipMetadataCache
      * lookup, so this is cheap enough to run inline at spawn time. Everything
@@ -44,18 +52,38 @@ public class BotDecorateEquips {
         rules.applyRules(fakechar);
     }
 
+    /**
+     * Fills the empty half of the outfit and leaves a dressed bot alone. prog#P1: decoration used to hand every bot
+     * a fresh coat and pants, which replaced (and dropped) whatever it already wore - an overall included.
+     */
     static void equipTopBottom(Character fakechar) {
-        Integer coatId = getCoatId(fakechar);
-        Integer pantsId = getPantsId(fakechar);
-        Integer longcoatId = getLongcoatId(fakechar);
+        Inventory equipped = fakechar.getInventory(InventoryType.EQUIPPED);
+        Item top = equipped.getItem(SLOT_TOP);        // a coat or an overall: both are body part 5
+        boolean pantsWorn = equipped.getItem(SLOT_PANTS) != null;
+        if (top != null) {
+            if (pantsWorn || ItemConstants.isOverall(top.getItemId())) {
+                return;   // dressed: an overall covers the pants, a coat over pants is a full bottom half
+            }
+            Integer pantsId = getPantsId(fakechar);   // a coat on, only the pants slot is empty
+            if (pantsId != null) {
+                BotCustomization.EquipBot(fakechar, pantsId);
+            }
+            return;
+        }
 
-        if (coatId != null && pantsId != null) {
+        // Nothing on the top: a coat and pants, else an overall, else whatever the empty slots can take.
+        Integer coatId = getCoatId(fakechar);
+        Integer pantsId = pantsWorn ? null : getPantsId(fakechar);
+        if (coatId != null) {
             BotCustomization.EquipBot(fakechar, coatId);
-            BotCustomization.EquipBot(fakechar, pantsId);
-        } else if (longcoatId != null) {
+            if (pantsId != null) {
+                BotCustomization.EquipBot(fakechar, pantsId);
+            }
+            return;
+        }
+        Integer longcoatId = getLongcoatId(fakechar);
+        if (longcoatId != null) {
             BotCustomization.EquipBot(fakechar, longcoatId);
-        } else if (coatId != null) {
-            BotCustomization.EquipBot(fakechar, coatId);
         } else if (pantsId != null) {
             BotCustomization.EquipBot(fakechar, pantsId);
         } else {

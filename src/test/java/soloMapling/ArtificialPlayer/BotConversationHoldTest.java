@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer;
 
 import client.BotClient;
 import client.Character;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,12 +27,15 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import testutil.PropsRestored;
 
 /**
  * Owner report 2026-10-24: a bot you are talking to walks away mid-conversation. The chat session already existed;
  * nothing held the bot's movement. These tests pin the hold (45 s, refreshed by every exchange) and the exceptions
  * that still let a bot go. Package-local so it can use the same fakes as {@link BotConversationFlowTest}.
  */
+@org.junit.jupiter.api.extension.ExtendWith(soloMapling.ArtificialPlayer.BotSocialSystem.SocialFlagsOff.class)
+@ExtendWith(PropsRestored.class)
 class BotConversationHoldTest {
 
     private final List<String> said = new CopyOnWriteArrayList<>();

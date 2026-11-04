@@ -1,6 +1,7 @@
 package soloMapling.inspect;
 
 import com.sun.net.httpserver.HttpServer;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import soloMapling.qa.QaRegistryTestAccess;
@@ -25,9 +26,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import testutil.PropsRestored;
 
 /** Ticket 157: the bot inspect endpoint is loopback-only, secret-gated, GET-only, cached;
  * 1.6.2 ships it on for live ({@code -Dslums.inspect=true} in docs/release/1.6.2.conf). */
+@ExtendWith(PropsRestored.class)
 class BotInspectApiTest {
 
     private static final String SECRET = "0123456789abcdef-test-only";

@@ -78,6 +78,7 @@ public final class QaScenarios {
         all.addAll(CosmeticScenarios.all()); // 1.5.1 salon data/name lookup
         all.addAll(OwnedAltScenarios.all()); // ticket 13 lifecycle foundation
         all.addAll(CouponScenarios.all());   // 1.5.1 coupon hours readable: co-1
+        all.addAll(GearProgressionScenarios.all()); // 1.6.4 Nimble core exchange: ng-8
         all.addAll(GodlyDropScenarios.all()); // 1.5.2 godly drops: gl-1
         all.addAll(GuildScenarios.all());     // 1.5.0 bot guilds: gu-1 .. gu-8
         all.addAll(CombatScenarios.all());    // 1.5.0 rc3: bots fight like people (cb-1 .. cb-4), spread out (sp-1)
@@ -113,8 +114,9 @@ public final class QaScenarios {
         all.addAll(BotWatchScenarios.all()); // 1.6.0 bot watch: bots do what they decided (bw-1)
         all.addAll(SocialTraceScenarios.all()); // 1.6.0 social trace: a short trace records a bot thread (st-1)
         all.addAll(ExpeditionScenarios.all()); // 1.6.0: party bots join your boss expedition (ex-1)
+        all.addAll(BossRunScenarios.all()); // 1.6.4 ex-2: a GM and party bots fight Zakum in the real expedition (name an alt to bring one)
         all.addAll(NxScenarios.all()); // 1.6.0: buy a 10k NX code from an NX merchant bot and redeem it (nx-1)
-        all.addAll(MechanicsScenarios.all()); // 1.7.0 ticket 130: bots clear Kerning PQ stage 1 on their own (mx-1)
+        all.addAll(MechanicsScenarios.all()); // 1.6.4 ticket 130: bots clear Kerning PQ stage 1 on their own (mx-1)
         all.addAll(HealColumnScenarios.all()); // 1.6.2 b140: a staged Bishop follower heals the GM (hc-1)
         return List.copyOf(all);
     }

@@ -253,6 +253,31 @@ recruiter's member quest, and has a boss-log entry left; never past the maximum.
 <type>: owner|map|level|quest|quota|busy|full`. In game: party with your bots, talk to Adobis, make the expedition,
 and the yellow lines say `[Expedition] <bot> joined with you.`; inside, the followers fight next to you.
 
+## ex-2: a GM and party bots fight Zakum in the real expedition (1.6.4)
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `ex-2 [your alt's name]` | Warps you (level 50+, no party or leading one) to Adobis's map 211042400, stages 4 follower bots, summons your own alt (make one with `!qa do alts`) into your party when you name one, then makes the channel's Zakum expedition and starts `ZakumBattle`'s instance the way the recruiter does - which registers and warps everyone standing there to 280030000. Once two of you are in the room it clicks the Eye of Fire (reactor 2111001) with the same call `StepExecutor` uses. Samples once a second for 90 s and up to 150 s, then stops. Expedition, instance, alt and bots are undone at `!qa stop`. Runs 4 minutes | `EX2 START members=<n> bots=<n> alt=<name> mechanics=<b> slums.mechanics.boss=<v> ...`, per member per second `EX2 SEEN t=<s> <name> <kind> map=<id> held=<yes/no> run=<yes/no> target=<oid>/<mob> <mob name> reach=<yes/no> swings=<n> dmg=<n> doing=<run line>`, every 10 s `EX2 PARTS t=<s> <id:hp/maxHp ...>` and `EX2 RUN t=<s> stage=<n> cleared=<b> ended=<reason\|-> events=<k> \| <lines>`, `EX2 ALTAR t=<s> hit reactor 2111001 as <you>, <n> mob(s) on the map now`, then `EX2 PASS cleared ...`, `EX2 FAIL <reason>`, `EX2 END still fighting ...` or `EX2 BASELINE boss=off ...` |
+
+Run it twice from the same build: once with `-Dslums.mechanics.boss=true -Dslums.bossfight.damagefloor=true
+-Dslums.bossfight.deathcount=true` and once without, and compare the `EX2 SEEN swings/dmg` totals and the verdict. The
+`EX2 START` line records the switches, so the two logs label themselves. On a build that does not know a switch the
+value reads `unset`; `EX2 BASELINE` means `slums.mechanics.boss` was off, which is a comparable run, not a verdict.
+
+The alt is optional: with no name the run stages you and the follower bots only, which is exactly what auto-QA can
+make (it cannot create a named alt). That is how `t-ex-2` proves the room on every build: it runs `ex-2` with no
+argument, waits for the `EX2 CHECK` line, and asserts the things a regression would break - `members=<reached>/<staged>`
+equal and at least 2, a boss mob id targeted, `reach=yes` (a swing from where the bot stood could reach it),
+`swings>0`, `dmg>0`, `altar=yes`, and `lacks("Abandon")` / `lacks("could not be put in map")` over the whole log. The
+`EX2 CHECK` line is written in both switch settings, so a run with the lane off still reads honestly (`boss=no`,
+`swings=0`, then `EX2 BASELINE`); `t-ex-2` SKIPs in that setting rather than passing on a baseline, which is why
+`tools/ops/autoqa-proof` prints `needs -Dslums.mechanics.boss=true on the server for t-ex-2`. A release run therefore
+has to carry that switch, as it already carries `-Dslums.mechanics=true` for t-mx-1 to t-mx-6.
+
+Owner 2026-11-02 (ticket 130 follow-up): `ex-1` stops at "the expedition exists". `ex-2` is the one that proves a fight
+happens at all, and its log is what the boss lane is judged on from the outside - target, reach, damage, and the run's
+own `Abandon`/`gave up` lines.
+
 ## nx-1: buy a 10k NX code for 50m (1.6.0)
 
 | Test | What it stages | What to look for |
@@ -626,6 +651,36 @@ them (and undoes any LOD pin) itself. None of them is on the release allow-list.
   the bot to have a movement tick chain, which a bot the check has just spawned and placed may never get (TEST 11-01:
   the shared ring was empty and the hour's 20 copies had gone to other bots' stuck reports). A tool that is off
   SKIPs the check naming its flag.
+
+### Social checks (1.6.4, ticket 271 stage 7)
+
+Probes in `Probes164Social`, no `!qa` scenario; each samples counters the server has already accumulated and moves
+nothing, so they run beside a live population rather than staging one. They are lane-only (they need a populated
+roster), and none is on the release allow-list. Every one SKIPs with its reason instead of FAILing when its flag is
+off or there is too little history to judge. Runbook: `docs/qa/social-test-runbook.md`.
+
+- **t-ms-1 (mode switching):** after at least 8 roster bots have been through a mode decision and the brain has made
+  240 of them (8 bots x 30 minutes, one decision a bot a minute), `ModeSwitch.census()` must hold at least one bot in
+  each of training, social and town; `ModeSwitch.stats()` must show a switch out of training *and* a switch back into
+  it; there must be at least 3 switches; `refused swap refused` must be at most 5% of them; and
+  `ModeSwitch.switchesLastHour(now)` (a read-only accessor added for this) must keep every bot at or under the
+  policy's 3 switches an hour. SKIPs when `-Dslums.modeswitch=false` or the daily-life brain is not reaching every
+  bot (`LifeRuntime.reachesAllBots`).
+- **t-sm-1 (the mind):** a sample of online roster bots whose life memory is in RAM (5 needed). Every value must be
+  finite and the mood in `[-1, 1]`; at least 2 of the 5 must have moved off their seed values - a top emotion above
+  its baseline, or a need outside the seed band 0.19..0.51 - which is how "an event landed on a mind" is visible
+  without reading the trace. SKIPs when `-Dslums.socialacts=false` (nothing would land) or the social layer has made
+  no decision yet. Persistence across a restart is the runbook's job, not this check's.
+- **t-sa-1 (social acts):** at least 3 kinds of act must have landed (`KIND.ok`) between bots with no real player
+  involved, errors must stay at or under 5% of the acts that landed, `SocialBudget` must refuse at most half of the
+  attempts, the turn limit must bite (at least one `denied turn-limit` in 200+ allowed acts) but not dominate, and no
+  single kind may be refused more than it lands with 10+ attempts. SKIPs when `-Dslums.socialacts=false` or under 20
+  attempts have been made.
+- **t-pi-1 (the Henesys pilot):** registered. The probe `socialPilot` reads `SocialPilot.stats()` and
+  `SocialPilot.enabled()` (through a seam a test can swap) and its verdicts are unit-tested. It SKIPs when
+  `-Dslums.socialpilot=false`, when no pilot bot is online yet (`online` is 0), or when the class is absent; it FAILs
+  on a negative counter or on a pilot with bots online whose counters are all still 0. Id is `t-pi-1` because `t-sp-1`
+  is already the 1.6.2 "bots spread out" check.
 
 ### bt-1: bots talk to bots (1.6.1, ticket 114)
 
@@ -1181,7 +1236,8 @@ Tests: `GroundingAsSentTest` (synthetic grounding, sent positions), `ChatQuality
 
 ### Proving one fix between merge times (ticket 164 b223)
 
-Auto-QA has 186 checks; a fix touches a handful of files. `tools/ops/autoqa-proof` turns the second into the first:
+Auto-QA has 190 checks (the count is read from `AutoQaCatalog.java`, never written into the tool); a fix touches a
+handful of files. `tools/ops/autoqa-proof` turns the second into the first:
 it reads the coverage map and prints, for the files a branch changed, the check ids that prove them, ending in a line
 you can paste.
 
@@ -1203,7 +1259,7 @@ auto-QA proof for 8c42275d9^..591127f79: 10 files
   src/test/java/soloMapling/autoqa/Probes164Test.java                                  unit test only (the suite covers it)
   ...
 
-checks: 9 of 186
+checks: 9 of 190
   t-bc-1
   t-bt-2
   t-gr-1
@@ -1222,13 +1278,20 @@ anything itself: it touches no server, and `tools/ops/autoqa-run` is still the o
 (`mapletest`, 192.168.0.111; `SLUMS_TEST_HOST` overrides).
 
 What it says, per file: the checks it reaches, `docs` (a markdown file or `docs/`), `unit test only (the suite covers
-it)`, `every check (runner/platform file)` for the auto-QA runner itself, or `no check covers this file`. Three
+it)`, `every check (engine file: all of them run on it)` for a file the auto-QA engine itself is built from, or `no check covers this file`. Three
 verdicts come in whole-change form:
 
 - `docs only, no proof run needed` — nothing to queue.
 - `tests only, no auto-QA run needed (the unit suite is the proof)` — the same.
 - `no check covers this change: run the unit suite, then decide by hand`, exit code 3 — a tool, a data file or a
   script no check proves. Look at the check list for the nearest neighbour, or add a check (above) and a map row.
+
+When an engine file changes, the whole-change answer says so instead of replacing the branch: `checks: every check
+(190) - 3 changed files change the engine they all run on:`, then those files, then the 190 ids grouped as ranges
+(`t-mx-1..t-mx-6`) so a reader can still run the subset they care about, then `tools/ops/autoqa-run all`. Before that
+fix the tool answered `every check (186)` from a literal, which was both a stale number and the one answer that told
+a reader nothing about the branch. The count and the map's ids are cross-checked on every run: a map naming a check
+the catalogue does not declare, or a catalogue declaring one twice, is an error and no number is printed.
 
 Two more lines matter: `needs -Dslums.mechanics=true on the server for t-mx-1, ...` (the KPQ checks refuse and SKIP
 without the flag) and `manual-only, needs a person and a real client` for the ids in
@@ -1246,7 +1309,9 @@ matches at least one file in the worktree, the `-` rows are exactly the release 
 and `t-mx-2`, no path key claims `tools/release/*` or a docs page, and the printed id list still parses as a
 selector for `AutoQaService.select` / `tools/ops/autoqa-run`. So adding a check without a map row fails the build.
 `tools/ops/test_autoqa_proof.py` covers the tool itself (globs, the three verdicts, range mode on a throw-away repo,
-and that the printed line queues the same ids in `AUTOQA_LOCAL_DIR` mode):
+that the printed line queues the same ids in `AUTOQA_LOCAL_DIR` mode, that the printed total equals the catalogue's
+declaration count and the digits of that count appear nowhere in the script, and that a map naming an unknown check
+fails loudly):
 
 ```
 python3 tools/ops/test_autoqa_proof.py
@@ -1256,3 +1321,14 @@ Write rows from evidence, not guesses: the `!qa` scenario and the probe a check 
 really proves (a curated feature package such as `src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/**`),
 and a transitive "everything this class references" closure is useless because it marks every bot class as covered
 by every check.
+
+## 1.6.4 equipment progression: ng-8
+
+`!qa run ng-8` opens a hands-on checklist for Nimble's class weapon core exchange. It logs the state of
+`slums.forge.coreexchange` (default OFF), grants nothing and makes no automatic pass assertion. Bring a core,
+exercise confirmation/cancellation, stale input and full inventory, then verify unchanged total cores/mesos.
+Check the disabled menu too. Auto-QA row `t-ng-8` is HALF: it stages one core on a synthetic player, runs the real exchange adapter in both
+  directions, verifies unchanged core total/mesos and restores the inventory. It does not automate the visible
+  NPC confirmation. The required `slums.forge.coreexchange=true` switch is off by default; no new release skip
+  allowance is added. Its registration is not evidence it has run on TEST.
+See [the full gear candidate checklist](../release/1.6.4-gear-progression.md) for normal drops, forging and combat.

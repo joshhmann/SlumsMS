@@ -38,7 +38,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.List;
 import java.util.Set;
 
@@ -104,8 +106,15 @@ public class Shop {
         }
         ItemInformationProvider ii = ItemInformationProvider.getInstance();
         if (item.getPrice() > 0) {
+            // 1.6.4 b289: a rechargeable is granted as one whole slotMax stack, so what it costs is the same
+            // WZ price/unitPrice expression that selling the stack pays out (getPrice, also used by sell and
+            // recharge). Charging the counter price once for the stack minted mesos on every buy/sell pair.
+            boolean rechargeable = ItemConstants.isRechargeable(itemId);
+            if (rechargeable) {
+                quantity = ii.getSlotMax(c.getPlayer(), itemId);
+            }
             // 1.5.0 rc3 review: exact long math; a total over the most mesos a character holds is refused
-            long total = ItemConstants.isRechargeable(itemId) ? item.getPrice() : ShopMath.total(item.getPrice(), quantity);
+            long total = rechargeable ? ii.getPrice(itemId, quantity) : ShopMath.total(item.getPrice(), quantity);
             if (total < 0 || quantity < 1) {
                 c.sendPacket(PacketCreator.shopTransaction((byte) 2));
                 return;
@@ -113,7 +122,7 @@ public class Shop {
             int amount = (int) total;
             if (c.getPlayer().getMeso() >= amount) {
                 if (InventoryManipulator.checkSpace(c, itemId, quantity, "")) {
-                    if (!ItemConstants.isRechargeable(itemId)) { //Pets can't be bought from shops
+                    if (!rechargeable) { //Pets can't be bought from shops
                         InventoryManipulator.addById(c, itemId, quantity, "", -1);
                         c.getPlayer().gainMeso(-amount, false);
                         soloMapling.Economy.stats.EconomyCounters.recordNpcBuy(amount);
@@ -121,11 +130,9 @@ public class Shop {
                             soloMapling.Economy.MesoSinks.onSinkPurchase(c.getPlayer(), itemId, quantity, amount);
                         }
                     } else {
-                        short slotMax = ii.getSlotMax(c.getPlayer(), item.getItemId());
-                        quantity = slotMax;
                         InventoryManipulator.addById(c, itemId, quantity, "", -1);
-                        c.getPlayer().gainMeso(-item.getPrice(), false);
-                        soloMapling.Economy.stats.EconomyCounters.recordNpcBuy(item.getPrice());
+                        c.getPlayer().gainMeso(-amount, false);
+                        soloMapling.Economy.stats.EconomyCounters.recordNpcBuy(amount);
                     }
                     c.sendPacket(PacketCreator.shopTransaction((byte) 0));
                     server.reports.PlayerTrail.event(c.getPlayer(), "shop", itemId, "npc " + npcId); // ticket 131: @bug trail
@@ -235,8 +242,7 @@ public class Shop {
             InventoryManipulator.removeFromSlot(c, type, (byte) slot, quantity, false);
             soloMapling.Economy.exchange.volatility.MarketFlows.consumed(item.getItemId(), quantity); // 1.6.1 fair value: a shop sink
 
-            ItemInformationProvider ii = ItemInformationProvider.getInstance();
-            int recvMesos = ii.getPrice(item.getItemId(), quantity);
+            int recvMesos = sellPayout(item.getItemId(), quantity);
             if (recvMesos > 0) {
                 c.getPlayer().gainMeso(recvMesos, false);
                 soloMapling.Economy.stats.EconomyCounters.recordNpcSell(recvMesos);
@@ -245,6 +251,20 @@ public class Shop {
         } else {
             c.sendPacket(PacketCreator.shopTransaction((byte) 0x5));
         }
+    }
+
+    /**
+     * What a sale of {@code quantity} of an item pays. Casino chips pay their face value
+     * ({@link soloMapling.Casino.CasinoChipConfig#sellValue}), not the stock chip WZ {@code info/price} (250/350/400/350
+     * for the four stamps), so the chip shop's exchange stays lossless; everything else pays the WZ price as before.
+     *
+     * <p>This is the one answer to that question: both the NPC shop counter ({@link #sell}) and the quick-sell paths
+     * ({@code Character.sellAllItemsFromPosition} / {@code sellAllPosLast}, i.e. quicksell.js and the donation box) go
+     * through it. The {@code @sell} GM command ({@code client.commands.SellitemsCommand}) still reads the WZ price.
+     */
+    public static int sellPayout(int itemId, int quantity) {
+        int face = soloMapling.Casino.CasinoChipConfig.sellValue(itemId, quantity);
+        return face >= 0 ? face : ItemInformationProvider.getInstance().getPrice(itemId, quantity);
     }
 
     public void recharge(Client c, short slot) {
@@ -258,7 +278,12 @@ public class Shop {
             return;
         }
         if (item.getQuantity() < slotMax) {
-            int price = (int) Math.ceil(ii.getUnitPrice(item.getItemId()) * (slotMax - item.getQuantity()));
+            // 1.6.4 b289: the same WZ price/unitPrice expression as buying and selling a stack, so a refill
+            // from empty costs exactly a fresh purchase and the refilled stack sells for what it cost.
+            int price = ii.getPrice(item.getItemId(), slotMax - item.getQuantity());
+            if (price < 0) {    // no WZ price data for this item: there is no price to charge
+                return;
+            }
             if (c.getPlayer().getMeso() >= price) {
                 item.setQuantity(slotMax);
                 c.getPlayer().forceUpdateItem(item);
@@ -330,6 +355,24 @@ public class Shop {
                         ret.addItem(new ShopItem((short) 1000, recharge, 0, 0));
                     }
                 }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return ret;
+    }
+
+    /**
+     * 1.6.4: every shop the database holds, shopid -> npcid, for the GM shop editor's pick list
+     * (scripts/npc/ShopEditor.js). One query for the pairs, not a Shop apiece: the editor only lists them.
+     */
+    public static Map<Integer, Integer> loadAllShopIds() {
+        Map<Integer, Integer> ret = new LinkedHashMap<>();
+        try (Connection con = DatabaseConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement("SELECT shopid, npcid FROM shops ORDER BY npcid, shopid");
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                ret.put(rs.getInt("shopid"), rs.getInt("npcid"));
             }
         } catch (SQLException e) {
             e.printStackTrace();

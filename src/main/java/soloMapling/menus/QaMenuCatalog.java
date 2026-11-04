@@ -73,7 +73,8 @@ public final class QaMenuCatalog {
         add("pq-2", v(), steps());
         add("dj-1", v("1", "5"), steps("check"));
         add("ex-1", v("1", "5"), steps()); // 1.6.0: party bots join your boss expedition
-        add("mx-1", v("perfect"), steps()); // 1.7.0 ticket 130: four bots clear Kerning PQ stage 1 on their own
+        add("ex-2", v(), steps()); // 1.6.4: the GM and party bots fight Zakum (name an alt to bring it along too)
+        add("mx-1", v("perfect"), steps()); // 1.6.4 ticket 130: four bots clear Kerning PQ stage 1 on their own
         add("mx-2", v("perfect"), steps()); // 1.6.1 KPQ automation: four bots play all of Kerning PQ on their own
         add("mx-3", v(), steps()); // 1.6.2: a stopped KPQ run leaves nobody inside
         add("mx-4", v(), steps()); // 1.6.2 b113: two channels run KPQ at once
@@ -190,6 +191,8 @@ public final class QaMenuCatalog {
         add("vb-8", v(), steps("chain", "craft")); // 1.6.2 ticket 112: Moren's Maker 1 chain and a monster crystal
         add("ti-1", v(), steps("ask", "back")); // 1.6.1 ticket 29: the Maple Island question
         add("fy-1", v(), steps("check")); // 1.6.1 ticket 53: Family, a bot junior and the entitlements
+        add("ng-8", v(), steps()); // 1.6.4 Nimble class-core exchange, hands-on
+        add("ng-10", v(), steps()); // 1.6.4 normal bridge guide, equips, routes and source combat
         add("rb-1", v(), steps("check")); // 1.6.1 ticket 30: a regular earns a rebirth
         add("rb-2", v(), steps("check")); // 1.6.1 ticket 30 promise audit: the key item from a real Von Leon kill
         add("ac-1", v(), steps("mano", "fish", "list")); // 1.6.1 ticket 93: achievements and medals

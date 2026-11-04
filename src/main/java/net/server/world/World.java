@@ -988,6 +988,11 @@ public class World {
                 if (operation == PartyOperation.DISBAND) {
                     chr.setParty(null);
                     chr.setMPC(null);
+                    // ticket 164: joining a party takes a player off the party search candidate list, and until now
+                    // only the leader leaving got added back (PartyOperationHandler). Everyone else whose party was
+                    // disbanded kept the "not available" state - getParty() == null but detached - until they
+                    // relogged, changed job or toggled the NPC flag.
+                    chr.updatePartySearchAvailability(true);
                 } else {
                     chr.setParty(party);
                     chr.setMPC(partychar);
@@ -2279,15 +2284,16 @@ public class World {
     }
 
     public void addUnclaimed(ExpeditionBossLog.BossLogEntry boss, int cid) {
-        unclaimedRewards.compute(cid, (k, chrUnclaimed) -> chrUnclaimed);
+        unclaimedRewards.computeIfAbsent(cid, k -> new HashMap<>())
+                .merge(boss, (short) 1, (Short current, Short one) -> (short) (current + one));
     }
 
     public void removeUnclaimed(ExpeditionBossLog.BossLogEntry boss, int cid) {
         Map<ExpeditionBossLog.BossLogEntry, Short> chrUnclaimed = unclaimedRewards.get(cid);
         if (chrUnclaimed != null) {
-            Short unclaimedAmount = chrUnclaimed.get(boss);
-            if (unclaimedAmount != null) {
-                chrUnclaimed.put(boss, unclaimedAmount);
+            chrUnclaimed.remove(boss);
+            if (chrUnclaimed.isEmpty()) {
+                unclaimedRewards.remove(cid);
             }
         }
     }

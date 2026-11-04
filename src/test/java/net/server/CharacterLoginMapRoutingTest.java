@@ -4,6 +4,7 @@ import client.Character;
 import client.Client;
 import net.server.channel.Channel;
 import net.server.world.World;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +34,7 @@ import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import testutil.PropsRestored;
 
 /**
  * s-maproute round 2: what {@code Character.loadCharFromDB} does with a character the database has saved inside a map
@@ -47,6 +49,7 @@ import static org.mockito.Mockito.when;
  * to close. On the base commit the login worked only because the factory substituted silently, which is what the
  * table's own direct-getMap callers must not do.
  */
+@ExtendWith(PropsRestored.class)
 class CharacterLoginMapRoutingTest {
 
     private static final int FOUNTAIN_SQUARE = 410000300;

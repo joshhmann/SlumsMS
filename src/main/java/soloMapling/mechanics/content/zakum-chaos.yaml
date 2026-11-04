@@ -1,0 +1,80 @@
+# Chaos Zakum (1.6.4, branch 164-bossrows, chaos round).
+#
+# Read only when the server runs with -Dslums.mechanics.boss=true AND -Dslums.chaos.zakum=true (both off by default):
+# this row names its own switch (`flag:`), so the chaos expedition arms nothing until a server turns chaos on, and the
+# normal altar is untouched either way.
+#
+# The fight is the normal altar's one instance id over: same Eye of Fire reactor (2111001, which branches on the map),
+# same eight-arms-shield-the-body rule, same clear property. What differs is the data: the chaos body chain
+# 8800100 -> 8800101 -> 8800102 and the arms 8800103-8800110.
+id: zakum-chaos
+name: Chaos Zakum (expedition)
+kind: BOSS
+eventScript: ChaosZakumBattle
+recruitMap: 211042400
+# the script sends everyone to 211042400 itself (ChaosZakumBattle.js, copied from ZakumBattle.js:159-162), so a run we
+# end early goes to the same place
+exitMap: 211042400
+# the script's own gate (ChaosZakumBattle.js:35-37). Bots join as party members, so the party still has to have six.
+minPlayers: 6
+maxPlayers: 30
+minLevel: 120
+maxLevel: 255
+timeLimitMinutes: 120
+# the row's own switch: chaos is opt-in per server, on top of the boss lane's
+flag: slums.chaos.zakum
+sources:
+  - "scripts/event/ChaosZakumBattle.js (ours, this round): entryMap and min/max map 280030001, minLevel 120 (:36-42),
+    eventTime 120, defeatedBoss seeded to 0 at setup and set to 1 when 8800102 dies (:200-215), clearPQ at :195-199,
+    setEventCleared(ExpeditionType.CHAOS_ZAKUM) at :200. The only changeMap calls are playerEntry and playerExit, so
+    there is no stage transition and no nextPortal."
+  - "scripts/reactor/2111001.js (ours, this round): :30-38 is the chaos branch - the same reactor id stands on both
+    altars, so the map decides: 280030001 spawns the fake body 8800100 and the eight arms 8800103-8800110, sets
+    summoned=true (:24-27, unchanged) and creates the map monitor for 280030001. The arms exist ONLY after that click,
+    so the solver waits for the summon before it treats a standing body as a target."
+  - "src/main/java/server/maps/MapleMap.java bossDamageBlocked / the un-fake in killMonster (this round:
+    MobId.shieldingArms / shieldedBodyOf): while an arm of the same family lives, damage aimed at the body is swallowed,
+    and the body 8800100 becomes real when the last chaos arm dies. That is all the map code does: it spawns no body."
+  - "Mob.wz (client data at /root/work/SlumsMS-152-maps/wz, NOT version-pinned to this branch):
+    Mob.wz/8800100.img.xml and 8800101.img.xml each carry info/revive[0] (8800100 -> 8800101, 8800101 -> 8800102);
+    8800102.img.xml has no revive, so it is the last phase. maxHP 900000000 / 1000000000 / 1500000000, and 8800102's exp
+    is 50000000. Consumed by Monster.killBy (src/main/java/server/life/Monster.java:899-973)."
+  - "src/main/java/constants/id/MobId.java (this round): the chaos body 8800100-8800102 and the arms
+    8800103-8800110, with the shield pairs wired to the normal ones."
+stages:
+  - stage: 1
+    map: 280030001
+    name: Chaos Zakum
+    solver: boss-phases
+    # the altar reactor's property (2111001.js:24-27): before the click only the fake body stands, so no body is
+    # offered until this is set.
+    summonProperty: summoned
+    # every part that can stand in the room, in the order the fight wants them: the arms, then the body's three forms.
+    # The body order is this list's order (BossPhasesSolver.order reads it), so the chain is spelled out here rather than
+    # in a hardcoded family.
+    mobs:
+      - 8800103
+      - 8800104
+      - 8800105
+      - 8800106
+      - 8800107
+      - 8800108
+      - 8800109
+      - 8800110
+      - 8800100
+      - 8800101
+      - 8800102
+    objectives:
+      - id: arms
+        kind: DEFEAT
+        mob: 8800103
+        note: the eight chaos arms 8800103-8800110; each shields the body and one arm's death wakes the next
+      - id: body
+        kind: DEFEAT
+        mob: 8800100
+        note: the chaos body takes no damage while a chaos arm is up, so it is only offered once the last arm fell
+    # the only thing that ends this room: the script's own victory (ChaosZakumBattle.js:200-215)
+    clear:
+      eventProperty: defeatedBoss
+      equals: 1
+    # no nextPortal: one map, no stage transition

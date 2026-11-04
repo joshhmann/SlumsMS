@@ -1,7 +1,8 @@
 # 112: How players could get the Maker skill (Dalair's merge gate)
 
 Status: 1.6.2 option (a) built on branch `162-maker` (server side; partial until the client lane ships the Skill img
-nodes and the WZ step runs on TEST). History: (c) shipped in 1.6.0 (merge level only).
+nodes and the WZ step runs on TEST). History: (c) shipped in 1.6.0 (merge level only). Since 164 the chain hides
+itself on any server whose Skill.wz has no Maker node, so the unfinished release step can no longer trap players.
 
 Owner, 2026-10-27: Dalair's equipment merge (NPC 9000040) needs level 160 (110 for Cygnus) **and Maker level 3**
 (`Character.meetsMergeGate`, owner decision 2026-10-26). Nobody can reach Maker 3 on this server, so the merge is
@@ -165,3 +166,32 @@ Status: **partial** (server done and unit-tested; not on TEST yet, no real-clien
 - **Release steps (1.6.2)**: run the WZ tool on TEST (then live, owner's go) before the restart with the new jar; the
   client build with the same nodes ships first (MMO order).
 
+
+## Reachability gate (branch `164-makergate`, 2026-11-01)
+
+The skill data is not in git (`git ls-files wz` is empty; the runtime reads a WZ directory, `WZFiles`), so "1.6.2 has
+Maker" is true of a *server that ran the tool*, not of the code. Walked the chain on the "tool not run" data
+(Quest.wz/scripts, and a Skill.wz with no Maker node) against the 1.6.2 code:
+
+- **6029** completes (act: 50,000 EXP, item 4161037) but its skill block is skipped — `SkillAction.run` does
+  `if (SkillFactory.getSkill(...) == null) continue;` — so Maker 1 is never learned.
+- **6030/6031/6032** each take 10,000 mesos in their scripts (`qm.gainMeso(-10000)`, the `endmeso 10000` requirement
+  only checks) and teach nothing: `AbstractPlayerInteraction.teachSkill` logs "skill {} is not in Skill.wz" and
+  returns. 30,000 mesos for three levels of nothing.
+- **6033** then asks for item 4260003 (Intermediate Monster Crystal 1), and **6036** for 4031980 (Gold Anvil). Both are
+  Maker crafts, and `MakerService` refuses every recipe while `getMakerSkillLevel` is 0 (`:282`, reqSkillLevel 1), so the
+  player is stuck at level 75/105 with a dead quest log. Nothing told them why: the only player-facing text is
+  `QuestActionHandler.refuseHidden`'s, which only fires for hidden quests.
+
+That is a silent trap, not a slow start. Fixed the smallest way that also fixes itself: the chain stays out of
+`HiddenQuests`' static list (so `ids()` is still the unconditional list) and `isHidden(questId, jobId)` hides
+6029-6036 while `SkillFactory.getSkill(MakerService.makerSkillId(jobId)) == null` — per job family, because each
+family learns only its own Maker id and 6029's act grants only that one. A player who clicks any step is told "This
+quest can't be finished on SlumsMS yet, so it can't be started." instead of paying mesos for nothing, `start`/
+`forceStart` are refused, and the gate lifts by itself after `add_maker_skill.py --apply` and a restart. A player who
+already has a step open keeps it (hidden only blocks starts), and can still finish or forfeit.
+Test: `net.server.channel.handlers.MakerChainSkillGateTest` (chain refused with the message on a Maker-less server, the
+same chain startable once the four skills exist, per-family, plus a control quest that stays startable).
+
+Still outstanding (unchanged, the release step): run `tools/data-align/add_maker_skill.py --apply` on TEST (live on the
+owner's go) before the restart with the new jar, and ship the matching client `Skill/*.img` nodes first (MMO order).

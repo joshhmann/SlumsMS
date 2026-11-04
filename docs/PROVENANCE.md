@@ -252,3 +252,280 @@ transit edges gated by the exit's quest (`timeQuest.js`, run in a test) and Temp
 sub-quests, 3507's end and 3514 run through their own quest scripts (`BotQuestScript`), where upstream calls
 `forceStart`/`forceComplete` and grants the potion itself; 3521 is not driven; every number is checked against
 Quest.wz, Map.wz and our scripts (`TempleRouteTest`).
+
+### Boss run and Zakum phases, 1.6.4 (branch `164-bossfight`, ticket 130 boss lane), BotStory `81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364`
+
+| From theirs | Our files |
+| --- | --- |
+| `server.agents.capabilities.expedition.boss.AgentBossRunSession` (the run's phase machine: registering, fighting, post-clear, ended) | the phase shape only, as `MechanicsRuns` + `Orchestrator` stages; no session class is ported |
+| `server.agents.capabilities.expedition.boss.BossTargetRules` (144 lines): the boss fight's phases `WAITING_FOR_SUMMON`, `ARMS`, `TRANSITION`, `BODY`, `DONE`, the arm/body/add roles, the melee floor-arms-first tiers, the adds threshold, "a fake part is never a target", "a boss part needs a human engaged on it", and the immunity and reach filters | `soloMapling/mechanics/BossTargetRules.java` |
+
+Ours: the rules are fed from our `StageView` (the live `EventInstanceManager` and map) and turned into one ordered
+candidate list per member by `BossPhasesSolver` (`solver: boss-phases`) instead of their `AgentBossDefinition` catalog;
+Zakum's body is ordered as the chain our server actually runs (their `BossTargetRules` sees one body at a time and has
+no chain, so the three phases `8800000 -> 8800001 -> 8800002` and the "any phase on the map is a target" rule are ours
+and not ported: the chain is WZ `revive` in `Mob.wz/8800000.img.xml` (0 = `8800001`, `8800001` -> `8800002`, `8800002`
+none) consumed by `Monster.killBy` (`Monster.java:899-973`, `:903` `getRevives()`, `:924-933` spawns the next phase);
+`MapleMap.makeMonsterReal` only un-fakes the body `8800000` when the last arm dies, `MapleMap.java:1785-1810`);
+the arm order and the "eight arms before the body" rule come from our own scripts and map code
+(`scripts/reactor/2111001.js`, `MapleMap.java:4939-4947`, `:1786-1810`), the clear from the script's own
+`defeatedBoss=1`; `reachPx` is 0 for every part because our `MobHitboxIndex` has no vertical box origin, so every arm
+lands in the floor tier; their Horntail catalog entry (`agent-bosses/boss-rules.json`) is **not** ported: phase B's
+Horntail row is ours, read from `scripts/event/HorntailBattle.js`, `scripts/reactor/2408003.js`, `2401000.js`,
+`scripts/portal/hontale_BR.js` and `MapleMap.java:4908-4954,4939-4947`, and it reuses the same `BossTargetRules` port
+(the three rooms, the door gating and the `defeatedHead` count have no counterpart in their draft).
+
+### Attack floor on a high-defence target, 1.6.4 (branch `164-bossfight`, ticket 130 boss lane), BotStory `81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364`
+
+| From theirs | Our files |
+| --- | --- |
+| `server.agents.capabilities.combat.AgentAttackPlanScoringPolicy` (73 lines): score a plan by expected damage, but track `minimumKillsFullHpTargets` from `CombatFormulaProvider.estimateMinimumDamage`, and let a guaranteed kill (every target's minimum at or above its full HP) outrank the average | `soloMapling/ArtificialPlayer/BotAttackSystem/BotCombatFormula.estimateMinimumDamage` and the floor overload of `BotSkillChoice.choose` |
+
+Ours: the floor is read from the same `Range` the average already comes from (`Range.min()`, after the target's
+defence, no crit - a crit only raises a line), so there is no second damage model; their full scoring policy
+(useful-vs-raw DPS, cooldown tie-break, kill guarantee) is **not** ported, only its idea that a plan's minimum decides
+when the average is blind. The choice applies it as one extra rule behind `-Dslums.bossfight.damagefloor` (off by
+default): a boss always prefers the higher floor, an ordinary mob only when the rule's own pick would do nothing.
+
+### Expedition death count, 1.6.4 (branch `164-bossfight`, ticket 130 boss lane), BotStory `81a3b1df`
+
+| From theirs | Our files |
+| --- | --- |
+| `server.expeditions.ExpeditionDeathCount`: one atomic budget per run, charged on a player death, armed only when the mod is on, bots and companions never spend it, the death that spends the last one ends the run | `soloMapling/mechanics/ExpeditionDeathCount.java` |
+
+Ours: the budget is armed from the `-Dslums.bossfight.deathcount` system property (off by default) with a cap of
+`-Dslums.bossfight.deathcount.cap` (default 10) and a per-boss override, instead of their `config.yaml`
+`mods.DEATH_COUNTS` map; "who is a player" is our `Character.isBot()`/`isOwnedAlt()` pair instead of their BotClient
+and `BotHelpers` tests; the run ends through the event script's own `scheduledTimeout` with a fallback that moves
+everyone out and disposes the instance, instead of their client's death-count panel, which needs the `DEATH_COUNT`
+opcode only their patched client has. Their `set(int)` GM override is not ported.
+
+### Boss row data for the TD battles, Maha and Castellan, 1.6.4 (branch `164-bossrows`, ticket 130 boss lane), BotStory `81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364`
+
+BotStory was read for one thing only: the recorded kill order of the revive chains, and the min-level/target entries that
+our own scripts already state. No component model, focus/keepOut band, ledge list or `stagePortal` is taken from it - the
+rows are `solver: boss-phases` stages over our own `StageView`, and their maps, gates, spawn sites and clear signals are
+read from our scripts and our WZ dump.
+
+| From theirs | Our files |
+| --- | --- |
+| `agent-bosses/boss-rules.json` `neo_bergamot.targetPriority` = `[7220003, 7220004, 7220005]` and `neo_nibelung.targetPriority` = `[8220013, 8220014, 8220015]`, the only upstream entries that record a chain's order | `content/bergamot.yaml` and `content/nibelung.yaml`'s `mobs:` lists, in that order; the order itself is confirmed independently from WZ `info/revive` (`Mob.wz/7220003.img.xml` -> `7220004` -> `7220005`, `Mob.wz/8220013.img.xml` -> `8220014` -> `8220015`) as consumed by `Monster.killBy` (`Monster.java:903-963`), so the yaml quotes the dump and only the ordering was cross-checked against them |
+| `neo_dunas` (`minLevel` 70, `targetPriority` `[8220010]`), `neo_aufheben` (`minLevel` 70, `[8220011]`), `neo_oberon` (`[8220012]`) | `content/dunas.yaml`, `content/aufheben.yaml`, `content/oberon.yaml`: the same numbers, but each is our script's own (`TD_Battle2/3/4.js:28`, `:37`), so nothing new is imported - the agreement is recorded because the dossier proposed the comparison |
+
+Nothing is taken from BotStory for `maha.yaml` or `castellan.yaml`: neither project carries a definition for them.
+
+Ours, and not portable from anywhere: every gate is the script's own (`TD_Battle*.js:26-28,39,41`;
+`CastellanBattle.js:29-30,39,41`; `MahaBattle.js` declares none at all and reads `minPlayers` at `:82`, `:96` and `:105`,
+which is why its row states `minPlayers: 1 / maxPlayers: 1`); the entry paths are `scripts/portal/TD_Boss_enter.js:4-5,20`
+(party), `scripts/quest/21401.js:23-24` (one character) and `scripts/npc/9111058.js:35,173` (expedition); every clear is
+the script's `clearPQ` with no property, hence `clear: { instance: true }`; the spawn sites are the map's own life or the
+script's `setup()` (`CastellanBattle.js:133-134`). The `spawnWaitSeconds: 60` on these rows is a policy number - how long
+a room may stand empty while its boss appears - and is not measured data from any source.
+
+The WZ facts (map life, revive chains, `Quest.wz/Check.img.xml`'s `21401` block) come from the dump at
+`/root/work/SlumsMS-170-evan/wz`, which is **not** version-pinned to this branch; each row's `sources:` names the file it
+relied on, and `REPORT-bossrows.md` lists them per id.
+
+### Boss row data for the reactor rooms and Pink Bean, 1.6.4 (branch `164-bossrows`, ticket 130 boss lane), BotStory `81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364`
+
+Same rule as the round above: BotStory was read for the kill order and the never-target list, nothing else. Every row's
+maps, gates, reactor ids, spawn sites and clear signal come from our own scripts and the WZ dump; where we disagree with
+them the row follows our script and the disagreement is written down.
+
+| From theirs | Our files |
+| --- | --- |
+| `balrog_normal.targetPriority` = `[8830002, 8830001, 8830000]` and `neverTarget` = `[8830004, 8830005, 8830006]` | `content/balrog.yaml`'s `mobs:` in that order, and the same three ids left out. Independently confirmed from our script: `BalrogBattle.js:145-153` spawns `8830002` and the fake `8830000`, `Mob.wz/8830006.img.xml` revives `8830001`, and `:140-143` kills the left claw `8830006` on a timer, so it must not be fought |
+| `scarga.targetPriority` = `[9420542, 9420543, 9420544, 9420547, 9420548, 9420549]`, the order of the two chains | `content/scarga.yaml`'s `mobs:`, in that order. Also confirmed from WZ `info/revive` (`Mob.wz/9420542.img.xml` -> `9420543`, `9420547.img.xml` -> `9420548`) and from `scripts/reactor/5511000.js`/`5511001.js` spawning the first form of each chain |
+| `showa.targetPriority` = `[9400112, 9400113, 9400300, 9400122]` - the chain, plus one of the room's seven trash mobs | `content/showa.yaml` takes the chain `[9400112, 9400113, 9400300]` and drops `9400122`: the trash is respawned every 15 s by the script (`ShowaBattle.js:112-116`), so listing one of seven would put a kill in the row's order that the row cannot promise |
+| `pinkbean.neverTarget` = `[8820000, 8820019, 8820020, 8820021, 8820022, 8820023]` | `content/pinkbean.yaml` lists none of them, and `RowRunSimulationTest.aBotPartyWalksPinkBeansWavesToTheDefeatedBossProperty` asserts no statue reaches a `Fight` step. Their `targetPriority` is **not** used: theirs is `[8820006, 8820002, 8820005, 8820004, 8820003, 8820001]`, which is their runtime's focus order; ours is the order `PinkBeanBattle.js:306-313` waves them in (`8820002` -> ... -> `8820006`, then `8820001`) |
+| `papulatus.targetPriority` = `[8500001, 8500002]` | **not used**: our reactor spawns `8500000` (`scripts/reactor/2201004.js:28`), so our row starts the chain at `8500000`. Their `adds` (`8500000`, `8500003`, `8500004`) do not exist in our room |
+| `latanica.targetPriority` = `[9420513]` | not used: `content/latanica.yaml` (round 3) lists `9420513` because our
+`scripts/reactor/5411000.js:24` spawns exactly that id. The value coincides; the source is our script |
+
+Nothing is taken from BotStory for `krexel.yaml` or `elemental.yaml`: neither project carries a definition for them
+(`cosmic_agents` and `nuttnut/Cosmic` carry no boss targeting at all, and BotStory's 26 keys do not include Krexel or
+Elemental Thanatos).
+
+Ours, and not portable from anywhere: the reactor ids and their order (`2201004`, `5411001`, `8001000`, `5511000` then
+`5511001`) are the scripts' `act()` bodies; the fact that each is clicked once per stage is our solver's rule, derived
+from those scripts being unguarded (`scripts/reactor/2201004.js:22-29` spawns on every `act()`); every clear is
+`clear: { instance: true }` because the scripts write `setEventCleared(...)` and no property our `StageView` can read
+(`PapulatusBattle.js:223-227`, `KrexelBattle.js:213-216`, `ShowaBattle.js:196-207`, `ScargaBattle.js:187-190`,
+`ElementalBattle.js:225-228`, `BalrogBattle.js:250-274`) - Pink Bean's `defeatedBoss == 1` (`:261`) is the one equality;
+the gates are `PapulatusBattle.js:28-29`, `KrexelBattle.js:28-29`, `ShowaBattle.js:29-30`, `BalrogBattle.js:27-28`,
+`ScargaBattle.js:29-30`, `ElementalBattle.js:27-28`, `PinkBeanBattle.js:27-28`; Showa's bonus map `801040101` is dropped
+rather than made a stage, because `clearPQ` spawns its mob inside the call that clears and the party never walks there;
+and `spawnWaitSeconds: 60` is again a policy number - how long an emptied room may stand while its boss appears - not
+measured data.
+
+The WZ facts (map life, revive chains) come from `/root/work/SlumsMS-170-evan/wz`, which is **not** version-pinned to
+this branch; each row's `sources:` names the file it relied on, and `REPORT-bossrows.md` lists them per id.
+
+### Boss row data for Latanica and the five quest instances, 1.6.4 (branch `164-bossrows`, ticket 130 boss lane): no outside source
+
+Nothing in round 3 comes from another bot project. None of these six has a definition in BotStory, cosmic_agents or the
+nuttnut fork, and none was needed: each row is the script read line by line.
+
+| From theirs | Our files |
+| --- | --- |
+| - (no definition of `latanica`, `magnus`, `nwill`, `nlucid`, `nverus` or `ndarknell` in any of the three) | - |
+
+Ours, and the reason the new primitive exists:
+
+- **The door item.** `scripts/portal/captinsg00.js:4` is the only place that asks for `4000381`, and
+  `LatanicaBattle.getEligibleParty` never asks again, so the row declares `entryItems: [ 4000381 ]` and the solver waits
+  on it rather than special-casing a portal script. The item is not consumed, so one member carrying it opens the door
+  for the party - which is what the portal does for the player who walks through it.
+- **The quest gate on the five.** `31166` (Magnus), `31162`/`31161`/`31164`/`31163` (Will, Lucid, Verus, Darknell) are
+  quest states checked by the expedition recruiters and by `ExpeditionBots.memberQuest`
+  (`:217-228`, `:283-284`), not by the instances. The rows state it as a precondition; no run writes quest state.
+- **The five 5 s spawns.** `MagnusBattle.js:91-92`/`:120-125`, `NWillBattle.js:116-117`/`:145-150`,
+  `NLucidBattle.js:115-116`/`:144-149`, `NVerusBattle.js:116-117`/`:145-150`, `NDarknellBattle.js:116-117`/`:145-150`
+  are the only sources; the WZ dump holds none of their targets as map life, so there is nothing for the room to stand
+  up before the script's own spawn.
+
+Delli is deliberately absent: its win is the instance's own clock, and that room is owned by `164-opq` @ `ac08ce380`
+(`DelliHoldSolver`, `content/dellibattle.yaml`, `DelliBattleSolversTest`). No second spelling lives here.
+
+`GuardianNex` ships as six rows (`content/guardiannex1.yaml`-`guardiannex6.yaml`), and nothing was taken from anyone for
+them either: the six caves are `GuardianNex.js`'s `eventBossIds` paired with `Map.wz`'s map life
+(`Map/Map2/240070010`-`240070060`), the cave is chosen by the player's active quest in
+`scripts/portal/TD_neo_inTree.js:8-18`, and the quest ladder (70/73/77/81/85/90, NPC `2082004`) is
+`Quest.wz/Check.img.xml`'s. The one thing the rows needed from the engine was a way to tell six rows for one event
+script apart: `MechanicsRuns.contentFor(eventScript, instanceMapIds)`, fed by the map ids the script asked for through
+`EventInstanceManager.getInstanceMap`. Single-row scripts are unaffected. See `REPORT-bossrows.md`.
+
+Every id in every row is now re-checked against the dump by `ContentRowWzIntegrityTest` (`-Dwz-path`, else `wz`), so a
+dump that disagrees with a row fails a test instead of emptying a room.
+
+The map and mob facts again come from `/root/work/SlumsMS-170-evan/wz`, **not** version-pinned to this branch:
+`Map/Map5/541010100` (reactor `5411000`, no mobs), `Map/Map4/401060100` (one NPC, `3004006`), `Map/Map4/450007441`,
+`450004751`, `450010101`, `450012211` (empty life), and `Mob/9420513`, `8880002`, `9990301`, `9990150`, `9990415`,
+`9995009` (no `info/revive`). `REPORT-bossrows.md` names each file per id.
+
+### Orbis PQ stage data, 1.6.4 (branch `164-opq`, ticket 164), cosmic_agents `3c7e094357329932734a860e5a831d57add27a00`
+
+| From theirs | Our files |
+| --- | --- |
+| `server.agents.capabilities.partyquest.opq.AgentOpqDefinition` (136 lines): the map ids, the item ids, the monster ids, the level window, the statue-scar table and the room exit portal ids | `soloMapling/mechanics/content/opq.yaml` (`minLevel`/`maxLevel`, the map and item ids of each stage) and `soloMapling/mechanics/OpqSubRoomSolver.EAK_MAP` |
+| `AgentOpqCoordinator.tickStatueRestoration` / `tickPieceCarrier` / the four-room split (`LOUNGE_SUBROOM_ENTRY_PORTALS`, one bot per side room) | `soloMapling/mechanics/OpqSubRoomSolver`: the same "the piece is in the room, Eak is elsewhere" split, but ours sends the whole party into one side room because the four rooms share the drop |
+| `AgentOpqCoordinator.MUSIC_PLAYER` / `ROOT_POT` / `hitNearestLegalReactor` (the item is dropped inside the reactor's box) | `SolverStep.PlaceItem` + `StepExecutor.placeItem`: the step carries the reactor (name or id) and the executor drops inside its box, because `MapleMap.activateItemReactors` matches the reactor's item *and* quantity |
+| `AgentOpqDefinition.STATUE_SCAR_BY_ITEM` / `STATUE_SCAR_POSITION` (the six-scar pairing and where the scars stand) | `OpqStatueSolver.SCAR_PIECE`: the same pairing, but taken from our own `Reactor.wz/2008000-2008005.img.xml`, where each scar carries exactly one item trigger; the positions are not copied because `PlaceItem` resolves the scar through `MapleMap.getReactorByName` and drops at its own position |
+| `AgentOpqDefinition.CENTER_PORTALS` / `ROOM_EXIT_PORTALS` / `LOUNGE_SUBROOM_ENTRY_PORTALS` (WZ portal **ids**, not names) | not used: our row warps stage to stage through `SolverStep.WarpTo`, because a WZ portal id cannot be looked up by name from the engine (`Orchestrator` accepts a solver's `WarpTo` on a map the stage does not own) |
+
+### Henesys PQ stage data, 1.6.4 (branch `164-opq`, ticket 164), BotStory `81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364`
+
+BotStory was read for the seed-bed pairing only; the row's numbers are the client WZ's, and every gate is our script's.
+
+| From theirs | Our files |
+| --- | --- |
+| `capabilities/partyquest/hpq/AgentHpqDefinition.java:75-81` (`SEED_BEDS`: the six bed-to-seed pairs) | `soloMapling/mechanics/HpqBedsSolver.BEDS`: the same six pairs (`9108000`->`4001095` ... `9108005`->`4001100`), read from the beds' own WZ event slots instead (`Reactor.wz/9108000..9108005.img.xml`, `event/0`: `type 100, state 1, quantity 1`); the pairs appear in `HpqBedsSolver` and in `content/hpq.yaml`'s six `PLACE_ITEM` objectives, which is what the tests pin |
+| their per-bed "drop and retry" loop | not copied: our `SolverStep.PlaceItemOn` + `StepExecutor.placeItemOn` drop once per bed, honour `MapleMap.activateItemReactors`' 5000 ms delay (`MapleMap.java:2665-2680`) as `ITEM_REACTOR_SETTLE_MS`, refuse a bed whose state has left zero, and stop after `PLACE_ON_TRIES` |
+
+Nothing else in the row comes from another project: the gates (`3`-`6` players, level `10`-`255`, `10` minutes, recruit
+`100000200`, front door `1012112`) are `scripts/event/HenesysPQ.js:26-40`, the clear signals are
+`scripts/reactor/9108000.js:4-9` (the `stage` property) and `scripts/npc/1012114.js:12,66-76` (`1stageclear`, which
+`setup()` never initialises - `HenesysPQ.js:111-114`), the cakes are `4001101` x `10` from that same NPC, and the run-ender
+(any hit on the Moon Bunny `9300061`, `HenesysPQ.js:248-258`) is why no step in the row names it.
+
+### Cafe PQ stage data, 1.6.4 (branch `164-opq`, ticket 164): no outside source
+
+Nothing in Cafe PQ's six rows comes from another bot project. cosmic_agents and BotStory carry no Cafe PQ definition at
+all (no `cafe` file in either tree), and the dossier's suggestion to read the scripts first is what was followed: the
+gates (`3`-`6` players, level `21`-`255`, `45` minutes, recruit and front door `193000000`), the six areas' `eventMaps`
+and `couponsNeeded` counts read `400`/`350`/`350`/`450`/`500`/`300`, the per-kill drop (`:251-259`) and the clear
+(`clearPQ` sets the instance's flag and nothing else) are `scripts/event/CafePQ_1.js` .. `_6.js:27-31,36,38,39,131-138,
+239-249,251-277`, and the closer is `scripts/npc/1052013.js:56-63`.
+
+The one thing worth recording as a *correction* to the plan: `1052013.js:59` is `cm.gainItem(4001007, couponsNeeded)`, a
+positive quantity, so the Computer pays the party rather than charging it - the plan's "drop the coupons by the leader
+and hand them in" would have asked the bots for what the NPC is giving them. The rows therefore carry the count as a
+`COLLECT` objective and talk to the NPC with no item.
+
+### LudiMaze PQ stage data, 1.6.4 (branch `164-opq`, ticket 164), cosmic_agents `3c7e094357329932734a860e5a831d57add27a00`
+
+cosmic_agents was read for the *representation* of a maze PQ and nothing else.
+
+| From theirs | Our files |
+| --- | --- |
+| `capabilities/partyquest/lmpq/` (a sixteen-room maze with one goal, a coordinator that walks rooms) | `soloMapling/mechanics/LudiMazeSolver`: the same shape - a stage over many maps, a goal map, a walk between them - but the graph is read from our client data at run time (`StageView.portalsOn(int)` over `Map.wz/Map/Map8/8090500*.img.xml`) and kept per instance in `stageMemory()`. Their arm layout is their instance's; nothing of it is copied, and our maze's passages are fixed, not shuffled |
+
+Nothing else in the row comes from another project: the gates (`3`-`6` players, level `51`-`255`, `15` minutes, recruit
+`220000000`, front door Rolly `9103001`, exit `809050017`) are `scripts/event/LudiMazePQ.js:27-32,37`; the clear is
+`9103000.js:66-73` (`clearPQ` and nothing else); the pass and its count are `9103000.js:62` and
+`scripts/reactor/8098000.js`; and the frontier - each member starting on a random one of fifteen maps - is
+`LudiMazePQ.js:144-150`.
+
+### Pirate PQ stage data, 1.6.4 (branch `164-opq`, ticket 164), cosmic_agents `3c7e094357329932734a860e5a831d57add27a00`
+
+cosmic_agents was read for the *representation* of a ship PQ - a party moved through six rooms on one stage - and
+nothing else; it carries no Pirate PQ definition.
+
+| From theirs | Our files |
+| --- | --- |
+| `capabilities/partyquest/ppq/` (a coordinator that walks a party through a stage's rooms in order) | `soloMapling/mechanics/PirateQuestSolver`: the same shape - one stage, six maps, a chain of conditions - but every condition is one of our own scripts, and the ids are our WZ. Nothing of their instance's layout is copied |
+
+The gates are `scripts/event/PiratePQ.js:29-39` (`3`-`6` players, level `55`-`255`, entry `925100000`, exit
+`925100700`, recruit `251010404`, six maps, `eventTime` four minutes restarted per stage at `:241-268`); the exclusives
+are `:73-76` (`4001117`, `4001120`, `4001121`, `4001122`); the clear is `clearPQ` `:337-344`, which sets the instance's
+flag and writes no property. The chain is our scripts' own: `scripts/portal/davy_next0..4.js` (the five gates),
+`scripts/npc/2094002.js:47-78` (the three medal sets, in order, through `stage2`) and `scripts/npc/2094001.js:45-58`
+(the rescued leader's talk, the only writer of the clear); the four doors are item reactors `2519000`..`2519003` taking
+one `4001117` each, which is `Reactor.wz/2519000..2519003.img.xml` and `Map.wz/Map/Map9/925100400.img.xml` (names
+`sMob1`..`sMob4`), not anything from another project.
+
+### Treasure PQ stage data, 1.6.4 (branch `164-opq`, ticket 164): no outside source
+
+Nothing in the row comes from another bot project - neither cosmic_agents nor BotStory carries a Treasure PQ definition.
+Every id is ours: the gates (4-6 players, level 140-255, 45 minutes, `674030000`/`674030100`/`674030300`) are
+`scripts/event/TreasurePQ.js:25-37`, the exclusive item `4032118` is `:59-62`, the front door is `scripts/npc/9220018.js:50-80`,
+the summon is `scripts/reactor/6741001.js`, and the clear is `clearPQ` (`:232-237`) reached only by `9400589`'s death
+(`:244-252`).
+
+### DelliBattle stage data, 1.6.4 (branch `164-opq`, ticket 164): no outside source
+
+Nothing in the row comes from another bot project - neither cosmic_agents nor BotStory carries a DelliBattle definition.
+The gates (one to two players, level 120-255, six minutes, `925010300` with recruit and exit `925010200`) are
+`scripts/event/DelliBattle.js:26-36`, the front door is `scripts/npc/2095000.js:48-70`, and the clear is the script's own
+`scheduledTimeout` -> `clearPQ` (`:119-124`, `:208-211`); `friendlyKilled` (`:194-199`) is the only failure and
+`monsterKilled` (`:213`) is empty, which is why the row has no count of its own.
+
+### Magatia PQ stage data, 1.6.4 (branch `164-opq`, ticket 164): no outside source
+
+Nothing in the row comes from another bot project: cosmic_agents and BotStory carry no Magatia definition. The orders
+come from our scripts - the gates and property seeds from `scripts/event/MagatiaPQ_A.js:27-32,37,127-133,218-246`, the
+four modelled stages from `scripts/npc/2112013.js` (books), `MagatiaPQ_A.js:418-426` (empty room),
+`scripts/reactor/2618000.js:27-41` (beaker) and `scripts/npc/2112005.js:72-87` (both files). The index used to find them
+was this repository's own scan notes in `/root/work/.pqscan/our-pq-b.md`, which is our material, not another project's;
+every claim it gave was re-read in the script before being written into a row.
+
+Where our server's scripts disagree, the scripts win and the row follows them:
+
+- **The altar takes exactly twenty in one drop.** `scripts/reactor/2006000.js:1-5` spawns Eak from the reactor's item
+  reaction, and `MapleMap.activateItemReactors` (`src/main/java/server/maps/MapleMap.java:2664-2679`) compares
+  `getReactItem().getRight() == item.getQuantity()`, so the stack has to land whole. Their coordinator never puts the
+  clouds on the altar at all (it only hits the reactors and then talks); ours places `20` in one stack.
+- **The storage room clears on an empty floor.** `scripts/npc/2013001.js` (map `920010300`) asks
+  `countMonsters() == 0 && countItems() == 0`, and `MapleMap.countItems()` counts mesos too, so our `opq-sweep` loots
+  with `Loot(0)` ("anything on the floor") instead of their reward-box-only pickup.
+- **The statue and the garden are one stage.** Their coordinator keeps both in one tick machine as well, but ours has to
+  be one *row* stage: the scar condition is reactor state (`getReactorByName("scar" + i).getState()`), and the only
+  writable property is `statusStg8`, which `scripts/reactor/2006001.js` sets when the Root of Life reaches the base.
+- **The lobby's pass is armed, not listed.** `scripts/event/OrbisPQ.js:162-163` sets the `music` reactor's event state to
+  the weekday, and `Reactor.getReactItem(byte)` reads that as the slot, so our `opq-lobby` asks the reactor
+  (`StageView.reactorEventState`) instead of carrying seven one-line tables.
+- **The levers are a five-character string in `stage6_c`.** `scripts/npc/2013001.js` (map `920010700`) is the only
+  place that picks the combination and checks it; their coordinator keeps its own lever model. Ours reads the property
+  and clicks only the reactors named `"1"`..`"5"` whose state differs, shared out over the bots so no lever is toggled
+  twice.
+- **Three stages are not in the row.** The statue (`920010100`) needs six scar pieces, two of which come from the lobby
+  and the sealed room; the garden (`920010800`) is only reachable from the finished statue; and the lobby and the sealed
+  room themselves are left out for want of a solver, **not** for want of working code - `scripts/reactor/2008006.js` does
+  set `statusStg3 = 0` when the day's pass lands in the music player's box (`scripts/event/OrbisPQ.js:162-163` arms it),
+  and the sealed room's three platform areas come from the map file through `MapFactory.java:273-279`. Both are pinned by
+  `src/test/java/scripting/reactor/OrbisPqLobbyStageTest.java` and
+  `src/test/java/server/maps/OrbisSealedRoomAreaTest.java`; `REPORT-opq.md` names each stage with the exact line.
+- **Nothing in the lobby or sealed-room work comes from another project's code.** The seven pass ids (`4001056`-`4001062`,
+  in `Date().getDay()` order), the reactor id `2008006` and the three platform rectangles are read from our own
+  `Map.wz/Map/Map9/920010400.img.xml`, `Reactor.wz/2008006.img.xml` and `Map.wz/Map/Map9/920010500.img.xml`; they appear
+  only in the two tests above.

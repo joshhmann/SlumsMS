@@ -184,6 +184,54 @@ class StageDataTest {
     }
 
     @Test
+    void hitReactorsIsAListInTheOrderTheRoomMustBeOpened() throws Exception {
+        String opening = GOOD.replace("clear: { eventProperty: 1stageclear }",
+                "mobs: [ 9420542, 9420547 ]\n    hitReactors: [ 5511000, 5511001 ]\n"
+                        + "    clear: { eventProperty: 1stageclear }");
+        StageData.Result r = StageData.parse(new StringReader(opening));
+        assertEquals(List.of(), r.errors());
+        assertEquals(List.of(5511000, 5511001), r.content().get(0).stage(1).orElseThrow().hitReactors(),
+                "the order is the row's, not the file's");
+        assertEquals(List.of(), kpq().stage(1).orElseThrow().hitReactors(),
+                "a room with no reactor says so by having none");
+        assertHas(errors(opening.replace("5511001 ]", "5511001, x ]")), "hitReactors: not a reactor id");
+        assertHas(errors(opening.replace("[ 5511000, 5511001 ]", "[ 5511000, 5511000 ]")),
+                "a reactor is clicked once per stage");
+    }
+
+    /**
+     * Round 3: a row can say what the run must have in hand to be let in (Latanica's door wants 4000381), and the
+     * declaration is checked here rather than inside a solver.
+     */
+    @Test
+    void aStageCanDeclareItsDoorItems() throws Exception {
+        String room = GOOD.replace("clear: { eventProperty: 1stageclear }",
+                "mobs: [ 9300163 ]\n    entryItems: [ 4000381 ]\n"
+                        + "    clear: { eventProperty: 1stageclear }");
+        StageData.Result r = StageData.parse(new StringReader(room));
+        assertEquals(List.of(), r.errors());
+        Stage s = r.content().get(0).stage(1).orElseThrow();
+        assertEquals(List.of(4000381), s.entryItems());
+        assertEquals(List.of(), kpq().stage(1).orElseThrow().entryItems(), "no door item means none is needed");
+        assertHas(errors(room.replace("4000381 ]", "x ]")), "entryItems: not an item id");
+        assertHas(errors(room.replace("4000381 ]", "0 ]")), "item ids are positive");
+    }
+
+    @Test
+    void aSpawnWaitIsAStatementAboutMobsTheRoomDoesNotHaveYet() throws Exception {
+        String waiting = GOOD.replace("clear: { eventProperty: 1stageclear }",
+                "mobs: [ 8220010 ]\n    spawnWaitSeconds: 60\n    clear: { eventProperty: 1stageclear }");
+        StageData.Result r = StageData.parse(new StringReader(waiting));
+        assertEquals(List.of(), r.errors());
+        assertEquals(60, r.content().get(0).stage(1).orElseThrow().spawnWaitSeconds());
+        assertEquals(0, kpq().stage(1).orElseThrow().spawnWaitSeconds(),
+                "a row that declares no expectation says 0, and the solver keeps its 30 s grace");
+        assertHas(errors(waiting.replace("spawnWaitSeconds: 60", "spawnWaitSeconds: -1")),
+                "spawnWaitSeconds must not be negative");
+        assertHas(errors(waiting.replace("    mobs: [ 8220010 ]\n", "")), "spawnWaitSeconds needs mobs");
+    }
+
+    @Test
     void switchedOffByDefault() {
         assertFalse(Mechanics.enabled(), "ticket 130 scaffold must stay off unless -Dslums.mechanics=true");
     }

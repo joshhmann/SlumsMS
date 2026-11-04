@@ -391,12 +391,12 @@ class KpqStage1OrchestrationTest {
         assertTrue(run.cleared(), "two passes are enough for three: " + run.events());
 
         RunState run2 = o.start(kpq(), Tier.NORMAL, party);
-        o.memberLost(run2, 4, "left the party");
-        o.memberLost(run2, 3, "left the party");
+        o.memberLost(run2, 4, "left the party", 1_000);
+        o.memberLost(run2, 3, "left the party", 1_000);
         assertTrue(run2.endedBecause().startsWith("too few members"), run2.endedBecause());
 
         RunState run3 = o.start(kpq(), Tier.NORMAL, party);
-        o.memberLost(run3, 1, "disconnected");
+        o.memberLost(run3, 1, "disconnected", 1_000);
         assertTrue(run3.endedBecause().startsWith("the leader left"), run3.endedBecause());
     }
 

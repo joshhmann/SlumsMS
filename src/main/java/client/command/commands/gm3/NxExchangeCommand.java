@@ -1,11 +1,14 @@
 package client.command.commands.gm3;
 
+import soloMapling.Economy.exchange.AssetRegistry.Asset;
+
 import client.Character;
 import soloMapling.Economy.exchange.Exchange;
 import soloMapling.Economy.exchange.ExchangeService;
 import soloMapling.Economy.exchange.GameLiveWallet;
 import soloMapling.Economy.exchange.Ledger;
 import soloMapling.Economy.exchange.LiveWallet;
+import soloMapling.Economy.exchange.Ticker;
 
 import java.util.Arrays;
 import java.util.Locale;
@@ -13,8 +16,8 @@ import java.util.Set;
 
 /**
  * Ticket 113: the NX exchange's staff controls, {@code !exchange status [ticker]|book [ticker]|halt [reason]|resume|
- * fills [ticker] [n]|fund <regular> <nx|meso> <amount>|unfund <regular>|reverse <fillId>}. A ticker (nx, leaf, chaos,
- * ws, elixir; NX when left out) picks the book for status/book/fills; halt/resume/reverse act on the whole exchange,
+ * fills [ticker] [n]|fund <regular> <nx|meso|ticker> <amount>|unfund <regular>|reverse <fillId>}. A ticker (nx, leaf, chaos,
+ * ws, elixir, a catalog id; NX when left out) picks the book for status/book/fills; halt/resume/reverse act on the whole exchange,
  * and the regulars are NX-only (fund takes NX or mesos, never items). The name
  * "exchange" already belongs to the players' {@code @exchange} (the item-exchange NPC), so that command hands these
  * sub-commands here when a GM of level 3 or more types one ({@link #handles}); everything else is unchanged.
@@ -103,9 +106,9 @@ public final class NxExchangeCommand {
                             : "Not done: " + r.message() + " (" + r.code() + ")");
                     return;
                 }
-                Ledger.Asset asset = params.length > 2 && params[2].equalsIgnoreCase("nx") ? Ledger.Asset.NX
+                Asset asset = params.length > 2 && params[2].equalsIgnoreCase("nx") ? Asset.NX
                         : params.length > 2 && params[2].toLowerCase(Locale.ROOT).startsWith("meso")
-                        ? Ledger.Asset.MESO : null;
+                        ? Asset.MESO : null;
                 long amount = params.length > 3 ? parse(params[3], 0) : 0;
                 if (!sub.equals("fund") || asset == null || amount <= 0) {
                     gm.yellowMessage("Use: !exchange desk fund <nx|meso> <amount> | !exchange desk unfund");
@@ -128,13 +131,24 @@ public final class NxExchangeCommand {
             }
             case "fund" -> {
                 int reg = params.length > 1 ? parse(params[1], 0) : 0;
-                Ledger.Asset asset = params.length > 2 && params[2].equalsIgnoreCase("nx") ? Ledger.Asset.NX
-                        : params.length > 2 && params[2].toLowerCase(Locale.ROOT).startsWith("meso") ? Ledger.Asset.MESO
-                        : null;
+                Asset asset = null;
+                if (params.length > 2) {
+                    String a = params[2];
+                    if (a.equalsIgnoreCase("nx")) {
+                        asset = Asset.NX;
+                    } else if (a.toLowerCase(Locale.ROOT).startsWith("meso")) {
+                        asset = Asset.MESO;
+                    } else {
+                        // ticket 270: an item ticker (with -Dslums.exchange.itemMaker=true the house holds real items,
+                        // which is what its asks are made of)
+                        Ticker funded = ex.ticker(a);
+                        asset = funded != null && funded.item() ? funded.asset() : null;
+                    }
+                }
                 long amount = params.length > 3 ? parse(params[3], 0) : 0;
                 LiveWallet w = GameLiveWallet.of(gm);
                 if (reg <= 0 || asset == null || amount <= 0 || w == null) {
-                    gm.yellowMessage("Use: !exchange fund <regular 1..n> <nx|meso> <amount> (from this character)");
+                    gm.yellowMessage("Use: !exchange fund <regular 1..n> <nx|meso|ticker> <amount> (from this character)");
                     return;
                 }
                 Exchange.Response r = ex.fundHouseLive(reg, w, asset, amount, false);

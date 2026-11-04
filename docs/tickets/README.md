@@ -1,4 +1,33 @@
+## Alt marriage (owner direction, 2026-11-03)
+
+| # | Ticket | Purpose |
+|---|---|---|
+| [189](189-alt-marriage-1-6-4.md) | Marriage with your own alts for 1.6.4 | Guards and deletion guard (stage 1), proxy marriage with fee behind `-Dslums.ownedalts.marry` (stage 2), alt-versus-regular bonuses open (stage 3) |
+
 # SlumsMS tickets
+
+## Server-code audit (owner direction, 2026-11-03)
+
+Read-only audit of the server code (eleven lanes). Documented, not changed.
+
+| # | Ticket | State |
+|---|---|---|
+| [182](182-server-code-audit-1-6-4.md) | Fix the server-code defects the audit-164 audit found | Owner decisions (a)-(e) answered; cards b289-b298, then cardless impact-4 set, migration 059, config validation |
+## Client map integrity (owner request, 2026-11-03 Pacific)
+
+| # | Ticket | State |
+|---|---|---|
+| [181](181-client-map-integrity-and-crashes.md) | Missing map assets, broken map links and Rose Garden crash proof | Investigation recorded; links b251 and existing map-load work; implementation and real-client proof pending |
+## Monster loot coverage (owner request, 2026-11-03 Pacific)
+
+| # | Ticket | State |
+|---|---|---|
+| [182](182-missing-monster-and-boss-loot-tables.md) | Missing mob/boss loot tables, with gear progression overlap | Read-only audit; candidate list needs reward/source triage and targeted kills |
+## Marriage fixes (owner direction, 2026-11-03)
+
+| # | Ticket | Purpose |
+|---|---|---|
+| [188](188-marriage-fixes-1-6-4.md) | Marriage fixes for 1.6.4 | Fix the chapel booking, ticket loss, divorce order and ring-missing crashes found by the two marriage audits |
 
 ## Promise audit (2026-11-01, pending triage)
 
@@ -8,6 +37,47 @@
 | [178](178-sibling-only-upgrade-handover.md) | Sibling-only upgrade offer cannot start a handover | Source-confirmed; coordinator + submitter triage required |
 | [179](179-qa-worker-loses-batched-ready-events.md) | Client readiness events lost between waits | Reproduced locally; coordinator + submitter triage required |
 
+## Bot and alt improvements (owner direction, 2026-11-03)
+
+| # | Ticket | Purpose |
+|---|---|---|
+| [183](183-bot-alt-improvements-1-6-4.md) | Cheap bot and alt improvements that need no owner decision | Owned-lifetime sweep, mint/destroy ledger (observation only), alt lockout/boot line/follow message (restock receipt and wear predicate parked, see 184); no economy numbers |
+## Possible overlaps (owner direction, 2026-11-03)
+
+| # | Ticket | Purpose |
+|---|---|---|
+| [184](184-possible-overlaps-1-6-4.md) | Possible overlaps to revisit | Parking list of places where in-flight 1.6.4 work could collide, with how to check each and what to do; check before starting or merging |
+## Improvement backlog (owner direction, 2026-11-03)
+
+| # | Ticket | Purpose |
+|---|---|---|
+| [185](185-bot-alt-improvement-backlog-1-6-4.md) | Bot and alt improvement backlog | Improvements that need an owner decision or a later start; a menu, nothing started, no briefs |
+## Other-repo bot audit (owner direction, 2026-11-03)
+
+| # | Ticket | Purpose |
+|---|---|---|
+| [186](186-external-bot-repo-adoption-1-6-4.md) | Adopt ideas from the other-repo bot audit | BotStory, nutnnut/Cosmic, SoloMapling, cosmic_agents: 12 ranked candidates, 7 measurements first; nothing started, boss fights stay with the boss lane |
+## Social intelligence (owner direction, 2026-11-03)
+
+| # | Ticket | State |
+|---|---|---|
+| [271](271-social-intelligence.md) | Persistent NPC social intelligence (traits, emotions, needs, relationships, memory, actions, modes, Henesys pilot) | Stages 0, 0b on `164-social-core`; 1 on `164-social-mind`; 2-7 planned. Design: `docs/design/social-intelligence-audit.md` |
+## 1.6.4 content hunt (2026-11-02)
+
+From `/root/work/agent-runs/FOLLOWUPS-164.md`, the merge record `agent-runs/server/merge-164-c/REPORT.md` and the
+boss/expedition audit `agent-runs/server/s-boss-audit/`. Story and environment traps:
+[`docs/1.6.4-content-hunt-handoff.md`](../1.6.4-content-hunt-handoff.md).
+
+| # | Ticket | State |
+|---|---|---|
+| [181](181-config-template-gap.md) | The shipped config template omits 353 of 359 keys and every world, so a fresh install boots into 0-valued boot-critical fields | Merged at `1c168eff9`; forward-merge hazard to `release-1.6.4` remains (S2) |
+| [182](182-boss-clear-reward-bot-guard.md) | Papulatus, Scarga and Showa dereference a bot's headless client in the clear-reward loop | Source-confirmed, reachable; fix + test required (S3, F01) |
+| [183](183-expedition-attempt-logging.md) | The daily expedition-attempt ledger is never written, so the quota counts clears | Source-confirmed; needs the owner's switch decision (S3, F02) |
+| [184](184-expedition-hwid-reward-limit.md) | `EXPEDITION_HWID_LIMIT` reads 0 and nothing calls the limit, so "4 per machine per day" is enforced nowhere | Source-confirmed; arithmetic decision required (S3, F03) |
+| [185](185-world-unclaimed-expedition.md) | `World.addUnclaimed` is a no-op and `removeUnclaimed` puts the same value back | Source-confirmed; 14 script callers are inert (S4, F07) |
+| [186](186-dead-code-cleanup.md) | Dead `RedisJobQueue` + its `jedis` dependency, a half-written `Ola.startOla`, and F08 filed stale | Source-confirmed; deletion (S4) |
+| [187](187-stale-divergence-ledger-rows.md) | Three divergence-ledger rows describe code that has changed (NP-007, SK-033, MP-003) | Docs-only; owner confirmation required (S4) |
+
 ## 1.6.2 release closure (owner direction, 2026-10-31)
 
 | # | Ticket | Purpose |
@@ -15,6 +85,14 @@
 | [168](168-finish-1.6.2-and-freeze-scope.md) | Finish 1.6.2 with fixed scope and explicit acceptance gates | Reconcile remaining promises, freeze additions, complete QA and prepare the owner go/no-go |
 
 Current status is in `/root/work/STATUS-1.6.2.md` and the release book; the older tables below are historical.
+
+## Bot behaviour audit (owner direction, 2026-11-03)
+
+Read-only behaviour review of the population and owned-alt code paths. Documented, not changed.
+
+| # | Ticket | Purpose |
+|---|---|---|
+| [181](181-bot-behaviour-audit-1-6-4.md) | Fix the 60 bot behaviour defects the 1.6.2 audit found | Two S1s first (a stall offer rewriting a listing below cost, merchant bots minting an item per sale), then 20 S2s by subsystem; every economy number is an owner question |
 
 ## Bot platform review (owner direction, 2026-11-01)
 
@@ -37,6 +115,12 @@ From `agent-runs/server/269-dbpool-forensics/AUDIT.md` and the fix branch `269-d
 | # | Ticket | Priority |
 |---|---|---|
 | [173](173-life-runtime-lock.md) | `LifeRuntime.accepted` takes the bot's monitor over a PlayerStorage read (same family as b267, no cycle today) | S4, after 1.6.2 |
+
+## Exchange item catalog (owner direction, 2026-11-03)
+
+| # | Ticket | Status |
+|---|---|---|
+| [270](270-exchange-item-catalog.md) | The exchange item catalog: all scrolls, some use items, then ETC as tickers, plus the item maker and the sell cap | built, 1.6.4, branch `164-excatalog` (709 tickers, tests green, not deployed); the list is [docs/economy/exchange-item-catalog.md](../economy/exchange-item-catalog.md) |
 
 ## Economy (after 1.6.3, owner 2026-11-01)
 
@@ -182,7 +266,8 @@ find), sort deliberate from broken, restore the broken ones with tests.
 
 See docs/real-bots/social-systems-research.md.
 
-1. 50A, the guild-creation fix (S): broken for players whenever a bot stands in the Guild HQ.
+1. 50A, the guild-creation fix (S): done in `ad0359efc` — bots are no longer eligible cofounders, so a bot in the
+   Guild HQ cannot block a creation, and an unanswered creation expires after 60 s.
 2. 56A, the FM buy cap (S): before real players open shops.
 3. 55 (S).
 4. 49, buddies (M).

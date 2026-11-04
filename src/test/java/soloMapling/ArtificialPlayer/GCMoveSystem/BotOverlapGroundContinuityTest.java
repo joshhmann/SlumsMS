@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer.GCMoveSystem;
 
 import client.BotClient;
 import client.Character;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import server.maps.Foothold;
@@ -16,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import testutil.PropsRestored;
 
 /*
  * Ground continuity across overlapping foothold chains (ported from nutnnut/Cosmic 235b6aefa, AGPL-3.0.
@@ -27,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * raw foothold, which picks the ramp chain: walking left it ends at the wall, so the step was refused, the walk edge
  * was cleared, and the bot parked on one pixel for good. Several bots doing that = same-pixel stacks.
  */
+@ExtendWith(PropsRestored.class)
 class BotOverlapGroundContinuityTest {
 
     @BeforeAll

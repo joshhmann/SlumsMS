@@ -55,16 +55,22 @@ public interface AffinityStore {
     final class Jdbc implements AffinityStore {
         private static final Logger log = LoggerFactory.getLogger(Jdbc.class);
 
-        static final String SELECT = "SELECT BotId, Score, Kind, Hostile, UpdatedAt FROM botaffinity WHERE CharacterId = ?"
-                + " AND BotId < " + DEFAME_MARK;
+        static final String SELECT_LEGACY = "SELECT BotId, Score, Kind, Hostile, UpdatedAt FROM botaffinity WHERE "
+                + "CharacterId = ? AND BotId < " + DEFAME_MARK;
+        static final String SELECT = "SELECT BotId, Score, Kind, Hostile, UpdatedAt, " + AxisColumns.LIST
+                + " FROM botaffinity WHERE CharacterId = ? AND BotId < " + DEFAME_MARK;
         static final String DRAMA_ALL = "SELECT CharacterId FROM botdrama";
         static final String DEFAME_ROLL = "UPDATE botaffinity SET UpdatedAt = ? WHERE BotId = " + DEFAME_MARK
                 + " AND CharacterId = ? AND UpdatedAt < ?";
         static final String DEFAME_FIRST = "INSERT IGNORE INTO botaffinity (BotId, CharacterId, Score, Kind, Hostile,"
                 + " UpdatedAt) VALUES (" + DEFAME_MARK + ", ?, 0, 0, 0, ?)";
-        static final String UPSERT = "INSERT INTO botaffinity (BotId, CharacterId, Score, Kind, Hostile, UpdatedAt) "
-                + "VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE Score = VALUES(Score), Kind = VALUES(Kind), "
-                + "Hostile = VALUES(Hostile), UpdatedAt = VALUES(UpdatedAt)";
+        static final String UPSERT_LEGACY = "INSERT INTO botaffinity (BotId, CharacterId, Score, Kind, Hostile, "
+                + "UpdatedAt) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE Score = VALUES(Score), "
+                + "Kind = VALUES(Kind), Hostile = VALUES(Hostile), UpdatedAt = VALUES(UpdatedAt)";
+        static final String UPSERT = "INSERT INTO botaffinity (BotId, CharacterId, Score, Kind, Hostile, UpdatedAt, "
+                + AxisColumns.LIST + ") VALUES (?, ?, ?, ?, ?, ?, " + AxisColumns.PLACEHOLDERS + ") ON DUPLICATE KEY "
+                + "UPDATE Score = VALUES(Score), Kind = VALUES(Kind), Hostile = VALUES(Hostile), "
+                + "UpdatedAt = VALUES(UpdatedAt), " + AxisColumns.UPDATE;
         static final String DELETE = "DELETE FROM botaffinity WHERE CharacterId = ? AND BotId = ?";
         static final String DRAMA_GET = "SELECT 1 FROM botdrama WHERE CharacterId = ?";
         static final String DRAMA_OFF = "INSERT INTO botdrama (CharacterId, OptedOutAt) VALUES (?, ?) "
@@ -72,6 +78,8 @@ public interface AffinityStore {
         static final String DRAMA_ON = "DELETE FROM botdrama WHERE CharacterId = ?";
 
         private volatile boolean warned;
+        /** Whether migration 062's columns are there (asked once; see {@link AxisColumns}). */
+        final AxisColumns.Availability axisColumns = new AxisColumns.Availability("botaffinity");
 
         private Connection connection() throws SQLException {
             return BotDbGate.connection();
@@ -92,12 +100,13 @@ public interface AffinityStore {
         @Override
         public List<Tie> load(int charId) {
             List<Tie> ties = new ArrayList<>();
-            try (Connection con = connection(); PreparedStatement ps = con.prepareStatement(SELECT)) {
+            boolean axes = axisColumns.present();
+            try (Connection con = connection(); PreparedStatement ps = con.prepareStatement(
+                    axes ? SELECT : SELECT_LEGACY)) {
                 ps.setInt(1, charId);
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
-                        ties.add(new Tie(rs.getInt("BotId"), charId, rs.getInt("Score"), rs.getInt("Kind"),
-                                rs.getInt("Hostile"), rs.getLong("UpdatedAt")));
+                        ties.add(read(rs, charId, axes));
                     }
                 }
             } catch (SQLException e) {
@@ -106,15 +115,36 @@ public interface AffinityStore {
             return ties;
         }
 
+        /** One row as a tie; a row without axes (no migration, or written by an older jar) derives them from its score. */
+        static Tie read(ResultSet rs, int charId, boolean axes) throws SQLException {
+            double[] stored = axes ? AxisColumns.readAxes(rs) : null;
+            if (stored == null) {
+                return new Tie(rs.getInt("BotId"), charId, rs.getInt("Score"), rs.getInt("Kind"), rs.getInt("Hostile"),
+                        rs.getLong("UpdatedAt"));
+            }
+            return new Tie(rs.getInt("BotId"), charId, rs.getInt("Score"), rs.getInt("Kind"), rs.getInt("Hostile"),
+                    rs.getLong("UpdatedAt"), stored, AxisColumns.readStage(rs));
+        }
+
+        /** Binds one tie to {@link #UPSERT} ({@code axes}) or {@link #UPSERT_LEGACY}. */
+        static void bind(PreparedStatement ps, Tie tie, boolean axes) throws SQLException {
+            ps.setInt(1, tie.botId);
+            ps.setInt(2, tie.charId);
+            ps.setInt(3, (int) Math.round(Math.max(-AffinityRules.MAX, Math.min(AffinityRules.MAX, tie.score))));
+            ps.setInt(4, Math.min(999, tie.kind));
+            ps.setInt(5, Math.min(999, tie.hostile));
+            ps.setLong(6, tie.updatedAt);
+            if (axes) {
+                AxisColumns.bind(ps, 7, tie.axes, tie.stage);
+            }
+        }
+
         @Override
         public void save(Tie tie) {
-            try (Connection con = connection(); PreparedStatement ps = con.prepareStatement(UPSERT)) {
-                ps.setInt(1, tie.botId);
-                ps.setInt(2, tie.charId);
-                ps.setInt(3, (int) Math.round(Math.max(-AffinityRules.MAX, Math.min(AffinityRules.MAX, tie.score))));
-                ps.setInt(4, Math.min(999, tie.kind));
-                ps.setInt(5, Math.min(999, tie.hostile));
-                ps.setLong(6, tie.updatedAt);
+            boolean axes = axisColumns.present();
+            try (Connection con = connection(); PreparedStatement ps = con.prepareStatement(
+                    axes ? UPSERT : UPSERT_LEGACY)) {
+                bind(ps, tie, axes);
                 ps.executeUpdate();
             } catch (SQLException e) {
                 missing(e);
@@ -218,6 +248,9 @@ public interface AffinityStore {
                 if (t.charId == charId) {
                     Tie copy = t.snapshot();
                     copy.score = Math.round(copy.score); // as the table stores it
+                    for (int i = 0; i < copy.axes.length; i++) {
+                        copy.axes[i] = (float) copy.axes[i];
+                    }
                     copy.lastAt.clear();
                     ties.add(copy);
                 }

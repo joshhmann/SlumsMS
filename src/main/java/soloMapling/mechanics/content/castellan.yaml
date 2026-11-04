@@ -1,0 +1,63 @@
+# Ticket 130 boss lane, branch 164-bossrows: Castellan (expedition, 1.6.4).
+#
+# Read only when the server runs with -Dslums.mechanics.boss=true (off by default). One map, two forms, and the clear is
+# the script's own clearPQ(): CastellanBattle.js writes no event property at all.
+#
+# What OUR scripts say the room is, and what our WZ dump says the room is:
+#  - gate: 1-6 players, levels 1-255, one lobby (CastellanBattle.js:29-30,41). The instance is started from the NPC's
+#    expedition (scripts/npc/9111058.js:35 ExpeditionType.CASTELLAN, :50 getEventManager, :173 startInstance(expedition)),
+#    and the expedition minimum is 1 while ServerConfig.USE_ENABLE_SOLO_EXPEDITIONS is set, which config.yaml does - so a
+#    single non-bot character can start it. That character is the one thing this row cannot supply (a bot cannot lead an
+#    expedition, ExpeditionBots.autoJoin returns nothing for a bot leader), so the row is only ever drivable when a human
+#    has made the expedition;
+#  - the fight starts as a monster the SCRIPT spawns: the map's own life list is empty (Map.wz/Map/Map8/800040410.img.xml
+#    has an empty <imgdir name="life">), and setup() builds 9400408 with LifeFactory.getMonster(9400408) and drops it on
+#    the ground at (466,142) (CastellanBattle.js:133-134);
+#  - 9400408 revives as 9400409 (Mob.wz/9400408.img.xml info/revive/0), which is isCastellan (CastellanBattle.js:227-230)
+#    and whose death is the clearPQ (:232-240). Monster.killBy reads getRevives(), schedules the child on the die1
+#    animation and tells the instance (server/life/Monster.java:903-963), so stage 1 lists both ids in that order and
+#    spawns nothing itself;
+#  - the clear is clearPQ -> eim.setEventCleared(ExpeditionType.CASTELLAN) with no property (:222-225); the script's own
+#    timeout and playerExit changeMap to 800040401 (:32), where this row ends a run.
+#
+# The wz facts are from /root/work/SlumsMS-170-evan/wz, which is not version-pinned to this branch (docs/PROVENANCE.md).
+id: castellan
+name: Castellan (expedition)
+kind: BOSS
+eventScript: CastellanBattle
+recruitMap: 800040401
+minPlayers: 1
+maxPlayers: 6
+minLevel: 1
+maxLevel: 255
+timeLimitMinutes: 45
+exitMap: 800040401
+sources:
+  - "scripts/event/CastellanBattle.js (ours, the truth): minPlayers 1 / maxPlayers 6 (:29) and levels 1-255 (:30), entryMap
+    800040410 (:31), exitMap/recruitMap/clearMap 800040401 (:32-34), minMapId = maxMapId = 800040410 (:36-37), eventTime
+    45 (:39), maxLobbies 1 (:41), boss property seeded to \"0\" (:126), spawn of 9400408 at (466,142) (:133-134), clearPQ
+    sets the expedition instance's flag and nothing else (:222-225), isCastellan 9400409 (:227-230), monsterKilled
+    (:232-240)"
+  - "scripts/npc/9111058.js:35,50,173 - the NPC opens the CASTELLAN expedition and starts the instance with it"
+  - "Map.wz/Map/Map8/800040410.img.xml (dump /root/work/SlumsMS-170-evan/wz): the life list is empty, so every monster in
+    the room is the script's spawn. Mob.wz/9400408.img.xml info/revive/0 = 9400409, Mob.wz/9400409.img.xml has no
+    info/revive"
+  - "No upstream BotStory recording covers this boss; nothing here comes from one"
+stages:
+  - stage: 1
+    map: 800040410
+    name: Castellan
+    solver: boss-phases
+    # the script spawns 9400408 in setup() before the fight is open, so the room may stand empty while that spawn and an
+    # expedition's build settle; 60 s is a policy number, not a WZ one.
+    spawnWaitSeconds: 60
+    mobs:
+      - 9400408
+      - 9400409
+    objectives:
+      - id: boss
+        kind: DEFEAT
+        mob: 9400409
+        note: the revived form, isCastellan, and the only id whose death is the clearPQ
+    clear:
+      instance: true

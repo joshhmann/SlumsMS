@@ -2,6 +2,8 @@ package soloMapling.ArtificialPlayer.BotDecoratorSystem;
 
 import client.Character;
 import client.inventory.InventoryType;
+import client.inventory.Item;
+import constants.inventory.ItemConstants;
 import net.server.Server;
 import soloMapling.server.BotShutdown;
 import soloMapling.server.ExecutorServiceManager;
@@ -98,9 +100,17 @@ public class BotEquipChecker {
         }
     }
 
-    private static boolean isNaked(Character chr) {
-        boolean hasTop = chr.getInventory(InventoryType.EQUIPPED).getItem(SLOT_TOP) != null;
-        boolean hasPants = chr.getInventory(InventoryType.EQUIPPED).getItem(SLOT_PANTS) != null;
-        return !hasTop || !hasPants;
+    /**
+     * A coat and an overall share the top slot, and an overall covers the pants, so a bot is dressed when that
+     * slot holds an overall, or when it holds a coat and the pants slot is filled. prog#P1: an overall used to
+     * read as "no top and no pants", so the sweep re-dressed a dressed bot and the swap threw the overall away.
+     */
+    static boolean isNaked(Character chr) {
+        Item top = chr.getInventory(InventoryType.EQUIPPED).getItem(SLOT_TOP);   // a coat or an overall
+        if (top == null) {
+            return true;
+        }
+        return !ItemConstants.isOverall(top.getItemId())
+                && chr.getInventory(InventoryType.EQUIPPED).getItem(SLOT_PANTS) == null;
     }
 }

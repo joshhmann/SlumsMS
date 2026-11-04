@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer.GCMoveSystem;
 
 import client.BotClient;
 import client.Character;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import server.maps.Foothold;
@@ -18,6 +19,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import testutil.PropsRestored;
 
 /*
  * Graph v69: walk-off DROP fixes (ported from nutnnut/Cosmic, AGPL-3.0. Credit: NutNNut):
@@ -31,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *  - 26b372e7c: the walk-off sim starts on the region's own foothold, not a coordinate lookup that can pick a shelf
  *    up to 26 px overhead; otherwise the drop waypoint flips between two opposite targets inside the region.
  */
+@ExtendWith(PropsRestored.class)
 class BotWalkOffDropTest {
 
     private static final int DEPT_STORE = 100000102;

@@ -171,7 +171,6 @@ public final class PacketProcessor {
         registerHandler(RecvOpcode.ITEM_PICKUP, new ItemPickupHandler());
         registerHandler(RecvOpcode.CHAR_INFO_REQUEST, new CharInfoRequestHandler());
         registerHandler(RecvOpcode.SPECIAL_MOVE, new SpecialMoveHandler());
-        registerHandler(RecvOpcode.USE_INNER_PORTAL, new InnerPortalHandler());
         registerHandler(RecvOpcode.CANCEL_BUFF, new CancelBuffHandler());
         registerHandler(RecvOpcode.CANCEL_ITEM_EFFECT, new CancelItemEffectHandler());
         registerHandler(RecvOpcode.PLAYER_INTERACTION, new PlayerInteractionHandler());

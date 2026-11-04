@@ -283,6 +283,11 @@ public class Quest {
     }
 
     public void start(Character chr, int npc) {
+        if (isHiddenFor(chr)) {
+            // autoStart short-circuits canStart, and a hidden quest's start acts must not run before forceStart refuses
+            log.debug("Refused to start hidden quest {} for {}", id, chr.getName());
+            return;
+        }
         if (autoStart || canStart(chr, npc)) {
             Collection<AbstractQuestAction> acts = startActs.values();
             for (AbstractQuestAction a : acts) {

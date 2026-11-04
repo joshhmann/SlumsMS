@@ -15,6 +15,7 @@ import soloMapling.ArtificialPlayer.BotTypes.TownWandererBot;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -30,6 +31,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /** Ticket 36/37's fast/slow path through {@link BotConversation}, with a fake brain, no Decide and a fake memory table. */
+@org.junit.jupiter.api.extension.ExtendWith(soloMapling.ArtificialPlayer.BotSocialSystem.SocialFlagsOff.class)
 class BotConversationFlowTest {
 
     @TempDir
@@ -129,6 +131,50 @@ class BotConversationFlowTest {
         when(bot.getChr()).thenReturn(chr);
         Character player = character(nextPlayer++, "Josh");
         assertTrue(BotConversation.say(bot, player, line, null, said::add));
+    }
+
+    /** A captured prompt as one searchable string. */
+    private static String text(List<BotBrain.Turn> prompt) {
+        StringBuilder out = new StringBuilder();
+        for (BotBrain.Turn turn : prompt) {
+            out.append(turn.role()).append(": ").append(turn.content()).append('\n');
+        }
+        return out.toString();
+    }
+
+    /**
+     * social#5: a whisper is answered from the whisper chat. One store holds both channels - the pair is one
+     * conversation - but the player's public line must not reach the prompt that writes a private answer, and the
+     * map-chat prompt must not lose it either.
+     */
+    @Test
+    void aWhisperIsAnsweredFromTheWhisperChatNotTheMapChat() throws Exception {
+        BotSM bot = mock(TownWandererBot.class);
+        Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+        when(bot.getChr()).thenReturn(chr);
+        Character player = character(nextPlayer++, "Josh");
+        brainReply = Optional.empty(); // the map line gets no answer: only its turn is recorded
+        assertTrue(BotConversation.talk(bot, player, "i sold my zakum hat for 40m"));
+        waitFor(() -> asked.size() == 1);
+        assertEquals(1, asked.size());
+        CompletableFuture<Optional<String>> whisper = new CompletableFuture<>();
+        controlledReply = whisper;
+        assertTrue(BotConversation.say(bot, player, "u there", null, said::add));
+        waitFor(() -> asked.size() == 2);
+        assertEquals(2, asked.size());
+        String privatePrompt = text(asked.get(1));
+        assertTrue(privatePrompt.contains("u there"), privatePrompt);
+        assertFalse(privatePrompt.contains("zakum hat"),
+                "a private answer must not be written from the map chat: " + privatePrompt);
+        whisper.complete(Optional.empty());
+        controlledReply = null; // and the same pair's next map line still reads the map chat it had
+        assertTrue(BotConversation.talk(bot, player, "anyone else sell a zakum hat"));
+        waitFor(() -> asked.size() == 3);
+        assertEquals(3, asked.size());
+        String publicPrompt = text(asked.get(2));
+        assertTrue(publicPrompt.contains("i sold my zakum hat for 40m"),
+                "the map chat still sees the map chat: " + publicPrompt);
+        BotConversation.end(chr.getId(), player.getId());
     }
 
     private void waitFor(java.util.function.BooleanSupplier done) throws InterruptedException {
@@ -256,6 +302,17 @@ class BotConversationFlowTest {
      * Stage B: the gates answer a party ask and the planner words their verdict. This wanderer is not a social bot, so
      * {@code BotChatActions.party} declines; the prompt the model gets is the planned one and must not read as a yes.
      */
+    /** The brain calls that carry the party verdict, in arrival order (see the note in the test that uses this). */
+    private List<List<BotBrain.Turn>> partyAsks() {
+        List<List<BotBrain.Turn>> asks = new ArrayList<>();
+        for (List<BotBrain.Turn> call : asked) {
+            if (!call.isEmpty() && call.get(0).content().contains("Answer their party ask")) {
+                asks.add(call);
+            }
+        }
+        return asks;
+    }
+
     @Test
     void aRefusedPartyAskIsPlannedFromTheGatesVerdict() throws Exception {
         System.setProperty("solomapling.convo.planner", "true");
@@ -266,8 +323,15 @@ class BotConversationFlowTest {
             Character player = org.mockito.Mockito.spy(character(nextPlayer++, "Josh"));
             org.mockito.Mockito.doReturn(mock(client.Client.class)).when(player).getClient();
             assertTrue(BotConversation.say(bot, player, "can i join ur pt", null, said::add));
-            waitFor(() -> !asked.isEmpty());
-            String system = asked.get(0).get(0).content();
+            // WHICH prompt carries the party verdict: the fake brain below answers every call with the same future, and
+            // the reply path may queue more than one call for a wave of chat (a greeting for the player, then the
+            // party ask). Reading asked.get(0) therefore asserted on whichever call happened to arrive first - green on
+            // a quiet machine, a HELLO plan under load. Select the prompt that carries the ask instead, and pin that
+            // exactly one plan was asked for it.
+            waitFor(() -> partyAsks().size() == 1);
+            List<List<BotBrain.Turn>> plans = partyAsks();
+            assertEquals(1, plans.size(), "exactly one plan is asked for one party ask; other calls are chat, not plans");
+            String system = plans.get(0).get(0).content();
             assertTrue(system.contains("Answer their party ask with a no"), "the planned party prompt:\n" + system);
             assertTrue(system.contains("Say no to the party"), "the gates' own words ride along:\n" + system);
             assertFalse(system.contains("Say yes"), system);
@@ -330,6 +394,8 @@ class BotConversationFlowTest {
         when(brain.isLive()).thenReturn(true);
         when(brain.reply(org.mockito.ArgumentMatchers.any(), anyInt(), org.mockito.ArgumentMatchers.any()))
                 .thenCallRealMethod();
+        when(brain.notes(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
         when(brain.complete(anyInt(), org.mockito.ArgumentMatchers.any())).thenAnswer(call -> {
             asked.add(call.getArgument(1));
             return answer;
@@ -351,6 +417,123 @@ class BotConversationFlowTest {
         answer.complete(Optional.of("ant tunnel is good at 35"));
         assertTrue(checked.await(5, java.util.concurrent.TimeUnit.SECONDS), "busy state checked at delivery");
         assertTrue(said.isEmpty(), said.toString());
+        BotConversation.end(bot.getChr().getId(), player.getId()); // an ended chat leaves no retry to land in
+    }
+
+    /**
+     * social#1/#3: a whisper the player's client cannot show (their trade window is up) is not said, does not enter
+     * the pair's history and leaves nothing in the whisper trail - the bot never remembers saying what the player
+     * never got - and it waits exactly one busy window before it gives up.
+     */
+    @Test
+    void aWhisperToABusyPlayerIsNotSaidNorRemembered() throws Exception {
+        System.setProperty("solomapling.chat.busyRetryMs", "80");
+        CompletableFuture<Optional<String>> answer = new CompletableFuture<>();
+        java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
+        BotBrain brain = mock(BotBrain.class);
+        when(brain.isLive()).thenReturn(true);
+        when(brain.reply(org.mockito.ArgumentMatchers.any(), anyInt(), org.mockito.ArgumentMatchers.any()))
+                .thenCallRealMethod();
+        when(brain.notes(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+        when(brain.complete(anyInt(), org.mockito.ArgumentMatchers.any())).thenAnswer(call -> {
+            asked.add(call.getArgument(1));
+            return calls.getAndIncrement() == 0 ? answer : CompletableFuture.completedFuture(Optional.of("lol"));
+        });
+        BotBrains.useForTest(brain);
+        try {
+            BotSM bot = mock(TownWandererBot.class);
+            Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+            when(bot.getChr()).thenReturn(chr);
+            Character player = org.mockito.Mockito.spy(character(nextPlayer++, "Josh"));
+            org.mockito.Mockito.doReturn(mock(client.Client.class)).when(player).getClient();
+            when(player.getTrade()).thenReturn(mock(server.Trade.class)); // the trade window stays up
+            assertTrue(BotConversation.say(bot, player, "where should i train at level 35?", null, said::add));
+            waitFor(() -> !asked.isEmpty());
+            answer.complete(Optional.of("ant tunnel is good at 35"));
+            Thread.sleep(400); // one 80 ms window, then the one retry is refused too: the line is dropped
+            assertTrue(said.isEmpty(), said.toString());
+            long now = System.currentTimeMillis();
+            assertTrue(soloMapling.ArtificialPlayer.BotConvo.WhisperTrail.of(chr.getId(), player.getId(), now)
+                            .earlier(now).stream().noneMatch(e -> e.text().contains("ant tunnel")),
+                    "the whisper trail must not say the player was told");
+            assertTrue(BotConversation.say(bot, player, "hey again", null, said::add));
+            waitFor(() -> asked.size() == 2);
+            assertEquals(2, asked.size());
+            assertTrue(asked.get(1).stream().noneMatch(
+                            t -> t.role() == BotBrain.Role.ASSISTANT && t.content().contains("ant tunnel")),
+                    "the next prompt must not claim the bot already answered: " + asked.get(1));
+            BotConversation.end(chr.getId(), player.getId());
+        } finally {
+            System.clearProperty("solomapling.chat.busyRetryMs");
+        }
+    }
+
+    /**
+     * social#2: a reply that was being generated when the chat ended must not land in the next chat with the same
+     * player. The liveness gate compares the session (as the greet path already does) instead of testing that some
+     * session exists for the pair.
+     */
+    @Test
+    void aStaleReplyDoesNotLandInTheNextChatWithTheSamePlayer() throws Exception {
+        BotSM bot = mock(TownWandererBot.class);
+        Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+        when(bot.getChr()).thenReturn(chr);
+        Character player = character(nextPlayer++, "Josh");
+        CompletableFuture<Optional<String>> stale = new CompletableFuture<>();
+        CompletableFuture<Optional<String>> fresh = new CompletableFuture<>();
+        controlledReply = stale;
+        assertTrue(BotConversation.say(bot, player, "first question", null, said::add));
+        waitFor(() -> asked.size() == 1);
+        BotConversation.end(chr.getId(), player.getId()); // that chat is over before its answer arrives
+        waitFor(() -> !BotConversation.isTalking(chr.getId(), player.getId()));
+        controlledReply = fresh;
+        assertTrue(BotConversation.say(bot, player, "second question", null, said::add));
+        waitFor(() -> asked.size() == 2);
+        assertEquals(2, asked.size());
+        stale.complete(Optional.of("stale answer"));
+        Thread.sleep(200);
+        assertTrue(said.stream().noneMatch(s -> s.contains("stale")),
+                "a dead chat's reply must not be delivered into the live one: " + said);
+        fresh.complete(Optional.of("fresh answer"));
+        waitFor(() -> !said.isEmpty());
+        assertEquals(List.of("fresh answer"), said, "only the live chat's own reply is delivered");
+        BotConversation.end(chr.getId(), player.getId());
+    }
+
+    /** social#1: the same whisper goes out once the busy window has passed - one retry, then it is said. */
+    @Test
+    void aWhisperToABusyPlayerGoesOutAfterTheBusyWindow() throws Exception {
+        System.setProperty("solomapling.chat.busyRetryMs", "80");
+        CompletableFuture<Optional<String>> answer = new CompletableFuture<>();
+        BotBrain brain = mock(BotBrain.class);
+        when(brain.isLive()).thenReturn(true);
+        when(brain.reply(org.mockito.ArgumentMatchers.any(), anyInt(), org.mockito.ArgumentMatchers.any()))
+                .thenCallRealMethod();
+        when(brain.notes(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+        when(brain.complete(anyInt(), org.mockito.ArgumentMatchers.any())).thenAnswer(call -> {
+            asked.add(call.getArgument(1));
+            return answer;
+        });
+        BotBrains.useForTest(brain);
+        try {
+            BotSM bot = mock(TownWandererBot.class);
+            Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+            when(bot.getChr()).thenReturn(chr);
+            Character player = org.mockito.Mockito.spy(character(nextPlayer++, "Josh"));
+            org.mockito.Mockito.doReturn(mock(client.Client.class)).when(player).getClient();
+            java.util.concurrent.atomic.AtomicInteger busy = new java.util.concurrent.atomic.AtomicInteger();
+            when(player.getTrade()).thenAnswer(c -> busy.getAndIncrement() == 0 ? mock(server.Trade.class) : null);
+            assertTrue(BotConversation.say(bot, player, "where should i train at level 35?", null, said::add));
+            waitFor(() -> !asked.isEmpty());
+            answer.complete(Optional.of("ant tunnel is good at 35"));
+            waitFor(() -> !said.isEmpty());
+            assertEquals(List.of("ant tunnel is good at 35"), said, "said once the window passed, not dropped");
+            BotConversation.end(chr.getId(), player.getId());
+        } finally {
+            System.clearProperty("solomapling.chat.busyRetryMs");
+        }
     }
 
     @Test
@@ -556,13 +739,37 @@ class BotConversationFlowTest {
             assertFalse(BotConversation.isTalking(chr.getId(), player.getId()), "and no chat was opened");
 
             System.clearProperty("solomapling.convo.planner");
-            assertTrue(BotConversation.greet(bot, player), "switch off: the legacy greeting has no per-player cap");
-            assertTrue(SocialGate.botChatAllowed(BotStore.BOT_ID_BASE + 5, player.getId(),
-                    System.currentTimeMillis()), "the legacy path records no bot-started chat");
+            assertFalse(BotConversation.greet(bot, player),
+                    "social#6: the hour holds for the legacy greeting too - the cap is not part of the planner");
+            assertFalse(BotConversation.isTalking(chr.getId(), player.getId()), "and still no chat was opened");
+        } finally {
+            System.clearProperty("solomapling.convo.planner");
+            SocialGate.forgetBotChatsForTest();
+        }
+    }
+
+    /**
+     * social#6: at most one bot-started chat per player per hour is the rule, and it was only enforced while the
+     * planner switch was on (off by default), so with the switch off every bot in the map could greet the player.
+     */
+    @Test
+    void theHourlyCapHoldsWithThePlannerOff() throws Exception {
+        BotSM bot = mock(TownWandererBot.class);
+        Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+        when(bot.getChr()).thenReturn(chr);
+        when(bot.activitySnapshot()).thenReturn(BotRoster.Activity.of("social", 0, null));
+        Character player = character(nextPlayer++, "Josh");
+        try {
+            SocialGate.noteBotChat(BotStore.BOT_ID_BASE + 5, player.getId(), System.currentTimeMillis());
+            assertFalse(BotConversation.greet(bot, player), "another bot said hi: the hour holds with the switch off");
+            assertFalse(BotConversation.isTalking(chr.getId(), player.getId()), "and no chat was opened");
+            SocialGate.forgetBotChatsForTest();
+            assertTrue(BotConversation.greet(bot, player), "with the hour clear the greeting goes out");
+            assertFalse(SocialGate.botChatAllowed(BotStore.BOT_ID_BASE + 7, player.getId(),
+                    System.currentTimeMillis()), "and it is recorded, so the next bot waits its turn");
             waitFor(() -> !asked.isEmpty());
             BotConversation.end(chr.getId(), player.getId());
         } finally {
-            System.clearProperty("solomapling.convo.planner");
             SocialGate.forgetBotChatsForTest();
         }
     }

@@ -1,0 +1,57 @@
+# Ticket 130 boss lane, branch 164-bossrows (round 3): Capt. Latanica (1.6.4).
+#
+# Read only when the server runs with -Dslums.mechanics.boss=true (off by default). One room, one reactor, one door that
+# wants an item in hand.
+#
+# What OUR scripts say the room is:
+#  - the gate is the script's own: 1-6 players, levels 1-255, one lobby (LatanicaBattle.js:27-28,39);
+#  - the door is the portal scripts/portal/captinsg00.js, and it refuses anyone who does not hold item 4000381 (:4). The
+#    row cannot click a door, so it declares the item (entryItems) and the solver waits, naming it, until one member of
+#    the run holds it - it never warps past the door;
+#  - 541010100 holds one NPC and reactor 5411000 (Map.wz/Map/Map5/541010100.img.xml: no mobs). The reactor is act()-based
+#    (scripts/reactor/5411000.js:22-25): it spawns 9420513 and sets "boss" 1 as a summon flag;
+#  - 9420513 has no revive (Mob.wz/9420513.img.xml): one form, the whole fight;
+#  - the clear is clearPQ -> setEventCleared() with no property (LatanicaBattle.js:223-226) when 9420513 dies
+#    (:228-241). "boss" 1 is the reactor's own summon flag, not a clear -> instance: true.
+#
+# Why there is no summonProperty: the reactor writes "boss", and the solver's summon gate is checked before the click it
+# is supposed to make - a row that waited for it would deadlock. spawnWaitSeconds covers the click-to-spawn window.
+#
+# The wz facts are from /root/work/SlumsMS-170-evan/wz, which is not version-pinned to this branch (docs/PROVENANCE.md).
+id: latanica
+name: Capt. Latanica
+kind: BOSS
+eventScript: LatanicaBattle
+recruitMap: 541010060
+exitMap: 541010110
+minPlayers: 1
+maxPlayers: 6
+minLevel: 1
+maxLevel: 255
+timeLimitMinutes: 10
+sources:
+  - "scripts/event/LatanicaBattle.js (ours, the truth): minPlayers 1 / maxPlayers 6 (:27), levels 1-255 (:28), entryMap 541010100 and exitMap 541010110 (:29-30), recruitMap 541010060 / clearMap 541010110 (:31-32), minMapId = maxMapId = 541010100 (:34-35), eventTime 10 (:37), maxLobbies 1 (:39), clearPQ sets the instance's flag (:223-226), isLatanica = 9420513 (:228-231), monsterKilled -> eim.clearPQ() (:233-241)"
+  - "scripts/portal/captinsg00.js:4 - the door refuses a player without item 4000381, then requires a party and its leader (:8-19). Nothing inside LatanicaBattle.js re-checks the item, and the portal does not take it, so one holder is enough"
+  - "scripts/reactor/5411000.js:22-25 - act() spawns 9420513 at (-146,225) and sets \"boss\" 1; act()-based, so Reactor.java:242-246 sends a bot's click to it"
+  - "Map.wz/Map/Map5/541010100.img.xml (dump /root/work/SlumsMS-170-evan/wz): the map's life is NPC 9270033 and reactor 5411000 only. Mob.wz/9420513.img.xml has no info/revive"
+stages:
+  - stage: 1
+    map: 541010100
+    name: Capt. Latanica
+    solver: boss-phases
+    # the door wants this in hand before the room is anything: one member holding it is enough (captinsg00.js:4).
+    entryItems: [4000381]
+    # the bot clicks 5411000 once; 9420513 arrives from that click, so the room may stand empty until it does.
+    hitReactors: [5411000]
+    # 60 s is a policy number (the click, the spawn and a respawn animation, with margin), not a WZ one.
+    spawnWaitSeconds: 60
+    mobs:
+      - 9420513
+    objectives:
+      - id: boss
+        kind: DEFEAT
+        mob: 9420513
+        note: the only form, and the id isLatanica waits for
+    # LatanicaBattle.js:223-226 writes no property; the instance's own flag is the clear.
+    clear:
+      instance: true

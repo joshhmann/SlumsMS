@@ -156,7 +156,8 @@ and spreads by gossip. Soft layer only: the hard guarantee is that no chat path 
 
 **Tunables (system properties only):** `solomapling.chat.decide`, `.decideTimeoutMs` (400), `.decidePerSecond` (8),
 `.intentMin` (0.4), `.conMin` (0.4), `.flagNoteMin` (0.6), `.busyIgnoreChance` (0.1), `.typingScale` (1.0),
-`.logReplies` (true).
+`.logReplies` (true), `.busyRetryMs` (20000: how long one whisper waits for a player in a trade, a shop, an NPC
+dialog or an instance before it is dropped unremembered).
 
 **Not done in phase 1:** attention (item 1), the window on demand (item 2), menus only where choices are real
 (item 3), the opt-in anonymised log, Dory comparison, and an owner check in game. No headless server run was needed:

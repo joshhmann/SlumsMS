@@ -143,7 +143,7 @@ class BotCrewsTest {
 
     @Test
     void offWithoutTheSwitch() {
-        System.clearProperty("slums.crews");
+        System.setProperty("slums.crews", "false"); // on by default since 1.6.4; false is the rollback
         crew(A, B);
         where.put(A, new int[]{1, FIELD});
         where.put(B, new int[]{1, FIELD});

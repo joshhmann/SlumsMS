@@ -198,10 +198,11 @@
             <artifactId>javassist</artifactId>
             <version>3.28.0-GA</version>
         </dependency>
+        <!-- NormalGearBridge (gear codex lane) parses its guide with gson; it used to arrive transitively through jedis 5.1.2, which the deadcode lane removed. 2.10.1 is the version jedis pulled. -->
         <dependency>
-            <groupId>redis.clients</groupId>
-            <artifactId>jedis</artifactId>
-            <version>5.1.2</version>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.10.1</version>
         </dependency>
 
         <dependency>

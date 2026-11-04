@@ -18,6 +18,12 @@ class ItemCrafter {
     }
 
     tryCrafting() {
+        // Owner decision (c): character level >= the recipe's requiredLevel, checked where the craft runs, before
+        // anything is taken or given.
+        if (this.cm.getLevel() < this.selectedRecipe.requiredLevel) {
+            return [[CraftingResult.LevelTooLow, 1]];
+        }
+
         let counts = {
             [CraftingResult.Success]: 0,
             [CraftingResult.SuccessWithoutEnhancement]: 0,

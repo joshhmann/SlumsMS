@@ -1026,6 +1026,9 @@ public class Server {
 
         OpcodeConstants.generateOpcodeNames();
         CommandsExecutor.getInstance();
+        // AL-4 (ticket 183): one line naming every owned-alt switch, so a conf that leaves the master off is visible
+        // in the boot log instead of an @botme "not available yet" nobody can explain.
+        log.info(YamlConfig.config.server.ownedAltSwitchesLine());
 
         for (Channel ch : this.getAllChannels()) {
             ch.reloadEventScriptManager();
@@ -1043,6 +1046,7 @@ public class Server {
         soloMapling.Economy.exchange.volatility.MarketVolatility.startIfEnabled(); // 1.6.1 volatility: traders/events/rumours, off unless their -D flags
         soloMapling.Economy.board.SiteBoard.startIfEnabled(); // 1.6.0 site board + price alerts (file channel), off unless -Dslums.board=true
         soloMapling.mechanics.KpqLobby.startIfEnabled(); // 1.6.1 KPQ automation: bot-only lobby parties, off unless -Dslums.mechanics=true and -Dslums.mechanics.lobby=true
+        soloMapling.mechanics.ContentLobby.startIfEnabled(); // 1.6.4 party quest lobbies (Orbis, Ludibrium): bot-only parties, off unless -Dslums.mechanics.<row>.lobby and the row's two flags
        // DamageSkin.loadDamageSkins();
     }
 

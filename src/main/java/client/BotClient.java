@@ -45,6 +45,60 @@ public class BotClient extends Client {
         return true;
     }
 
+    /**
+     * The client a script runs with when a <b>population bot</b> acts: its {@code getPlayer()} is the bot.
+     *
+     * <p>Every population bot shares its channel's one headless client ({@code BotClientHandler}), and that client has no
+     * player. A reactor hit, a reactor an item is dropped on and an NPC conversation all hand their script that client
+     * ({@code Reactor.hitReactor(c)}, {@code MapleMap.activateItemReactors}, {@code NPCConversationManager.getClient()}),
+     * and the scripts reach the character through it: {@code ReactorActionManager.dropItems} returns without a drop when
+     * {@code c.getPlayer()} is null ({@code ReactorActionManager.java:157-159}), and {@code rm.getPlayer().getEventInstance()}
+     * - the first line of Guild Quest's statues ({@code scripts/reactor/9208000.js:36}), spear altars and gate - throws.
+     * A client bound to the bot gives them the player they ask for and is otherwise the headless client (same world and
+     * channel, no socket, every packet dropped). It is made per action: nothing is written to the shared client, so two
+     * bots acting at once never see each other's player.
+     *
+     * <p>Only {@code getPlayer()} differs from the shared client. In particular the script-engine cache ({@code
+     * AbstractScriptManager.getInvocableScriptEngine(path, c)} keeps one engine per script path <em>on the client</em>) is the
+     * shared client's own, delegated, so a bound client neither builds a new Graal engine per hit nor splits the cache the
+     * shared client has always had. The bound client is for a script to read its player through; it is never sent a packet
+     * (the headless client drops them anyway), never stored on the character and never the character's own client.
+     *
+     * <p>Anyone who has a client of their own - a real player, an owned alt - gets it back unchanged.
+     *
+     * <p><b>Scripts only: anything that sends a packet must use the bot's shared client ({@code bot.getClient()}), or the
+     * packet gets a player it should not have.</b> Do not reach for this because {@code bot.getClient().getPlayer()} is null:
+     * that is the headless client doing what it was built to do. The call sites are listed in {@code REPORT-seams.md}; a new
+     * one needs a script on the other end that reads its player.
+     */
+    public static Client forScripts(Character bot) {
+        Client own = bot == null ? null : bot.getClient();
+        if (!(own instanceof BotClient) || own.getPlayer() != null) {
+            return own;
+        }
+        return new BotClient(own.getWorld(), own.getChannel()) {
+            @Override
+            public Character getPlayer() {
+                return bot;
+            }
+
+            @Override
+            public void setScriptEngine(String name, javax.script.ScriptEngine e) {
+                own.setScriptEngine(name, e);
+            }
+
+            @Override
+            public javax.script.ScriptEngine getScriptEngine(String name) {
+                return own.getScriptEngine(name);
+            }
+
+            @Override
+            public void removeScriptEngine(String name) {
+                own.removeScriptEngine(name);
+            }
+        };
+    }
+
     /*
      * Skip the DB write and SessionCoordinator registration a real login state
      * change performs. A headless client must never write login-state rows

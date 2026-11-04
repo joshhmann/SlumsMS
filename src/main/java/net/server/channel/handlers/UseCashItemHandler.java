@@ -39,6 +39,7 @@ import constants.id.MapId;
 import constants.inventory.ItemConstants;
 import net.AbstractPacketHandler;
 import net.packet.InPacket;
+import net.packet.Packet;
 import net.packet.out.SendNoteSuccessPacket;
 import net.server.Server;
 import org.slf4j.Logger;
@@ -48,6 +49,7 @@ import server.Shop;
 import server.ShopFactory;
 import server.TimerManager;
 import server.maps.*;
+import service.NoteSendResult;
 import service.NoteService;
 import tools.PacketCreator;
 import tools.Pair;
@@ -110,27 +112,32 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
             medal = "<" + ii.getName(medalItem.getItemId()) + "> ";
         }
 
-        if (itemType == 504) { // VIP Teleport Rock
+        if (itemType == 504) { // Teleport Rock (5040000) / VIP Teleport Rock (5041000)
             String error1 = "Either the player could not be found or you were trying to teleport to an illegal location.";
-            boolean vip = p.readByte() == 1 && itemId / 1000 >= 5041; // Check if the rock is a VIP rock
+            boolean toPlayer = p.readByte() == 1 && isVipRock(itemId); // the VIP rock's second mode
             boolean success = false;
 
-            if (!vip) { // Non-VIP teleportation
+            if (toPlayer) {
+                player.dropMessage(1, "Teleporting to other players is not allowed.");
+            } else {
                 int mapId = p.readInt();
-                if (itemId / 1000 >= 5041 || mapId / 100000000 == player.getMapId() / 100000000) { // Check VIP or same continent
+                if (!savedTrockDestination(itemId, mapId, player.getTrockMaps(), player.getVipTrockMaps())) {
+                    player.dropMessage(1, error1);
+                } else if (!isVipRock(itemId) && mapId / 100000000 != player.getMapId() / 100000000) {
+                    player.dropMessage(1, "You cannot teleport between continents with this teleport rock.");
+                } else {
                     MapleMap targetMap = c.getChannelServer().getMapFactory().getMap(mapId);
-                    if (targetMap != null && !FieldLimit.CANNOTVIPROCK.check(targetMap.getFieldLimit()) &&
+                    String refusal = targetMap == null ? error1 : trockRefusal(player, mapId, targetMap);
+                    if (refusal != null) {
+                        player.dropMessage(1, refusal);
+                    } else if (!FieldLimit.CANNOTVIPROCK.check(targetMap.getFieldLimit()) &&
                             (targetMap.getForcedReturnId() == MapId.NONE || MapId.isMapleIsland(mapId))) {
                         player.forceChangeMap(targetMap, targetMap.getRandomPlayerSpawnpoint());
                         success = true;
                     } else {
                         player.dropMessage(1, error1);
                     }
-                } else {
-                    player.dropMessage(1, "You cannot teleport between continents with this teleport rock.");
                 }
-            } else {
-                player.dropMessage(1, "Teleporting to other players is not allowed.");
             }
 
             if (success) {
@@ -365,6 +372,9 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
                     Server.getInstance().broadcastMessage(c.getWorld(), PacketCreator.getMultiMegaphone(msg2, c.getChannel(), whisper));
                     PlayerMegaphones.onUse(player, String.join(" ", msg2).replace(medal + player.getName() + " : ", ""));
                     break;
+                default: // no broadcast exists for this sub-type: keep the item
+                    c.sendPacket(PacketCreator.enableActions());
+                    return;
             }
             remove(c, position, itemId);
         } else if (itemType == 508) {   // thanks tmskdl12 for graduation banner; thanks ratency for first pointing lack of Kite handling
@@ -379,10 +389,17 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
         } else if (itemType == 509) {
             String sendTo = p.readString();
             String msg = p.readString();
-            boolean sendSuccess = noteService.sendNormal(msg, player.getName(), sendTo);
-            if (sendSuccess) {
+            NoteSendResult result = noteService.sendNormal(msg, player.getName(), sendTo);
+            if (result.isOk()) {
                 remove(c, position, itemId);
                 c.sendPacket(new SendNoteSuccessPacket());
+            } else {
+                c.sendPacket(noteFailurePacket(result));
+                if (result == NoteSendResult.STORAGE_FAILED) {
+                    // No client code says "the server could not store this". Code 1 was sent above to unstick the
+                    // memo window, so the player is told here, in plain words, that nothing was lost on their side.
+                    player.dropMessage(1, "Your note could not be stored right now. Please try again in a moment.");
+                }
             }
         } else if (itemType == 510) {
             player.getMap().broadcastMessage(PacketCreator.musicChange("Jukebox/Congratulation"));
@@ -604,10 +621,10 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
             final int curlevel = toScroll.getLevel();
             c.sendPacket(PacketCreator.sendVegaScroll(0x40));
 
-            // MapleRoot's level-based enhancement; null is a "boom" on a superior item. It used to throw here,
-            // leaving the cash shop blocked and nothing used up, so a boom was a free retry. Until the owner
-            // decides whether a boom should destroy the item, it counts as a failure that keeps the item.
-            final Equip enhanced = (Equip) ii.scrollEquipWithId(toScroll);
+            // The fed scroll's own roll, boosted by the spell (vegaItemId); null is that scroll's "boom". It used
+            // to throw here, leaving the cash shop blocked and nothing used up, so a boom was a free retry. Until
+            // the owner decides whether a boom should destroy the item, it counts as a failure that keeps the item.
+            final Equip enhanced = (Equip) ii.scrollEquipWithId(toScroll, uitem.getItemId(), false, itemId, player.isGM());
             final Equip scrolled = enhanced != null ? enhanced : toScroll;
             c.sendPacket(PacketCreator.sendVegaScroll(scrolled.getLevel() > curlevel ? 0x41 : 0x43));
             //opcodes 0x42, 0x44: "this item cannot be used"; 0x39, 0x45: crashes
@@ -640,6 +657,51 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
             log.warn("NEW CASH ITEM TYPE: {}, packet: {}", itemType, p);
             c.sendPacket(PacketCreator.enableActions());
         }
+    }
+
+    /** Whether this rock is a VIP Teleport Rock (5041000+): the only one that crosses continents. */
+    static boolean isVipRock(int itemId) {
+        return itemId / 1000 >= 5041;
+    }
+
+    /**
+     * The packet a failed note send answers with, coded as {@link PacketCreator#noteError(byte)} documents: 1 means
+     * "check the recipient's name", 2 means "the recipient's inbox is full". The recipient not being found is code 1
+     * outright. A storage failure has no code of its own, and of the three 1 is the least wrong: code 0 claims the
+     * recipient is online and code 2 claims their inbox is full -- both assert something about another player that a
+     * database fault knows nothing about, while 1 only asks the sender to re-check what they typed. The handler adds
+     * a neutral chat line for that case so the player is not left blaming the name for a server-side fault.
+     */
+    static Packet noteFailurePacket(NoteSendResult result) {
+        return PacketCreator.noteError(switch (result) {
+            case RECEIVER_NOT_FOUND -> (byte) 1;
+            case INBOX_FULL -> (byte) 2;
+            case STORAGE_FAILED -> (byte) 1;
+            case OK -> throw new IllegalArgumentException("a delivered note has no error to report");
+        });
+    }
+
+    /**
+     * Whether the map the packet names is one of the character's saved rock entries. The client only ever offers an
+     * entry from that list (TrockAddMapHandler fills it), so a map outside it came from a forged packet -- the branch
+     * used to teleport wherever the packet said. A VIP rock reads the VIP list, a plain rock the plain one, and both
+     * are padded with MapId.NONE, which is not a map.
+     */
+    static boolean savedTrockDestination(int itemId, int mapId, List<Integer> plainMaps, List<Integer> vipMaps) {
+        if (mapId <= 0 || mapId == MapId.NONE) {
+            return false;
+        }
+        return (isVipRock(itemId) ? vipMaps : plainMaps).contains(mapId);
+    }
+
+    /**
+     * Why the rock may not take this character to {@code target}, or null when it may. The world-map teleport's rule
+     * (the jail, a running event, the dead, the rebirth and AreaGates gates, instance maps) is the rock's rule too,
+     * so it is asked here rather than copied.
+     */
+    static String trockRefusal(Character player, int mapId, MapleMap target) {
+        return HyperTPHandler.refusal(player.getMapId(), player.getEventInstance() != null, player.isAlive(),
+                mapId, target.getFieldLimit(), target.getForcedReturnId(), player.getReborns(), player.getLevel());
     }
 
     /**

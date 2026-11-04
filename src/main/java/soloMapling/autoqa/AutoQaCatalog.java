@@ -1168,6 +1168,19 @@ public final class AutoQaCatalog {
                         has("EX1 RESULT members=\\d+ min=\\d+ joined=([1-5])/\\1 outsider=out again=0"),
                         has("EX1 PASS "), noRefusal())
                 .build());
+        // 1.6.4 ex-2 (owner 2026-11-02): the boss room is proved on every build without an alt - a GM and the party
+        // bots the harness can stage go through Adobis's path; ex-2's own EX2 CHECK line carries what the window saw.
+        // With the boss lane off the run honestly reads EX2 BASELINE, so the check SKIPs rather than PASS on it.
+        c.add(Check.auto("t-ex-2", "A GM and party bots fight the real Zakum expedition").holds("pq:zakum").minutes(4)
+                .step(run("ex-2"), waitFor("EX2 CHECK members=", 160), bossLaneOn(), stop())
+                .expect(has("EX2 START members=[2-9]\\d* bots=[2-9]\\d* alt=none"),
+                        has("EX2 ALTAR t=\\d+ hit reactor 2111001 as \\S+, [1-9]\\d* mob"),
+                        has("EX2 CHECK members=([2-9]\\d*)/\\1 boss=yes reach=yes swings=[1-9]\\d* dmg=[1-9]\\d*"
+                                + " altar=yes abandoned=no stuck=no"),
+                        has("EX2 (PASS|END) "),
+                        lacks("Abandon"),
+                        lacks("could not be put in map"))
+                .build());
         // 1.6.0 nx-1 (owner: "does the meso -> NX path actually work?"): the plain player buys a 10k NX code from
         // an NX merchant bot for 50m, takes it by messenger and redeems it (twice: the second adds nothing); t-nx-2
         // ignores the messenger and redeems the copy the bot left in its notes
@@ -1381,7 +1394,7 @@ public final class AutoQaCatalog {
                 .step(run("nv-1"), waitFor("NV1 DONE ", 4 * 60))
                 .expect(has("NV1 DONE maps=[1-9]"), lacks("NV1 ERROR "))
                 .build());
-        // 1.7.0 ticket 130 (bots play the mechanics, phase 1): four fresh bots start Kerning PQ and clear stage 1 on
+        // 1.6.4 ticket 130 (bots play the mechanics, phase 1): four fresh bots start Kerning PQ and clear stage 1 on
         // their own (Cloto's question, Ligator coupons, passes to the leader) within the limit; mx-1 says PASS only
         // when the stage's clear property was set in time. Off without -Dslums.mechanics=true: the refusal SKIPs.
         c.add(Check.auto("t-mx-1", "Four bots clear Kerning PQ stage 1 on their own").holds("pq:kpq").minutes(18)
@@ -1536,6 +1549,40 @@ public final class AutoQaCatalog {
                 .minutes(2)
                 .expect(probe("makerBatch"))
                 .build());
+        // ticket 271 stage 7 (the Henesys pilot): the social layer's four read-only probes (Probes164Social). Each
+        // samples counters the server has already accumulated and SKIPs with a reason while there is too little of
+        // it, so none of them stages a scene or moves a bot
+        // modes (-Dslums.modeswitch): after 8 bots x 30 min of mode decisions, the census holds all three modes,
+        // switches went out of training and back into it, the type swap was refused on at most 5% of switches, and no
+        // bot went over three switches an hour
+        c.add(Check.auto("t-ms-1", "Bot modes: training, social and town all populated, switches both ways, capped")
+                .laneOnly().minutes(2)
+                .expect(probe("modeSwitch"))
+                .build());
+        // minds (-Dslums.socialacts): a sample of online bots with a loaded mind has no NaN, a mood in [-1, 1], and
+        // at least two minds moved off their seed values (an event landed)
+        c.add(Check.auto("t-sm-1", "Bot minds: moods in range, no NaN, events land on seeded emotions and needs")
+                .laneOnly().minutes(2)
+                .expect(probe("socialMind"))
+                .build());
+        // acts (-Dslums.socialacts, -Dslums.socialbudget): at least three kinds of act landed between bots, errors
+        // and budget refusals stay under their shares, the turn cap bites, and no kind is refused more than it lands
+        c.add(Check.auto("t-sa-1", "Social acts: three kinds land, budget and turn cap bite, few errors")
+                .laneOnly().minutes(2)
+                .expect(probe("socialActs"))
+                .build());
+        // The Henesys pilot's own counters (probe "socialPilot", Probes164Social). The id is t-pi-1 because t-sp-1 is
+        // the 1.6.2 "bots spread out" check. SocialPilot exists now, so the check is registered.
+        c.add(Check.auto("t-pi-1", "Henesys pilot: its own counters report work")
+                .laneOnly().minutes(2)
+                .expect(probe("socialPilot"))
+                .build());
+        c.add(Check.half("t-ng-8", "Nimble class weapon core exchange",
+                "Run !qa run ng-8 in a client for the actual menu, confirmation, cancellation and inventory messages.")
+                .laneOnly().minutes(1).expect(probe("forgeCoreExchange")).build());
+        c.add(Check.half("t-ng-10", "Normal equipment bridge: ordinary drop sources and guide",
+                "Run !qa run ng-10 for the actual Nimble guide, source routes, equipment and previous-tier combat checks.")
+                .laneOnly().minutes(1).expect(probe("normalGearBridge")).build());
         return List.copyOf(c);
     }
 
@@ -2140,6 +2187,18 @@ public final class AutoQaCatalog {
             }
         }
         return null;
+    }
+
+    /**
+     * The boss lane's switch, read where the check runs (the server JVM). With it off ex-2 still runs and reports
+     * {@code EX2 BASELINE}: that is a comparable run, not proof of a fight, so the check SKIPs instead of passing.
+     */
+    private static Check.Step bossLaneOn() {
+        return Steps.of("the boss lane is on (-Dslums.mechanics.boss=true)", r ->
+                Boolean.getBoolean("slums.mechanics.boss")
+                        ? Check.StepResult.OK
+                        : Check.StepResult.skip("the boss lane is off (-Dslums.mechanics.boss=true): the run read"
+                                + " EX2 BASELINE"));
     }
 
     /** True when the log has {@code GUILD SAY <bot> [<guild>]: <line>} for this bot and this guild-chat line. */

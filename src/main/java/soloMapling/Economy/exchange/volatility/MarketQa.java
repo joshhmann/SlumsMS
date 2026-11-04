@@ -3,7 +3,7 @@ package soloMapling.Economy.exchange.volatility;
 import soloMapling.Economy.exchange.Exchange;
 import soloMapling.Economy.exchange.ExchangeService;
 import soloMapling.Economy.exchange.ExchangeStore.OrderRow;
-import soloMapling.Economy.exchange.Ledger.Asset;
+import soloMapling.Economy.exchange.AssetRegistry.Asset;
 import soloMapling.Economy.exchange.LiveWallet;
 import soloMapling.Economy.exchange.OrderBook.Side;
 import soloMapling.Economy.exchange.Ticker;
@@ -201,7 +201,7 @@ public final class MarketQa {
      * t-xc-5 / {@code !qa run xc-5} (162-xtraders, owner 2026-10-31: "waking up chaos and WS"): a trader that holds a
      * Chaos or White Scroll offers that scroll on the next turn instead of rolling the LEAF dice - until 1.6.2 the dice
      * alone decided, so no bot ever quoted one of the 27 Chaos Scrolls bots already held and the ticker had no fills.
-     * The check reads every online holder's pick ({@link MarketTraders#heldScroll}), then places and cancels one SELL
+     * The check reads every online holder's pick ({@link MarketTraders#heldItem}), then places and cancels one SELL
      * of the scroll through the exchange exactly as the trader would (its own holdings, the price band, 1% fee), and
      * sees the scroll come back. Nothing is minted: with no holder online it SKIPs and says why.
      */
@@ -249,7 +249,7 @@ public final class MarketQa {
                     + "this again later (" + online + " traders online)");
         }
         for (Cand c : holders) {
-            Ticker pick = MarketTraders.heldScroll(scrolls, c.w());
+            Ticker pick = MarketTraders.heldItem(scrolls, c.w());
             out.add("trader " + c.t.id() + " (" + c.t.archetype() + ") holds " + c.w().have(c.k.asset()) + " " + c.k.id()
                     + "; its pick is " + (pick == null ? "none" : pick.id()));
             if (pick == null || !pick.id().equals(c.k.id())) {

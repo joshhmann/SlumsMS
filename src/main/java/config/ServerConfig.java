@@ -117,6 +117,21 @@ public class ServerConfig {
     public boolean COMPANION_SUPPLIES_ENABLED = false;
     // A party invite (party window or buddy menu) naming one of your own offline characters calls it as an alt.
     public boolean OWNED_ALTS_INVITE_SUMMON_ENABLED = false;
+
+    /**
+     * AL-4 (ticket 183): the owned-alt switches as one boot line, every name spelled as it is in the conf. The shipped
+     * 1.6.3 conf turned the six companion switches on but left OWNED_ALTS_ENABLED at its false default, so @botme was
+     * not available and t-oa-1 skipped itself; one line in the boot log says which way each switch actually went.
+     */
+    public String ownedAltSwitchesLine() {
+        return "Owned alts: OWNED_ALTS_ENABLED=" + OWNED_ALTS_ENABLED
+                + ", OWNED_ALTS_SUMMON_ENABLED=" + OWNED_ALTS_SUMMON_ENABLED
+                + ", COMPANION_ORDERS_ENABLED=" + COMPANION_ORDERS_ENABLED
+                + ", COMPANION_TRADES_ENABLED=" + COMPANION_TRADES_ENABLED
+                + ", COMPANION_UPGRADES_ENABLED=" + COMPANION_UPGRADES_ENABLED
+                + ", COMPANION_SUPPLIES_ENABLED=" + COMPANION_SUPPLIES_ENABLED
+                + ", OWNED_ALTS_INVITE_SUMMON_ENABLED=" + OWNED_ALTS_INVITE_SUMMON_ENABLED;
+    }
     //1.4.2 (perf): a player entering a map gets what is in view first; bots and drops outside the view follow
     //over the next ~1.5 s (server.maps.MapEntryPlacement). false = everything in one burst, as before.
     public boolean MAP_ENTRY_TRICKLE = true;
@@ -391,7 +406,12 @@ public class ServerConfig {
     public long BLOCK_NPC_RACE_CONDT;
     public int TOT_MOB_QUEST_REQUIREMENT;
     public int MOB_REACTOR_REFRESH_TIME;
-    public int PARTY_SEARCH_REENTRY_LIMIT;
+    //ticket 164: without an initialiser the JVM default 0 let a single empty search expire the leader, which then sat
+    //in the long-term waiting queue for 77 ticks (~12.8 min at the 10 s PartySearchTask) and could only be freed by
+    //restarting the party search. 10 is the value the Cosmic and SoloMapling config.yaml files ship for this key -
+    //their own ServerConfig.java has no initialiser either, so 10 here comes from their yaml, not from any Java
+    //default: the max amount of times a party leader may persist on Party Search before the entry expires.
+    public int PARTY_SEARCH_REENTRY_LIMIT = 10;
     public long NAME_CHANGE_COOLDOWN;
     public long WORLD_TRANSFER_COOLDOWN = NAME_CHANGE_COOLDOWN;//Cooldown for world tranfers, default is same as name change (30 days).
     public boolean INSTANT_NAME_CHANGE;
@@ -479,10 +499,14 @@ public class ServerConfig {
     public int EXPAND_GUILD_MAX_COST;
 
     //Family Configuration
-    public int FAMILY_REP_PER_KILL;
-    public int FAMILY_REP_PER_BOSS_KILL;
-    public int FAMILY_REP_PER_LEVELUP;
-    public int FAMILY_MAX_GENERATIONS;
+    //owner 2026-10-25: rep per kill 4, per boss kill 20, per level-up 200, at most 1000 generations
+    //(docs/tickets/53-family.md:18-19). Initialised here because yamlbeans leaves an absent key at the Java
+    //default, and 0 is not a neutral value: it pays no reputation at all and turns the generation cap into a
+    //wall that refuses every join (FamilyAddHandler.java:71, AcceptFamilyHandler.java:105).
+    public int FAMILY_REP_PER_KILL = 4;
+    public int FAMILY_REP_PER_BOSS_KILL = 20;
+    public int FAMILY_REP_PER_LEVELUP = 200;
+    public int FAMILY_MAX_GENERATIONS = 1000;
 
     //Equipment Configuration
     public boolean USE_EQUIPMNT_LVLUP_SLOTS;
@@ -532,12 +556,12 @@ public class ServerConfig {
     public int DOJO_ENERGY_DMG;
 
     //Wedding Configuration
-    public int WEDDING_RESERVATION_DELAY;
-    public int WEDDING_RESERVATION_TIMEOUT;
-    public int WEDDING_RESERVATION_INTERVAL;
-    public int WEDDING_BLESS_EXP;
-    public int WEDDING_GIFT_LIMIT;
-    public boolean WEDDING_BLESSER_SHOWFX;
+    public int WEDDING_RESERVATION_DELAY = 3;       // Cosmic stock; was 0 when the key was missing
+    public int WEDDING_RESERVATION_TIMEOUT = 10;    // Cosmic stock
+    public int WEDDING_RESERVATION_INTERVAL = 60;   // Cosmic stock; 0 crashes World's fixed-rate timer at boot
+    public int WEDDING_BLESS_EXP = 30000;           // Cosmic stock: FLAT exp per bless count to each of the couple, not a multiplier
+    public int WEDDING_GIFT_LIMIT = 1;              // gifts per guest per wedding; Cosmic stock
+    public boolean WEDDING_BLESSER_SHOWFX = true;   // Cosmic stock
 
     //Buyback Configuration
     public boolean USE_BUYBACK_WITH_MESOS;
@@ -577,7 +601,7 @@ public class ServerConfig {
     public int STARFORCE_MAX_MESO_COST;
     public int STARFORCE_MAX_SPELL_TRACE_COST;
     public double STARFORCE_BOOST_PERCENTAGE;
-    public double STARFORCE_BOOST_PERCENTAGE2;
+    public double STARFORCE_BOOST_PERCENTAGE2 = 0.2;
 
     // BACKPACK
     public int BACKPACK_MAX_ITEMS_PER_PAGE;

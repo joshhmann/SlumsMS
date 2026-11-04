@@ -267,7 +267,7 @@ public final class ItemConstants {
 
     public final static Set<Integer> rebirth2 = new HashSet<>(Arrays.asList(
 
-            1302152, 1312065, 1322096, 1412065, 1422066,      //LionHeart Gear
+            1302152, 1312065, 1322096, 1402095, 1412065, 1422066, // Class boss weapons (all16 types unlock at RB2).
             1432086, 1442116, 1372084, 1382104, 1452111,
             1462099, 1492085, 1482084, 1332130, 1472122,
             1003172, 1052314, 1072485, 1082295, 1102275,

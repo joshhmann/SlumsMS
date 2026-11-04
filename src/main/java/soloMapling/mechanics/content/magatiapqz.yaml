@@ -1,0 +1,194 @@
+# Ticket 164 Magatia PQ stage data, the Zenumist variant ("MagatiaPQ_Z"). Our scripts first, the shape from the Alcadno
+# row it twins, and every gate read again in the tree.
+# Format: docs/tickets/130-bots-play-mechanics.md, "Stage data format". Loaded by soloMapling.mechanics.StageData.
+#
+# Off its own switch (-Dslums.mechanics.magatiapqz=true on top of -Dslums.mechanics=true). REPORT-opq.md, "Magatia PQ".
+#
+#   scripts/event/MagatiaPQ_Z.js:27-37 gates (exactly 4 players, level 71-255, 45 minutes, recruitMap 261000011,
+#   entryMap 926100000, exitMap 926100700); :118 isAlcadno = 0; :127-133 seeds statusStg1..7 = 0.
+#   `diff scripts/event/MagatiaPQ_A.js scripts/event/MagatiaPQ_Z.js` differs only in the 92610/92611 map prefix, the
+#   rnj/jnr portal names, the spawn NPC ids (2112000/2112001/2112006 here vs 2112010/2112011/2112005 there) and the boss
+#   ids - which is why this row is the Alcadno row with the band's own ids rather than a new design.
+#
+# SIX stages, the same six the Alcadno row models, and they reach the script's own clear: the twenty-six books, the
+# shelf's empty room, the beaker's three counted hits, both files carried to Romeo, the four rooms and the ten-row climb,
+# and Yulete's summons - whose death runs clearPQ (MagatiaPQ_Z.js:433-450), so the row ends on the instance clear rather
+# than on a property it invented. The rooms past 926100401 are the script's own walk-out and are not stages: 926100203
+# (Yulete's first meeting), 926100500 (NPC 2112001) and 926100600 (2112018's reward talk) are the same three rooms the
+# Alcadno row leaves out, at the same position in the script.
+id: magatiapqz
+name: Magatia PQ (Zenumist)
+kind: PQ
+eventScript: MagatiaPQ_Z
+# scripts/npc/2112004.js:59-85 is Romeo, the front door on the recruit map.
+entryNpc: 2112004
+recruitMap: 261000011
+exitMap: 926100700
+minPlayers: 4
+maxPlayers: 4
+minLevel: 71
+maxLevel: 255
+timeLimitMinutes: 45
+flag: slums.mechanics.magatiapqz
+sources:
+  - "scripts/event/MagatiaPQ_Z.js is ours and is the truth: the gates (:27-37), isAlcadno = 0 (:118), the property seeds (:127-133), the empty-room check (:421) and every clear writer (:433-450)"
+  - "each stage's rule is one of our scripts: 2112007.js (the 26 books, keyed on cm.getNpcObjectId()), 2618000.js (the beaker's hit() counts to three), 2112006.js (both files to Romeo), 2112000.js:99-127 (Yulete summons 9300139 or 9300140)"
+  - "wz Map.wz 926100000 (2112007 among the 26 standings), 926100100 (2618000 x3 + the 2618006 rnj2_door), 926100200 (2112006, doors 2618001/2618002/2618007), 926100201-202 (shuffled boxes), 926100300-304 (the climb), 926100401 (Yulete, spawned by the event at :158)"
+  - "the band's rooms and ids were read from both WZ dumps on disk (SlumsMS-152-maps and research/SoloMapling); MechanicsRowWzIntegrityTest re-reads them from the dump on every run"
+stages:
+  - stage: 1
+    map: 926100000
+    name: The Zenumist shelf - twenty-six books, one pass
+    npc: 2112007
+    solver: magatia-books
+    roles:
+      - id: reader
+        who: ANY
+        min: 1
+        max: party
+        note: "every member reads a different book; the standing's object id is what tells them apart"
+    objectives:
+      - id: books
+        kind: TALK_NPC
+        role: all
+        npc: 2112007
+        note: "26 standings of one NPC on the entry map; the pass is the book that rolls 3 (2112007.js:53-59)"
+    clear:
+      eventProperty: statusStg1
+      equals: "1"
+  - stage: 2
+    map: 926100001
+    name: Empty the shelf's room
+    solver: fight-room
+    mobs: []
+    roles:
+      - id: fighter
+        who: ANY
+        min: 1
+        max: party
+        note: "no fetch and no NPC - the clear is the map being empty"
+    objectives:
+      - id: clear-room
+        kind: WAIT
+        role: all
+        note: "MagatiaPQ_Z.js:421 sets statusStg2 = 1 when 926100001 has no monsters left and statusStg1 == 1"
+    clear:
+      eventProperty: statusStg2
+      equals: "1"
+  - stage: 3
+    # 926100100 is the room that holds the three 2618000 beakers and the 2618006 door; 926100200 holds only the three
+    # door reactors (2618001/2618002/2618007) and is stage 4's room. A stage that names a map without its reactor can
+    # never clear: reactor-count only warps to the stage's own map and then hits a reactor that is not there.
+    map: 926100100
+    name: The beaker - three counted hits
+    solver: reactor-count
+    hitReactors: [2618000]
+    roles:
+      - id: hitter
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: beaker
+        kind: HIT_REACTOR
+        role: all
+        reactor: "2618000"
+        note: "2618000.js:27-41 counts only while the reactor's state is 6, and at three it kills the room and hits rnj2_door"
+    clear:
+      eventProperty: statusStg3
+      equals: "3"
+  - stage: 4
+    map: 926100200
+    name: Both files to Romeo
+    npc: 2112006
+    solver: magatia-files
+    maps: [926100201, 926100202]
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: "2112006.js:75-76 only the event leader's pair is consumed"
+      - id: carrier
+        who: NON_LEADER
+        min: 1
+        max: party-1
+    items:
+      - id: 4001134
+      - id: 4001135
+    objectives:
+      - id: alcadno-file
+        kind: COLLECT
+        role: all
+        item: 4001134
+        count: 1
+      - id: zenumist-file
+        kind: COLLECT
+        role: all
+        item: 4001135
+        count: 1
+      - id: hand-files
+        kind: HAND_IN
+        role: leader
+        npc: 2112006
+        item: 4001134
+        count: 1
+        note: "the NPC wants both; the talk carries the pair's first id and the script's haveItem pair is the gate"
+    clear:
+      eventProperty: statusStg4
+      equals: "1"
+  - stage: 5
+    map: 926100300
+    name: The four rooms and the ten-row climb
+    solver: magatia-climb
+    maps: [926100301, 926100302, 926100303, 926100304]
+    roles:
+      - id: climber
+        who: ANY
+        min: 1
+        max: party
+        note: every member climbs; the first to finish row 9 sets the event's own flag
+    objectives:
+      - id: rooms
+        kind: ENTER_PORTAL
+        role: all
+        note: "rnj4_r1..r4 OR one bit each into statusStg5 and warp into 926100301-304; the bits only stop re-entry"
+      - id: climb
+        kind: ENTER_PORTAL
+        role: all
+        note: "rnj5_rp.js compares pt<row><col>'s column with stage6_comb<room> and sets statusStg6 = 1 on row 9"
+    clear:
+      # The exit is the authority, not a writer: rnj5_rp.js sets statusStg6 = 1 on the last row of any room.
+      eventProperty: statusStg6
+      equals: "1"
+  - stage: 6
+    map: 926100401
+    name: Yulete summons the Frankenroid
+    npc: 2112000
+    solver: summoned-boss
+    summonProperty: statusStg7
+    mobs: [9300139, 9300140]
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: "2112000.js:99-127 only the talking member is the one that summons"
+      - id: fighter
+        who: NON_LEADER
+        min: 1
+        max: party-1
+    objectives:
+      - id: summon
+        kind: TALK_NPC
+        role: leader
+        npc: 2112000
+        note: "state 0 spawns 9300139, the escort branch spawns 9300140; talking again only speaks"
+      - id: frankenroid
+        kind: DEFEAT
+        role: all
+        mob: 9300139
+        note: "MagatiaPQ_Z.js:433-450: either form's death calls clearPQ, hence clear: { instance: true }"
+    clear:
+      # no property: the script ends the instance on the boss's death (MagatiaPQ_Z.js:450)
+      instance: true

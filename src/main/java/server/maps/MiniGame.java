@@ -28,6 +28,7 @@ import net.server.Server;
 import tools.PacketCreator;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -40,10 +41,21 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class MiniGame extends AbstractMapObject {
     private Character owner;
     private Character visitor;
+    /**
+     * Map the room was registered on, captured at construction (same pattern as HiredMerchant:99). The room must be
+     * taken off this map when it closes, and owner.getMap() is not a reliable stand-in for it later on.
+     */
+    private final MapleMap map;
     private final String password;
     private MiniGameType GameType = MiniGameType.UNDEFINED;
     private int piecetype;
     private int inprogress = 0;
+    /**
+     * Tie refusals, deliberately kept out of {@code inprogress}, which must keep meaning only "a match is running".
+     * Bit 1 is the owner's refusal and bit 2 the visitor's; {@link #isTieDenied} reads the <em>opponent's</em> bit,
+     * because the player asking for a tie is the one who needs to know whether the other side already said no.
+     */
+    private int tiedenied = 0;
     private final int[] piece = new int[250];
     private final List<Integer> list4x3 = new ArrayList<>();
     private final List<Integer> list5x4 = new ArrayList<>();
@@ -76,6 +88,7 @@ public class MiniGame extends AbstractMapObject {
 
     public MiniGame(Character owner, String description, String password) {
         this.owner = owner;
+        this.map = (owner == null) ? null : owner.getMap();
         this.description = description;
         this.password = password;
     }
@@ -118,7 +131,13 @@ public class MiniGame extends AbstractMapObject {
     }
 
     public void closeRoom(boolean forceClose) {
-        owner.getMap().broadcastMessage(PacketCreator.removeMinigameBox(owner));
+        MapleMap roomMap = getRoomMap();
+        if (roomMap != null) {
+            // off the map first: a closing room must not be reachable by oid anymore, or a stale oid from a client
+            // reaches isOwner()/addVisitor() on an emptied MiniGame (owner == null).
+            roomMap.removeMapObject(this);
+            roomMap.broadcastMessage(PacketCreator.removeMinigameBox(owner));
+        }
 
         if (forceClose) {
             this.broadcastToOwner(PacketCreator.getMiniGameClose(false, 4));
@@ -132,6 +151,13 @@ public class MiniGame extends AbstractMapObject {
 
         owner.setMiniGame(null);
         owner = null;
+    }
+
+    private MapleMap getRoomMap() {
+        if (map != null) {
+            return map;
+        }
+        return (owner == null) ? null : owner.getMap();
     }
 
     public void removeVisitor(boolean forceClose, Character challenger) {
@@ -207,6 +233,33 @@ public class MiniGame extends AbstractMapObject {
         inprogress = 1;
         ownerquit = false;
         visitorquit = false;
+        // the old code wiped the tie bits as a side effect of assigning inprogress = 1; a new game must not start
+        // with the previous game's refusal still in place
+        tiedenied = 0;
+
+        // A new game must not inherit the previous one's state: the board is only cleared inside the five-in-a-row
+        // branches of setPiece, so a game that ended by forfeit (GIVE_UP, or the visitor leaving in progress) left
+        // every stone in place and the next game could be won on those stones.
+        clearBoard();
+        // the round tally is reset when a series finishes normally, but a forfeit aborts the series mid-way with the
+        // partial tally intact: the next series would start at e.g. 1-0 and be decided a game early
+        ownerpoints = 0;
+        visitorpoints = 0;
+        // firstslot is the match-card first pick and loser the "who starts" flag of the game just played; both are
+        // written during a game and must start from the same values a freshly built room has
+        firstslot = 0;
+        loser = 1;
+    }
+
+    private void clearBoard() {
+        Arrays.fill(piece, 0);
+    }
+
+    /**
+     * Package-private test seam: the 15x15 board is addressed as {@code (move1, move2) -> piece[move2 * 15 + move1 + 1]}.
+     */
+    int getPiece(int move1, int move2) {
+        return piece[move2 * 15 + move1 + 1];
     }
 
     public void setQuitAfterGame(Character player, boolean quit) {
@@ -223,22 +276,28 @@ public class MiniGame extends AbstractMapObject {
 
     public void denyTie(Character chr) {
         if (this.isOwner(chr)) {
-            inprogress |= (1 << 1);
+            tiedenied |= (1 << 1);
         } else {
-            inprogress |= (1 << 2);
+            tiedenied |= (1 << 2);
         }
     }
 
     public boolean isTieDenied(Character chr) {
         if (this.isOwner(chr)) {
-            return ((inprogress >> 2) % 2) == 1;
+            return ((tiedenied >> 2) % 2) == 1;
         } else {
-            return ((inprogress >> 1) % 2) == 1;
+            return ((tiedenied >> 1) % 2) == 1;
         }
     }
 
     public void minigameMatchOwnerWins(boolean forfeit) {
         if (!minigameMatchFinish()) {
+            return;
+        }
+
+        if (visitor == null) {
+            // no opponent, so nothing to score or announce (Character.setMiniGamePoints and the result packet both
+            // dereference the visitor); the match is over, which minigameMatchFinish above already recorded
             return;
         }
 
@@ -262,6 +321,12 @@ public class MiniGame extends AbstractMapObject {
             return;
         }
 
+        if (visitor == null) {
+            // no opponent, so nothing to score or announce (Character.setMiniGamePoints and the result packet both
+            // dereference the visitor); the match is over, which minigameMatchFinish above already recorded
+            return;
+        }
+
         owner.setMiniGamePoints(visitor, 2, this.isOmok());
 
         if (ownerforfeits < 4 || !forfeit) {
@@ -279,6 +344,12 @@ public class MiniGame extends AbstractMapObject {
 
     public void minigameMatchDraw() {
         if (!minigameMatchFinish()) {
+            return;
+        }
+
+        if (visitor == null) {
+            // no opponent, so nothing to score or announce (Character.setMiniGamePoints and the result packet both
+            // dereference the visitor); the match is over, which minigameMatchFinish above already recorded
             return;
         }
 
@@ -370,25 +441,28 @@ public class MiniGame extends AbstractMapObject {
     }
 
     public void shuffleList() {
-        if (matchestowin == 6) {
-            Collections.shuffle(list4x3);
-        } else if (matchestowin == 10) {
-            Collections.shuffle(list5x4);
-        } else {
-            Collections.shuffle(list6x5);
-        }
+        Collections.shuffle(activeCardList());
     }
 
     public int getCardId(int slot) {
-        int cardid;
-        if (matchestowin == 6) {
-            cardid = list4x3.get(slot);
-        } else if (matchestowin == 10) {
-            cardid = list5x4.get(slot);
-        } else {
-            cardid = list6x5.get(slot);
+        if (!isValidCardSlot(slot)) {
+            return -1;    // the slot came off the wire; it must not index the card list
         }
-        return cardid;
+        return activeCardList().get(slot);
+    }
+
+    public boolean isValidCardSlot(int slot) {
+        return slot >= 0 && slot < activeCardList().size();
+    }
+
+    private List<Integer> activeCardList() {
+        if (matchestowin == 6) {
+            return list4x3;
+        }
+        if (matchestowin == 10) {
+            return list5x4;
+        }
+        return list6x5;
     }
 
     public int getMatchesToWin() {
@@ -429,6 +503,9 @@ public class MiniGame extends AbstractMapObject {
     }
 
     public void setPiece(int move1, int move2, int type, Character chr) {
+        if (move1 < 0 || move1 > 14 || move2 < 0 || move2 > 14 || type < 1 || type > 2) {
+            return;    // move1/move2/type come off the wire: only a 15x15 cell and a real piece may reach piece[]
+        }
         int slot = move2 * 15 + move1 + 1;
         if (piece[slot] == 0) {
             piece[slot] = type;
@@ -443,12 +520,7 @@ public class MiniGame extends AbstractMapObject {
                             this.minigameMatchVisitorWins(false);
                             this.setLoser(1);
                         }
-                        for (int y2 = 0; y2 < 15; y2++) {
-                            for (int x2 = 0; x2 < 15; x2++) {
-                                int slot2 = (y2 * 15 + x2 + 1);
-                                piece[slot2] = 0;
-                            }
-                        }
+                        clearBoard();
                     }
                 }
             }
@@ -462,12 +534,7 @@ public class MiniGame extends AbstractMapObject {
                             this.minigameMatchVisitorWins(false);
                             this.setLoser(1);
                         }
-                        for (int y2 = 0; y2 < 15; y2++) {
-                            for (int x2 = 0; x2 < 15; x2++) {
-                                int slot2 = (y2 * 15 + x2 + 1);
-                                piece[slot2] = 0;
-                            }
-                        }
+                        clearBoard();
                     }
                 }
             }

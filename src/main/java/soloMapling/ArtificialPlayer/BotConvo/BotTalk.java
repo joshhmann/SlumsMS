@@ -19,6 +19,7 @@ import soloMapling.ArtificialPlayer.BotConvo.TalkPlanner.Act;
 import soloMapling.ArtificialPlayer.BotConvo.TalkPlanner.Offer;
 import soloMapling.ArtificialPlayer.BotConvo.TalkPlanner.Plan;
 import soloMapling.ArtificialPlayer.BotConvo.TalkPlanner.Step;
+import soloMapling.ArtificialPlayer.BotEpisodes;
 import soloMapling.ArtificialPlayer.BotHelpers;
 import soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision;
 import soloMapling.ArtificialPlayer.BotLifeSystem.LifeGoals;
@@ -27,8 +28,13 @@ import soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemoryStore;
 import soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime;
 import soloMapling.ArtificialPlayer.BotLifeSystem.LifeTowns;
 import soloMapling.ArtificialPlayer.BotLifeSystem.SocialSelf;
+import soloMapling.ArtificialPlayer.BotMemory;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
 import soloMapling.ArtificialPlayer.BotSM;
+import soloMapling.ArtificialPlayer.BotSocialSystem.SocialActions;
+import soloMapling.ArtificialPlayer.BotSocialSystem.SocialBudget;
+import soloMapling.ArtificialPlayer.BotSocialSystem.SocialDecider;
+import soloMapling.ArtificialPlayer.BotSocialSystem.SocialSim;
 import soloMapling.ArtificialPlayer.BotStore;
 import soloMapling.ArtificialPlayer.BotTypes.TrainingBot;
 import soloMapling.server.ExecutorServiceManager;
@@ -151,9 +157,9 @@ public final class BotTalk {
     private BotTalk() {
     }
 
-    /** The switch: {@code -Dslums.bottalk=true}. */
+    /** The switch: on unless {@code -Dslums.bottalk=false} (1.6.4: default on). */
     public static boolean on() {
-        return Boolean.getBoolean("slums.bottalk");
+        return !"false".equalsIgnoreCase(System.getProperty("slums.bottalk"));
     }
 
     static double num(String key, double fallback) {
@@ -182,6 +188,7 @@ public final class BotTalk {
 
     /** Starts the tick (EnvironmentManager, with the threads). */
     public static synchronized void start() {
+        SocialActions.wireIntents(); // 1.6.4 stage 5: a kept promise is a social act performed through the registry
         if (running || !on()) {
             return;
         }
@@ -261,6 +268,7 @@ public final class BotTalk {
                     maybeChat(k, here, map, weight, now, rng);
                 }
             }
+            socialActs(maps, now); // 1.6.4 stage 4: the social decision tick (off with -Dslums.socialacts=false)
             if (lastMapOf.size() > seen) { // someone left the registry: forget them (rare, so no id set per tick)
                 Set<Integer> ids = new HashSet<>(seen * 2);
                 for (List<Character> l : byMap.values()) {
@@ -276,11 +284,54 @@ public final class BotTalk {
                 greetedAt.values().removeIf(t -> now - t > GREET_PAIR_GAP_MS);
             }
         } finally {
-            cpuNanos.add(System.nanoTime() - began);
+            long spent = System.nanoTime() - began;
+            cpuNanos.add(spent);
+            soloMapling.ArtificialPlayer.GCMoveSystem.BotPerformanceMonitor.recordSocialTick(spent);
             if (cpuBegan >= 0) {
                 threadCpuNanos.add(Math.max(0, threadCpuNow() - cpuBegan));
             }
         }
+    }
+
+    /**
+     * 1.6.4 stage 4: after the arrival greetings and idle chats, the bots that are due decide a social act of their own
+     * ({@link SocialDecider}): upkeep of what acts leave running, then each map with two or more bots. Never lets a
+     * failure reach the old tick. With {@code -Dslums.socialacts=false} this does nothing at all.
+     */
+    static void socialActs(List<Map.Entry<Long, List<Character>>> maps, long now) {
+        if (!SocialActions.enabled()) {
+            return;
+        }
+        try {
+            SocialDecider.upkeep(now);
+            for (Map.Entry<Long, List<Character>> e : maps) {
+                List<Character> here = e.getValue();
+                if (here.size() < 2) {
+                    continue;
+                }
+                boolean anyDue = false; // nothing due on this map: no map read, no allocation
+                for (int i = 0, n = here.size(); i < n && !anyDue; i++) {
+                    anyDue = SocialDecider.due(here.get(i).getId(), now);
+                }
+                MapleMap map = anyDue ? here.get(0).getMap() : null;
+                if (map == null || BotThreads.excluded(map.getId(), map.getEventInstance() != null || map.isEventMap())) {
+                    continue; // no social acts on boss maps, event maps and mini-dungeons (the talk tick's own rule)
+                }
+                int[] ids = new int[here.size()];
+                for (int i = 0; i < ids.length; i++) {
+                    ids[i] = here.get(i).getId();
+                }
+                SocialDecider.onMap(ids, now);
+            }
+        } catch (RuntimeException | LinkageError ex) {
+            log.warn("Social decision tick failed", ex);
+        }
+    }
+
+    /** Whether either bot keeps away from the other now (an avoid record, 1.6.4); never when social acts are off. */
+    static boolean avoids(Character a, Character b, long now) {
+        return SocialActions.enabled() && (SocialActions.avoiding(a.getId(), b.getId(), now)
+                || SocialActions.avoiding(b.getId(), a.getId(), now));
     }
 
     /** CPU time of the calling thread (ns), or -1 when the JVM does not measure it: the tick's own cost, not waits. */
@@ -311,7 +362,7 @@ public final class BotTalk {
         }
         Map<Integer, Character> present = new HashMap<>();
         for (Character o : here) {
-            if (o != c && near(c, o, EAR_X, EAR_Y)) {
+            if (o != c && near(c, o, EAR_X, EAR_Y) && !avoids(c, o, now)) {
                 present.put(o.getId(), o);
             }
         }
@@ -416,7 +467,7 @@ public final class BotTalk {
         Character a = gossipFirst(idle);
         List<Character> close = new ArrayList<>();
         for (Character o : idle) {
-            if (o != a && near(a, o, EAR_X, EAR_Y)) {
+            if (o != a && near(a, o, EAR_X, EAR_Y) && !avoids(a, o, now)) {
                 close.add(o);
             }
         }
@@ -511,6 +562,14 @@ public final class BotTalk {
      */
     public static Plan run(MapleMap map, List<Character> who, boolean greetOnly, Ask forced, boolean bankOnly,
                            String why, long now, Random rng) {
+        String kind = greetOnly ? SocialBudget.GREET : SocialBudget.CHAT; // 1.6.4: the loop breaker (QA-forced talks skip it)
+        long mapKey = key(map.getChannelId(), map.getId());
+        SocialBudget.Verdict gate = forced != null || who.size() < 2 ? SocialBudget.Verdict.OK
+                : SocialBudget.allow(who.get(0).getId(), who.get(1).getId(), mapKey, kind, now);
+        if (!gate.allowed()) {
+            qa(map.getId(), "BUDGET held back " + kind + " " + names(who) + ": " + gate.reason().label());
+            return null;
+        }
         for (Character c : who) {
             if (inTalk.putIfAbsent(c.getId(), now) != null) {
                 for (Character d : who) {
@@ -531,6 +590,7 @@ public final class BotTalk {
                 LfgParty.release(sense.reserved);
                 throw e;
             }
+            PartnerMemory.greetFromMemory(plan, now); // Stage 3: a pair with a real shared past may open with it
             if (sense.reserved != null && !usesReservation(plan, sense.reserved)) {
                 LfgParty.release(sense.reserved); // the PQ was not asked, or not taken: its cap slot goes back
             }
@@ -547,6 +607,9 @@ public final class BotTalk {
             BotThreads.Live thread = register(id, map, channel, plan, now);
             Live live = new Live(id, plan, channel, map.getId(), thread, topic);
             byId.put(id, live);
+            if (forced == null && who.size() >= 2) {
+                SocialBudget.record(new SocialBudget.Outcome(who.get(0).getId(), who.get(1).getId(), mapKey, kind, now, true));
+            }
             count(greetOnly ? "kind:greet" : who.size() >= 3 ? "kind:group" : "kind:chat");
             if (greetOnly) {
                 greets.increment();
@@ -800,11 +863,80 @@ public final class BotTalk {
             case GOSSIP -> "talked about " + act.offer().about();
         };
         if (ok) {
+            long at = soloMapling.ArtificialPlayer.BotSocialSystem.SocialSim.now();
             for (Character c : act.yes()) {
                 note(act.asker(), c, what);
                 note(c, act.asker(), what);
+                rememberAct(live, act.ask(), act.asker(), c, at);
             }
         }
+    }
+
+    /**
+     * Stage 3: what an act that really happened leaves in each bot's memory of the other (kind, a feeling, the map). The
+     * server's own event writes it, never the model, in the background, merged and capped by {@code BotMemory}. The
+     * texts name nobody (a gossip pass is just "listened to my gossip", never the story: its people are not the
+     * partner's business).
+     */
+    static void rememberAct(Live live, Ask ask, Character asker, Character other, long at) {
+        BotMemory.Kind kind;
+        String byOther; // asker's memory of the other
+        String byAsker; // the other's memory of the asker
+        double toOther;
+        double toAsker;
+        switch (ask) {
+            case PARTY -> {
+                kind = BotMemory.Kind.PARTY;
+                byOther = "partied with me";
+                byAsker = "partied with me";
+                toOther = 0.4;
+                toAsker = 0.4;
+            }
+            case TRADE -> {
+                kind = BotMemory.Kind.TRADE;
+                byOther = "traded with me";
+                byAsker = "traded with me";
+                toOther = 0.3;
+                toAsker = 0.3;
+            }
+            case HELP -> {
+                kind = BotMemory.Kind.HELP;
+                byOther = "came to help me train";
+                byAsker = "asked me to help train";
+                toOther = 0.5;
+                toAsker = 0.3;
+            }
+            case COME_ALONG -> {
+                kind = BotMemory.Kind.PARTY;
+                byOther = "came along with me";
+                byAsker = "asked me to come along";
+                toOther = 0.3;
+                toAsker = 0.3;
+            }
+            case GOSSIP -> {
+                kind = BotMemory.Kind.TOLD;
+                byOther = "listened to my gossip";
+                byAsker = "shared some gossip";
+                toOther = 0.1;
+                toAsker = 0.2;
+            }
+            default -> {
+                return;
+            }
+        }
+        BotEpisodes.botEvent(asker.getId(), other.getId(), kind, byOther, toOther, live.mapId, at);
+        BotEpisodes.botEvent(other.getId(), asker.getId(), kind, byAsker, toAsker, live.mapId, at);
+    }
+
+    /** What an ask is, for the memory of a refusal ("turned me down for a party"). Null: nothing worth remembering. */
+    static String askNoun(Ask ask) {
+        return switch (ask) {
+            case PARTY -> "a party";
+            case TRADE -> "a trade";
+            case HELP -> "help training";
+            case COME_ALONG -> "a trip together";
+            case GOSSIP -> null;
+        };
     }
 
     record Result(boolean ok, String kind, String text) {
@@ -814,7 +946,21 @@ public final class BotTalk {
     static volatile java.util.function.BiFunction<Live, Act, Result> doer = BotTalk::realAct;
 
     static Result carryOut(Live live, Act act) {
-        return doer.apply(live, act);
+        int target = act.yes().isEmpty() ? 0 : act.yes().get(0).getId(); // 1.6.4: the loop breaker's view of an ask act
+        String kind = SocialBudget.ASK + ":" + act.ask();
+        long mapKey = key(live.channel, live.mapId), at = SocialSim.now();
+        SocialBudget.Verdict gate = SocialBudget.allow(act.asker().getId(), target, mapKey, kind, at);
+        if (!gate.allowed()) {
+            return new Result(false, "budget", "held back by the social budget: " + gate.reason().label());
+        }
+        boolean ok = false;
+        try {
+            Result r = doer.apply(live, act);
+            ok = r.ok;
+            return r;
+        } finally {
+            SocialBudget.record(new SocialBudget.Outcome(act.asker().getId(), target, mapKey, kind, at, ok));
+        }
     }
 
     static Result realAct(Live live, Act act) {
@@ -846,16 +992,7 @@ public final class BotTalk {
                 // 1.6.1 say-do: help is real now: the helper parties with the asker (shared exp) and keeps grinding
                 // this map with it; before, it only marked the asker for a HELP_FRIEND that never applies to a bot on
                 // the same map
-                Character helper = act.yes().get(0);
-                LifeRuntime life = lifeOf(helper.getId());
-                if (life == null) {
-                    return new Result(false, "help-drop", helper.getName() + " has no daily life to help with");
-                }
-                boolean stays = life.helpHere(a.getId(), now + HELP_MS, now);
-                Result party = plainParty(a, List.of(helper), live.mapId);
-                return new Result(party.ok(), party.ok() ? "help" : "help-drop", helper.getName() + " helps "
-                        + a.getName() + " at " + o.about() + ": " + party.text() + (stays ? ", keeps grinding here"
-                        : ", not grinding here"));
+                return helpTrip(a, act.yes().get(0), o.about(), live.mapId, now);
             }
             case COME_ALONG -> {
                 int town = act.counterTown() != null && o.payload() instanceof Integer t ? t
@@ -866,15 +1003,7 @@ public final class BotTalk {
                 // 1.6.1 say-do: each one's trip is handed to its life queue (the asker first, then each yes a few
                 // seconds apart, so they trickle out together); before, a yes only tilted the next decision and 7 of
                 // 178 come-alongs on TEST arrived. The asker goes even when nobody comes: it said it was going.
-                List<String> going = new ArrayList<>();
-                long delay = 500;
-                for (Character c : with(a, act.yes())) {
-                    trips.go(c.getId(), town, now + COME_ALONG_MS, delay);
-                    delay += 2_000 + ThreadLocalRandom.current().nextInt(4_000);
-                    going.add(c.getName());
-                }
-                return new Result(true, "trip", String.join(", ", going) + " head to " + TalkPlanner.townName(town)
-                        + (act.yes().isEmpty() ? " (alone: nobody came)" : ""));
+                return comeAlong(a, act.yes(), town, now);
             }
             case GOSSIP -> {
                 if (!(o.payload() instanceof soloMapling.ArtificialPlayer.BotGossip.Fact fact)) {
@@ -891,6 +1020,38 @@ public final class BotTalk {
             }
         }
         return new Result(false, "act-drop", "unknown ask");
+    }
+
+    /**
+     * 1.6.1 say-do: {@code helper} helps {@code asker} train on the map they share: it keeps grinding there and the two
+     * party up. Used by the HELP ask's act and (1.6.4) by the social act OFFER_HELP.
+     */
+    static Result helpTrip(Character asker, Character helper, String about, int mapId, long now) {
+        LifeRuntime life = lifeOf(helper.getId());
+        if (life == null) {
+            return new Result(false, "help-drop", helper.getName() + " has no daily life to help with");
+        }
+        boolean stays = life.helpHere(asker.getId(), now + HELP_MS, now);
+        Result party = plainParty(asker, List.of(helper), mapId);
+        return new Result(party.ok(), party.ok() ? "help" : "help-drop", helper.getName() + " helps "
+                + asker.getName() + " at " + about + ": " + party.text() + (stays ? ", keeps grinding here"
+                : ", not grinding here"));
+    }
+
+    /**
+     * 1.6.1 say-do: each one's trip to {@code town} is handed to its life queue (the asker first, then each yes a few
+     * seconds apart, so they trickle out together). Used by the COME_ALONG ask's act and (1.6.4) by an accepted invite.
+     */
+    static Result comeAlong(Character asker, List<Character> yes, int town, long now) {
+        List<String> going = new ArrayList<>();
+        long delay = 500;
+        for (Character c : with(asker, yes)) {
+            trips.go(c.getId(), town, now + COME_ALONG_MS, delay);
+            delay += 2_000 + ThreadLocalRandom.current().nextInt(4_000);
+            going.add(c.getName());
+        }
+        return new Result(true, "trip", String.join(", ", going) + " head to " + TalkPlanner.townName(town)
+                + (yes.isEmpty() ? " (alone: nobody came)" : ""));
     }
 
     /** Starts a bot's trip to a town it agreed to (a seam for tests: id, town, until, delay ms). */
@@ -1014,6 +1175,7 @@ public final class BotTalk {
                         : askWords(plan.ask, plan.offer) + " (" + answerOf(plan, c) + ")";
                 note(a, c, what);
                 note(c, a, what);
+                rememberTalk(live, plan, a, c);
             }
             if (soloMapling.autoqa.SocialTrace.on()) {
                 soloMapling.autoqa.SocialTrace.threadBonded(live.id);
@@ -1029,6 +1191,39 @@ public final class BotTalk {
             byId.remove(live.id);
             plan.done = true;
         }
+    }
+
+    /**
+     * Stage 3: a finished talk between {@code a} (the opener) and {@code c} as each one's memory of the other: a hello
+     * or a chat (a small feeling, souring when the two have beef), or an ask that was turned down or countered (the
+     * asker remembers the refusal, the other that it was asked). A yes is remembered by {@link #rememberAct} when the
+     * act really happens.
+     */
+    static void rememberTalk(Live live, Plan plan, Character a, Character c) {
+        long at = soloMapling.ArtificialPlayer.BotSocialSystem.SocialSim.now();
+        boolean spat;
+        try {
+            spat = BotBonds.state(a.getId(), c.getId()).hostile();
+        } catch (RuntimeException | LinkageError e) {
+            spat = false;
+        }
+        if (plan.greetOnly || plan.ask == null) {
+            String text = plan.greetOnly ? "said hi" : "chatted";
+            double v = spat ? -0.3 : plan.greetOnly ? 0.1 : 0.2;
+            BotEpisodes.botEvent(a.getId(), c.getId(), BotMemory.Kind.CHAT, text, v, live.mapId, at);
+            BotEpisodes.botEvent(c.getId(), a.getId(), BotMemory.Kind.CHAT, text, v, live.mapId, at);
+            return;
+        }
+        TalkBrain.Decision d = plan.decisions.get(c.getId());
+        String noun = askNoun(plan.ask);
+        if (d == null || noun == null || d.answer() == Answer.YES) {
+            return;
+        }
+        boolean counter = d.answer() == Answer.COUNTER;
+        double asked = counter ? 0 : d.manner() == TalkIntent.Manner.RUDE ? -0.4 : -0.2;
+        BotEpisodes.botEvent(a.getId(), c.getId(), BotMemory.Kind.ASKED,
+                (counter ? "wanted something else than " : "turned me down for ") + noun, asked, live.mapId, at);
+        BotEpisodes.botEvent(c.getId(), a.getId(), BotMemory.Kind.ASKED, "asked me for " + noun, 0, live.mapId, at);
     }
 
     static String askWords(Ask ask, Offer o) {
@@ -1127,6 +1322,13 @@ public final class BotTalk {
                 .append("casual MMO chat, PG-13 (mild swearing at most, no slurs, nothing sexual, no real-life ")
                 .append("insults). Never mention AI, bots, scripts or being an assistant. Name no player who is not ")
                 .append("in this list: ").append(names(plan.who)).append(".\n");
+        if (plan.who.size() >= 2) { // Stage 3: what the opener and the first listener really remember of each other
+            String shared = PartnerMemory.clause(plan.who.get(0), plan.who.get(1), plan.topic,
+                    soloMapling.ArtificialPlayer.BotSocialSystem.SocialSim.now());
+            if (!shared.isEmpty()) {
+                b.append(shared).append(".\n");
+            }
+        }
         int i = 1;
         for (Step s : plan.steps) {
             b.append(i++).append(". ").append(s.speaker.getName()).append(" (")
@@ -1320,6 +1522,7 @@ public final class BotTalk {
         notes.clear();
         tally.clear();
         doer = BotTalk::realAct;
+        SocialBudget.resetForTest();
         trips = BotTalk::goLater;
         lives = BotTalk::gameLife;
         TalkPromises.resetForTest();
@@ -1405,6 +1608,23 @@ public final class BotTalk {
                 busy = st.busy() || st.afk() || st.shop();
             } catch (RuntimeException | LinkageError ignored) {
                 // a read that fails leaves the quiet default
+            }
+            if (SocialActions.enabled()) { // 1.6.4 stage 4: the bot's own emotions and needs reach the talk decisions
+                try {
+                    LifeMemory mem = memoryOf(id);
+                    if (mem != null) {
+                        SocialDecider.TalkInputs in = SocialDecider.talkInputs(mem, now);
+                        mood = 0.5 * mood + 0.5 * in.mood();
+                        social += 0.2 * (in.sociability() - 0.5) + 0.1 * in.loneliness();
+                        killer += 0.3 * in.anger();
+                        if (goal == TalkBrain.Goal.NONE && in.companionship() > 0.6) {
+                            goal = TalkBrain.Goal.COMPANY;
+                            pressure = in.companionship();
+                        }
+                    }
+                } catch (RuntimeException | LinkageError ignored) {
+                    // no mind input: the talk decides as before
+                }
             }
             return new Mind(id, c.getName(), c.getLevel(), social, killer, mood, goal, pressure, hang, grind, pq, town,
                     busy);

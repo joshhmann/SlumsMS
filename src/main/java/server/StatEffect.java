@@ -400,6 +400,9 @@ public class StatEffect {
             }
 
             addBuffStatPairToListIfNotZero(statups, BuffStat.WATK, (int) ret.watk);
+            // WDEF/MDEF/ACC/AVOID ship to the client for display only: nothing server-side reads them (there is no
+            // getTotalWdef/getTotalMdef at all, and incoming damage is taken as the client sent it). SPEED/JUMP are
+            // matched by move-speed checks, not by any damage formula.
             addBuffStatPairToListIfNotZero(statups, BuffStat.WDEF, (int) ret.wdef);
             addBuffStatPairToListIfNotZero(statups, BuffStat.MATK, (int) ret.matk);
             addBuffStatPairToListIfNotZero(statups, BuffStat.MDEF, (int) ret.mdef);
@@ -891,6 +894,11 @@ public class StatEffect {
             return true;
         }
         if (primary && isHeal()) {
+            // b295: the caster's own MP refusal comes before anyone is healed (the one charge stays applyHpMpChange below)
+            if (!applyto.isGM() && applyto.getMp() + calcMPChange(applyfrom, true) < 0) {
+                applyto.sendPacket(PacketCreator.enableActions());
+                return false;
+            }
             if (sourceid == Cleric.HEAL) {
                 // 1.6.2 healamt: viewers draw the Heal column on a remote caster only from this cast effect
                 // (SHOW_FOREIGN_EFFECT effect 1, CUser::OnEffect case 1); Heal is not a buff over time, so
@@ -931,6 +939,12 @@ public class StatEffect {
         if (!applyto.applyHpMpChange(hpCon, hpchange, mpchange)) {
             applyto.sendPacket(PacketCreator.enableActions());
             return false;
+        }
+
+        // 1.6.4: a Resurrection reaches a bot like any other party member - its HP is back, so it must stop being a
+        // corpse (BotDeaths is what holds it down: no hits, no acting, no run driving it)
+        if (isResurrection() && applyto.isBot()) {
+            soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.revived(applyto);
         }
 
         if (moveTo != -1) {

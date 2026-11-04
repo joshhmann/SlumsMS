@@ -487,26 +487,43 @@ final class Probes160 {
                         + st.doing() + ", ETC slots free " + alt.getInventory(InventoryType.ETC).getNumFreeSlot() + ")");
             }
 
-            // (4) the activity gate: its owner idle, it does not fight; active again, it does
-            server.life.Monster idleMob = spawnBesideOwner(field, gm, staged, -80);
-            soloMapling.companions.OwnedAltGate.forceIdleForQa(gm.getId(), true);
-            try {
-                Thread.sleep(600); // a driver tick sees the idle owner and stands down
-                long idleSwings = soloMapling.companions.OwnedAltCompanion.stats(alt.getId()).swings();
-                field.damageMonster(gm, idleMob, 1);
-                Thread.sleep(5_000);
-                st = soloMapling.companions.OwnedAltCompanion.stats(alt.getId());
-                Long onIdleMob = idleMob.damageSnapshot().get(alt.getId());
-                out.add("owner idle: gate " + st.gate() + ", swings in 5 s " + (st.swings() - idleSwings)
-                        + ", damage on the owner's mob " + (onIdleMob == null ? 0 : onIdleMob));
-                if (!"OWNER_IDLE".equals(st.gate())) {
-                    bad.add("the gate did not close for an idle owner (gate " + st.gate() + ")");
+            // (4) the activity gate: its owner idle, it does not fight; active again, it does.
+            // AL-2 (ticket 183): the owner is told which alt stopped and why, so the line it hears is checked too.
+            List<String> told = new java.util.concurrent.CopyOnWriteArrayList<>();
+            var heard = soloMapling.qa.QaLog.sink((topic, mapId, charIds, message) -> {
+                if (message.startsWith("told: ")) {
+                    told.add(message);
                 }
-                if (st.swings() > idleSwings || onIdleMob != null && onIdleMob > 0) {
-                    bad.add(alt.getName() + " kept fighting while its owner was idle");
+            });
+            heard.topics(List.of(soloMapling.qa.QaLog.Topic.OWNED_ALT));
+            server.life.Monster idleMob = spawnBesideOwner(field, gm, staged, -80);
+            try {
+                soloMapling.companions.OwnedAltGate.forceIdleForQa(gm.getId(), true);
+                try {
+                    Thread.sleep(600); // a driver tick sees the idle owner and stands down
+                    long idleSwings = soloMapling.companions.OwnedAltCompanion.stats(alt.getId()).swings();
+                    field.damageMonster(gm, idleMob, 1);
+                    Thread.sleep(5_000);
+                    st = soloMapling.companions.OwnedAltCompanion.stats(alt.getId());
+                    Long onIdleMob = idleMob.damageSnapshot().get(alt.getId());
+                    out.add("owner idle: gate " + st.gate() + ", swings in 5 s " + (st.swings() - idleSwings)
+                            + ", damage on the owner's mob " + (onIdleMob == null ? 0 : onIdleMob));
+                    if (!"OWNER_IDLE".equals(st.gate())) {
+                        bad.add("the gate did not close for an idle owner (gate " + st.gate() + ")");
+                    }
+                    if (st.swings() > idleSwings || onIdleMob != null && onIdleMob > 0) {
+                        bad.add(alt.getName() + " kept fighting while its owner was idle");
+                    }
+                } finally {
+                    soloMapling.companions.OwnedAltGate.forceIdleForQa(gm.getId(), false);
                 }
             } finally {
-                soloMapling.companions.OwnedAltGate.forceIdleForQa(gm.getId(), false);
+                heard.close();
+            }
+            String idleLine = told.stream().filter(t -> t.contains(alt.getName())).findFirst().orElse(null);
+            out.add("owner idle: told " + idleLine);
+            if (idleLine == null || !idleLine.contains("stopped fighting")) {
+                bad.add("the owner was not told " + alt.getName() + " stopped fighting while idle (told " + told + ")");
             }
             clearStaged(field, gm, staged); // the idle check's mob is the owner's fight too: not the one judged next
             ownerActs(p);
@@ -3222,7 +3239,7 @@ final class Probes160 {
         long nxTop = 0;
         List<String> out = new ArrayList<>();
         List<String> bad = new ArrayList<>();
-        long nx0 = w.have(soloMapling.Economy.exchange.Ledger.Asset.NX);
+        long nx0 = w.have(soloMapling.Economy.exchange.AssetRegistry.Asset.NX);
         if (nx0 < soloMapling.Economy.exchange.ExchangeQa.NX) {
             nxTop = soloMapling.Economy.exchange.ExchangeQa.NX - nx0;
             me.getCashShop().gainCash(1, (int) nxTop);
@@ -3254,7 +3271,7 @@ final class Probes160 {
             while (me.getMeso() - mesoBefore < gets && System.currentTimeMillis() < deadline) {
                 Thread.sleep(200);
             }
-            long nx1 = w.have(soloMapling.Economy.exchange.Ledger.Asset.NX);
+            long nx1 = w.have(soloMapling.Economy.exchange.AssetRegistry.Asset.NX);
             out.add("after the sale: " + nx1 + " NX, mesos +" + (me.getMeso() - mesoBefore) + " (want +" + gets + ")");
             if (placed == null || !placed.startsWith("Order ")) {
                 bad.add("the sale was not placed: " + placed);
@@ -3297,7 +3314,7 @@ final class Probes160 {
             }
         }
         long fee = cfg.fee(soloMapling.Economy.exchange.OrderBook.cost(100, bid));
-        long nxEnd = w.have(soloMapling.Economy.exchange.Ledger.Asset.NX) + nxTop;
+        long nxEnd = w.have(soloMapling.Economy.exchange.AssetRegistry.Asset.NX) + nxTop;
         out.add("after: " + (nxEnd - nxTop) + " NX, " + me.getMeso() + " mesos; fees paid " + (2 * fee));
         if (nxEnd != nx0) {
             bad.add("NX not conserved: " + nx0 + " -> " + nxEnd);

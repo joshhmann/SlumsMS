@@ -1,5 +1,6 @@
 package soloMapling.ArtificialPlayer.GCMoveSystem;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import soloMapling.WzTestData;
 import org.junit.jupiter.api.BeforeAll;
@@ -23,8 +24,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import testutil.PropsRestored;
 
 /** Ticket 04b. The bake test needs the real wz/ and is skipped without it. */
+@ExtendWith(PropsRestored.class)
 class NavDeepBakeTest {
 
     @TempDir

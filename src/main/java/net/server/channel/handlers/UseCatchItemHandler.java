@@ -34,6 +34,7 @@ import net.packet.InPacket;
 import net.server.Server;
 import server.ItemInformationProvider;
 import server.life.Monster;
+import server.life.MonsterCatch;
 import tools.PacketCreator;
 
 /**
@@ -177,16 +178,8 @@ public final class UseCatchItemHandler extends AbstractPacketHandler {
                 c.sendPacket(PacketCreator.enableActions());
                 break;
             case ItemId.EPQ_PURIFICATION_MARBLE:
-                if (mob.getId() == MobId.POISON_FLOWER) {
-                    if (mob.getHp() < ((mob.getMaxHp() / 10) * 4)) {
-                        chr.getMap().broadcastMessage(PacketCreator.catchMonster(monsterid, itemId, (byte) 1));
-                        mob.getMap().killMonster(mob, null, false);
-                        InventoryManipulator.removeById(c, InventoryType.USE, itemId, 1, true, true);
-                        InventoryManipulator.addById(c, ItemId.EPQ_MONSTER_MARBLE, (short) 1, "", -1);
-                    } else {
-                        c.sendPacket(PacketCreator.catchMessage(0));
-                    }
-                }
+                // the rule is server-side (Ellin PQ's purifier), so a bot can use it too: see MonsterCatch
+                MonsterCatch.usePurifierMarble(c, chr, mob);
                 c.sendPacket(PacketCreator.enableActions());
                 break;
             case ItemId.FISH_NET:

@@ -1,0 +1,192 @@
+# Ticket 164 Ellin PQ ("Forest of Poison Haze") stage data. Our scripts are the truth; every gate and every clear was
+# read in the tree (REPORT-opq.md, "Ellin PQ").
+#
+# Off its own switch (-Dslums.mechanics.ellinpq=true on top of -Dslums.mechanics=true).
+#
+#   scripts/event/EllinPQ.js:27,28,37 gates: 4-6 players, level 44-255, 30 minutes; :107 the instance name is
+#   "Ellin"+lobbyid; :93 refuses a party member whose job is not an adventurer
+#   (Math.floor(job/1000) == 0) - a PARTY-FORMATION fact, not a job model: a mixed party is simply turned away at the door.
+#   scripts/npc/2133000.js:51 is Ellin, the front door on the recruit map.
+#
+# FOUR of the seven stages are driven and the fifth is held with its reason in the row: a run of this row empties the
+# forest, opens the spine, talks Ellin through and makes the twenty marbles, then stops honestly instead of announcing a
+# PQ it did not finish.
+id: ellinpq
+name: Ellin PQ (Forest of Poison Haze)
+kind: PQ
+eventScript: EllinPQ
+entryNpc: 2133000
+recruitMap: 300030100
+exitMap: 930000800
+minPlayers: 4
+maxPlayers: 6
+minLevel: 44
+maxLevel: 255
+timeLimitMinutes: 30
+flag: slums.mechanics.ellinpq
+sources:
+  - "scripts/event/EllinPQ.js is ours and is the truth: the gates (:27,28,37), the adventurer-only filter (:93) and the clear (:230-241)"
+  - "the passage rules are scripts/portal/party6_stage.js: the first room needs an empty map (:9-18), the second needs the spine reactor at state 4 (:19-28)"
+  - "the marbles are scripts/npc/2133001.js:60-84 - Ellin hands out ten 2270004, the party weakens 9300174 and uses one to make a 4001169"
+  - "stage 5 (930000500, the shuffled reactors) is not modelled and the row says so rather than guessing"
+stages:
+  - stage: 1
+    map: 930000100
+    name: Empty the deteriorated forest
+    solver: fight-room
+    items:
+      - id: 4001169
+        cleanup: true
+    roles:
+      - id: fighter
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: clear-room
+        kind: WAIT
+        role: all
+        note: "party6_stage.js:9-18 refuses the passage while the map has monsters, and nothing writes a property"
+    clear:
+      mapEmpty: true
+  - stage: 2
+    map: 930000200
+    name: The spine blocks the way
+    solver: reactor-state
+    hitReactors: [3009000]
+    roles:
+      - id: hitter
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: spine
+        kind: HIT_REACTOR
+        role: all
+        reactor: "3009000"
+        note: "party6_stage.js:19-28 opens at spine state 4; 3009000.js:11-13 shows the clear effect there"
+    clear:
+      reactorState:
+        id: 3009000
+        state: 4
+  - stage: 3
+    map: 930000300
+    name: Ellin explains the haze
+    npc: 2133001
+    solver: summoned-boss
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+      - id: listener
+        who: NON_LEADER
+        min: 1
+        max: party-1
+    objectives:
+      - id: talk
+        kind: TALK_NPC
+        role: leader
+        npc: 2133001
+        note: "2133001.js:37-45 sets statusStg4 = 1 on the first talk"
+    clear:
+      eventProperty: statusStg4
+      equals: "1"
+  - stage: 4
+    map: 930000400
+    name: The marble hand-in
+    npc: 2133001
+    solver: ellin-marbles
+    # The monster the marble is spent on. A harder variant that used another flower changes this line, not the solver.
+    mobs: [9300174]
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: "2133001.js:47-84 hands the leader ten 2270004; :93-94 takes twenty 4001169 back"
+      - id: carrier
+        who: NON_LEADER
+        min: 1
+        max: party-1
+    items:
+      - id: 2270004
+      - id: 4001169
+    objectives:
+      - id: marbles
+        kind: COLLECT
+        role: leader
+        item: 2270004
+        count: 10
+        note: "the purifier marbles are handed out by the NPC, so the row does not fetch them"
+      - id: golem-marbles
+        kind: COLLECT
+        role: all
+        item: 4001169
+        count: 20
+      - id: hand-in
+        kind: HAND_IN
+        role: leader
+        npc: 2133001
+        item: 4001169
+        count: 20
+    clear:
+      # The stage ends by warping the whole team, and nothing is written: partyOnMap is the only readable form.
+      partyOnMap: 930000500
+  - stage: 5
+    map: 930000500
+    name: The Purple Stone of Magic
+    npc: 2133004
+    solver: ellin-stone
+    # 3002001 is the only reactor on this map with a drop row (reactordrops: 4001163 at chance 1); the eight 3002002s
+    # have none, so nothing has to touch them and the one-reactor-per-step resolution is not a limit here.
+    hitReactors: [3002001]
+    items:
+      - id: 4001163
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: "2133004.js:22-33 takes the stone from the leader only and refuses anyone else"
+      - id: watcher
+        who: NON_LEADER
+        min: 1
+        max: party-1
+    objectives:
+      - id: stone
+        kind: COLLECT
+        role: leader
+        item: 4001163
+        count: 1
+        note: "reactor 3002001's act() calls rm.dropItems(); the drop table gives 4001163 at chance 1"
+      - id: show-stone
+        kind: TALK_NPC
+        role: leader
+        npc: 2133004
+    clear:
+      # 2133004.js:28-33 warps the whole team to 930000600 and writes no property: the arrival is the clear
+      partyOnMap: 930000600
+  - stage: 6
+    map: 930000600
+    name: The Poison Golem
+    solver: fight-room
+    items:
+      - id: 4001169
+        cleanup: true
+    roles:
+      - id: fighter
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: golem
+        kind: KILL_FOR_ITEM
+        role: all
+        mob: 9300182
+        item: 4001169
+        count: 1
+        note: "EllinPQ.js:239-241: the Poison Golem's death is the PQ's clear, and countMonsters 0 on any other map is not"
+    clear:
+      # isPoisonGolem(mob) -> showClearEffect + clearPQ; nothing is written to the event
+      instance: true

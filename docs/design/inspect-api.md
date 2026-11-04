@@ -56,8 +56,15 @@ One bot character (roster bots and owned alts alike; real players answer 404).
 | `goals` | array | `{kind, description, pressure, targetLevel}` per goal, or null without a life brain |
 | `plan` | array of string | the goals' plans and the next step, as `!botwhy` shows them |
 | `memory` | object | `notesCached` and `playersCached` (notes about players in memory now; no database read), `met` (bots/players it remembers meeting) |
+| `mode` | string | the bot's mode now: `training`, `social` or `town` (the running bot type); null without a brain or outside the three (1.6.4 stage 6a) |
+| `mind` | object | its social mind (ticket 271 stage 1), read from `LifeMemoryStore.peek` (memory only; null when its memory is not in RAM, nothing is loaded or read from a table to answer): `mood` (-1..1), `moodWord` (`happy`, `content`, `neutral`, `low`, `miserable`), `traits` (all 12, 0..1), `emotions` (all 9, value now, decay applied), `topEmotions` (`[{name, value}]`, up to 3, furthest from rest first, calm ones left out), `needs` (all 8, 0..1), `strongestNeed` (`{name, value}`) |
+| `bonds` | object | its bot-to-bot bonds from `BotBonds`' in-memory sets: `count`, `max`, `top` (the 6 strongest as `{otherId, state, score, kind, hostile}`); null when bonds are switched off |
 | `learning` | array of string | what it learned (quadrant, crossings, today's budget, fads), as `!botwhy` shows it |
 | `why` | array of string | the full `!botwhy` text, when `!botwhy` is enabled on this server, else null |
+
+A read of `mind` decays the stored values to now and stores nothing, so inspecting a bot never marks its memory for a save.
+`!botwhy` shows the same facts as two lines after the Bartle lines: `Mode <mode>` and `Mind: mood +0.12 (content); feels
+anger 0.31, pride 0.20; strongest need companionship 0.64` (`Mind: not loaded ...` when its memory is not in RAM).
 
 ### `GET /maps/{id}`
 
@@ -107,3 +114,42 @@ Written by the nav export (`DashboardMapExport`) with the other nav files, rewri
 is below the map's view bottom; the planner never routes into one from outside, but the exported graphs still carry
 those edges). Only maps with a pit are listed; the region ids are those of `nav/graphs/<key>.json` (union over the
 map's profiles). The Website lane's dead-end check uses it to tell already-handled pits from real traps.
+
+## Dashboard: `live.json` `social` block (1.6.4 stage 6a)
+
+Written with every `live.json` (a minute), from static read-only accessors of the social layer: no database, no game
+lock, no pass over the bots. A failing read leaves `social: null` and the rest of the snapshot. Code:
+`soloMapling.dashboard.SocialExport`, `soloMapling.ArtificialPlayer.BotSocialSystem.SocialMetrics`.
+
+| Field | Meaning |
+|---|---|
+| `social.modes` | `enabled`, `census` (`training`, `social`, `town`: tracked bots per mode now) and `stats` (the `ModeSwitch` counters: `evaluations`, `switches`, `switch TRAINING>SOCIAL` style pair counters, `refused <reason>`) |
+| `social.budget` | `enabled` (`-Dslums.socialbudget`) and `counters` from `SocialBudget`: `allowed`, `denied` and one `denied <reason>` per reason (`backoff`, `turn-limit`, `pair-cooldown`, `actor-rate`, `map-rate`, `global-rate`; zero ones included), `recorded`, `failuresRecorded`, `backoffsStarted`, `trackedPairs`, `trackedFailures` |
+| `social.talk` | `BotTalk` since boot: `on`, `ticks`, `avgTickMs` (wall) and `avgCpuMs` (the tick thread's CPU; null before the first tick), `talks`, `greets`, `actsOk`, `actsFailed` |
+| `social.socialTick` | the `social-tick` cost phase: `calls`, `totalMs` since boot, and `msPerS`, `callsPerS` over the export interval (null on the first export); null when the phase is missing |
+| `social.bonds` | `bonds` (all bot-bot bonds held), `holders` (bots holding at least one), `text` (`BotBonds.stats()`); the counts are null if that line stops saying `bonds N held by M bots` |
+| `social.intents` | `enabled` (`-Dslums.intents`) and `counters` from `SocialIntents` (stage 5): `created`, `kept`, `broken`, `expired`, `cancelled`, `refused`, `deferred` (always present) and each by kind as `kept INVITE`, `created OFFER_HELP`... (a kind with none is left out) |
+| `social.minds` | `memoriesLoaded`: bots whose life memory (and so social mind) is in RAM |
+
+### The loop breaker (`SocialBudget`)
+
+A generic guard each bot-to-bot social act asks before acting (`BotTalk` for greet, chat and the ask acts: party, trade,
+help, come-along, gossip). It is a safety net, not pacing: the defaults sit far above `BotTalk`'s own gaps (greet gap 20
+min per pair, one talk per map per 2-5 min, 20 greets and 12 talks a minute world-wide), so a healthy town never sees a
+refusal. Limits, in the order checked:
+
+| Reason | Default | Meaning |
+|---|---|---|
+| `backoff` | 3 failures in a row, then 30 s, doubling each failure, cap 60 min; a success or 6 h of quiet ends the streak | the same actor + act + target keeps failing |
+| `turn-limit` | 6 turns within 90 s of each other | A to B, B to A, A to B... between one pair; quiet until the pair has been silent for 90 s. The same bot speaking again is no turn |
+| `pair-cooldown` | greet 10 min, chat 60 s, ask 15 s, other 30 s | the same pair (either direction) and the same kind of act (`ask:PARTY` is an `ask`) again too soon |
+| `actor-rate` | 10 acts a minute | one bot |
+| `map-rate` | 40 a minute | one map and channel |
+| `global-rate` | 200 a minute | the world |
+
+`-Dslums.socialbudget=false` switches it off (everything allowed, nothing tracked). A limit moves with
+`-Dslums.socialbudget.<name>=<number>`: `greetCooldownS`, `chatCooldownS`, `askCooldownS`, `actorPerMin`, `mapPerMin`,
+`globalPerMin`, `maxTurns`, `turnWindowS`, `failsBeforeBackoff`, `backoffBaseS`, `backoffMaxS`. A refused greet or chat is
+dropped (it does not retry; the QA log's CONVO topic says `BUDGET held back <kind> <names>: <reason>`); a refused ask act
+reports `budget` as its kind. QA-forced talks (`!qa`) skip it. Only an act that really happened (or really failed) is
+recorded, so a refusal cannot extend itself.

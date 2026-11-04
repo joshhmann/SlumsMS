@@ -1892,8 +1892,12 @@ public class ItemInformationProvider {
         }
     }
 
+    /**
+     * The mob a card id belongs to, or 0 for a card id the {@code monstercarddata} table does not know - which is
+     * also the "no cover" value the character-info packet writes, so a chosen cover with no row must not throw.
+     */
     public int getCardMobId(int id) {
-        return monsterBookID.get(id);
+        return monsterBookID.getOrDefault(id, 0);
     }
 
     public boolean isUntradeableOnEquip(int itemId) {

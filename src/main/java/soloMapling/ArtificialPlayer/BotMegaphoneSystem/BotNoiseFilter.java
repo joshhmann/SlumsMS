@@ -7,7 +7,6 @@ import net.server.channel.Channel;
 import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotHelpers;
 
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -100,13 +99,6 @@ public final class BotNoiseFilter {
             return false;
         }
         return true;
-    }
-
-    static boolean namesViewer(String line, String viewerName) {
-        if (line == null || viewerName == null || viewerName.length() < 3) {
-            return false;
-        }
-        return line.toLowerCase(Locale.ROOT).contains(viewerName.toLowerCase(Locale.ROOT));
     }
 
     /** Map chat from a bot: like {@code map.broadcastMessage(packet)}, minus players who muted bot chatter. */

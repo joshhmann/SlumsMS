@@ -327,6 +327,9 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
     private volatile boolean restockCall = false; // rc6 say-do: it said "brb pots": go and buy them
     private boolean phaseEntered = false;     // has this phase run its one-time setup?
     private long phaseDeadlineMs = 0;         // travel timeout / town dwell
+    // Ticket 181 F1: how long a life dwell may stand past its planned deadline while freeForAutomaticLifeActivity
+    // says no (0 = not armed, see doLifeDwell). Armed at each dwell's entry as its planned stay length.
+    private long lifeDwellGraceMs = 0;
 
     // Async travel coordination — the callback fires on the GCMovement driver thread.
     private volatile boolean moveDone = false;
@@ -662,6 +665,9 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         pollRecruitInvite(); // gated party-invite drain (the "wanna party up?" flow)
         soloMenu.poll();
         partyMenu.poll();    // kept last: a "Follow me!" selection converts this bot away
+        soloMapling.ArtificialPlayer.BotSocialSystem.SocialIntents.onTick(getChr()); // 1.6.4 stage 5: promises that fell due
+        // 1.6.4: the brain may move this bot to a social or town mode; a swap is the last act of the tick.
+        soloMapling.ArtificialPlayer.BotLifeSystem.ModeSwitch.maybeSwitch(this, dailyLife, now());
     }
 
     // ── Conversation hold (1.5.1) ────────────────────────────────────────────
@@ -822,7 +828,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
 
     public static boolean lifeExecutionEnabled() {
         return (LifeRuntime.enabled() || soloMapling.qa.QaSuite.isEnabled())
-                && Boolean.getBoolean("slums.botlife.execute");
+                && LifeRuntime.executeOn();
     }
 
     private boolean freeForLifeActivity() {
@@ -1292,6 +1298,9 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
                         : lobby == null ? "pq" : lobby.name();
                 BotFullChat(getChr(), "lf " + pq);
             }
+            // Ticket 181 F1: the stay's own length is how much longer it may stand once the deadline has passed and
+            // the freedom check still says no (a party holding a real player keeps it false, see the exit below).
+            lifeDwellGraceMs = Math.max(0, phaseDeadlineMs - now());
         }
         if (lifeVisit == LifeDecision.Activity.FISH) {
             if (!soloMapling.fishing.FishingPolicy.rewardsEnabled()) { enterPhase(Phase.DECIDE); return; }
@@ -1316,7 +1325,14 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         if (lifeVisit == LifeDecision.Activity.PARTY_QUEST) {
             soloMapling.ArtificialPlayer.SocialInitiative.lobbyTick(this, now()); // 1.6.0 S6: "lf kpq? u in"
         }
-        if (now() >= phaseDeadlineMs && freeForAutomaticLifeActivity(now())) enterPhase(Phase.DECIDE);
+        if (now() >= phaseDeadlineMs) {
+            // Ticket 181 F1: freeForAutomaticLifeActivity is the logout predicate, and it is false for a bot whose
+            // party holds a real player - online or not, so a player who logged off and left the party behind kept
+            // the dwell from ever ending (it stood there until the session was cut). The planned stay still holds
+            // while the bot is free; a dwell the predicate keeps blocking ends one planned stay after its deadline.
+            boolean blockedTooLong = lifeDwellGraceMs > 0 && now() >= phaseDeadlineMs + lifeDwellGraceMs;
+            if (blockedTooLong || freeForAutomaticLifeActivity(now())) enterPhase(Phase.DECIDE);
+        }
     }
 
     /** A SELL stop that found nothing to sell: about as long as a player takes to look round the market and go. */
@@ -1580,10 +1596,17 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         }
     }
 
+    // train#F1: the town a town stop plans its shops in. A death respawns the bot into the dead map's return town
+    // (handleDeath), which is not always its home town: standing in a town with shops of its own, it shops there.
+    // Anywhere else (a field, a town without shops) the home town still plans the trip.
+    static int shopTown(int hereMapId, int homeMapId) {
+        return TOWN_SHOPS.containsKey(hereMapId) ? hereMapId : homeMapId;
+    }
+
     // Decide this town stop's store itinerary: nothing, just potions, just equips, or both in either order.
     private void buildShopPlan() {
         shopQueue.clear();
-        int[] shops = TOWN_SHOPS.get(homeMapId);
+        int[] shops = TOWN_SHOPS.get(shopTown(getChr().getMapId(), homeMapId));
         if (shops == null || rng.nextDouble() > SHOP_VISIT_CHANCE) {
             return; // unknown town, or skipping the shops this visit
         }
@@ -1626,7 +1649,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         Character chr = getChr();
         resupplySite = null;
         saunaResupply = false;
-        ShopCatalog.Site site = BotShopping.siteFor(chr, homeMapId, needs);
+        ShopCatalog.Site site = BotShopping.siteFor(chr, shopTown(chr.getMapId(), homeMapId), needs);
         if (site == null) {
             BotSupplies.restock(chr);
             return false;
@@ -2468,6 +2491,9 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
     private int hpPotsAtGrindStart = 0;
 
     private boolean supplyRetreat(Character chr) {
+        if (!BotSupplies.mayResupply(chr.getId(), now())) {
+            return false; // train#F2: its last trip bought nothing - grind it out rather than loop back to town
+        }
         BotSupplies.Shortage shortage = BotSupplies.shortage(chr);
         if (shortage == BotSupplies.Shortage.NONE && !recruitingNow() && runningLow(chr)) {
             return true; // 1.5.0 rc3: down to its own low-water mark of potions -> town to restock
@@ -3033,8 +3059,19 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
     // Release combat + movement when the bot stops (FINISHED / converted / manually stopped).
     @Override
     public synchronized void stopScheduledTask() {
-        soloMapling.ArtificialPlayer.BotLifeSystem.LifeTownSlots.release(getChr().getId());
-        soloMapling.fishing.GameFishing.cancel(getChr());
+        // Ticket 181 F2: the town-slot release (and GameFishing.cancel) ran above the null guard every other step
+        // has, so a bot whose character was already gone threw an NPE there and the whole teardown - the life queue,
+        // the tick registration behind super - never ran. With no character there is no id to release and every
+        // later step needs one, so the parts that do not are done here and the rest is left alone.
+        Character chr = getChr();
+        if (chr == null) {
+            lifeActivities.close();
+            ACTIVE_GRINDERS.remove(this);
+            swingClock.disarm();
+            return;
+        }
+        soloMapling.ArtificialPlayer.BotLifeSystem.LifeTownSlots.release(chr.getId());
+        soloMapling.fishing.GameFishing.cancel(chr);
         lifeActivities.close();
         ACTIVE_GRINDERS.remove(this);
         swingClock.disarm();
@@ -3042,24 +3079,21 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         // one-shot tasks on the shared scheduler that outlive this FSM. Left armed, a bot logged out mid-sauna was
         // sent travelling (and warped) after its removal - the "got stuck when moving to map 10504040x" flood.
         saunaTripActive = false;
-        Character chr = getChr();
-        if (chr != null) {
-            if (chr.getChair() > 0) {
-                botCancelChair(chr); // mid-break conversion: don't leave the new type glued to a chair
-            }
-            grind.release(chr);
-            clearTrainTarget(); // release this map's occupancy slot
-            soloMapling.ArtificialPlayer.BotGrindSystem.LevelingPathCensus.forget(chr.getId());
-            BotAttackDriver.clearBot(chr.getId());
-            BotBuffDriver.clearBot(chr.getId());
-            BotDeaths.clearBot(chr.getId());
-            GCMovement.releaseCommitmentHold(chr);
-            BotWanderSystem.stop(chr); // end any shop-dwell flavor wander
-            TownLoiter.stop(chr); // free any town-loiter ledge claim + fidget before releasing movement
-            GCMovement.disable(chr); // releases the shared movement lock the recorded engine needs
+        if (chr.getChair() > 0) {
+            botCancelChair(chr); // mid-break conversion: don't leave the new type glued to a chair
         }
+        grind.release(chr);
+        clearTrainTarget(); // release this map's occupancy slot
+        soloMapling.ArtificialPlayer.BotGrindSystem.LevelingPathCensus.forget(chr.getId());
+        BotAttackDriver.clearBot(chr.getId());
+        BotBuffDriver.clearBot(chr.getId());
+        BotDeaths.clearBot(chr.getId());
+        GCMovement.releaseCommitmentHold(chr);
+        BotWanderSystem.stop(chr); // end any shop-dwell flavor wander
+        TownLoiter.stop(chr); // free any town-loiter ledge claim + fidget before releasing movement
+        GCMovement.disable(chr); // releases the shared movement lock the recorded engine needs
         super.stopScheduledTask();
-        log("[TrainingBot] stopped: " + (chr != null ? chr.getName() : "?"));
+        log("[TrainingBot] stopped: " + chr.getName());
     }
 
     /** Reads players' typed lines itself (menu, bets, script): free text stays with it (bot-persistence ticket 21). */

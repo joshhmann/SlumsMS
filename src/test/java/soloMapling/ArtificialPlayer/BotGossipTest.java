@@ -129,8 +129,10 @@ class BotGossipTest {
     @Test
     void worldNewsIsTold() {
         long now = System.currentTimeMillis();
-        BotWorldGossip.feedForTest().add(BotWorldGossip.newsForTest(BotWorldGossip.Kind.BOSS, "Joshh", PLAYER, "Zakum",
-                null, now));
+        BotWorldGossip.News news = BotWorldGossip.newsForTest(BotWorldGossip.Kind.BOSS, "Joshh", PLAYER, "Zakum", null,
+                now);
+        news.witnesses.add(B + 3); // Stage 3: Bob was on the map, so he may tell it
+        BotWorldGossip.feedForTest().add(news);
         BotGossip.Fact f = BotGossip.factFor(chr(B + 3, "Bob"), chr(B + 4, "Tofu"), List.of(), now, new Random(1));
         assertEquals("news", f.kind());
         assertEquals("Joshh killed Zakum", f.about());
@@ -140,8 +142,10 @@ class BotGossipTest {
     @Test
     void killersTellBadNewsAchieversBossKills() {
         long now = System.currentTimeMillis();
-        BotWorldGossip.feedForTest().add(BotWorldGossip.newsForTest(BotWorldGossip.Kind.BOSS, "Joshh", PLAYER, "Zakum",
-                null, now));
+        BotWorldGossip.News news = BotWorldGossip.newsForTest(BotWorldGossip.Kind.BOSS, "Joshh", PLAYER, "Zakum", null,
+                now);
+        news.witnesses.add(B + 2); // Kimchi was there (Stage 3: only a bot that saw or heard it can tell it)
+        BotWorldGossip.feedForTest().add(news);
         Reputation.witnessed(B + 2, 5151, Reputation.Mark.KS, now);
         Map<Integer, String> names = new HashMap<>(NAMES);
         names.put(5151, "Ksr");

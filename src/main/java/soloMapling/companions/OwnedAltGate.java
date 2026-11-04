@@ -45,19 +45,23 @@ public final class OwnedAltGate {
 
     /** Why an alt may not fight or loot now; {@link #OPEN} when it may. */
     public enum Why {
-        OPEN(null),
-        OWNER_GONE(null),
-        OTHER_MAP(null),
-        TOWN(null),
-        TOO_FAR(null),
-        OWNER_IDLE("Your alts stopped fighting: you have been idle for a while. Move or attack and they join in again."),
-        MAP_FULL("Your alts are not fighting here: this map already has " + FIGHTING_PER_MAP + " alts fighting.");
+        OPEN, OWNER_GONE, OTHER_MAP, TOWN, TOO_FAR, OWNER_IDLE, MAP_FULL;
 
-        /** What the owner hears (once) when this closes the gate, or null for the quiet reasons. */
-        public final String tell;
-
-        Why(String tell) {
-            this.tell = tell;
+        /**
+         * AL-2 (ticket 183): what the owner hears (once) when this closes the gate, naming the alt the reason is about -
+         * a party of five alts held back for two different reasons has to say which alt is which. Null for the reasons
+         * there is nobody to tell (the owner is gone) or nothing to tell (the gate is open).
+         */
+        public String tell(String altName) {
+            String alt = altName == null || altName.isBlank() ? "Your alt" : altName;
+            return switch (this) {
+                case OPEN, OWNER_GONE -> null;
+                case OTHER_MAP -> alt + " is on its way: it is on another map and fights again once it reaches you.";
+                case TOWN -> alt + " does not fight in town. Take it somewhere with monsters and it joins in.";
+                case TOO_FAR -> alt + " is walking back to you: it only fights close by, about a screen away.";
+                case OWNER_IDLE -> alt + " stopped fighting: you have been idle for a while. Move or attack and it joins in again.";
+                case MAP_FULL -> alt + " is holding back: this map already has " + FIGHTING_PER_MAP + " alts fighting.";
+            };
         }
     }
 

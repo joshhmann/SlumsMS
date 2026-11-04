@@ -28,6 +28,8 @@ var rings = [1112806, 1112803, 1112807, 1112809];
 var divorceFee = 500000;
 var ringObj;
 
+var RingActionHandler = Java.type('net.server.channel.handlers.RingActionHandler');
+
 function getWeddingRingItemId(player) {
     for (var i = 0; i < rings.length; i++) {
         if (player.haveItemWithId(rings[i], false)) {
@@ -46,6 +48,19 @@ function hasEquippedWeddingRing(player) {
     }
 
     return false;
+}
+
+// True only when the marriage is really over. breakMarriageRing does nothing for a ring that is not in the EQUIP
+// inventory and throws on a broken marriage, so the partner id is the proof; the fee is taken after this answers true.
+function breakRing(player, ringItemId) {
+    try {
+        RingActionHandler.breakMarriageRing(player, ringItemId);
+    } catch (e) {
+        Java.type('org.slf4j.LoggerFactory').getLogger('9201004').warn('divorce failed for {}: {}', player.getId(), String(e));
+        return false;
+    }
+
+    return player.getPartnerId() <= 0;
 }
 
 function start() {
@@ -116,20 +131,27 @@ function action(mode, type, selection) {
                     break;
             }
         } else if (status == 2) {
+            var ringItemId = ringObj.getItemId();
+
             if (cm.getMeso() < divorceFee) {
                 cm.sendOk("You don't have the required amount of #r" + divorceFee + " mesos#k for the divorce fee.");
                 cm.dispose();
                 return;
-            } else if (ringObj.equipped()) {
+            } else if (cm.getPlayer().haveItemEquipped(ringItemId)) {
+                // Ring.equipped() is only set at login, so ask the equipment inventory instead
                 cm.sendOk("Please unequip your ring before trying to divorce.");
                 cm.dispose();
                 return;
             }
 
+            if (!breakRing(cm.getPlayer(), ringItemId)) {
+                cm.sendOk("Something went wrong and your divorce was not completed. You have not been charged, please try again later.");
+                cm.dispose();
+                return;
+            }
+
             cm.gainMeso(-divorceFee);
-            const RingActionHandler = Java.type('net.server.channel.handlers.RingActionHandler');
-            RingActionHandler.breakMarriageRing(cm.getPlayer(), ringObj.getItemId());
-            cm.gainItem(ringObj.getItemId(), -1);
+            cm.gainItem(ringItemId, -1);
 
             cm.sendOk("You have divorced from your partner.");
             cm.dispose();

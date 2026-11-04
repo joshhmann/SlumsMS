@@ -1,5 +1,8 @@
 package soloMapling.ArtificialPlayer.BotLifeSystem;
 
+import soloMapling.ArtificialPlayer.BotSocialSystem.SocialMind;
+import soloMapling.ArtificialPlayer.BotSocialSystem.SocialSim;
+
 import java.util.*;
 
 /**
@@ -104,6 +107,8 @@ public final class LifeMemory {
 
     private void reset(int characterId) {
         this.characterId = characterId;
+        mind = null; pendingMind = null;
+        intents = null; pendingIntents = null;
         quests = new soloMapling.ArtificialPlayer.BotQuestSystem.BotQuestLog(characterId);
         socialSeed = SocialProfile.forCharacter(characterId);
         plasticity = SocialProfile.plasticityOf(SocialProfile.slotOf(characterId));
@@ -223,6 +228,8 @@ public final class LifeMemory {
 
     /** 1.6.1: the bot-chat notes; an unreadable row is skipped, never fatal. */
     private void readMet(Map<?, ?> map) {
+        pendingMind = map.get("mind");
+        pendingIntents = map.get("intents");
         met.clear();
         if (!(map.get("met") instanceof List<?> rows)) return;
         for (Object row : rows) {
@@ -318,6 +325,7 @@ public final class LifeMemory {
 
     /** Moves the point one push along {@code push} (S9's outcome learning calls this too); true when it moved. */
     public synchronized boolean push(SocialProfile.Push push) {
+        feelPush(push, SocialSim.now());
         double[] next = socialSeed.push(driftX, driftY, push, plasticity);
         if (next[0] == driftX && next[1] == driftY) return false;
         driftX = next[0]; driftY = next[1];
@@ -325,6 +333,104 @@ public final class LifeMemory {
         changed();
         return true;
     }
+
+    // ── 1.6.4 stage 1: the social mind (traits, emotions, needs) ──
+
+    private SocialMind mind;
+    /** The saved mind, kept raw until first use (a bot nobody asks about never builds one) and written back as is. */
+    private Object pendingMind;
+
+    /**
+     * Runs {@code use} on this bot's social mind under the memory's lock (the mind is not thread-safe). Created on
+     * first use from the seed; a saved mind is restored into it.
+     */
+    public synchronized <T> T mind(java.util.function.Function<SocialMind, T> use) {
+        SocialMind m = mindLocked();
+        int before = m.version();
+        T result = use.apply(m);
+        if (m.version() != before) changed(); // a read costs no write
+        return result;
+    }
+
+    private SocialMind mindLocked() {
+        if (mind == null) {
+            mind = SocialMind.seeded(SocialProfile.slotOf(characterId), socialSeed.socialPull(),
+                    socialSeed.rivalPull(), socialSeed.share(SocialProfile.Type.EXPLORER),
+                    socialSeed.share(SocialProfile.Type.ACHIEVER), SocialSim.now());
+            if (pendingMind != null) {
+                mind.restore(pendingMind);
+                pendingMind = null;
+            }
+        }
+        return mind;
+    }
+
+    // ── 1.6.4 stage 5: the bot's persisted intentions (promises it means to keep) ──
+
+    private soloMapling.ArtificialPlayer.BotSocialSystem.IntentBook intents;
+    /** The saved intents, kept raw until first use and written back as read (a read is never a write). */
+    private Object pendingIntents;
+
+    /**
+     * Runs {@code use} on this bot's intent book under the memory's lock (the book is not thread-safe). Created on first
+     * use; a saved book is restored into it. A change marks the memory dirty so the roster sweep saves it; a read costs
+     * no write.
+     */
+    public synchronized <T> T intents(java.util.function.Function<soloMapling.ArtificialPlayer.BotSocialSystem.IntentBook, T> use) {
+        var book = intentsLocked();
+        int before = book.version();
+        T result = use.apply(book);
+        if (book.version() != before) changed();
+        return result;
+    }
+
+    private soloMapling.ArtificialPlayer.BotSocialSystem.IntentBook intentsLocked() {
+        if (intents == null) {
+            intents = new soloMapling.ArtificialPlayer.BotSocialSystem.IntentBook(characterId);
+            if (pendingIntents != null) {
+                intents.restore(pendingIntents);
+                pendingIntents = null;
+            }
+        }
+        return intents;
+    }
+
+    /** What a drift event does to how the bot feels (first cut: the events that already move its personality). */
+    private void feelPush(SocialProfile.Push push, long now) {
+        SocialMind m = mindLocked();
+        switch (push) {
+            case PARTY, PQ_TOGETHER, HELP_GIVEN, CHAT -> {
+                m.feel(SocialMind.Emotion.HAPPINESS, 0.12, now);
+                m.feel(SocialMind.Emotion.LONELINESS, -0.2, now);
+                m.satisfy(SocialMind.Need.COMPANIONSHIP, 0.25, now);
+                m.satisfy(SocialMind.Need.BELONGING, 0.1, now);
+            }
+            case GIFTED, HELPED -> {
+                m.feel(SocialMind.Emotion.AFFECTION, 0.2, now);
+                m.feel(SocialMind.Emotion.HAPPINESS, 0.15, now);
+                m.satisfy(SocialMind.Need.SECURITY, 0.1, now);
+            }
+            case FAMED, BOSS, JOB_ADVANCE, BIG_DROP -> {
+                m.feel(SocialMind.Emotion.PRIDE, 0.3, now);
+                m.feel(SocialMind.Emotion.HAPPINESS, 0.15, now);
+                m.satisfy(SocialMind.Need.RECOGNITION, 0.3, now);
+                m.satisfy(SocialMind.Need.ACHIEVEMENT, 0.2, now);
+            }
+            case KS, KSED, ROAST, RIVALRY, GUILD_WAR -> {
+                m.feel(SocialMind.Emotion.ANGER, 0.3, now);
+                m.feel(SocialMind.Emotion.HAPPINESS, -0.1, now);
+            }
+            case SCAMMED, BOOM -> {
+                m.feel(SocialMind.Emotion.SADNESS, 0.25, now);
+                m.feel(SocialMind.Emotion.ANGER, 0.15, now);
+            }
+            case NEW_MAP, QUEST, FISHED -> m.satisfy(SocialMind.Need.EXPLORATION, 0.2, now);
+            case GRIND -> m.satisfy(SocialMind.Need.ACHIEVEMENT, 0.05, now);
+            default -> { }
+        }
+        changed();
+    }
+
     public synchronized List<LifeGoals.Goal> goals() { return goals; }
 
     /**
@@ -659,6 +765,10 @@ public final class LifeMemory {
         learn.put("crossed", crossed.stream().map(c -> Map.of("from", c.from().name(), "to", c.to().name(),
                 "at", c.at())).toList());
         out.put("learn", learn);
+        if (mind != null && mind.touched()) out.put("mind", mind.save());
+        else if (pendingMind != null) out.put("mind", pendingMind); // never asked about this run: written back as read
+        if (intents != null && intents.touched()) out.put("intents", intents.save());
+        else if (pendingIntents != null) out.put("intents", pendingIntents); // never asked about this run: written back as read
         if (!met.isEmpty()) out.put("met", met.stream().map(m -> Map.of("id", m.otherId(), "name", m.name(),
                 "what", m.what(), "at", m.at())).toList());
         return out;

@@ -36,8 +36,76 @@ public class MobId {
     public static final int ZAKUM_ARM_7 = 8800009;
     public static final int ZAKUM_ARM_8 = 8800010;
 
+    /**
+     * Chaos Zakum (1.6.4, {@code -Dslums.chaos.zakum}): the same shape as the normal fight one id block up - a body
+     * chain that wakes 8800100 -> 8800101 -> 8800102, and eight arms 8800103-8800110 that shield it. Read from
+     * {@code Mob.wz}: every id exists, all carry {@code boss=1} and {@code mbookID=8800002}, the chain is their own
+     * {@code info/revive}, and {@code String.wz/Mob.img.xml} names them "Chaos Zakum" and "Chaos Zakum Arm 1".."8".
+     */
+    public static final int CHAOS_ZAKUM_1 = 8800100;
+    public static final int CHAOS_ZAKUM_2 = 8800101;
+    public static final int CHAOS_ZAKUM_3 = 8800102;
+    public static final int CHAOS_ZAKUM_ARM_1 = 8800103;
+    public static final int CHAOS_ZAKUM_ARM_2 = 8800104;
+    public static final int CHAOS_ZAKUM_ARM_3 = 8800105;
+    public static final int CHAOS_ZAKUM_ARM_4 = 8800106;
+    public static final int CHAOS_ZAKUM_ARM_5 = 8800107;
+    public static final int CHAOS_ZAKUM_ARM_6 = 8800108;
+    public static final int CHAOS_ZAKUM_ARM_7 = 8800109;
+    public static final int CHAOS_ZAKUM_ARM_8 = 8800110;
+
     public static boolean isZakumArm(int mobId) {
         return mobId >= ZAKUM_ARM_1 && mobId <= ZAKUM_ARM_8;
+    }
+
+    public static boolean isChaosZakumArm(int mobId) {
+        return mobId >= CHAOS_ZAKUM_ARM_1 && mobId <= CHAOS_ZAKUM_ARM_8;
+    }
+
+    /** An arm of either altar: what shields a body and what has to be gone before the body is real. */
+    public static boolean isAnyZakumArm(int mobId) {
+        return isZakumArm(mobId) || isChaosZakumArm(mobId);
+    }
+
+    /** A Zakum body phase of either altar, in the order its chain wakes. */
+    public static boolean isAnyZakumBody(int mobId) {
+        return mobId == ZAKUM_1 || mobId == ZAKUM_2 || mobId == ZAKUM_3
+                || mobId == CHAOS_ZAKUM_1 || mobId == CHAOS_ZAKUM_2 || mobId == CHAOS_ZAKUM_3;
+    }
+
+    /**
+     * The body the map handles its own damage and un-fake for: the phase the arms stand in front of, one per altar
+     * (8800000 normal, 8800100 chaos). The later phases of a chain only appear after its arms are gone, so they need
+     * no shield of their own.
+     */
+    public static boolean isShieldedZakumBody(int mobId) {
+        return mobId == ZAKUM_1 || mobId == CHAOS_ZAKUM_1;
+    }
+
+    /** The body this arm shields (8800000 or 8800100), or 0 when the id is not a Zakum arm. */
+    public static int shieldedBodyOf(int armId) {
+        if (isZakumArm(armId)) {
+            return ZAKUM_1;
+        }
+        if (isChaosZakumArm(armId)) {
+            return CHAOS_ZAKUM_1;
+        }
+        return 0;
+    }
+
+    /**
+     * The arm ids that shield this body, as {@code {first, last}}, or {@code null} when the id is not a shielded body.
+     * One pair per altar, so the map's three Zakum predicates (shielded, un-fake on the last arm) read one mapping
+     * instead of repeating a hardcoded id next to a hardcoded range.
+     */
+    public static int[] shieldingArms(int bodyId) {
+        if (bodyId == ZAKUM_1) {
+            return new int[]{ZAKUM_ARM_1, ZAKUM_ARM_8};
+        }
+        if (bodyId == CHAOS_ZAKUM_1) {
+            return new int[]{CHAOS_ZAKUM_ARM_1, CHAOS_ZAKUM_ARM_8};
+        }
+        return null;
     }
 
     public static final int HORNTAIL_PREHEAD_LEFT = 8810000;

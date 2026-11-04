@@ -37,6 +37,22 @@ final class StepExecutor {
     static final long TALK_GAP_MS = 2_500;
     static final long DROP_GAP_MS = 1_500;
 
+    /**
+     * The gap between two drops on the same item reactor: the server's own 5000 ms activation delay
+     * ({@code MapleMap.activateItemReactors}, {@code MapleMap.java:2665-2680}) plus a margin for the tick, so a
+     * solver never reads a drop that has simply not fired yet as a refusal.
+     */
+    static final long ITEM_REACTOR_SETTLE_MS = 5_000 + 1_500;
+
+    /** How many drops one bot gives a single item reactor before it says the bed will not take it. */
+    static final int PLACE_ON_TRIES = 3;
+
+    /** How often one bot may try a use-item on a monster (Ellin PQ's marble): the rule is HP-gated, so a spray is noise. */
+    static final long USE_ON_MOB_GAP_MS = 1_000;
+
+    /** How often one bot may touch a reactor. */
+    static final long TOUCH_GAP_MS = 1_000;
+
     private final Map<Integer, Beat> beats = new ConcurrentHashMap<>();
 
     /**
@@ -46,7 +62,32 @@ final class StepExecutor {
      */
     static final int TAKEN_PENALTY_MS = 400 * 8;
 
+    /**
+     * How the executor puts an item on a bot: the gear system's own move ({@link
+     * soloMapling.ArtificialPlayer.BotGearSystem.BotGear#wear}). A seam so a test can see what the step asked for without
+     * a bot that has item data; production always runs the default.
+     */
+    static volatile java.util.function.BiFunction<Character, Integer, soloMapling.ArtificialPlayer.BotGearSystem.BotGear.WearResult>
+            wearer = soloMapling.ArtificialPlayer.BotGearSystem.BotGear::wear;
+
+    /** One wear attempt per bot per this long: a refusal is not retried every tick. */
+    static final long EQUIP_GAP_MS = 3_000;
+
     /** Per-bot pacing: when it last clicked, dropped, or was sent somewhere. */
+    /** How many warps in a row may fail before the run is ended and the bot's real map is reported. */
+    static final int WARP_TRIES = 3;
+
+    /** One warp that did not land: the beat's counter steps up; true once the run should stop retrying. */
+    static boolean warpGaveUp(Beat beat) {
+        beat.warpTries++;
+        return beat.warpTries >= WARP_TRIES;
+    }
+
+    /** A step that names a map other than the run's current room is a solver bug, and is never carried out. */
+    static boolean wrongRoom(SolverStep.WarpTo w, int stageMapId) {
+        return w.mapId() != stageMapId;
+    }
+
     static final class Beat {
         volatile long lastTalkMs;
         volatile boolean talking;
@@ -59,14 +100,29 @@ final class StepExecutor {
         long moveIssuedMs;
         int farmHave = -1;
         long farmSinceMs;
-        /** The puzzle position this bot is walking to, since when, and when it last said it had not got there. */
-        String occupyAt;
-        long occupySinceMs;
-        long occupyToldMs;
+        /** The puzzle position this bot is walking to, and when it last got closer to it. */
+        final OccupyWatch occupy = new OccupyWatch();
         /** The wait message this bot has been sitting on, since when, and when it last said it. */
         String waitMsg;
         long waitSinceMs;
         long waitToldMs;
+        /** When this member was last put into another room, so a failed warp is retried rather than spammed. */
+        long lastWarpMs;
+        /** How many times in a row a warp was issued and did not take, and the last refusal it was told about. */
+        int warpTries;
+        String warpTold;
+        /** When this bot last tried to put an item on, and the refusal it was last heard saying. */
+        long lastEquipMs = Long.MIN_VALUE / 2;
+        String equipToldWhy;
+        /** When this bot last hit the room's reactor, so the click is not spammed. */
+        long lastReactorMs;
+        /** When this bot last put a stack on a reactor, and when it last said it is still gathering it. */
+        long lastPlaceMs;
+        /** When this bot last dropped onto an item reactor, and how often it has dropped on each reactor id. */
+        long lastPlaceOnMs;
+        long lastUseOnMobMs;
+        long lastTouchMs;
+        final java.util.Map<Integer, Integer> placeOnTries = new java.util.HashMap<>();
         boolean stallTold;
         int stallGain;
         final Chase chase = new Chase();
@@ -85,15 +141,43 @@ final class StepExecutor {
             case SolverStep.Loot l -> loot(view, bot, beat, l.itemId(), now);
             case SolverStep.TakeBack t -> takeBack(view, bot, beat, t, now, log);
             case SolverStep.TalkNpc t -> talk(run, orchestrator, view, bot, beat, t, now, log);
+            case SolverStep.TalkNpcAt t -> talkAt(run, orchestrator, view, bot, beat, t, now, log);
             case SolverStep.DropFor d -> dropFor(view, bot, beat, d, now, log);
             case SolverStep.Say s -> say(view, bot, beat, s.line(), now);
-            case SolverStep.HitReactor h -> log.accept(bot.getName() + ": reactor steps come in phase 2");
+            case SolverStep.HitReactor h -> hitReactor(bot, beat, h, now, log);
+            case SolverStep.UseItemOnMob u -> useItemOnMob(bot, beat, u, now, log);
+            case SolverStep.TouchReactor t -> touchReactor(bot, beat, t.reactorId(), null, now, log);
+            case SolverStep.TouchReactorNamed tn -> touchReactor(bot, beat, 0, tn.reactorName(), now, log);
+            case SolverStep.HitReactorNamed h -> {
+                MapleMap named = bot.getMap();
+                server.maps.Reactor r = named == null || h.reactorName() == null
+                        ? null : named.getReactorByName(h.reactorName());
+                if (r == null) {
+                    if (now - beat.lastReactorMs > 10_000) {
+                        beat.lastReactorMs = now;
+                        log.accept(bot.getName() + ": no reactor \"" + h.reactorName() + "\" on map " + bot.getMapId());
+                    }
+                } else {
+                    hitReactorAt(bot, beat, r, h.reactorName(), now, log);
+                }
+            }
+            case SolverStep.HitReactorByOid h -> hitReactorByOid(bot, beat, h, now, log);
+            case SolverStep.EquipItem e -> equipItem(bot, beat, e, now, log);
+            case SolverStep.UnequipItem u -> unequipItem(bot, beat, u, now, log);
+            case SolverStep.PlaceItem p -> placeItem(bot, beat, p, now, log);
+            case SolverStep.PlaceItemOn p -> placeItemOn(bot, beat, p, now, log);
             case SolverStep.Occupy o -> occupy(bot, beat, o, now, log);
             case SolverStep.CheckAnswer c -> check(run, orchestrator, bot, beat, c, now, log);
             case SolverStep.Converse c -> converse(run, orchestrator, bot, beat, c, now, log);
             case SolverStep.EnterPortal e -> enterPortal(bot, beat, e, now, log);
+            case SolverStep.EnterPortalTo to -> enterPortalTo(bot, beat, to, now, log);
+            case SolverStep.ScriptedPortal p -> scriptedPortal(bot, beat, p, now, log);
+            case SolverStep.WarpTo w -> warp(view, bot, beat, w, now, log);
             case SolverStep.Wait w -> waitNote(bot, beat, w, now, log);
             case SolverStep.Done d -> {
+            }
+            case SolverStep.Abandon a -> {
+                // the orchestrator ends the run on this reason before any executor sees it
             }
         }
     }
@@ -116,9 +200,101 @@ final class StepExecutor {
      */
     static final long OCCUPY_NOTE_MS = 30_000L;
 
-    /** Whether a stander that has been walking to {@code o.id()} since {@code sinceMs} should say so now. */
+    /**
+     * How much closer (px) a stander must get to its position for the clock to start again. The rope rectangles are
+     * 4 px wide and 150-222 px tall ({@code content/kpq.yaml:144-147}), so a climber crossing one covers 30+ px
+     * between two notes at 30 s apart: anything under this is standing still, which is what the note is about.
+     */
+    static final int OCCUPY_PROGRESS_PX = 30;
+
+    /**
+     * A gap this long between two ticks of the same walk means the bot was doing something else in between (standing
+     * on the position, so the solver answered with a Wait; or sent off it), so the next tick is a new walk.
+     */
+    static final long OCCUPY_GAP_MS = 10_000L;
+
+    /** Whether a stander that has made no progress since {@code sinceMs} should say so now (once per window). */
     static boolean occupyDueForNote(long sinceMs, long toldMs, long now) {
         return now - sinceMs >= OCCUPY_NOTE_MS && now - toldMs >= OCCUPY_NOTE_MS;
+    }
+
+    /**
+     * One stander's walk to one puzzle position. The old note fired on "has not arrived in 30 s", and on TEST that
+     * was 58% false (of 1,513 OCCUPY lines, 873 were followed within 30 s by {@code WAIT <same bot> ... on <same
+     * position>}, median 5 s later - 1,157 counting later ones too - and 478 of those came under 30 s after the bot
+     * had already said it stood on the very position: the clock reset only on a change of position id, so a second
+     * walk to the same rope re-used the first walk's clock).
+     *
+     * <p>Two things fix that. A walk is contiguous: {@link #sinceStepMs} is the last tick this watch was asked about,
+     * so a gap (the bot stood on the position and the solver answered with a Wait, or was sent elsewhere) starts a new
+     * walk. And the clock is progress, as {@link Chase} uses for fights: it restarts whenever the bot is
+     * {@link #OCCUPY_PROGRESS_PX} px nearer, so a climbing bot is never reported. The note fires only when neither
+     * has happened for {@link #OCCUPY_NOTE_MS}.
+     */
+    static final class OccupyWatch {
+        String positionId;
+        /** Distance to the aim point at the last progress, and when that was. */
+        int bestPx = -1;
+        long sinceMs;
+        long toldMs;
+        /** When this walk began (for the line) and when the watch was last asked about it (for continuity). */
+        long startedMs;
+        long sinceStepMs;
+
+        /**
+         * No progress for {@link #OCCUPY_NOTE_MS} toward {@code o}: true once per window. A gap of more than
+         * {@link #OCCUPY_GAP_MS} between two calls means the bot was not walking here in between, so this is a new
+         * walk.
+         */
+        boolean due(SolverStep.Occupy o, Point at, long now) {
+            int px = distanceTo(o, at);
+            boolean contiguous = now - sinceStepMs <= OCCUPY_GAP_MS && sinceStepMs <= now;
+            if (!o.positionId().equals(positionId) || !contiguous) {
+                start(o, px, now);
+                return false;
+            }
+            sinceStepMs = now;
+            if (px <= bestPx - OCCUPY_PROGRESS_PX || px >= bestPx + OCCUPY_PROGRESS_PX) {
+                // Clearly closer (climbing) or clearly further (walked away, then sent back): a new walk either way.
+                start(o, px, now);
+                return false;
+            }
+            if (!occupyDueForNote(sinceMs, toldMs, now)) {
+                return false;
+            }
+            toldMs = now;
+            return true;
+        }
+
+        private void start(SolverStep.Occupy o, int px, long now) {
+            positionId = o.positionId();
+            bestPx = px;
+            startedMs = now;
+            sinceMs = now;
+            sinceStepMs = now;
+            toldMs = 0;
+        }
+
+        /** How long this walk has gone on, for the line. */
+        long walkMs(long now) {
+            return now - startedMs;
+        }
+
+        /** Arrived: the next walk to this position starts from zero. */
+        void arrived() {
+            positionId = null;
+            bestPx = -1;
+            startedMs = 0;
+            sinceStepMs = 0;
+            toldMs = 0;
+        }
+
+        private static int distanceTo(SolverStep.Occupy o, Point at) {
+            if (at == null) {
+                return Integer.MAX_VALUE / 2;
+            }
+            return (int) Math.hypot(at.x - o.x(), at.y - o.y());
+        }
     }
 
     /** Whether a member sitting on the same wait since {@code sinceMs} should say it now (once a minute after 30 s). */
@@ -181,6 +357,27 @@ final class StepExecutor {
         return tell;
     }
 
+    /**
+     * The target a Fight step is counted against, as a line should print it. A collector on KPQ stage 5 gets
+     * {@code Fight(0, 4001008, Integer.MAX_VALUE)} ({@link KillCollectHandInSolver}), meaning "fight while the park
+     * has monsters", and printing the sentinel made 180 of 186 TEST STALL lines read {@code on 0/2147483647 x
+     * 4001008} (2026-11-01 00:31 -> 11-02 03:16; 181 of 186 counting any held count) - a requirement no one can
+     * read as anything but broken. The count
+     * the collector is really held to is the leader's {@code HAND_IN count 10}
+     * ({@code content/kpq.yaml:311-316}), which is his own step, not this one's.
+     */
+    static String fightTargetLabel(SolverStep.Fight f) {
+        if (f.itemId() <= 0) {
+            return "";
+        }
+        return f.untilItemCount() == Integer.MAX_VALUE ? "all" : Integer.toString(f.untilItemCount());
+    }
+
+    /** One STALL line: how many the bot holds against what its step is counted against, then the reason. */
+    static String stallLine(String name, int held, SolverStep.Fight f, String why) {
+        return "STALL " + name + " on " + held + "/" + fightTargetLabel(f) + " x " + f.itemId() + ": " + why;
+    }
+
     /** What a stalled farmer's bag and floor look like, for the STALL line. */
     private static String stallWhy(LiveStageView view, Character bot, int itemId) {
         try {
@@ -218,9 +415,8 @@ final class StepExecutor {
         }
         Point at = bot.getPosition();
         if (f.itemId() > 0 && stalled(beat, bot.getItemQuantity(f.itemId(), false), now)) {
-            log.accept("STALL " + bot.getName() + " on " + beat.farmHave + "/" + f.untilItemCount() + " x " + f.itemId()
-                    + ": +" + beat.stallGain + " in " + STALL_MS / 1000 + " s (under 2 a minute): "
-                    + stallWhy(view, bot, f.itemId()));
+            log.accept(stallLine(bot.getName(), beat.farmHave, f, "+" + beat.stallGain + " in " + STALL_MS / 1000
+                    + " s (under 2 a minute): " + stallWhy(view, bot, f.itemId())));
         }
         if (f.itemId() > 0 && bot.getItemQuantity(f.itemId(), false) < f.untilItemCount()) {
             MapItem drop = nearestMobDrop(view, map, bot, f.itemId(), at);
@@ -231,8 +427,7 @@ final class StepExecutor {
         }
         Monster target = beat.chase.keep(map, now);
         if (target == null || !mayStillChase(bot, target, f, beat, now)) {
-            target = BotAttackDriver.pickTarget(bot, f.mobId(), m -> beat.chase.skipped(m.getObjectId(), now)
-                    || !f.onLeash(m.getPosition().x, m.getPosition().y), m -> takenByAnother(bot.getId(), m));
+            target = pickCandidate(bot, f, beat, now);
             beat.chase.picked(target, now);
         }
         if (target == null) {
@@ -261,6 +456,22 @@ final class StepExecutor {
         }
     }
 
+    /**
+     * The driver's pick for the step, trying its mob kinds in the order the step lists them (a boss: arms before the
+     * body, the nearest arm first). The first kind with a pickable mob wins; none left is null.
+     */
+    private Monster pickCandidate(Character bot, SolverStep.Fight f, Beat beat, long now) {
+        for (int mobId : f.mobIds()) {
+            Monster m = BotAttackDriver.pickTarget(bot, mobId, m2 -> beat.chase.skipped(m2.getObjectId(), now)
+                    || !f.onLeash(m2.getPosition().x, m2.getPosition().y), m2 -> takenByAnother(bot.getId(), m2));
+            if (m != null) {
+                return m;
+            }
+        }
+        return f.mobIds().isEmpty() ? BotAttackDriver.pickTarget(bot, 0, m2 -> beat.chase.skipped(m2.getObjectId(), now)
+                || !f.onLeash(m2.getPosition().x, m2.getPosition().y), m2 -> takenByAnother(bot.getId(), m2)) : null;
+    }
+
     /** {@link #TAKEN_PENALTY_MS} when another bot this executor drives goes for {@code m}, else 0. */
     private int takenByAnother(int botId, Monster m) {
         for (Map.Entry<Integer, Beat> e : beats.entrySet()) {
@@ -273,8 +484,7 @@ final class StepExecutor {
 
     /** The kept target is still one to chase: of the step's mob, not ruled out, and still the swing's to hit. */
     private static boolean mayStillChase(Character bot, Monster m, SolverStep.Fight f, Beat beat, long now) {
-        int mobId = f.mobId();
-        return m.isAlive() && (mobId <= 0 || m.getId() == mobId) && !beat.chase.skipped(m.getObjectId(), now)
+        return m.isAlive() && f.ofKind(m.getId()) && !beat.chase.skipped(m.getObjectId(), now)
                 && f.onLeash(m.getPosition().x, m.getPosition().y)
                 && now - beat.chase.pickedMs < Chase.REPICK_MS
                 && BotAttackDriver.pickable(bot, m);
@@ -464,6 +674,58 @@ final class StepExecutor {
         });
     }
 
+    /**
+     * One standing of an NPC, addressed by object id. The walk target is <b>that</b> placement's position, not the first
+     * one {@code getNPCById} happens to return, and the script is handed the object id so {@code cm.getNpcObjectId()}
+     * answers with the one the row meant.
+     */
+    private void talkAt(RunState run, Orchestrator orchestrator, LiveStageView view, Character bot, Beat beat,
+                        SolverStep.TalkNpcAt t, long now, Consumer<String> log) {
+        int[] npc = null;
+        for (StageView.NpcPlacement p : view.npcPlacements(t.npcId())) {
+            if (p.objectId() == t.objectId()) {
+                npc = new int[]{p.x(), p.y()};
+                break;
+            }
+        }
+        if (npc == null) {
+            if (now - beat.lastTalkMs > 10_000) {
+                beat.lastTalkMs = now;
+                log.accept(bot.getName() + ": no placement " + t.objectId() + " of NPC " + t.npcId()
+                        + " on map " + bot.getMapId());
+            }
+            return;
+        }
+        Point at = bot.getPosition();
+        if (Math.abs(npc[0] - at.x) > NPC_REACH_X || Math.abs(npc[1] - at.y) > NPC_REACH_Y) {
+            int side = at.x < npc[0] ? -1 : 1;
+            moveNear(bot, beat, npc[0] + side * (NPC_REACH_X / 2), npc[1], NPC_REACH_X / 3, now);
+            return;
+        }
+        if (beat.talking || now - beat.lastTalkMs < TALK_GAP_MS) {
+            return;
+        }
+        beat.lastTalkMs = now;
+        beat.talking = true;
+        int npcId = t.npcId();
+        int objectId = t.objectId();
+        ExecutorServiceManager.getExecutorService().execute(() -> {
+            try {
+                BotNpcTalk.Result r = BotNpcTalk.INSTANCE.talkAt(bot, npcId, objectId);
+                String said = r.lastLine().replaceAll("#[a-zA-Z]", "").replace("\r\n", " ");
+                if (said.length() > 90) {
+                    said = said.substring(0, 90) + "...";
+                }
+                String line = "NPC " + bot.getName() + " -> " + npcId + "@" + objectId
+                        + (r.ran() ? ": \"" + said + "\"" : " FAILED: " + r.error());
+                scriptResult(run, orchestrator, beat, bot, npcId, r, line, log);
+            } finally {
+                beat.lastTalkMs = System.currentTimeMillis();
+                beat.talking = false;
+            }
+        });
+    }
+
     private void dropFor(LiveStageView view, Character bot, Beat beat, SolverStep.DropFor d, long now,
                          Consumer<String> log) {
         if (now - beat.lastDropMs < DROP_GAP_MS) {
@@ -559,7 +821,7 @@ final class StepExecutor {
             log.accept(line);
         }
         if (what[1]) {
-            orchestrator.abort(run, "NPC " + npcId + "'s script failed " + MAX_SCRIPT_FAILURES + " times in a row for "
+            orchestrator.fail(run, "NPC " + npcId + "'s script failed " + MAX_SCRIPT_FAILURES + " times in a row for "
                     + bot.getName() + ": " + r.error());
         }
     }
@@ -592,16 +854,11 @@ final class StepExecutor {
     private static void occupy(Character bot, Beat beat, SolverStep.Occupy o, long now, Consumer<String> log) {
         Point at = bot.getPosition();
         if (at != null && o.inside(at.x, at.y)) {
-            beat.occupyAt = null;
+            beat.occupy.arrived();
             return; // there: hold still (the formation is checked by the leader)
         }
-        if (!o.positionId().equals(beat.occupyAt)) { // a new position: the stall clock starts again
-            beat.occupyAt = o.positionId();
-            beat.occupySinceMs = now;
-            beat.occupyToldMs = 0;
-        } else if (occupyDueForNote(beat.occupySinceMs, beat.occupyToldMs, now)) {
-            beat.occupyToldMs = now;
-            log.accept(occupyStallLine(bot, o, at, now - beat.occupySinceMs));
+        if (beat.occupy.due(o, at, now)) {
+            log.accept(occupyStallLine(bot, o, at, beat.occupy.walkMs(now), now - beat.occupy.sinceMs));
         }
         Point target = new Point(o.x(), o.y());
         if (beat.moveTarget == null || !beat.moveTarget.equals(target) || now - beat.moveIssuedMs > 4_000) {
@@ -611,9 +868,19 @@ final class StepExecutor {
         }
     }
 
-    private static String occupyStallLine(Character bot, SolverStep.Occupy o, Point at, long forMs) {
-        return "OCCUPY " + bot.getName() + " has not reached position " + o.positionId() + " in " + (forMs + 500) / 1_000
-                + " s: at " + (at == null ? "nowhere" : at.x + "," + at.y) + ", wants " + o.x() + "," + o.y()
+    private static String occupyStallLine(Character bot, SolverStep.Occupy o, Point at, long walkMs, long stalledMs) {
+        return occupyStallLine(bot.getName(), o, at, walkMs, stalledMs);
+    }
+
+    /**
+     * {@code OCCUPY <bot> has not got closer to <pos> for <stalled> s (walking <walk> s): at x,y, wants x,y}. It only
+     * fires when the bot is still not making progress at the deadline, and the two times are the pair a reader needs:
+     * how long it has been stuck, and how long it has been trying at all.
+     */
+    static String occupyStallLine(String name, SolverStep.Occupy o, Point at, long walkMs, long stalledMs) {
+        return "OCCUPY " + name + " has not got closer to " + o.positionId() + " for "
+                + (stalledMs + 500) / 1_000 + " s (walking " + (walkMs + 500) / 1_000 + " s): at "
+                + (at == null ? "nowhere" : at.x + "," + at.y) + ", wants " + o.x() + "," + o.y()
                 + (o.rope() ? " (a rope)" : "");
     }
 
@@ -680,6 +947,409 @@ final class StepExecutor {
     }
 
     /** Walk into a portal on the bot's map; the portal's script gate (PqGates) still decides whether it opens. */
+    /**
+     * Put a member in the stage's map (a boss run's next room). The event's own instance is used, so the member stays in
+     * the instance; one line per bot and room says when it went through.
+     */
+    private static void warp(LiveStageView view, Character bot, Beat beat, SolverStep.WarpTo w, long now,
+                             Consumer<String> log) {
+        if (bot.getMapId() == w.mapId()) {
+            beat.warpTries = 0;
+            return;
+        }
+        if (wrongRoom(w, view.stage().mapId())) {
+            // the run is on one room at a time: a step that names another map is a solver bug, not a bot problem
+            String told = "ask:" + w.mapId();
+            if (!told.equals(beat.warpTold)) {
+                beat.warpTold = told;
+                log.accept(bot.getName() + ": asked for map " + w.mapId() + " while stage "
+                        + view.stage().index() + " is map " + view.stage().mapId() + " (" + w.why() + ")");
+            }
+            return;
+        }
+        if (now - beat.lastWarpMs < 2_000) {
+            return;
+        }
+        beat.lastWarpMs = now;
+        MapleMap target = view.mapFor(w.mapId());
+        if (target == null) {
+            log.accept(bot.getName() + ": no map " + w.mapId() + " in this instance (" + w.why() + ")");
+            return;
+        }
+        bot.changeMap(target, target.getPortal(0));
+        if (bot.getMapId() == w.mapId()) {
+            beat.warpTries = 0;
+            log.accept(bot.getName() + ": through to " + w.mapId() + " (" + w.why() + ")");
+            return;
+        }
+        // the warp did not take: retry on the latch a few times, then say where the bot really is and end the run
+        // instead of retrying forever
+        String line = bot.getName() + " could not be put in map " + w.mapId()
+                + " (it is on " + bot.getMapId() + "): " + w.why();
+        if (warpGaveUp(beat)) {
+            log.accept(line + " - the run is ended");
+            view.endRun(line);
+            return;
+        }
+        log.accept(line + " - trying again");
+    }
+
+    /**
+     * Hits the room's reactor with the bot's own client, the way {@code ReactorHitHandler} does for a player: the
+     * script behind it decides what that means (Horntail's {@code 2401000} spawns the fight, and its own
+     * "no {@code 8810026} yet" guard makes a second click harmless).
+     */
+    private static void hitReactor(Character bot, Beat beat, SolverStep.HitReactor h, long now, Consumer<String> log) {
+        MapleMap map = bot.getMap();
+        server.maps.Reactor reactor = map == null ? null : reactorFor(map, String.valueOf(h.reactorId()));
+        if (reactor == null) {
+            if (now - beat.lastReactorMs > 10_000) {
+                beat.lastReactorMs = now;
+                log.accept(bot.getName() + ": no reactor " + h.reactorId() + " on map " + bot.getMapId());
+            }
+            return;
+        }
+        hitReactorAt(bot, beat, reactor, String.valueOf(h.reactorId()), now, log);
+    }
+
+    /**
+     * Puts the named item on ({@link SolverStep.EquipItem}) through the gear system's own move. One attempt per
+     * {@link #EQUIP_GAP_MS}; a success is a line, a refusal or an item the bot does not carry is a line naming the item
+     * and the reason - said once per distinct reason, so a bot that cannot wear it is heard once, not every tick.
+     */
+    private static void equipItem(Character bot, Beat beat, SolverStep.EquipItem e, long now, Consumer<String> log) {
+        if (now - beat.lastEquipMs < EQUIP_GAP_MS) {
+            return;
+        }
+        beat.lastEquipMs = now;
+        soloMapling.ArtificialPlayer.BotGearSystem.BotGear.WearResult r = wearer.apply(bot, e.itemId());
+        switch (r.outcome()) {
+            case WORN -> {
+                beat.equipToldWhy = null;
+                log.accept("EQUIP " + bot.getName() + " puts on " + e.itemId() + " - " + e.why());
+            }
+            case ALREADY_WORN -> beat.equipToldWhy = null;
+            case NOT_CARRIED, REFUSED -> {
+                if (!r.why().equals(beat.equipToldWhy)) {
+                    beat.equipToldWhy = r.why();
+                    log.accept(bot.getName() + " cannot put on " + e.itemId() + ": " + r.why() + " (" + e.why() + ")");
+                }
+            }
+        }
+    }
+
+    /** The seam {@link #wearer} has for taking an item off (tests); production runs the gear system's move. */
+    static volatile java.util.function.BiFunction<Character, Integer, soloMapling.ArtificialPlayer.BotGearSystem.BotGear.Off>
+            remover = soloMapling.ArtificialPlayer.BotGearSystem.BotGear::takeOff;
+
+    /**
+     * Takes the named worn item off into the bag ({@link SolverStep.UnequipItem}) through the gear system's own move; paced
+     * like {@link #equipItem}, a line when it went and a line naming the reason when it could not.
+     */
+    private static void unequipItem(Character bot, Beat beat, SolverStep.UnequipItem u, long now, Consumer<String> log) {
+        if (now - beat.lastEquipMs < EQUIP_GAP_MS) {
+            return;
+        }
+        beat.lastEquipMs = now;
+        soloMapling.ArtificialPlayer.BotGearSystem.BotGear.Off r = remover.apply(bot, u.itemId());
+        switch (r) {
+            case TAKEN_OFF -> log.accept("UNEQUIP " + bot.getName() + " takes off " + u.itemId() + " - " + u.why());
+            case NOT_WORN -> { }
+            case NO_ROOM -> {
+                String why = "no free equip slot to put " + u.itemId() + " in";
+                if (!why.equals(beat.equipToldWhy)) {
+                    beat.equipToldWhy = why;
+                    log.accept(bot.getName() + " cannot take off " + u.itemId() + ": " + why + " (" + u.why() + ")");
+                }
+            }
+        }
+    }
+
+    /**
+     * Hits the reactor with this map object id ({@link SolverStep.HitReactorByOid}): the one statue of twenty that the
+     * puzzle's script names by {@code objectId % 1000}. A map without it is said once per ten seconds, as for the other
+     * reactor steps, and nothing is hit.
+     */
+    private static void hitReactorByOid(Character bot, Beat beat, SolverStep.HitReactorByOid h, long now,
+                                        Consumer<String> log) {
+        MapleMap map = bot.getMap();
+        server.maps.Reactor reactor = reactorByOid(map, h.objectId());
+        if (reactor == null) {
+            if (now - beat.lastReactorMs > 10_000) {
+                beat.lastReactorMs = now;
+                log.accept(bot.getName() + ": no reactor with object id " + h.objectId() + " on map " + bot.getMapId());
+            }
+            return;
+        }
+        hitReactorAt(bot, beat, reactor, "#" + h.objectId(), now, log);
+    }
+
+    /** The walk-and-click part, shared by {@link SolverStep.HitReactor} and {@link SolverStep.HitReactorNamed}. */
+    private static void hitReactorAt(Character bot, Beat beat, server.maps.Reactor reactor, String label, long now,
+                                     Consumer<String> log) {
+        Point at = bot.getPosition();
+        Point rp = reactor.getPosition();
+        if (at != null && rp != null && (Math.abs(rp.x - at.x) > 45 || Math.abs(rp.y - at.y) > 60)) {
+            moveNear(bot, beat, rp.x, rp.y, 30, now);
+            return;
+        }
+        if (now - beat.lastReactorMs < 3_000) {
+            return;
+        }
+        beat.lastReactorMs = now;
+        reactor.hitReactor(client.BotClient.forScripts(bot)); // a population bot's script needs a player behind the client
+        log.accept(bot.getName() + ": hit reactor " + label + " on " + bot.getMapId());
+    }
+
+    /**
+     * Puts a stack on the ground at a reactor, the way a player drops it on the reactor: the server
+     * ({@code MapleMap.activateItemReactors}) takes the drop only when the item and the <em>whole quantity</em> match
+     * the reactor's react item and the drop lies inside the reactor's area, so the stack lands on the reactor's own
+     * position ({@link SolverStep.PlaceItem}) and goes down as one drop. Nothing to place yet is not an error.
+     */
+    private static void placeItem(Character bot, Beat beat, SolverStep.PlaceItem p, long now, Consumer<String> log) {
+        MapleMap map = bot.getMap();
+        if (map == null) {
+            return;
+        }
+        if (bot.getItemQuantity(p.itemId(), false) < p.count()) {
+            if (now - beat.lastPlaceMs > 10_000) {
+                beat.lastPlaceMs = now;
+                log.accept(bot.getName() + ": " + p.why() + " waits for " + p.count() + " x " + p.itemId());
+            }
+            return;
+        }
+        server.maps.Reactor reactor = reactorFor(map, p.reactor());
+        Point at = reactor != null && reactor.getPosition() != null
+                ? reactor.getPosition() : new Point(p.x(), p.y());
+        Point mine = bot.getPosition();
+        if (mine != null && (Math.abs(at.x - mine.x) > 45 || Math.abs(at.y - mine.y) > 60)) {
+            moveNear(bot, beat, at.x, at.y, 30, now);
+            return;
+        }
+        if (now - beat.lastPlaceMs < DROP_GAP_MS) {
+            return;
+        }
+        beat.lastPlaceMs = now;
+        int paid = BotHoldings.payOut(bot, p.itemId(), p.count(), bot, at, true);
+        log.accept("PLACE " + bot.getName() + " puts " + paid + " x " + p.itemId() + " on "
+                + (reactor != null ? p.reactor() : "(" + at.x + ", " + at.y + ")") + " - " + p.why());
+    }
+
+    /**
+     * Puts an exact stack on the item reactor with this id ({@link SolverStep.PlaceItemOn}) - Henesys PQ's seed beds.
+     * Three rules the plain {@link #placeItem} does not need:
+     *
+     * <ul>
+     *   <li><b>Never twice.</b> A planted bed's script adds one to the instance's {@code stage}
+     *       ({@code scripts/reactor/9108000.js:6-8}) and the stage clears at exactly {@code "6"}, so a second drop on
+     *       the same bed would skip the clear for good. A bed whose state is above zero is left alone.</li>
+     *   <li><b>The server is late on purpose.</b> {@code MapleMap.activateItemReactors} fires 5000 ms after the drop
+     *       lands ({@code MapleMap.java:2665-2680}), so the next drop waits {@link #ITEM_REACTOR_SETTLE_MS}: a solver
+     *       that re-checked at once would read a failure that is really a delay.</li>
+     *   <li><b>Bounded retries.</b> At most {@link #PLACE_ON_TRIES} drops per bed per bot; after that it says so and
+     *       stops, instead of feeding a bed the server keeps refusing.</li>
+     *   <li><b>The drop lands in the box.</b> An item reactor's box is not a map {@code area} node: it is the
+     *       {@code lt}/{@code rb} vectors of its own state ({@code Reactor.wz/9108000.img.xml:18-19}, i.e.
+     *       {@code lt(-19,-42) rb(20,16)} for a bed), relative to the reactor's position - so dropping on the reactor
+     *       itself is inside it, and no area lookup is involved.</li>
+     * </ul>
+     */
+    /**
+     * One attempt at using a use-item on a monster of a given kind - Ellin PQ's purifier marble on a Poison Flower.
+     *
+     * <p>The rule is not re-implemented here: {@code server.life.MonsterCatch.usePurifierMarble} is the same call the
+     * client's {@code USE_CATCH_ITEM} handler makes, so a bot and a player catch the same monsters under the same
+     * conditions. One attempt per {@link #USE_ON_MOB_GAP_MS} per bot, nearest-first, and the log says which monster and
+     * whether it landed - a bot that kept spraying marbles at a healthy flower would look busy and change nothing.
+     */
+    /**
+     * One touch of a reactor, rate-limited like a hit: the {@code touch} callback only fires from a client packet, so
+     * this calls {@code ReactorScriptManager.touch(client, reactor)} directly - the same entry point the packet handler
+     * uses - and leaves {@code act()} to {@link SolverStep.HitReactor}.
+     */
+    private static void touchReactor(Character bot, Beat beat, int reactorId, String reactorName, long now,
+                                     Consumer<String> log) {
+        MapleMap map = bot.getMap();
+        if (map == null) {
+            return;
+        }
+        server.maps.Reactor reactor = reactorName != null ? map.getReactorByName(reactorName)
+                : map.getReactorById(reactorId);
+        if (reactor == null) {
+            if (now - beat.lastReactorMs > 10_000) {
+                beat.lastReactorMs = now;
+                log.accept(bot.getName() + ": no reactor " + (reactorName != null ? "\"" + reactorName + "\""
+                        : String.valueOf(reactorId)) + " on map " + map.getId());
+            }
+            return;
+        }
+        if (now - beat.lastTouchMs < TOUCH_GAP_MS) {
+            return;
+        }
+        beat.lastTouchMs = now;
+        scripting.reactor.ReactorScriptManager.getInstance().touch(client.BotClient.forScripts(bot), reactor);
+        log.accept("TOUCH reactor " + (reactorName != null ? reactorName : String.valueOf(reactorId))
+                + " (state " + reactor.getState() + ")");
+    }
+
+    private static void useItemOnMob(Character bot, Beat beat, SolverStep.UseItemOnMob u, long now, Consumer<String> log) {
+        MapleMap map = bot.getMap();
+        if (map == null || bot.getItemQuantity(u.itemId(), false) <= 0) {
+            return;
+        }
+        if (now - beat.lastUseOnMobMs < USE_ON_MOB_GAP_MS) {
+            return;
+        }
+        server.life.Monster prey = null;
+        long best = Long.MAX_VALUE;
+        for (server.maps.MapObject mo : map.getMonsters()) {
+            if (mo instanceof server.life.Monster m && m.getId() == u.mobId() && m.getHp() > 0) {
+                java.awt.Point mp = m.getPosition();
+                long d = (long) (mp.x - bot.getPosition().x) * (mp.x - bot.getPosition().x)
+                        + (long) (mp.y - bot.getPosition().y) * (mp.y - bot.getPosition().y);
+                if (d < best) {
+                    best = d;
+                    prey = m;
+                }
+            }
+        }
+        if (prey == null) {
+            return;
+        }
+        beat.lastUseOnMobMs = now;
+        boolean caught = server.life.MonsterCatch.usePurifierMarble(bot.getClient(), bot, prey);
+        log.accept((caught ? "USE-ITEM " : "USE-ITEM-MISS ") + u.itemId() + " on mob " + prey.getId()
+                + " (hp " + prey.getHp() + "/" + prey.getMaxHp() + ")"
+                + (caught ? ": caught, one marble gained" : ": too healthy, not caught"));
+    }
+
+    private static void placeItemOn(Character bot, Beat beat, SolverStep.PlaceItemOn p, long now, Consumer<String> log) {
+        MapleMap map = bot.getMap();
+        if (map == null) {
+            return;
+        }
+        server.maps.Reactor reactor = map.getReactorById(p.reactorId());
+        if (reactor == null) {
+            if (now - beat.lastPlaceOnMs > 10_000) {
+                beat.lastPlaceOnMs = now;
+                log.accept(bot.getName() + ": no reactor " + p.reactorId() + " on map " + bot.getMapId());
+            }
+            return;
+        }
+        if (reactor.getState() > 0) {
+            if (now - beat.lastPlaceOnMs > 10_000) {
+                beat.lastPlaceOnMs = now;
+                log.accept(bot.getName() + ": bed " + p.reactorId() + " is already planted (state "
+                        + reactor.getState() + ")");
+            }
+            return;
+        }
+        if (bot.getItemQuantity(p.itemId(), false) < p.count()) {
+            if (now - beat.lastPlaceOnMs > 10_000) {
+                beat.lastPlaceOnMs = now;
+                log.accept(bot.getName() + ": " + p.why() + " waits for " + p.count() + " x " + p.itemId());
+            }
+            return;
+        }
+        if (now - beat.lastPlaceOnMs < ITEM_REACTOR_SETTLE_MS) {
+            return; // the previous drop is still inside the server's 5 s activation window
+        }
+        Point at = reactor.getPosition();
+        Point mine = bot.getPosition();
+        if (at != null && mine != null && (Math.abs(at.x - mine.x) > 45 || Math.abs(at.y - mine.y) > 60)) {
+            moveNear(bot, beat, at.x, at.y, 30, now);
+            return;
+        }
+        int tries = beat.placeOnTries.merge(p.reactorId(), 1, Integer::sum);
+        if (tries > PLACE_ON_TRIES) {
+            if (now - beat.lastPlaceOnMs > 30_000) {
+                beat.lastPlaceOnMs = now;
+                log.accept(bot.getName() + ": giving up on bed " + p.reactorId() + " after " + PLACE_ON_TRIES
+                        + " drops it did not take");
+            }
+            return;
+        }
+        beat.lastPlaceOnMs = now;
+        int paid = BotHoldings.payOut(bot, p.itemId(), p.count(), bot, at == null ? mine : at, true);
+        log.accept("PLACE-ON " + bot.getName() + " puts " + paid + " x " + p.itemId() + " on reactor "
+                + p.reactorId() + " (try " + tries + ") - " + p.why());
+    }
+
+    /**
+     * The reactor on this map whose <em>map object id</em> is {@code objectId}, or null. Unlike {@link #reactorFor} this
+     * names exactly one reactor even when a map stands twenty of one WZ id in a row ({@link SolverStep.HitReactorByOid}).
+     */
+    static server.maps.Reactor reactorByOid(MapleMap map, int objectId) {
+        return map == null ? null : map.getReactorByOid(objectId);
+    }
+
+    /**
+     * The reactor a step names: by WZ name ({@code scar1}), or by id when the key is all digits ({@code 2006000}).
+     * By id it prefers one still untouched ({@code state 0}): OPQ's twenty cloud reactors share one id, so a hit
+     * means "the next cloud", not "the same cloud again"; once every one is used the first is returned so the hit
+     * still reaches the map's own guard.
+     */
+    static server.maps.Reactor reactorFor(MapleMap map, String key) {
+        if (map == null || key == null || key.isBlank()) {
+            return null;
+        }
+        boolean numeric = key.chars().allMatch(c -> c >= '0' && c <= '9');
+        if (!numeric) {
+            return map.getReactorByName(key);
+        }
+        int id;
+        try {
+            id = Integer.parseInt(key);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+        server.maps.Reactor first = map.getReactorById(id);
+        if (first == null) {
+            return null;
+        }
+        if (first.getState() == 0) {
+            return first;
+        }
+        for (server.maps.MapObject o : map.getReactors()) {
+            if (o instanceof server.maps.Reactor r && r.getId() == id && r.getState() == 0) {
+                return r;
+            }
+        }
+        return first;
+    }
+
+    /**
+     * Walks to the door and runs its script, which decides whether it opens, where it sends the bot and what it
+     * writes on the way (Ludi PQ's stage-6 door sets {@code 6stageclear}). The outcome is logged once per try so a
+     * shut door is a visible note, not a silent stall.
+     */
+    private static void scriptedPortal(Character bot, Beat beat, SolverStep.ScriptedPortal p, long now,
+                                       Consumer<String> log) {
+        MapleMap map = bot.getMap();
+        server.maps.Portal portal = map == null ? null : map.getPortal(p.portalName());
+        if (portal == null) {
+            if (now - beat.lastPortalMs > 10_000) {
+                beat.lastPortalMs = now;
+                log.accept(bot.getName() + ": no portal " + p.portalName() + " on map " + bot.getMapId());
+            }
+            return;
+        }
+        Point at = bot.getPosition();
+        Point pos = portal.getPosition();
+        if (Math.abs(pos.x - at.x) > 20 || Math.abs(pos.y - at.y) > 60) {
+            moveNear(bot, beat, pos.x, pos.y, 10, now);
+            return;
+        }
+        if (now - beat.lastPortalMs < 2_000) {
+            return;
+        }
+        beat.lastPortalMs = now;
+        scripting.portal.PortalScriptManager.Outcome outcome =
+                scripting.portal.PortalScriptManager.getInstance().runPortalScript(portal, bot.getClient());
+        log.accept(bot.getName() + ": portal " + p.portalName() + " " + outcome);
+    }
+
     private static void enterPortal(Character bot, Beat beat, SolverStep.EnterPortal e, long now, Consumer<String> log) {
         MapleMap map = bot.getMap();
         server.maps.Portal portal = map == null ? null : map.getPortal(e.portalName());
@@ -704,6 +1374,34 @@ final class StepExecutor {
         if (!GCMovement.enterPortal(bot, portal)) {
             log.accept(bot.getName() + ": portal " + e.portalName() + " on " + from + " is still shut");
         }
+    }
+
+    /**
+     * Same walk as {@link #enterPortal}, but the portal is chosen by the map it leads to. A mine's doors are named by
+     * direction and a hub's by number, and the row's next stage already names the map, so the name is not the solver's
+     * business. Logs once per ten seconds when no portal on this map leads there, and once when the portal is shut.
+     */
+    private static void enterPortalTo(Character bot, Beat beat, SolverStep.EnterPortalTo step, long now,
+                                      Consumer<String> log) {
+        MapleMap map = bot.getMap();
+        if (map == null) {
+            return;
+        }
+        server.maps.Portal portal = null;
+        for (server.maps.Portal candidate : map.getPortals()) {
+            if (candidate.getTargetMapId() == step.mapId()) {
+                portal = candidate;
+                break;
+            }
+        }
+        if (portal == null) {
+            if (now - beat.lastPortalMs > 10_000) {
+                beat.lastPortalMs = now;
+                log.accept(bot.getName() + ": no portal on " + bot.getMapId() + " leads to " + step.mapId());
+            }
+            return;
+        }
+        enterPortal(bot, beat, new SolverStep.EnterPortal(portal.getName()), now, log);
     }
 
     // ---- movement ----

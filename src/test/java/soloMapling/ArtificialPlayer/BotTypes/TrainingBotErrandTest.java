@@ -76,6 +76,18 @@ class TrainingBotErrandTest {
         assertEquals(20_000L, TrainingBot.sellStayMs(false, 0, 20_000L), "never longer than planned");
     }
 
+    // train#F1: a death respawns the bot into the dead map's return town, which is not always its home town; the town
+    // stop has to plan that town's shops, or the bot walks to a store in a region it is not standing in.
+    @Test
+    void aDeathRespawnInAnotherTownShopsInTheTownItStandsIn() {
+        assertEquals(MapId.PERION, TrainingBot.shopTown(MapId.PERION, MapId.HENESYS),
+                "respawned in Perion: buy at Perion's shops, not at home Henesys'");
+        assertEquals(MapId.HENESYS, TrainingBot.shopTown(MapId.HENESYS, MapId.PERION), "home town with shops of its own");
+        assertEquals(MapId.HENESYS, TrainingBot.shopTown(104040000, MapId.HENESYS),
+                "a hunting field has no shops: the home town still plans the trip");
+        assertEquals(-1, TrainingBot.shopTown(TEMPLE_OF_TIME, -1), "no shop town and no home town: as before");
+    }
+
     @Test
     void aBotThatLogsInOnAFieldTakesTheFieldsTownAsHome() {
         // auto-QA 2026-10-27 t-bl-2/t-bl-3: a grinder staged on 104040000 took the field as home and never restocked

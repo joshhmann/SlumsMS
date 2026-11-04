@@ -1,8 +1,9 @@
 package soloMapling.Economy.exchange;
 
-import soloMapling.Economy.exchange.Ledger.Asset;
+import soloMapling.Economy.exchange.AssetRegistry.Asset;
 
-import java.util.EnumMap;
+
+import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -10,7 +11,7 @@ import java.util.function.Supplier;
 public final class FakeBotWallet implements LiveWallet {
     public final long id;
     public long mesos;
-    public final Map<Asset, Long> items = new EnumMap<>(Asset.class);
+    public final Map<Asset, Long> items = new HashMap<>();
     public boolean online = true;
     public boolean saveFails;
     public long bagRoom = Long.MAX_VALUE;

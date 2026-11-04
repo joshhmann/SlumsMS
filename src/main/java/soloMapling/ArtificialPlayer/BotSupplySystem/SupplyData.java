@@ -59,12 +59,16 @@ final class SupplyData {
             }
         }
 
-        /* Ticket 09: what one star or bullet costs to recharge (the item's WZ unitPrice); 0 when unknown. */
-        default double unitPrice(int itemId) {
+        /*
+         * b289: what the shop charges for {@code quantity} of an item, the same expression it pays out on a sale
+         * (ItemInformationProvider getPrice: the whole price, plus the unitPrice of each star or bullet for a
+         * rechargeable); -1 when the item data carries no price.
+         */
+        default int price(int itemId, int quantity) {
             try {
-                return Math.max(0, ItemInformationProvider.getInstance().getUnitPrice(itemId));
+                return ItemInformationProvider.getInstance().getPrice(itemId, quantity);
             } catch (LinkageError | RuntimeException unavailable) {
-                return 0;
+                return -1;
             }
         }
     }

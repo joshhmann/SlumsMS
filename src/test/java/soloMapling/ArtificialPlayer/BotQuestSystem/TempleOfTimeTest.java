@@ -3,6 +3,7 @@ package soloMapling.ArtificialPlayer.BotQuestSystem;
 import client.BotClient;
 import client.Character;
 import client.Job;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import testutil.PropsRestored;
 
 /**
  * Ticket 158 item 5: the Temple of Time driver hands the bot the mainline in order as its active quest (a BotLife
@@ -30,6 +32,7 @@ import static org.mockito.Mockito.when;
  * another channel, then wait), keeps its progress in the quest log, opens the corridor only as far as the bot got,
  * and makes the 3507 detour to the job's first instructor.
  */
+@ExtendWith(PropsRestored.class)
 class TempleOfTimeTest {
 
     static final long NOW = 1_800_000_000_000L;

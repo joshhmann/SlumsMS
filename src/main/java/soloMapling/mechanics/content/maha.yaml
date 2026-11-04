@@ -1,0 +1,60 @@
+# Ticket 130 boss lane, branch 164-bossrows: Maha (quest instance, 1.6.4).
+#
+# Read only when the server runs with -Dslums.mechanics.boss=true (off by default). One map, one fight, and the clear is
+# the script's own clearPQ(): MahaBattle.js writes no event property at all.
+#
+# What OUR scripts say the room is:
+#  - there is no gate in the event script: MahaBattle.js declares no minPlayers/maxPlayers/minLevel/maxLevel and init()
+#    is empty (:38). Worse, it READS minPlayers in three places (:82 getEligibleParty, :96 playerRevive, :105
+#    playerDisconnected), so in Nashorn an undefined value reaches isEventTeamLackingNow. The row therefore fills the
+#    gate itself rather than pretending the script has one, and keeps the party at one: every member of this instance is
+#    one more way to trip that throw;
+#  - entry is the quest, not a portal: scripts/quest/21401.js:23-24 calls em.startInstance(qm.getPlayer()) - a
+#    single-character instance, so minPlayers 1 / maxPlayers 1;
+#  - the quest's own bar is in Quest.wz (dump /root/work/SlumsMS-170-evan/wz, Quest.wz/Check.img.xml, imgdir 21401):
+#    lvmin 120, start NPC 1201002, prerequisite quest 21400 at state 2, job block 2111, and its completion counts mob
+#    9001014 once. The row can state the level (minLevel 120); it cannot express "job 2111 and quest 21400 done", so a
+#    starter who does not meet those simply never gets the instance - which is the quest's job, not the row's;
+#  - the fight is one monster: 9001014 is the map instance's own life (Map.wz/Map/Map9/914020000.img.xml, mobTime -1 at
+#    -636,73). Nothing in scripts/ or src/ spawns it and Mob.wz/9001014.img.xml has no info/revive;
+#  - the clear is monsterKilled -> clearPQ -> eim.setEventCleared() with no property (MahaBattle.js:134-151, isMaha is
+#    9001014 at :139-142); the script's own timeout and playerExit changeMap to 140000000 (:27).
+id: maha
+name: Maha (quest instance)
+kind: BOSS
+eventScript: MahaBattle
+recruitMap: 140000000
+minPlayers: 1
+maxPlayers: 1
+minLevel: 120
+maxLevel: 255
+timeLimitMinutes: 10
+exitMap: 140000000
+sources:
+  - "scripts/event/MahaBattle.js (ours, the truth): entryMap 914020000 (:26), exitMap/recruitMap/clearMap 140000000
+    (:27-29), minMapId = maxMapId = 914020000 (:31-32), eventTime 10 (:34), maxLobbies 7 (:36), empty init() (:38),
+    clearPQ sets the instance's flag and nothing else (:134-137), isMaha 9001014 (:139-142), monsterKilled (:144-151);
+    the script declares no player/level gate but reads minPlayers at :82, :96 and :105"
+  - "scripts/quest/21401.js:23-24 - the quest starts the instance with em.startInstance(qm.getPlayer()), one character"
+  - "Quest.wz/Check.img.xml imgdir 21401 (dump /root/work/SlumsMS-170-evan/wz): npc 1201002, lvmin 120, startscript
+    q21401s, prerequisite quest 21400 at state 2, job 2111, end completion counts mob 9001014 x1"
+  - "Map.wz/Map/Map9/914020000.img.xml (same dump): the map's life is 9001014, mobTime -1, at (-636,73).
+    Mob.wz/9001014.img.xml: no info/revive, so the fight is one form"
+  - "No upstream BotStory recording covers this boss; nothing here comes from one"
+stages:
+  - stage: 1
+    map: 914020000
+    name: Maha
+    solver: boss-phases
+    # the target is the instance's own life, so the room may stand empty while it arrives; 60 s is a policy number
+    # (respawn animations plus a map instance's build, with margin), not a WZ one.
+    spawnWaitSeconds: 60
+    mobs:
+      - 9001014
+    objectives:
+      - id: boss
+        kind: DEFEAT
+        mob: 9001014
+        note: the only monster in the room; its death is the script's clearPQ
+    clear:
+      instance: true

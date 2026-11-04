@@ -19,6 +19,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+@org.junit.jupiter.api.extension.ExtendWith(soloMapling.ArtificialPlayer.BotSocialSystem.SocialFlagsOff.class)
 class TrainingBotLifeExecutionTest {
     private static final LifeDecision.Result RESTOCK = new LifeDecision.Result(List.of(),
             Optional.of(LifeDecision.Activity.RESTOCK), LifeDecision.Outcome.CHOOSE);
@@ -62,6 +63,50 @@ class TrainingBotLifeExecutionTest {
                 assertEquals(0, bot.lifeActivityState().active());
                 assertEquals(LifeActivityQueue.End.CANCELLED, bot.lifeActivityState().end());
             }
+        });
+    }
+
+    // TEST 181 F1: freeForAutomaticLifeActivity is the logout predicate, and it says no for a bot whose party holds
+    // a real player - online or logged off. A dwell that was only waiting for it never ended and the bot stood in
+    // town for the rest of the session. It now ends one planned stay after its deadline regardless.
+    @Test
+    void aDwellBlockedByAPartyHoldingARealPlayerStillEndsAfterItsPlannedStay() throws Exception {
+        withBot((bot, chr) -> {
+            field("phase").set(bot, TrainingBot.Phase.LIFE_DWELL);
+            field("phaseEntered").setBoolean(bot, false);
+            field("phaseDeadlineMs").setLong(bot, 0);
+            Method dwell = TrainingBot.class.getDeclaredMethod("doLifeDwell");
+            dwell.setAccessible(true);
+            long townMs = bot.lifeRuntime().memory().profile().townDurationMs();
+            try (var loiter = mockStatic(soloMapling.ArtificialPlayer.BotTownSystem.TownLoiter.class);
+                 var space = mockStatic(soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.class);
+                 var idle = mockStatic(soloMapling.ArtificialPlayer.BotTownSystem.TownIdle.class)) {
+                doReturn(false).when(bot).freeForAutomaticLifeActivity(anyLong());
+                dwell.invoke(bot); // the entry: the planned stay is the profile's town duration
+                assertEquals("LIFE_DWELL", phase(bot));
+                long planned = field("phaseDeadlineMs").getLong(bot) - System.currentTimeMillis();
+                assertTrue(planned > townMs - 5_000 && planned <= townMs, "the planned stay is the profile's");
+                field("phaseDeadlineMs").setLong(bot, System.currentTimeMillis() - 60_000);
+                dwell.invoke(bot);
+                assertEquals("LIFE_DWELL", phase(bot), "past the deadline, still inside one more planned stay");
+                field("phaseDeadlineMs").setLong(bot, System.currentTimeMillis() - townMs - 60_000);
+                dwell.invoke(bot);
+                assertEquals("DECIDE", phase(bot), "a stay the logout predicate keeps blocking ends after its grace");
+            }
+        });
+    }
+
+    // TEST 181 F2: the town-slot release ran above the null guard the rest of the teardown has, so a bot whose
+    // character was already gone threw an NPE there and none of the teardown ran.
+    @Test
+    void aBotWhoseCharacterIsGoneStillStops() throws Exception {
+        withBot((bot, chr) -> {
+            doReturn(null).when(bot).getChr();
+            try (var slots = mockStatic(soloMapling.ArtificialPlayer.BotLifeSystem.LifeTownSlots.class)) {
+                assertDoesNotThrow(bot::stopScheduledTask);
+                slots.verifyNoInteractions(); // no id to release, and no release with a missing one
+            }
+            assertTrue(bot.lifeActivityState().closed(), "the teardown still closes the life queue");
         });
     }
 
@@ -122,7 +167,7 @@ class TrainingBotLifeExecutionTest {
                 assertFalse(bot.startLifeRestockTrip());
                 var request = bot.prepareLifeActivity(RESTOCK);
                 bot.submitLifeActivity(request);
-                System.clearProperty("slums.botlife.execute");
+                System.setProperty("slums.botlife.execute", "false");
                 drain(bot);
                 assertEquals("GRIND", phase(bot));
                 assertEquals(0, bot.lifeActivityState().active());

@@ -26,6 +26,8 @@ public final class ScrollLedger {
     static final AtomicLong listedSold = new AtomicLong();
     static final AtomicLong listedSoldMesos = new AtomicLong();
     static final AtomicLong dropped = new AtomicLong();
+    /** b181 F-14: finished equips kept because the valuation has no value for them (they used to be destroyed). */
+    static final AtomicLong unknownValue = new AtomicLong();
 
     private ScrollLedger() {
     }
@@ -67,8 +69,10 @@ public final class ScrollLedger {
                         n, success.get(), fail.get(), curse.get(),
                         n == 0 ? "-" : String.format("%.1f%% passed", 100.0 * success.get() / n), whiteUsed.get(),
                         destroyedValue.get(), megaphones.get()),
-                String.format("  results: %,d put on, %,d listed in FM shops (%,d sold for %,d), %,d junk dropped",
-                        worn.get(), listed.get(), listedSold.get(), listedSoldMesos.get(), dropped.get()));
+                String.format("  results: %,d put on, %,d listed in FM shops (%,d sold for %,d), %,d junk dropped,"
+                                + " %,d kept (no value known)",
+                        worn.get(), listed.get(), listedSold.get(), listedSoldMesos.get(), dropped.get(),
+                        unknownValue.get()));
     }
 
     static void resetForTest() {
@@ -77,7 +81,7 @@ public final class ScrollLedger {
             mesos[i].set(0);
         }
         for (AtomicLong a : List.of(success, fail, curse, whiteUsed, destroyedValue, megaphones, worn, listed,
-                listedSold, listedSoldMesos, dropped)) {
+                listedSold, listedSoldMesos, dropped, unknownValue)) {
             a.set(0);
         }
     }

@@ -62,8 +62,9 @@ public final class BotCrews {
     private BotCrews() {
     }
 
+    /** On unless {@code -Dslums.crews=false} (1.6.4: default on); needs bonds. */
     public static boolean on() {
-        return Boolean.getBoolean("slums.crews") && BotBonds.enabled();
+        return !"false".equalsIgnoreCase(System.getProperty("slums.crews")) && BotBonds.enabled();
     }
 
     /** How many members move with the leader (the leader included). */

@@ -115,6 +115,7 @@ public class Ring implements Comparable<Ring> {
             ringID[1] = CashIdGenerator.generateCashId();
 
             try (Connection con = DatabaseConnection.getConnection()) {
+                con.setAutoCommit(false); // both rows or none: a half pair is a ringless marriage
                 try (PreparedStatement ps = con.prepareStatement("INSERT INTO rings (id, itemid, partnerRingId, partnerChrId, partnername) VALUES (?, ?, ?, ?, ?)")) {
                     ps.setInt(1, ringID[0]);
                     ps.setInt(2, itemid);
@@ -132,6 +133,12 @@ public class Ring implements Comparable<Ring> {
                     ps.setString(5, partner1.getName());
                     ps.executeUpdate();
                 }
+                con.commit();
+                con.setAutoCommit(true);
+            } catch (SQLException ex) {
+                CashIdGenerator.freeCashId(ringID[0]);
+                CashIdGenerator.freeCashId(ringID[1]);
+                throw ex; // the pooled connection rolls an uncommitted transaction back on close
             }
             return new Pair<>(ringID[0], ringID[1]);
         } catch (SQLException ex) {

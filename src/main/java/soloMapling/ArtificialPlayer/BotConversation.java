@@ -55,12 +55,33 @@ public final class BotConversation {
      */
     static final long HOLD_MS = TimeUnit.SECONDS.toMillis(45);
 
+    /**
+     * social#1: how long a line waits for a player whose client cannot show it (a trade, a shop, an NPC dialog, an
+     * instance, AFK) before its one retry. A shop window or an NPC dialog is short; 20 s is long enough for one and
+     * short enough that the answer still reads as an answer. {@code -Dsolomapling.chat.busyRetryMs}.
+     */
+    static final long BUSY_RETRY_MS = TimeUnit.SECONDS.toMillis(20);
+
+    static long busyRetryMs() {
+        return Math.max(0, Long.getLong("solomapling.chat.busyRetryMs", BUSY_RETRY_MS));
+    }
+
     private record Key(int botId, int playerId) {
+    }
+
+    /** social#5: where a turn was said. PUBLIC is map chat; PRIVATE is a whisper or buddy chat back. */
+    private enum Channel { PUBLIC, PRIVATE }
+
+    /**
+     * social#5: one turn of the pair's history, tagged with its channel. One store still holds both channels - a
+     * whisper and a map line are one conversation and one memory - but a prompt is built from the channel it serves.
+     */
+    private record Spoken(BotBrain.Turn turn, Channel channel) {
     }
 
     /** History and idle expiry are shared across channels; pending replies keep their own destination. */
     private static final class ConversationState {
-        final List<BotBrain.Turn> history = new ArrayList<>();
+        final List<Spoken> history = new ArrayList<>();
         volatile long lastAt;
 
         ConversationState(long now) {
@@ -72,7 +93,7 @@ public final class BotConversation {
         final BotSM bot;
         final Character player;
         final ConversationState state;
-        final List<BotBrain.Turn> history;
+        final List<Spoken> history;
         /** Immutable for this reply, even if the player switches channels while it is being generated. */
         final Consumer<String> deliver;
         final soloMapling.ArtificialPlayer.BotBrainSystem.Priority priority;
@@ -99,6 +120,25 @@ public final class BotConversation {
             this.deliver = deliver;
             this.priority = priority;
         }
+
+        /** social#5: the channel this reply is delivered on; a consumer means it is not map chat. */
+        Channel channel() {
+            return deliver == null ? Channel.PUBLIC : Channel.PRIVATE;
+        }
+    }
+
+    /**
+     * social#5: this channel's turns, oldest first - all a reply on that channel may read. A whispered question is
+     * answered from the whispers; a map line still sees the map chat.
+     */
+    private static List<BotBrain.Turn> onChannel(List<Spoken> history, Channel channel) {
+        List<BotBrain.Turn> turns = new ArrayList<>(history.size());
+        for (Spoken spoken : history) {
+            if (spoken.channel() == channel) {
+                turns.add(spoken.turn());
+            }
+        }
+        return turns;
     }
 
     private static final Map<Key, Session> sessions = new ConcurrentHashMap<>();
@@ -180,7 +220,7 @@ public final class BotConversation {
             return 0;
         }
         synchronized (session.history) {
-            return (int) session.history.stream().filter(t -> t.role() == BotBrain.Role.USER).count();
+            return (int) session.history.stream().filter(t -> t.turn().role() == BotBrain.Role.USER).count();
         }
     }
 
@@ -209,15 +249,18 @@ public final class BotConversation {
         // 1.6.1: a whisper is read with the earlier whispers of this bot and this player (not the line itself)
         List<ChatDecide.Earlier> whisperContext = deliver == null ? List.of() : noteWhisper(bot, player, line, now);
         synchronized (session.history) {
-            if (heard.justSaid() != null && !alreadyInHistory(session.history, heard.justSaid())) {
+            // social#5: what the bot said in public dedupes against its public turns, not against a whisper
+            if (heard.justSaid() != null
+                    && !alreadyInHistory(onChannel(session.history, Channel.PUBLIC), heard.justSaid())) {
                 // the bot's public line (scripted or not) is a real turn of this chat: the player is answering it
-                session.history.add(BotBrain.Turn.assistant(heard.justSaid()));
+                session.history.add(new Spoken(BotBrain.Turn.assistant(heard.justSaid()), Channel.PUBLIC));
             }
-            session.history.add(BotBrain.Turn.user(line));
+            session.history.add(new Spoken(BotBrain.Turn.user(line), session.channel()));
             while (session.history.size() > HISTORY_TURNS) {
                 session.history.remove(0);
             }
-            history = new ArrayList<>(session.history);
+            // social#5: the reply reads its own channel only; the pair's one store still holds the other
+            history = onChannel(session.history, session.channel());
         }
         // Off the caller's thread: the first recall of a pair reads the database.
         ExecutorServiceManager.runAsync(() -> {
@@ -472,9 +515,11 @@ public final class BotConversation {
         if (session == null) {
             return;
         }
-        List<BotBrain.Turn> transcript;
+        List<BotBrain.Turn> transcript = new ArrayList<>();
         synchronized (session.history) {
-            transcript = new ArrayList<>(session.history);
+            for (Spoken spoken : session.history) {
+                transcript.add(spoken.turn()); // social#5: memory is about the player, not the channel they used
+            }
         }
         if (!transcript.isEmpty()) {
             BotMemory.writeConversationNotes(session.bot.getChr(), session.player, transcript);
@@ -799,6 +844,22 @@ public final class BotConversation {
     }
 
     /**
+     * Stage 3: what this reply is after in the bot's memory of the player - the words of the player's last line, the
+     * map the two stand on, and a sour mood when the bot is wary of them (a grudge then comes to mind sooner).
+     */
+    static BotMemory.Query recallQuery(Session session, Character bot, boolean wary) {
+        String line = null;
+        for (int i = session.history.size() - 1; i >= 0; i--) {
+            BotBrain.Turn t = session.history.get(i).turn();
+            if (t.role() == BotBrain.Role.USER) {
+                line = t.content();
+                break;
+            }
+        }
+        return BotMemory.Query.of(null, wary ? -0.4 : 0, bot.getMapId(), line, 0);
+    }
+
+    /**
      * The system prompt for a reply: persona, live state, memories, recent map chat, the action's outcome, the
      * merchant's stock (ticket 26), and whether to greet the player as someone the bot knows.
      */
@@ -814,7 +875,7 @@ public final class BotConversation {
         BotPersonality.Traits traits = member == null ? null : member.traits();
         MerchantStock.Stock stock = MerchantStock.of(session.bot);
         BotChatPrompt.Context context = BotChatPrompt.context(bot, player, activity,
-                BotChatPrompt.mood(activity, wary), BotMemory.recall(slot, player.getId(), now),
+                BotChatPrompt.mood(activity, wary), BotMemory.recall(slot, player.getId(), recallQuery(session, bot, wary), now),
                 List.of(), outcome) // the map's chat goes in the final turn (BotChatPrompt.finalTurn)
                 .with(stock == null ? null : stock.fact(), recognise);
         String card = null;
@@ -963,13 +1024,13 @@ public final class BotConversation {
             return false;
         }
         // m02 fix round 3 (the owner's answer 4): at most one bot-started chat per player per hour, from any bot, and
-        // the check is read before the memory below (the planner's view) or the pair's greet cooldown is spent
-        if (soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.planner()) {
-            if (!SocialGate.botChatAllowed(chr.getId(), player.getId(), now)) {
-                return false;
-            }
-            SocialGate.noteBotChat(chr.getId(), player.getId(), now);
+        // the check is read before the memory below (the planner's view) or the pair's greet cooldown is spent.
+        // social#6: the cap is the rule and holds with the planner off; the switch only decides how the hello is
+        // planned, so a player who was greeted by another bot is left alone by every bot for the hour either way.
+        if (!SocialGate.botChatAllowed(chr.getId(), player.getId(), now)) {
+            return false;
         }
+        SocialGate.noteBotChat(chr.getId(), player.getId(), now);
         int slot = chr.getId() - BotStore.BOT_ID_BASE;
         ChatTriage.Result hello = new ChatTriage.Result(ChatTriage.Kind.GREETING, ChatTriage.Intent.NONE,
                 ChatTriage.Source.DEFAULT, ChatTriage.Con.NORMAL, ChatTriage.Source.DEFAULT);
@@ -1196,7 +1257,7 @@ public final class BotConversation {
 
     private static boolean botHasSpoken(Session session) {
         synchronized (session.history) {
-            return session.history.stream().anyMatch(t -> t.role() == BotBrain.Role.ASSISTANT);
+            return session.history.stream().anyMatch(t -> t.turn().role() == BotBrain.Role.ASSISTANT);
         }
     }
 
@@ -1267,11 +1328,46 @@ public final class BotConversation {
      */
     private static void deliver(Session session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line saidIn,
                                 long asked, ChatStats.Tier tierIn, String detailIn, Cue cue) {
+        deliver(session, saidIn, asked, tierIn, detailIn, cue, false);
+    }
+
+    /**
+     * social#1/#3: the player-busy test runs before anything about this line is written or claimed. A player whose
+     * client is showing a trade, a shop, an NPC dialog or an instance cannot take the line, so the bot waits one
+     * {@link #busyRetryMs()} and tries the same line again; if they are still busy it is dropped outright. Nothing
+     * is written to the pair's history or the whisper trail and nothing is said-do claimed for a line that never
+     * reached the player, so the bot cannot remember saying what the player never got.
+     */
+    private static void deliver(Session session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line saidIn,
+                                long asked, ChatStats.Tier tierIn, String detailIn, Cue cue, boolean retried) {
         if (saidIn == null || saidIn.text() == null) {
+            return;
+        }
+        if (session.deliver != null && PlayerBusy.isBusy(session.player)) {
+            if (!retried) {
+                BotTiming.after(busyRetryMs(), () -> {
+                    if (liveSession(session)) {
+                        deliver(session, saidIn, asked, tierIn, detailIn, cue, true);
+                    }
+                });
+                return;
+            }
+            ChatStats.reply(ChatStats.Tier.IGNORED, System.currentTimeMillis() - asked, session.bot.getChr().getName(),
+                    "player busy");
             return;
         }
         Grounded g = groundForDelivery(session, saidIn, tierIn, detailIn, cue == null ? null : cue.asked());
         deliverChecked(session, g.said(), asked, g.tier(), g.detail(), cue);
+    }
+
+    /**
+     * social#2: whether the pair's chat is still THIS session, not merely some chat with the same player. A reply
+     * generated for a chat that has since ended and been reopened must not land in the new one, so identity (the
+     * shared {@link ConversationState}) is compared, as the greet path already does.
+     */
+    private static boolean liveSession(Session session) {
+        Session live = sessions.get(new Key(session.bot.getChr().getId(), session.player.getId()));
+        return live != null && live.state == session.state;
     }
 
     /** What {@link #deliver} says after the grounding check: the line, its tier and the stats detail. */
@@ -1387,7 +1483,7 @@ public final class BotConversation {
         }
         String claimSource = "reply-" + said.source();
         synchronized (session.history) {
-            session.history.add(BotBrain.Turn.assistant(line));
+            session.history.add(new Spoken(BotBrain.Turn.assistant(line), session.channel()));
         }
         Consumer<String> deliver = session.deliver;
         if (deliver != null) {
@@ -1396,7 +1492,9 @@ public final class BotConversation {
         }
         boolean firstLine;
         synchronized (session.history) {
-            firstLine = session.history.stream().filter(t -> t.role() == BotBrain.Role.ASSISTANT).count() <= 1;
+            firstLine = session.history.stream()
+                    .filter(t -> t.channel() == session.channel() && t.turn().role() == BotBrain.Role.ASSISTANT)
+                    .count() <= 1;
         }
         BotRoster.Activity doing = session.bot.activitySnapshot();
         boolean fighting = "grinding".equals(BotChatPrompt.activityPhrase(doing == null ? null : doing.name()))
@@ -1426,8 +1524,7 @@ public final class BotConversation {
         int face = deliver != null || cue == null ? ReplyEmote.NONE
                 : ReplyEmote.pick(cue.triage(), cue.outcome(), cue.asked(), line, ThreadLocalRandom.current());
         String fullDetail = detail + (said.fromBank() ? " bank#" + said.bankId() : "") + " plan=" + plan.kind();
-        BotTiming.Chain chain = BotTiming.chain()
-                .stopUnless(() -> sessions.containsKey(new Key(bot.getId(), player.getId())));
+        BotTiming.Chain chain = BotTiming.chain().stopUnless(() -> liveSession(session));
         java.util.List<soloMapling.ArtificialPlayer.BotConvo.HumanTiming.Part> parts = plan.parts();
         for (int i = 0; i < parts.size(); i++) {
             soloMapling.ArtificialPlayer.BotConvo.HumanTiming.Part part = parts.get(i);
@@ -1439,11 +1536,7 @@ public final class BotConversation {
                         }
                     })
                     .run(() -> {
-                        soloMapling.ArtificialPlayer.BotConvo.SayDo.said(bot, player, part.text(), claimSource);
                         if (deliver != null) {
-                            if (PlayerBusy.isBusy(player)) {
-                                return;
-                            }
                             deliver.accept(part.text());
                         } else {
                             soloMapling.ArtificialPlayer.BotConvo.SayDo.withSource(claimSource, () -> BotSpeak(bot, part.text()));
@@ -1451,6 +1544,8 @@ public final class BotConversation {
                                 BotEmote(bot, face);
                             }
                         }
+                        // social#3: the promise is recorded only after the line actually reached the player
+                        soloMapling.ArtificialPlayer.BotConvo.SayDo.said(bot, player, part.text(), claimSource);
                         if ("brb".equals(part.text())) { // the timing's "brb": it really steps away until it answers
                             soloMapling.ArtificialPlayer.BotConvo.ClaimActions.start(bot,
                                     soloMapling.ArtificialPlayer.BotConvo.ClaimRules.classify("brb"));

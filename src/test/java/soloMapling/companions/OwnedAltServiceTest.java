@@ -199,4 +199,44 @@ class OwnedAltServiceTest {
         s.dismiss(owner, "Alt2");
         assertEquals(List.of("leaveEvent 2", "save 2"), db.order);
     }
+
+    /**
+     * 1.6.2 (b120, {@code -Dslums.exped.door}): an owned alt that goes home is taken out of its expedition. Before,
+     * the id stayed in {@code Expedition.members} until the channel disposed the expedition - a ghost in the member
+     * list, and a boss-log attempt spent in its name when the run started.
+     */
+    @Test void aDismissedAltIsTakenOutOfItsExpedition() {
+        System.setProperty(soloMapling.ArtificialPlayer.BotPartySystem.ExpeditionDoor.PROPERTY, "true");
+        Memory db = new Memory();
+        db.add(2);
+        OwnedAltService s = new OwnedAltService(db, () -> true);
+        Character owner = owner(1);
+        when(owner.getName()).thenReturn("Josh");
+        server.maps.MapleMap map = mock(server.maps.MapleMap.class);
+        net.server.world.World world = mock(net.server.world.World.class);
+        when(world.getPlayerStorage()).thenReturn(mock(net.server.PlayerStorage.class));
+        when(map.getWorldServer()).thenReturn(world);
+        when(owner.getMap()).thenReturn(map);
+        server.TimerManager.getInstance().start();
+        try {
+            s.summon(owner, "Alt2");
+            Character alt = db.loaded.get(0);
+            net.server.channel.Channel channel = mock(net.server.channel.Channel.class);
+            Client client = mock(Client.class);
+            when(alt.getClient()).thenReturn(client);
+            when(client.getChannelServer()).thenReturn(channel);
+            server.expeditions.Expedition exped = new server.expeditions.Expedition(owner, server.expeditions.ExpeditionType.ZAKUM, true, 0, 0);
+            exped.beginRegistration();
+            exped.addMemberInt(alt);
+            when(channel.getExpedition(server.expeditions.ExpeditionType.ZAKUM)).thenReturn(exped);
+            assertTrue(exped.contains(alt), "registered like any other member");
+
+            assertTrue(s.dismiss(owner, "Alt2"));
+
+            assertFalse(exped.contains(alt), "gone home, gone from the member list");
+            exped.dispose(false);
+        } finally {
+            System.clearProperty(soloMapling.ArtificialPlayer.BotPartySystem.ExpeditionDoor.PROPERTY);
+        }
+    }
 }

@@ -90,8 +90,15 @@ public final class LifeRuntime {
         restored = memory.restored();
     }
 
+    /** The brain is ON unless {@code -Dslums.botlife.enabled=false} or {@code -Dslums.botlife.execute=false} (1.6.4: default on). */
     public static boolean enabled() {
-        return Boolean.getBoolean("slums.botlife.enabled") && Boolean.getBoolean("slums.botlife.execute");
+        return !"false".equalsIgnoreCase(System.getProperty("slums.botlife.enabled"))
+                && executeOn();
+    }
+
+    /** Whether the brain's choices are carried out ({@code -Dslums.botlife.execute=false} turns it off). */
+    public static boolean executeOn() {
+        return !"false".equalsIgnoreCase(System.getProperty("slums.botlife.execute"));
     }
 
     /**
@@ -124,6 +131,9 @@ public final class LifeRuntime {
         var next = planNext;
         if (next != null && next.step().activity == Activity.HANG_OUT && planDestination > 0) return source(planDestination, LifeTowns.Source.PLAN);
         if (townDestination != HOME_TOWN) return source(townDestination, LifeTowns.Source.FRIEND);
+        // 1.6.4 stage 7: a pilot bot goes where its daily routine and friend group gather (memory only; 0 for everyone else)
+        int pilot = me == null ? 0 : soloMapling.ArtificialPlayer.BotSocialSystem.SocialPilot.destination(me.getId(), now);
+        if (pilot > 0) return source(pilot, LifeTowns.Source.PILOT);
         if (pullTown > 0) return source(pullTown, LifeTowns.Source.PULL);
         Character chr = bot.getChr();
         // 1.6.0 S9: a hangout fad this bot follows on its channel (friends first, then the plan, then the fad)
@@ -427,6 +437,9 @@ public final class LifeRuntime {
             long socialSince = memory.lastSocial() > 0 ? memory.lastSocial() : bornAt;
             needs.put(Need.SOCIAL, Math.min(1, Math.max(0, now - socialSince)
                     / (double) (SOCIAL_PERIOD_FACTOR * memory.profile().townDurationMs())));
+            // 1.6.4 stage 4: a lonely, company-starved mind raises the SOCIAL need a little (at most about 0.4, and the need is capped at 1)
+            needs.merge(Need.SOCIAL, soloMapling.ArtificialPlayer.BotSocialSystem.SocialDecider.socialPull(
+                    chr.getId(), now), (time, mind) -> Math.min(1, time + mind));
             needs.put(Need.PROGRESS, memory.goals().stream().filter(g -> g.kind().progression())
                     .mapToDouble(LifeGoals.Goal::pressure).max().orElse(0));
             List<String> unknown = new ArrayList<>(original.unknown());

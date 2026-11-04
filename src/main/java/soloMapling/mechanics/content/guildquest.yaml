@@ -1,0 +1,420 @@
+# Ticket 164 Guild Quest (Sharenian Ruins): the whole run, seven stages, walked by the guild's bots.
+# Format: docs/tickets/130-bots-play-mechanics.md, "Stage data format". Loaded by soloMapling.mechanics.StageData.
+#
+# The row is gated on its OWN switch (-Dslums.mechanics.guildquest=true as well as -Dslums.mechanics=true) and the world
+# queue is the way in: scripts/npc/9040000.js registers the GUILD with the event's world queue and the world starts the
+# instance with the guild master alone inside (EventManager.java:959-976); the `queue:` block says how to register and
+# join, and the run arms itself when the join window closes (GuildQuest.js:203-222 scheduledTimeout sets canJoin = 0).
+# The script's own gates are copied from it, never from upstream: GuildQuest.js minPlayers 6, maxPlayers 30, eventTime 90.
+#
+# TWO FACTS ABOUT THE PARTY THAT THE ROW CARRIES (not solver tricks):
+#  * composition: one member of level 30 or below. scripts/portal/under30gate.js:25 refuses everyone else at the door
+#    of 990000640, and the crown behind it is the fourth piece of Sharen III's body (9201001.js / 9040003.js).
+#    The floor is level 10: the Protector Rock earring needs level 10 (Character.wz/Accessory/01032033.img.xml reqLevel).
+#  * one member pays his earring at Ergoth's gate (stage 7): kinggate 9208009 takes exactly one 1032033 (only 1: nobody
+#    holds a spare) and the member who gave it is left without it on 990000800 and 990000900, whose decHP is 30000 for
+#    anyone not wearing it (MapFactory.java:358-359, Character.doHurtHp). The run log names who paid.
+#
+# EVERY drop this row needs is SEED data (131-reactordrops-data.sql, 152-drop-data.sql in the sibling checkouts) and the
+# live table is UNVERIFIED. A missing row costs the stage a Wait that names the item; it is never silent:
+#   reactors 9202000/9202009 -> 1032033; 9202001 -> 4001025; 9202002 -> 4001037; 9202003 -> 4001029; 9202004 -> 4001030;
+#   9202005..9202008 -> 4001031..4001034; mobs 9300019 -> 4001026; 9300022 -> 4001027; 9300023 -> 4001028;
+#   9300024/9300027/9300033 -> 4001035; 9300025 -> 4001036; 9300028 -> 4001024.
+#
+# No stage sets nextPortal: the doors between Guild Quest's stages are pt-8 script portals, and a plain EnterPortal
+# plain-warps them to 999999999. Each solver walks its members in from the previous stage's rooms, which is why those
+# rooms are listed under `maps:` below.
+id: guildquest
+name: Guild Quest (Sharenian Ruins)
+kind: PQ
+eventScript: GuildQuest
+entryNpc: 9040000
+recruitMap: 101030104
+exitMap: 990001100
+minPlayers: 6
+maxPlayers: 30
+minLevel: 10
+maxLevel: 255
+timeLimitMinutes: 90
+flag: slums.mechanics.guildquest
+sources:
+  - "scripts/event/GuildQuest.js: minPlayers 6 / maxPlayers 30 / eventTime 90 / waitTime 3, entryMap 990000000, exitMap 990001100, clearMap 990001000, recruitMap 101030104"
+  - "scripts/npc/9040000.js:54-91 registers the guild with the world queue and the members who join; EventManager.java:959-976 starts it"
+  - "scripts/portal/guildwaitingenter.js, scripts/npc/9040009.js + 9208000-2.js (statues), 9208004/9208007 (spears), 9040006.js (vassals), 9201001.js + 9040003.js (maze), 9208009.js + 9201002.js + 9040010.js (boss)"
+  - "scripts/portal/under30gate.js:25 (level <= 30 at 990000640); Character.doHurtHp + MapFactory.java:358-359 (decHP 30000 without 1032033)"
+queue:
+  register: [0, 0]
+  join: [1]
+  waitMinutes: 3
+  closedProperty: canJoin
+  closedEquals: "0"
+composition:
+  - id: junior
+    min: 1
+    minLevel: 10
+    maxLevel: 30
+    note: "scripts/portal/under30gate.js:25: only a member of level 30 or below may enter 990000640, and its crown is the fourth piece of Sharen III's body"
+afterClear:
+  rewardNpc: 9040001
+  rewardMap: 990001100
+stages:
+  - stage: 1
+    map: 990000000
+    name: "the waiting room: the strategy time, then the door"
+    solver: gq-lobby
+    maps:
+      - 990000100
+    objectives:
+      - id: door
+        kind: ENTER_PORTAL
+        role: all
+        note: "join00 (guildwaitingenter.js:25-36) opens when the instance's entryTimestamp has passed; the solver reads it"
+    clear:
+      partyOnMap: 990000100
+  - stage: 2
+    map: 990000100
+    name: "the outskirts: every member earns his own Protector Rock"
+    solver: gq-earring
+    maps:
+      - 990000200
+      - 990000300
+    items:
+      - id: 1032033
+        name: Protector Rock
+        cleanup: false
+    objectives:
+      - id: rock
+        kind: HIT_REACTOR
+        role: all
+        reactor: "9202000"
+        note: "five hits on one glowing rock (9202000 / 9202009) on 990000100 or 990000200, then rm.dropItems(); reactordrops 9202000 and 9202009 -> 1032033 is seed data, LIVE DB UNVERIFIED"
+      - id: wear
+        kind: WAIT
+        role: all
+        note: "1032033 is put on through the gear system (EquipItem): every map from 990000300 on takes decHP 30000 from a member without it"
+    clear:
+      partyOnMap: 990000300
+  - stage: 3
+    map: 990000300
+    name: "the Gatekeeper: repeat the statues' pattern"
+    npc: 9040009
+    solver: gq-statues
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: "only the event leader may talk to the Gatekeeper (9040009.js isEventLeader)"
+    objectives:
+      - id: start
+        kind: TALK_NPC
+        role: leader
+        npc: 9040009
+        note: "the leader starts a round (Converse [0]) and, once the pattern is in, submits it (one click); three rounds of 4, 5 and 6 statues"
+      - id: pattern
+        kind: HIT_REACTOR
+        role: all
+        note: "one bot hits the statues named by stage1combo (objectId % 1000), only while stage1status is active (a hit during the display is written into the pattern)"
+    clear:
+      eventProperty: stage1clear
+      equals: "true"
+  - stage: 4
+    map: 990000400
+    name: "the Hall of the Knight: four Longinus Spears"
+    solver: gq-spears
+    maps:
+      - 990000300
+      - 990000301
+      - 990000410
+      - 990000420
+      - 990000430
+      - 990000431
+      - 990000440
+    items:
+      - id: 4001025
+        name: Longinus Spear
+        cleanup: true
+      - id: 4001026
+        name: Key of the stone gate
+        cleanup: true
+      - id: 4001037
+        name: Rusty Key
+        cleanup: true
+    roles:
+      - id: carrier
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: chained-spears
+        kind: HIT_REACTOR
+        role: all
+        reactor: "9202001"
+        note: "three chained spears on 990000410 and one on 990000431, five hits each (Reactor.wz/9202001.img.xml), scripts/reactor/9202001.js rm.dropItems(); reactordrops 9202001 -> 4001025 is seed data, LIVE DB UNVERIFIED. The fourth spear is behind metalgate in the golem room 430 and the placing is in the tower 440: both are mandatory"
+      - id: stone-key
+        kind: KILL_FOR_ITEM
+        role: all
+        item: 4001026
+        mob: 9300019
+        count: 1
+        note: "the one 9300019 on 990000420 (never respawns, mobTime -1); 152-drop-data.sql chance 999999, LIVE DB UNVERIFIED"
+      - id: stonegate
+        kind: PLACE_ITEM
+        role: all
+        item: 4001026
+        count: 1
+        reactor: stonegate
+        note: "reactor 9208006 at (-767,-532) on 990000400 wants 4001026 x1; 5 s later state 1; then portal in02 (stonegate_open.js) warps to 990000430"
+      - id: buried-box
+        kind: HIT_REACTOR
+        role: all
+        reactor: "9202002"
+        note: "30 hits (Reactor.wz/9202002.img.xml) on 990000430, drops 4001037 (reactordrops 9202002, LIVE DB UNVERIFIED)"
+      - id: metalgate
+        kind: PLACE_ITEM
+        role: all
+        item: 4001037
+        count: 1
+        reactor: metalgate
+        note: "reactor 9208005 at (927,-352) on 990000430 wants 4001037 x1; then portal in00 (metalgate_open.js) warps to 990000431"
+      - id: altars
+        kind: PLACE_ITEM
+        role: all
+        item: 4001025
+        count: 1
+        reactor: spear3
+        note: "reactors spear1..spear4 (9208007) on 990000440, each wants 4001025 x1 in its box; each activation adds one to speargate (scripts/reactor/9208007.js:29-31)"
+    clear:
+      reactorState:
+        id: 9208004
+        state: 4
+  - stage: 5
+    map: 990000500
+    name: "the Fountain of the Wiseman: the vassals' offerings"
+    npc: 9040006
+    solver: gq-vassals
+    maps:
+      - 990000400
+      - 990000401
+      - 990000410
+      - 990000420
+      - 990000430
+      - 990000431
+      - 990000440
+      - 990000501
+      - 990000502
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: "talks to the fountain guardian 9040006 twice: once for the combo, once with the right four offerings down"
+      - id: bearer
+        who: NON_LEADER
+        min: 1
+        max: party-1
+        note: "each bears one slot (an area of 500): fetches its item (knights / larder reactors) and drops it in the area"
+    items:
+      - id: 4001027
+        name: Medal of Valor
+        cleanup: true
+      - id: 4001028
+        name: Scroll of Wisdom
+        cleanup: true
+      - id: 4001029
+        name: Spoiled Food
+        cleanup: true
+      - id: 4001030
+        name: Jr. Necki Drink
+        cleanup: true
+    objectives:
+      - id: wish
+        kind: TALK_NPC
+        role: leader
+        npc: 9040006
+        note: "first talk makes stage3combo (9040006.js:28-33), no feedback"
+      - id: medals
+        kind: KILL_FOR_ITEM
+        role: bearer
+        item: 4001027
+        mob: 9300022
+        count: 1
+        note: "digit 0: Black Knight 9300022 on 500, no respawn; seed drop row, LIVE DB UNVERIFIED (9300036/37 have no drop row)"
+      - id: scrolls
+        kind: KILL_FOR_ITEM
+        role: bearer
+        item: 4001028
+        mob: 9300023
+        count: 1
+        note: "digit 1: Myst Knight 9300023 on 500; seed drop row, LIVE DB UNVERIFIED"
+      - id: food
+        kind: COLLECT
+        role: bearer
+        item: 4001029
+        count: 1
+        note: "digit 2: five hits on one 9202003 on 990000501, loot the drop; seed reactordrops row, LIVE DB UNVERIFIED"
+      - id: drink
+        kind: COLLECT
+        role: bearer
+        item: 4001030
+        count: 1
+        note: "digit 3: five hits on one 9202004 on 990000502, loot the drop; seed reactordrops row, LIVE DB UNVERIFIED"
+      - id: offer
+        kind: PLACE_ITEM
+        role: bearer
+        item: 4001027
+        count: 1
+        at: [-185, 145]
+        note: "one item in each of the four areas of 500 (x -230..318); the item of each slot is the combo's digit"
+      - id: offerings
+        kind: TALK_NPC
+        role: leader
+        npc: 9040006
+        note: "second talk, only with exactly the four right items down (a wrong guess costs one of seven attempts)"
+    clear:
+      eventProperty: stage3clear
+      equals: "true"
+  - stage: 6
+    map: 990000600
+    name: "the four-room maze and Sharen III's remains"
+    solver: gq-maze
+    maps:
+      - 990000500
+      - 990000501
+      - 990000502
+      - 990000610
+      - 990000611
+      - 990000620
+      - 990000630
+      - 990000631
+      - 990000640
+      - 990000641
+      - 990000700
+    items:
+      - id: 4001031
+        name: Sharen III's pants
+        cleanup: true
+      - id: 4001032
+        name: Sharen III's shoes
+        cleanup: true
+      - id: 4001033
+        name: Sharen III's top
+        cleanup: true
+      - id: 4001034
+        name: Sharen III's crown
+        cleanup: true
+      - id: 4001035
+        name: Mark of Evil
+        cleanup: true
+      - id: 4001036
+        name: Gargoyle token
+        cleanup: true
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: "talks to Sharen III's Soul once the body is dressed"
+      - id: carrier
+        who: ANY
+        min: 1
+        max: party
+        note: "a bot of level <= 30 (the junior) does 640/641; the rest split 620, 610, 630 and help"
+    objectives:
+      - id: marks
+        kind: KILL_FOR_ITEM
+        role: all
+        item: 4001035
+        mob: 9300024
+        count: 9
+        note: "610: 9 Puppet Golems 9300024; 630: Gargoyle 9300025 -> 4001036 -> reactor 9201000 -> 8 Jr. Gargoyles 9300033; 640: 20 Devil Slimes 9300027 (junior only); LIVE DB UNVERIFIED"
+      - id: gates
+        kind: PLACE_ITEM
+        role: all
+        item: 4001035
+        count: 9
+        reactor: "secretgate1"
+        note: "one stack of exactly 9 / 8 / 20 (secretgate1/2/3, Reactor.wz 9208010/9208011/9208012)"
+      - id: clothes
+        kind: HIT_REACTOR
+        role: all
+        note: "five hits on 9202005/9202006/9202007/9202008 in 611/620/631/641 (reactordrops -> 4001031..34, LIVE DB UNVERIFIED), then guild1F00 -> 990000700"
+      - id: body
+        kind: PLACE_ITEM
+        role: all
+        item: 4001032
+        count: 1
+        reactor: "9201001"
+        note: "shoes 4001032, pants 4001031, top 4001033, crown 4001034, one each, in that order (Reactor.wz/9201001.img.xml)"
+      - id: soul
+        kind: TALK_NPC
+        role: leader
+        npc: 9040003
+        note: "the event leader talks to Sharen III's Soul (9040003.js:33,:65); it also opens the ghost gate (forceHitReactor(1))"
+    clear:
+      eventProperty: stage4clear
+      equals: "true"
+  - stage: 7
+    map: 990000800
+    name: "Ergoth's gate and the Rubian"
+    solver: gq-boss
+    maps:
+      - 990000600
+      - 990000610
+      - 990000611
+      - 990000620
+      - 990000630
+      - 990000631
+      - 990000640
+      - 990000641
+      - 990000700
+      - 990000900
+    items:
+      - id: 1032033
+        name: Protector Rock
+        cleanup: false
+      - id: 4001024
+        name: Rubian
+        cleanup: true
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: "loots the Rubian and gives it to the Soul 9040010 (isEventLeader)"
+      - id: member
+        who: ANY
+        min: 1
+        max: party
+        note: "one bot, never the leader, is the sacrificer: it gives up its earring at Ergoth's gate and stays out of 800/900 afterwards"
+    objectives:
+      - id: ghostgate
+        kind: ENTER_PORTAL
+        role: all
+        note: "700 next00 (ghostgate_open.js) once the Soul's talk has forced reactor ghostgate to state 1"
+      - id: sacrifice
+        kind: PLACE_ITEM
+        role: all
+        item: 1032033
+        count: 1
+        reactor: kinggate
+        note: "the sacrificer takes his earring OFF (UnequipItem) and sets it in kinggate's box (reactor 9208009, 5 s later); 1032033 is only 1, so nobody holds a spare. From then on that member has no protection on 990000800 and 990000900 (decHP 30000). The run log names the member who paid"
+      - id: wake
+        kind: HIT_REACTOR
+        role: all
+        reactor: "9201002"
+        note: "five hits on the reactor boss on 990000900; its act spawns Ergoth 9300028 and four guards 9300029-32"
+      - id: ergoth
+        kind: DEFEAT
+        role: all
+        mob: 9300028
+        note: "level 115, 1,700,000 HP (Mob.wz/9300028.img.xml); whether the party can kill him is UNPROVEN"
+      - id: rubian
+        kind: HAND_IN
+        role: leader
+        item: 4001024
+        count: 1
+        npc: 9040010
+        note: "9300028 -> 4001024 (seed drop row, LIVE DB UNVERIFIED); the leader's one click on the Soul 9040010 removes it and calls eim.clearPQ() (9040010.js:30-36)"
+    clear:
+      instance: true

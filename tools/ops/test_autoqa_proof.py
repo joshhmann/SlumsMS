@@ -86,6 +86,40 @@ class KnownChangeTest(unittest.TestCase):
         r = proof("--files", "src/main/java/soloMapling/autoqa/AutoQaRunner.java", "--quiet")
         self.assertEqual("tools/ops/autoqa-run all\n", r.stdout)
 
+    def test_every_check_counts_the_catalogue_and_names_its_causes(self):
+        """The old tool printed a literal 186 against a 190-check catalogue: derive the number, show the cause."""
+        r = proof("--files", "src/main/java/soloMapling/autoqa/AutoQaRunner.java")
+        self.assertEqual(0, r.returncode, r.stderr)
+        with open(os.path.join(ROOT, "src", "main", "java", "soloMapling", "autoqa", "AutoQaCatalog.java"),
+                  encoding="utf-8") as fh:
+            declared = re.findall(r'Check\.(?:auto|half|manual)\(\s*"([^"]+)"', fh.read())
+        total = int(re.search(r"every check \((\d+)\)", r.stdout).group(1))
+        self.assertEqual(len(declared), total, r.stdout)
+        self.assertEqual(len(set(declared)), total, "the catalogue declares a check twice")
+        # the answer says what caused it, and still lists the ids so a subset can be run
+        self.assertIn("src/main/java/soloMapling/autoqa/AutoQaRunner.java\n", r.stdout)
+        self.assertIn("t-mx-1..t-mx-6", r.stdout)
+        self.assertRegex(r.stdout.strip().splitlines()[-1], r"^tools/ops/autoqa-run all$")
+
+    def test_the_count_is_not_a_literal_in_the_tool(self):
+        """A number that is not in the file cannot go stale: read the source and check the digits are absent."""
+        with open(TOOL, encoding="utf-8") as fh:
+            source = fh.read()
+        self.assertNotIn("186", source)
+        self.assertIn("len(catalogue)", source)
+        self.assertIn("catalogue_ids(root)", source)
+
+    def test_a_map_naming_a_check_the_catalogue_lacks_fails_loudly(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        m = os.path.join(tmp, "map.tsv")
+        with open(m, "w", encoding="utf-8") as fh:
+            fh.write("t-zz-9\tsrc/zz/*.java\ta check that does not exist\n")
+        r = proof("--files", "src/zz/a.java", "--map", m)
+        self.assertNotEqual(0, r.returncode, r.stdout)
+        self.assertIn("names checks the catalogue does not declare: t-zz-9", r.stderr)
+        self.assertNotIn("every check (", r.stdout)
+
     def test_a_switch_is_reported_with_the_checks_that_need_it(self):
         r = proof("--files", "src/main/java/soloMapling/mechanics/Orchestrator.java")
         self.assertEqual(0, r.returncode, r.stderr)

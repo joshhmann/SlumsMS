@@ -1,5 +1,6 @@
 package scripting;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -14,7 +15,9 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import testutil.PropsRestored;
 
+@ExtendWith(PropsRestored.class)
 public class ScriptEvaluationTest {
     /**
      * NPC scripts that MapleRoot broke and nobody has restored yet. The NPC assertion was commented out in the

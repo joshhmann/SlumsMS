@@ -2,6 +2,8 @@ package soloMapling.mechanics;
 
 import client.Character;
 import scripting.event.EventInstanceManager;
+import soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffDriver;
+import soloMapling.ArtificialPlayer.BotCombatSystem.BotHabits;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.ArtificialPlayer.BotTypeManager;
@@ -12,6 +14,7 @@ import soloMapling.server.BotShutdown;
 import soloMapling.server.ExecutorServiceManager;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -36,6 +39,12 @@ public final class MechanicsRuns {
 
     private static final MechanicsRuns INSTANCE = new MechanicsRuns();
 
+    static {
+        // the bots' win and loss lines are a reader of the run's outcome record, like any other (RunOutcomes)
+        RunOutcomes.listen(RunChatter::onOutcome);
+        RunOutcomes.listen(RunSamples.get()::onOutcome); // the real runs a simulated one is sampled from
+    }
+
     public static MechanicsRuns get() {
         return INSTANCE;
     }
@@ -50,17 +59,44 @@ public final class MechanicsRuns {
         final Consumer<Active> onEnd;
         /** The run's own staging or lobby started this instance: a run that ends short of the clear ends it too. */
         final boolean ownsInstance;
+        /** How the run came to be and whether it holds a place in {@link RealRunPool}; released when the run ends. */
+        final RealRunPool.Admission admission;
+        /** Unique per run: what its {@link RunOutcome} is keyed by. */
+        final String runId = java.util.UUID.randomUUID().toString();
+        final long startedAtMs = System.currentTimeMillis();
+        /** Who was in the run when it started, by what each is (a player, a bot, a player's owned alt). */
+        final List<RunOutcome.Participant> participants;
+        /** Set when this run's outcome has been written: a run has exactly one. */
+        final java.util.concurrent.atomic.AtomicBoolean recorded = new java.util.concurrent.atomic.AtomicBoolean();
         volatile ScheduledFuture<?> tick;
         volatile boolean finished;
 
         Active(RunState run, EventInstanceManager eim, Map<Integer, Character> bots, Consumer<String> reporter,
-               Consumer<Active> onEnd, boolean ownsInstance) {
+               Consumer<Active> onEnd, boolean ownsInstance, RealRunPool.Admission admission,
+               List<RunOutcome.Participant> participants) {
             this.run = run;
             this.eim = eim;
             this.bots = bots;
             this.reporter = reporter;
             this.onEnd = onEnd;
             this.ownsInstance = ownsInstance;
+            this.admission = admission;
+            this.participants = List.copyOf(participants);
+        }
+
+        /** The id this run's {@link RunOutcome} will carry. */
+        public String runId() {
+            return runId;
+        }
+
+        /** How this run came to be (a lobby, a staging, a human's party): what its {@link RealRunPool.Admission} says. */
+        public RealRunPool.Origin origin() {
+            return admission.origin();
+        }
+
+        /** Whether this run holds a place in the real-run pool right now (false for a human's or a staged run). */
+        public boolean leased() {
+            return admission.leased();
         }
 
         public RunState run() {
@@ -106,6 +142,7 @@ public final class MechanicsRuns {
         }
         return name;
     }
+    /** Picks the bots that speak about a run and their lines ({@link RunChatter}). */
     private final Orchestrator orchestrator = new Orchestrator(Orchestrator.allSolvers(), new Random(), 0, 0);
     private final StepExecutor executor = new StepExecutor();
 
@@ -154,34 +191,94 @@ public final class MechanicsRuns {
      */
     public Active start(EventInstanceManager eim, Content content, boolean perfect, long budgetMs, int firstStage,
                         int lastStage, boolean ownsInstance, Consumer<String> reporter, Consumer<Active> onEnd) {
+        return start(eim, content, Tier.NORMAL, perfect, budgetMs, firstStage, lastStage, ownsInstance, reporter, onEnd,
+                RealRunPool.exempt(RealRunPool.Origin.STAGED));
+    }
+
+    /**
+     * As above at a difficulty tier (1.6.4 "PQ difficulties"): the tier is the run's own ({@link RunState#tier()}), so
+     * every rule lookup ({@link Content#rules(Tier)}), the {@code RUN start} line and anything the tier scales can read
+     * it from the run instead of from a field each row would have to carry. {@link Tier#NORMAL} is the stock PQ and
+     * the default of the shorter overload, so a caller that never heard of tiers starts exactly what it started before.
+     */
+    public Active start(EventInstanceManager eim, Content content, Tier tier, boolean perfect, long budgetMs,
+                        int firstStage, int lastStage, boolean ownsInstance, Consumer<String> reporter,
+                        Consumer<Active> onEnd) {
+        return start(eim, content, tier, perfect, budgetMs, firstStage, lastStage, ownsInstance, reporter, onEnd,
+                RealRunPool.exempt(RealRunPool.Origin.STAGED));
+    }
+
+    /**
+     * As above, for a run admitted by {@link RealRunPool} ({@code admission}): the place it holds is given back when the
+     * run ends however it ends, and when this call refuses or fails to start it (a run that ends at its start, a second
+     * run on one instance, a throw) - a leaked place is a permanently smaller quota.
+     */
+    public Active start(EventInstanceManager eim, Content content, boolean perfect, long budgetMs, int firstStage,
+                        int lastStage, boolean ownsInstance, Consumer<String> reporter, Consumer<Active> onEnd,
+                        RealRunPool.Admission admission) {
+        return start(eim, content, Tier.NORMAL, perfect, budgetMs, firstStage, lastStage, ownsInstance, reporter, onEnd,
+                admission);
+    }
+
+    /**
+     * The one every overload goes through: {@code tier} reaches the run, {@code admission} is the place it holds.
+     */
+    public Active start(EventInstanceManager eim, Content content, Tier tier, boolean perfect, long budgetMs,
+                        int firstStage, int lastStage, boolean ownsInstance, Consumer<String> reporter,
+                        Consumer<Active> onEnd, RealRunPool.Admission admission) {
+        Active a = null;
+        try {
+            a = begin(eim, content, tier, perfect, budgetMs, firstStage, lastStage, ownsInstance, reporter, onEnd,
+                    admission);
+            if (!a.finished && !admission.origin().governed()) {
+                // a human's or a GM's run took no lease, but that row had a real pass now: it is not the stalest
+                RealRunPool.get().notePass(content.id(), a.run.tier());
+            }
+            return a;
+        } finally {
+            if (a == null || a.finished) {
+                admission.release(); // refused, ended at its start, or threw: no run is left to give it back
+            }
+        }
+    }
+
+    private Active begin(EventInstanceManager eim, Content content, Tier tier, boolean perfect, long budgetMs,
+                         int firstStage, int lastStage, boolean ownsInstance, Consumer<String> reporter,
+                         Consumer<Active> onEnd, RealRunPool.Admission admission) {
         List<RunMember> members = new ArrayList<>();
+        List<RunOutcome.Participant> participants = new ArrayList<>();
         Map<Integer, Character> bots = new ConcurrentHashMap<>();
         for (Character c : eim.getPlayers()) {
             boolean bot = drivable(c);
             boolean leader = c.getId() == eim.getLeaderId();
             members.add(new RunMember(c.getId(), leader, bot,
-                    !bot || perfect ? MechanicsPersona.PERFECT : MechanicsPersona.forCharacter(c.getId())));
+                    !bot || perfect ? MechanicsPersona.PERFECT : MechanicsPersona.forCharacter(c.getId()),
+                    c.getJob() == null ? 0 : c.getJob().getId(), c.getLevel()));
+            participants.add(new RunOutcome.Participant(c.getId(), c.isOwnedAlt() ? RunOutcome.ParticipantKind.OWNED_ALT
+                    : bot ? RunOutcome.ParticipantKind.BOT : RunOutcome.ParticipantKind.PLAYER, leader));
             if (bot) {
                 bots.put(c.getId(), c);
             }
         }
         Orchestrator o = budgetMs > 0 || lastStage > 0
                 ? new Orchestrator(Orchestrator.allSolvers(), new Random(), budgetMs, lastStage) : orchestrator;
-        RunState run = o.start(content, Tier.NORMAL, members);
+        RunState run = o.start(content, tier == null ? TierScaling.requested(content) : tier, members);
         if (firstStage > 1 && !o.startAt(run, firstStage, System.currentTimeMillis())) {
             run.end("stage " + firstStage + " is not one this run plays (last " + run.lastStage() + ")");
         }
-        Active a = new Active(run, eim, bots, toQaLog(members, reporter), onEnd, ownsInstance);
+        Active a = new Active(run, eim, bots, toQaLog(members, reporter), onEnd, ownsInstance, admission, participants);
         if (run.ended()) {
             a.finished = true;
             a.reporter.accept("RUN not started: " + run.endedBecause());
             closeInstance(a);
+            recordOutcome(a); // a run that never started is still a run, and an abandoned one
             return a;
         }
         if (active.putIfAbsent(eim, a) != null) {
             run.end("this event instance already has a run");
             a.finished = true;
             a.reporter.accept("RUN not started: " + run.endedBecause());
+            recordOutcome(a);
             return a;
         }
         try {
@@ -213,6 +310,7 @@ public final class MechanicsRuns {
         }
         a.reporter.accept("RUN start " + content.id() + " stage " + run.currentStage() + " in " + keyOf(eim) + ": "
                 + Orchestrator.describe(run));
+        tellLeader(eim, content, bots.size());
         for (Character bot : bots.values()) {
             String full = fullBag(bot);
             if (full != null) {
@@ -222,6 +320,29 @@ public final class MechanicsRuns {
         Orchestrator use = o;
         a.tick = scheduler.get().scheduleWithFixedDelay(
                 () -> safeTick(a, use), TICK_MS, TICK_MS, TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * Round 9, item 6: a human in the room has no way to tell "the bots are running this fight" from "the bots are
+     * standing there broken" - the owner's own bug report was "they just stand there". One line at run start, to the
+     * party leader, behind the boss switch: who is driving and for which boss. Nothing per tick, nothing on a PQ run.
+     */
+    static void tellLeader(EventInstanceManager eim, Content content, int bots) {
+        if (content.kind() != MechanicsModel.Kind.BOSS || !Mechanics.bossesEnabled() || bots <= 0) {
+            return;
+        }
+        Character leader = eim.getPlayerById(eim.getLeaderId());
+        if (leader == null) {
+            return;
+        }
+        leader.dropMessage(6, "[Expedition] " + bots + (bots == 1 ? " bot is" : " bots are")
+                + " running this fight with you (" + shortName(content.name()) + ").");
+    }
+
+    /** "Zakum (expedition)" -> "Zakum": a row's name without its qualifier, for a line a player reads. */
+    static String shortName(String name) {
+        int cut = name == null ? -1 : name.indexOf(" (");
+        return cut > 0 ? name.substring(0, cut) : name;
     }
 
     private void safeTick(Active a, Orchestrator o) {
@@ -266,7 +387,74 @@ public final class MechanicsRuns {
             executor.execute(a.run, o, view, bot, e.getValue(), now, a.reporter);
         }
         keepPhysics(driven, GCMovement::holdFullPhysics);
+        upkeep(driven, now);
+        scaleRoom(a);
+        if (!a.run.ended()) {
+            get().releaseLostMembers(a);
+        }
     }
+
+    /**
+     * 1.6.4: a bot the run has lost - it died, or was walked out - is not driven any more, so its brain goes back to it.
+     * Without this the hold would leave a live, revived bot standing in the room for the rest of the instance, which is
+     * exactly the "they just stand there" a player reports. The one exception is the member a paused run is waiting
+     * for: that one stays held until it is back or the run ends, because the pause is what is keeping it in the run.
+     */
+    void releaseLostMembers(Active a) {
+        RunState.Waiter waiter = a.run.waitingFor();
+        int waitedFor = waiter == null || waiter.member() == null ? -1 : waiter.member().characterId();
+        for (Integer id : new ArrayList<>(a.bots.keySet())) {
+            if (id == waitedFor || a.run.member(id) != null) {
+                continue;
+            }
+            Character bot = a.bots.remove(id);
+            a.pausedBrains.remove(id);
+            MechanicsHold.release(id);
+            executor.forget(id);
+            BotSM brain = CharacterStorage.getBotById(id);
+            if (bot != null && brain != null && !brain.getRunning()) {
+                BotTypeManager.manuallyStartBot(bot);
+            }
+            if (bot != null) {
+                a.reporter.accept("RUN " + bot.getName() + " is out of the run: its own brain has it again");
+            }
+        }
+    }
+
+    /** 1.6.4 difficulties (item C): the tier's numbers reach the room, once per tick, behind their own switch. */
+    private static void scaleRoom(Active a) {
+        if (TierScaling.on()) {
+            TierScaling.applyTo(a.run, a.eim);
+        }
+    }
+
+    /*
+     * R8 (bot audit, items 1/2): what a held bot still does for itself. The run stops the bot's brain
+     * (BotTypeManager.manuallyStopBot), so the self-buff loop its own type runs (FollowerBot.supportParty ->
+     * BotBuffDriver.selfBuff) stops with it and the bot fights the whole boss unbuffed - a human sees the buff visuals
+     * lapse and never come back. Its potions are not in that boat: HP potions are drunk by the damage path
+     * (BotVitals.hurt -> topUp, and BotContactDamage.tickMobDamage still runs for a held bot because
+     * GCMovement.stop only cancels follow/travel) and MP potions by the cast cost (BotVitals.spend -> topUp), so
+     * the only upkeep the run owes a bot is its buffs. Cheap: selfBuff holds its own timer and does nothing until one
+     * is due. Behind the boss switch (and the run can only exist with mechanics on), like the rest of the lane.
+     */
+    static void upkeep(List<Character> bots, long nowMs) {
+        if (!Mechanics.bossesEnabled()) {
+            return;
+        }
+        for (Character bot : bots) {
+            if (bot == null) {
+                continue;
+            }
+            long next = nextBuffLook.getOrDefault(bot.getId(), 0L);
+            nextBuffLook.put(bot.getId(), BotBuffDriver.selfBuff(bot, nowMs, next,
+                    () -> BotHabits.of(bot.getId()).rebuffLateNowMs(), BotBuffDriver.Pay.PARTY_BUFFS, upkeepRng));
+        }
+    }
+
+    /** Per bot, the next time its buff loop may look; the loop itself throttles, this only remembers across ticks. */
+    private static final Map<Integer, Long> nextBuffLook = new ConcurrentHashMap<>();
+    private static final Random upkeepRng = new Random();
 
     /*
      * 1.6.2 (b153): the maps a run's bots stand on keep full movement physics while the run drives them. With no real
@@ -327,40 +515,180 @@ public final class MechanicsRuns {
      * {@code EventManager} after a party instance starts; nothing happens with {@code -Dslums.mechanics} off, for an
      * event without stage data, a party without bots, or while staging starts its own run.
      */
-    public static void onPartyInstanceStarted(EventInstanceManager eim) {
-        if (!Mechanics.enabled() || eim == null || STAGING.get()) {
-            return;
+    /**
+     * An instance this server started for a party that holds bots or owned alts: the party quests (KPQ, at Lakelis) and
+     * the real boss expeditions (Zakum today, Horntail later).
+     *
+     * <p>One entry point, because the event script names the content ({@code KerningPQ}, {@code ZakumBattle}) and the
+     * data folder decides what it is: a {@code kind: PQ} row arms a run behind {@code -Dslums.mechanics}, a
+     * {@code kind: BOSS} row behind {@code -Dslums.mechanics.boss}. {@code expedition} only says which caller this is,
+     * so a boss expedition with no data can say so once instead of looking like a silent no-op.
+     *
+     * <p>The expedition call must come <em>after</em> {@code eim.startEvent()}: the members are warped by the script's
+     * {@code playerEntry} during it, so before that the instance holds nobody to drive.
+     *
+     * <p>{@code GuildBossRuns} never reaches this: it is the roll with the bots logged out, not a real fight.
+     *
+     * @return the run, or null when nothing was armed
+     */
+    public static Active onInstanceStarted(EventInstanceManager eim, boolean expedition) {
+        if (eim == null || STAGING.get()) {
+            return null;
         }
         try {
             String event = eim.getEm() == null ? null : eim.getEm().getName();
-            Content content = contentFor(event);
-            if (content == null || eim.getPlayers().stream().noneMatch(MechanicsRuns::drivable)) {
-                return;
+            List<Content> rows = rowsFor(event);
+            Content content = select(rows, eim.instanceMapIds());
+            if (content == null) {
+                if (rows.size() > 1) {
+                    if (Mechanics.enabled() || Mechanics.bossesEnabled()) {
+                        log("[Mechanics] " + keyOf(eim) + " (" + event + "): " + rows.size() + " rows claim this"
+                                + " script and none of them is built on this instance's map " + eim.instanceMapIds()
+                                + ", so no row is armed rather than the wrong one");
+                    }
+                } else if (expedition && Mechanics.bossesEnabled()) {
+                    log("[Mechanics] no boss content for " + keyOf(eim) + " (" + event + "): the expedition is left to"
+                            + " its humans");
+                }
+                return null;
             }
-            get().start(eim, content, false, 0, line -> log("[Mechanics] " + keyOf(eim) + " " + line), null);
+            // one spelling of "this row may arm": a BOSS row asks the boss switch plus its own flag, anything else asks
+            // Mechanics.enabledFor - bossEnabledFor is that first pair, rowFlagOn is the flag half of it
+            if (content.kind() == MechanicsModel.Kind.BOSS
+                    ? !Mechanics.bossEnabledFor(content)
+                    : !Mechanics.enabledFor(content)) {
+                return null;
+            }
+            List<Character> inside = eim.getPlayers();
+            // a real player in the run decides it: his run is always real and takes no place in the pool. A party with
+            // nobody but bots in it (no production path reaches here: the lobbies stage through KpqStaging) is a bot-only
+            // run like a lobby's and asks the pool; a run it refuses is simply not made
+            boolean human = inside.stream().anyMatch(c -> !drivable(c));
+            RealRunPool.Admission admission = human
+                    ? RealRunPool.exempt(expedition ? RealRunPool.Origin.HUMAN_EXPEDITION : RealRunPool.Origin.HUMAN_PARTY)
+                    : RealRunPool.get().admit(RealRunPool.Origin.BOT_INSTANCE, content, 0);
+            if (!admission.granted()) {
+                if (admission.announce()) {
+                    log("[Mechanics] " + keyOf(eim) + " (" + event + "): no run: " + admission.why());
+                }
+                return null;
+            }
+            // neither a PQ nor a boss room is the run's to end: the party or the expedition script owns, and ends, it
+            return get().start(eim, content, false, 0, 1, 0, false,
+                    line -> log("[Mechanics] " + keyOf(eim) + " " + line), null, admission);
         } catch (RuntimeException e) {
             log("[Mechanics] could not start a run for " + keyOf(eim) + ": " + e);
+            return null;
         }
     }
 
-    private static volatile List<Content> contentCache;
+    /**
+     * An instance the world queue just started ({@code EventManager.startInstance(lobby, chr, leader, difficulty)}, the
+     * path {@code attemptStartGuildInstance} takes): when the content row says it is entered through the queue
+     * ({@code queue:}) and its switch is on, a {@link LobbyWatch} arms the run once the join window closes. A staging
+     * call that starts and runs the instance itself holds this off ({@link #staging}); every other instance this
+     * server starts through that path - solo events, quests - has no queue row and is left exactly as it was.
+     *
+     * @return whether a watch was started
+     */
+    public static boolean onQueueInstanceStarted(EventInstanceManager eim) {
+        if (eim == null || STAGING.get()) {
+            return false;
+        }
+        try {
+            Content content = contentFor(eim.getEm() == null ? null : eim.getEm().getName());
+            if (content == null || content.queue() == null || !Mechanics.enabledFor(content)) {
+                return false;
+            }
+            LobbyWatch.begin(eim, content);
+            return true;
+        } catch (RuntimeException e) {
+            log("[Mechanics] could not watch a queue instance " + keyOf(eim) + ": " + e);
+            return false;
+        }
+    }
 
-    /** The stage data for an event script name ("KerningPQ"), or null. Loaded once. */
-    public static Content contentFor(String eventScript) {
-        if (eventScript == null) {
+    /**
+     * The join window of a queue-started instance has closed: the run is armed for the bots and owned alts the guild
+     * brought, exactly as {@link #onInstanceStarted} arms one for a party, except that the world owns the instance (the
+     * script ends it, not the run). Nothing is armed for a guild of humans only.
+     */
+    static Active armOnClosedLobby(EventInstanceManager eim, Content content) {
+        if (eim.getPlayers().stream().noneMatch(MechanicsRuns::drivable)) {
+            log("[Mechanics] " + keyOf(eim) + ": no bot or alt joined the " + content.id() + " guild run, nothing to drive");
             return null;
         }
-        List<Content> all = contentCache;
-        if (all == null) {
-            all = StageData.load().content();
-            contentCache = all;
+        return get().start(eim, content, false, 0, 1, 0, false,
+                line -> log("[Mechanics] " + keyOf(eim) + " " + line), null);
+    }
+
+    private static volatile List<Content> contentCache;
+    private static volatile String contentCacheDir;
+
+    /** The stage data for an event script name ("KerningPQ"), or null. Loaded once per data folder. */
+    public static Content contentFor(String eventScript) {
+        return select(rowsFor(eventScript), List.of());
+    }
+
+    /**
+     * The stage data for an event script name on an instance built on {@code instanceMaps}, or null.
+     *
+     * <p>One row per script is the rule and that row wins outright, whatever map the instance is on - every row in the
+     * folder but GuardianNex's six. A script that builds one instance per venue carries no mark of the venue other than
+     * the map it made ({@code GuardianNex.js:14-15} resets the cave the lobby names, and {@code playerEntry} warps to
+     * it), so when several rows claim the name, the one whose stage is that map is the row. No evidence, or evidence
+     * that fits none or two of them, is no row: {@link #onInstanceStarted} logs that once and arms nothing, because
+     * running the first match there would drive a party through the wrong cave.
+     */
+    public static Content contentFor(String eventScript, Collection<Integer> instanceMaps) {
+        return select(rowsFor(eventScript), instanceMaps);
+    }
+
+    /** Every row whose {@code eventScript} is this name, in folder order. */
+    static List<Content> rowsFor(String eventScript) {
+        List<Content> rows = new ArrayList<>();
+        if (eventScript == null) {
+            return rows;
         }
-        for (Content c : all) {
+        for (Content c : allContent()) {
             if (eventScript.equalsIgnoreCase(c.eventScript())) {
-                return c;
+                rows.add(c);
             }
         }
-        return null;
+        return rows;
+    }
+
+    /** One row means that row; several mean the instance's own map decides; nothing conclusive means no row. */
+    private static Content select(List<Content> rows, Collection<Integer> instanceMaps) {
+        if (rows.isEmpty()) {
+            return null;
+        }
+        if (rows.size() == 1) {
+            return rows.get(0);
+        }
+        Content chosen = null;
+        for (Content c : rows) {
+            if (c.stages().stream().noneMatch(stage -> instanceMaps.contains(stage.mapId()))) {
+                continue;
+            }
+            if (chosen != null) {
+                return null;
+            }
+            chosen = c;
+        }
+        return chosen;
+    }
+
+    /** Every content row the data folder holds, read once and re-read if the folder changes ({@code -Dslums.mechanics.dir}). */
+    private static List<Content> allContent() {
+        String dir = Mechanics.dataDir();
+        List<Content> all = contentCache;
+        if (all == null || !dir.equals(contentCacheDir)) {
+            all = StageData.load().content();
+            contentCacheDir = dir;
+            contentCache = all;
+        }
+        return all;
     }
 
     /** The run on this instance, or null. */
@@ -381,6 +709,7 @@ public final class MechanicsRuns {
         for (Active a : List.copyOf(active.values())) {
             stop(a, why);
         }
+        SimulatedRuns.get().stopAll(why); // a stop ends the simulated runs too, recorded abandoned: nobody reports them
     }
 
     private synchronized void finish(Active a) {
@@ -388,6 +717,15 @@ public final class MechanicsRuns {
             return;
         }
         a.finished = true;
+        try {
+            endRun(a);
+        } finally {
+            // the one place a finished run's place in RealRunPool is given back, whatever the end above did or threw
+            a.admission.release();
+        }
+    }
+
+    private void endRun(Active a) {
         ScheduledFuture<?> t = a.tick;
         if (t != null) {
             t.cancel(false);
@@ -410,6 +748,7 @@ public final class MechanicsRuns {
         } catch (RuntimeException e) {
             log("[Mechanics] could not end " + keyOf(a.eim) + ": " + e);
         }
+        recordOutcome(a);
         RunState r = a.run;
         a.reporter.accept("RUN end " + r.content().id() + " in " + keyOf(a.eim) + ": " + r.endedBecause()
                 + (r.cleared() ? " after " + r.clearedAfterMs() / 1000 + " s, " + r.wrongShownTotal()
@@ -420,6 +759,23 @@ public final class MechanicsRuns {
             } catch (RuntimeException e) {
                 log("[Mechanics] cleanup after " + keyOf(a.eim) + " threw: " + e);
             }
+        }
+    }
+
+    /**
+     * Writes this run's outcome ({@link RunOutcome}) once, however the run ended. Everything that has something to say
+     * about a run reads that record; the bots' win and loss lines are one of its readers ({@link
+     * RunChatter#onOutcome}, registered with {@link RunOutcomes#listen}). A run that cannot be described still ends.
+     */
+    private void recordOutcome(Active a) {
+        if (!a.recorded.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            RunOutcomes.record(RunOutcome.of(a.runId, keyOf(a.eim), a.run, a.admission.origin(), RunOutcome.Mode.REAL,
+                    a.startedAtMs, System.currentTimeMillis(), a.participants));
+        } catch (RuntimeException e) {
+            log("[Mechanics] could not record the outcome of " + keyOf(a.eim) + ": " + e);
         }
     }
 
@@ -439,6 +795,12 @@ public final class MechanicsRuns {
     /** Ends the run's instance when {@link #shouldEndInstance} says so; reports what it did. */
     private void closeInstance(Active a) {
         EventInstanceManager eim = a.eim;
+        if (!eim.isEventDisposed() && a.run.content().kind() == MechanicsModel.Kind.BOSS) {
+            // a boss room belongs to its expedition script, not to this run: the chests are still to spawn or to loot
+            // when the run ends, and the script ends the instance on its own clock. Releasing the bots is all we do.
+            sendStrayAltsOut(a, eim);
+            return;
+        }
         boolean realInside = eim.getPlayers().stream().anyMatch(c -> !drivable(c));
         if (!shouldEndInstance(a.ownsInstance, a.run.cleared(), eim.isEventDisposed(), realInside)) {
             if (!a.run.cleared() && !eim.isEventDisposed()) {
@@ -582,6 +944,11 @@ public final class MechanicsRuns {
         if (out.isEmpty()) {
             out.add("no mechanics runs (bots held: " + MechanicsHold.count() + ")");
         }
+        String pool = RealRunPool.get().describe(); // null while the pool is unlimited: status reads as it always did
+        if (pool != null) {
+            out.add(pool);
+        }
+        out.addAll(SimulatedRuns.get().describe()); // empty unless the pool refused a run and it was simulated
         return out;
     }
 }

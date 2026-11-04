@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer.BotLifeSystem;
 
 import client.Character;
 import client.Job;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 import soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
@@ -21,8 +22,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision.*;
+import testutil.PropsRestored;
 
 /** 1.6.0 S8 (brain reach): town and social bots decide with the same brain, from their own needs and activities. */
+@org.junit.jupiter.api.extension.ExtendWith(soloMapling.ArtificialPlayer.BotSocialSystem.SocialFlagsOff.class)
+@ExtendWith(PropsRestored.class)
 class LifeTownLifeTest {
     static final List<String> KEYS = List.of("enabled", "execute", "metrics", "reach");
 
@@ -64,7 +68,7 @@ class LifeTownLifeTest {
             assertNull(LifeTownLife.forBot(mock(SocialBot.class), LifeTownLife.Kind.SOCIAL, new LifeTownLife.Moves() {}));
             System.clearProperty("slums.botlife.reach");
             assertTrue(LifeRuntime.reachesAllBots());
-            System.clearProperty("slums.botlife.enabled");
+            System.setProperty("slums.botlife.enabled", "false");
             assertFalse(LifeRuntime.reachesAllBots(), "live has the brain off: nothing changes there");
         } finally {
             restore(before);

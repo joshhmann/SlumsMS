@@ -1,0 +1,124 @@
+# Ticket 130 phase 5 phase B: Horntail, the real fight (1.6.4, branch 164-bossfight).
+#
+# Read only when the server runs with -Dslums.mechanics.boss=true (off by default). Three rooms; the bots fight the parts
+# the data lists, then the body. The clear is always the script's own property (HorntailBattle.js), never the presence of
+# a part. No stage here waits for a summon: rooms 1 and 2 hold their head from the moment the instance is set up, and
+# room 3 is the one that starts empty (see the reactor note there).
+#
+# What our scripts say the expedition is (not BotStory's draft):
+#  - room 1 (240060000): the SETUP spawns the pre-head 8810000 at (960,120) (HorntailBattle.js:86-89), so the room has
+#    its fight from tick 0; a head kill adds one to defeatedHead; the door script hontale_BR.js opens room 2 at
+#    defeatedHead >= 1.
+#  - room 2 (240060100): the setup spawns 8810001 at (-420,120) (HorntailBattle.js:91-93); defeatedHead reaches 2 and the
+#    door opens room 3.
+#  - reactor 2408003 (a human's touch on the room's altar) is a SECOND path: its script defines only touch(), which sets
+#    'summoned' and spawns the same head again. The server runs touch() from a client touch packet
+#    (TouchReactorHandler.java:43-44), and a bot's click goes through Reactor.hitReactor -> onHit/act instead, which that
+#    script does not define. So no row waits on 'summoned': it is the human path, not the fight's precondition.
+#  - room 3 (240060200): EMPTY until a human hits reactor 2401000, which calls MapleMap.spawnHorntailOnGroundBelow -
+#    the intro 8810026, the body 8810018 and the eight parts 8810002-8810009 - and restarts the timer to 60 minutes.
+#    Nothing sets a summon property here, which is why this stage names none: an empty room is simply "nothing to
+#    fight yet".
+#  - the add family 8810019-8820023 (Red/Blue/Dark Wyvern, Green/Dark Cornian) arrives by the parts' own mob skill 200:
+#    Skill.wz/MobSkill.img.xml levels 53-60 (wyverns on heads A/B and 8810004, cornians on the wings 8810007, wyverns on
+#    the two pre-heads), executed by MobSkill.java:286 case SUMMON -> summonMonsters (:332-400). Nothing in our scripts
+#    spawns them, and no stage lists them: killing one advances nothing. They are not statues - the statues are
+#    8820019-8820023, Pink Bean's, on 270050100.
+#  - the corpse parts 8810010-8810017 are never a candidate (MobId.isDeadHorntailPart).
+id: horntail
+name: Horntail (expedition)
+kind: BOSS
+eventScript: HorntailBattle
+recruitMap: 240050400
+# where a member is sent when the run ends (MechanicsRuns.endInstance); the script's own exit is 240050600
+# (HorntailBattle.js:8) and end() takes everyone there itself.
+exitMap: 240050600
+# the script's own gate (HorntailBattle.js:5-6,15)
+minPlayers: 6
+maxPlayers: 30
+minLevel: 100
+maxLevel: 255
+timeLimitMinutes: 120
+sources:
+  - "scripts/event/HorntailBattle.js (ours, the truth): minPlayers 6 / maxPlayers 30 / levels 100-255 / eventTime 120
+    (:5-6,15), rooms 240060000-240060200 (:25-27), recruit 240050400, exit and clear 240050600, defeatedBoss=1 when
+    8810018 dies (:187-194), defeatedHead incremented per head kill (:237-238)"
+  - "scripts/event/HorntailBattle.js:86-93 (ours, the truth): the two pre-heads are spawned at SETUP, 8810000 at
+    (960,120) in room 1 and 8810001 at (-420,120) in room 2, not by a reactor. scripts/reactor/2408003.js:30-34,35-43 is
+    the human touch path that sets 'summoned' and spawns the same head again; a bot never runs it (its click is
+    onHit/act, the script defines only touch)"
+  - "scripts/reactor/2401000.js:26-30,33 - room 3 is empty until this reactor is hit; it then spawns the intro, the
+    body and the parts (src/main/java/server/maps/MapleMap.java:4908-4954) and restarts the timer to 60 minutes"
+  - "scripts/portal/hontale_BR.js - the doors: room 2 needs defeatedHead >= 1, room 3 needs defeatedHead >= 2. The WZ
+    portal name is not in the repo, so the run enters the next room by map id (SolverStep.WarpTo), never by name"
+  - "src/main/java/server/maps/MapleMap.java:4939-4947 - a part's damage and heal are forwarded to the body, the same
+    shape as Zakum, so the parts come before the body; :1786-1810 wakes the body when a part dies"
+  - "src/main/java/constants/id/MobId.java - HORNTAIL_PREHEAD_LEFT/RIGHT 8810000/8810001, parts 8810002-8810009,
+    corpses 8810010-8810017, HORNTAIL 8810018, SUMMON_HORNTAIL 8810026"
+stages:
+  - stage: 1
+    map: 240060000
+    name: Horntail, the first head
+    solver: boss-phases
+    timeLimitMinutes: 120
+    # no summonProperty: the setup spawns 8810000 itself (HorntailBattle.js:86-89), so waiting for a summon would wait
+    # forever - a bot's click on 2408003 runs onHit/act and that script defines only touch()
+    mobs:
+      - 8810000
+    objectives:
+      - id: head
+        kind: DEFEAT
+        mob: 8810000
+        note: the first head; the reactor also puts the fake body 8800000 in the room, which is never a target
+    # the script's own count, set as each head dies (HorntailBattle.js:237-238)
+    clear:
+      eventProperty: defeatedHead
+      equals: 1
+  - stage: 2
+    map: 240060100
+    name: Horntail, the second head
+    solver: boss-phases
+    timeLimitMinutes: 120
+    # no summonProperty, for the same reason as room 1: HorntailBattle.js:91-93 spawns 8810001 at setup
+    mobs:
+      - 8810001
+    objectives:
+      - id: head
+        kind: DEFEAT
+        mob: 8810001
+        note: the second head
+    clear:
+      eventProperty: defeatedHead
+      equals: 2
+  - stage: 3
+    map: 240060200
+    name: Horntail, the body
+    solver: boss-phases
+    # the room's own clock: reactor 2401000 restarts the script's timer to 60 minutes when it is hit (2401000.js:33)
+    timeLimitMinutes: 60
+    # no summonProperty: reactor 2401000 sets none. The room is empty before it is hit, so the bots hit the reactor
+    # themselves (SolverStep.HitReactor); the solver clicks each listed reactor once per stage.
+    hitReactors: [2401000]
+    mobs:
+      - 8810002
+      - 8810003
+      - 8810004
+      - 8810005
+      - 8810006
+      - 8810007
+      - 8810008
+      - 8810009
+      - 8810018
+    objectives:
+      - id: parts
+        kind: DEFEAT
+        mob: 8810002
+        note: the three heads, hands, wings, legs and tail 8810002-8810009; their damage is forwarded to the body
+      - id: body
+        kind: DEFEAT
+        mob: 8810018
+        note: offered once no part is left standing
+    # the script's own victory (HorntailBattle.js:187-194)
+    clear:
+      eventProperty: defeatedBoss
+      equals: 1

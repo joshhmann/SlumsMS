@@ -1,5 +1,6 @@
 package soloMapling.ArtificialPlayer.GCMoveSystem;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import testutil.PropsRestored;
 
 /*
  * NN-011, the v67 phantom shared-ground guard for TELEPORT edges (nutnnut/Cosmic 43b9f06c8, their graph v70 part b,
@@ -21,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * parks at its launch gate. Teleport edges were not checked. On the Deity Room (600020100) a mage was routed by
  * TELEPORT r97->r73 onto the shared foot and parked on tele-pos.
  */
+@ExtendWith(PropsRestored.class)
 class TeleportPhantomGuardTest {
 
     private static final int DEITY_ROOM = 600020100;

@@ -1,0 +1,79 @@
+# Ticket 130 phase 5 phase A2: Zakum, the real fight (1.6.4, branch 164-bossfight).
+#
+# Read only when the server runs with -Dslums.mechanics.boss=true (off by default). The run drives the party's bots and
+# owned alts; the humans fight as they always did, and the human leader summons the boss at the Eye of Fire altar.
+#
+# A boss room is not a party quest: its script (ZakumBattle.js) sets defeatedBoss=0 at setup, so a clear on the
+# property's mere presence would fire on the first tick. This row clears on the property's value (defeatedBoss=1, set
+# when the kill target 8800002 dies) and not on the parts it can see: the arms are shields - while one stands, a hit on
+# the body is swallowed (MapleMap.java:1530-1541 bossDamageBlocked, enforced for a player at :1631-1635 and for a bot at
+# BotAttackEffects.java:228-234) - so "the body hit" is not the win.
+id: zakum
+name: Zakum (expedition)
+kind: BOSS
+eventScript: ZakumBattle
+recruitMap: 211042400
+# exitMap is where a member is sent when the run ends (MechanicsRuns.endInstance), not the script's own exit
+# variable: the script sends everyone to 211042400 itself (ZakumBattle.js:159-162), so a run ended early by us goes to
+# the same place.
+exitMap: 211042400
+# the script's own gate (ZakumBattle.js:29). Bots join as party members, so the party still has to have six.
+minPlayers: 6
+maxPlayers: 30
+minLevel: 50
+maxLevel: 255
+timeLimitMinutes: 120
+sources:
+  - "scripts/event/ZakumBattle.js (ours, the truth): one map 280030000 (min and max, :29,34-35), 120-minute eventTime,
+    minPlayers 6, exit 211042400 (:159-162), defeatedBoss set to 0 at setup (:101) and to 1 when 8800002 dies
+    (:199-205), the clearPQ at :185-188. The only changeMap calls are playerEntry :102-106 and playerExit, so there is no
+    stage transition and no nextPortal."
+  - "scripts/reactor/2111001.js (ours): the Eye of Fire altar click (:28) sets summoned=true and spawns the fake body
+    8800000 plus the eight arms 8800003-8800010 (:29-31). The arms exist ONLY after that click, so the solver waits for
+    the summon before it treats a standing body as a target."
+  - "src/main/java/server/maps/MapleMap.java:1530-1541 bossDamageBlocked - while an arm lives, damage aimed at the body
+    is swallowed, so the eight arms are what the party kills first (a player's hit at :1631-1635, a bot's at
+    BotAttackEffects.java:228-234); :1785-1810 un-fakes the body 8800000 when the last arm dies. That is all the map
+    code does: it spawns no body. The chain 8800000 -> 8800001 -> 8800002 is WZ data (Mob.wz/8800000.img.xml 'revive' 0
+    = 8800001, 8800001 -> 8800002, 8800002 none), consumed by Monster.killBy
+    (src/main/java/server/life/Monster.java:899-973: :903 reads getRevives(), :924-933 spawns the next phase)."
+  - "src/main/java/constants/id/MobId.java:27-40 (body 8800000-8800002, arms 8800003-8800010)"
+  - "Cross-checked against BotStory (AGPL-3.0) 81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364:
+    server/agents/capabilities/expedition/zakum/AgentZakumScenario.java (arms before the body, melee takes the floor arms
+    first) and server/agents/capabilities/expedition/boss/BossTargetRules.java (the phases and tiers ported here)"
+stages:
+  - stage: 1
+    map: 280030000
+    name: Zakum
+    solver: boss-phases
+    # the altar reactor's property (2111001.js:28): before the click only the fake body and the map's own 8800002 stand
+    # and neither is a target, so no body is offered until this is set.
+    summonProperty: summoned
+    # every part that can stand in the room, in the order the fight wants them: the arms, then the body's three forms
+    mobs:
+      - 8800003
+      - 8800004
+      - 8800005
+      - 8800006
+      - 8800007
+      - 8800008
+      - 8800009
+      - 8800010
+      - 8800000
+      - 8800001
+      - 8800002
+    objectives:
+      - id: arms
+        kind: DEFEAT
+        mob: 8800003
+        note: the eight arms 8800003-8800010; each is a shield for the body and one arm's death wakes the next
+      - id: body
+        kind: DEFEAT
+        mob: 8800000
+        note: the body takes no damage at all while an arm is up, so it is only offered once the last arm fell
+    # the only thing that ends this room: the script's own victory. 8800002 has no spawn site in our scripts or server
+    # code - it is the map's WZ life - and the solver ends the run with a reason rather than spinning if it is absent.
+    clear:
+      eventProperty: defeatedBoss
+      equals: 1
+    # no nextPortal: one map, no stage transition

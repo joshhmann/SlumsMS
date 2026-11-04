@@ -108,6 +108,8 @@ public final class BotPerformanceMonitor {
     private static final Phase NUDGE = phase("nudge", Bucket.BACKGROUND, true);
     private static final Phase OBSERVER_POLL = phase("observer-poll", Bucket.BACKGROUND, false);
     private static final Phase OFFSCREEN_ACCRUAL = phase("offscreen-accrual", Bucket.BACKGROUND, true);
+    // social layer (bonds, gossip, bot talk, social actions): runs on the director/talk threads, not inside a macro tick.
+    private static final Phase SOCIAL_TICK = phase("social-tick", Bucket.BACKGROUND, false);
 
     private static final Phase PROMOTION_RECONSTRUCT = phase("promotion-reconstruct", Bucket.TRANSITION, false);
     private static final Phase COARSE_DEMOTION = phase("coarse-demotion", Bucket.TRANSITION, false);
@@ -190,6 +192,11 @@ public final class BotPerformanceMonitor {
     /* One full movement tick body for one bot, which carries nav-resolve, pathfind and the move-* work. */
     public static void recordMovementTick(long nanos) {
         MOVEMENT_TICK.add(nanos, 0);
+    }
+
+    /* One pass of the social layer (bond step, gossip step, bot-talk tick, social actions). */
+    public static void recordSocialTick(long nanos) {
+        SOCIAL_TICK.add(nanos, 0);
     }
 
     /* One idle standing refresh, nested inside the macro tick that asked for it. */

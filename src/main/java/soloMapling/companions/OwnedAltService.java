@@ -27,7 +27,7 @@ public final class OwnedAltService {
     /** 1.6.0.4: said on arrival after a channel change sent the owner's alts home. */
     public static final String WENT_HOME = "Your alts went home. Changing channel sends them home (saved); call them again with @botme <name>.";
     /** Audit b132: said on arrival when a channel change could not save an alt. */
-    public static final String HOME_FAILED = "Your alts were sent home when you changed channel, but one could not be saved. Please contact a GM before logging into it.";
+    public static final String HOME_FAILED = "Your alts were sent home when you changed channel, but one could not be saved. Logging into it goes back to its last save.";
     /** Audit #6 (b117): a channel change that never arrives (a disconnect mid-change) stops blocking @botme after this. */
     static final long TRANSITION_TTL_MS = 60_000;
     /** Audit #7 (b117): failed save/close attempts before a closing alt is given up on and taken out of the world. */
@@ -315,8 +315,18 @@ public final class OwnedAltService {
                 if (login) entries.put(id, new Entry(null, State.LOGIN));
                 return;
             }
-            if (entry.state == State.FAILED && entry.detached)
-                throw new IllegalStateException("That character could not be saved when it went home. Please contact a GM before logging into it.");
+            if (entry.state == State.FAILED && entry.detached) {
+                // AL-1 (ticket 183): a given-up save must not lock the character out of login for the life of the
+                // process. The failed copy is already out of the world, so a login only reads the last save from the
+                // database - the same copy a restart would hand back - and the failed mark goes with it.
+                if (!login)
+                    throw new IllegalStateException("That character could not be saved when it went home. Logging into it goes back to its last save.");
+                audit(entry, "cleared the failed save mark at login alt=" + id);
+                org.slf4j.LoggerFactory.getLogger(OwnedAltService.class)
+                        .warn("Owned alt {} (id {}) was locked out by a failed save; mark cleared at login", entry.alt, id);
+                entries.put(id, new Entry(null, State.LOGIN));
+                return;
+            }
             if (entry.state != State.ACTIVE && !(entry.state == State.FAILED && !login))
                 throw new IllegalStateException("That character is still being loaded or saved. Please try again shortly.");
             entry.state = State.SAVING;
@@ -325,6 +335,7 @@ public final class OwnedAltService {
             if (!entry.saved) {
                 backend.closing(entry.alt); // outside the monitor: the tick it waits for may call back into us
                 backend.leaveEvent(entry.alt); // K6: out of a PQ first, so it is saved in town and ends nobody's run
+                soloMapling.ArtificialPlayer.BotPartySystem.ExpeditionDoor.leaveExpedition(entry.alt); // and out of its expedition's member list: a ghost there spends a boss-log entry in its name
                 backend.save(entry.alt);
                 entry.saved = true;
                 audit(entry, "save committed alt=" + id);
@@ -364,8 +375,8 @@ public final class OwnedAltService {
 
     /**
      * Audit #7 (b117): FAILED is terminal after SAVE_TRIES failures: the alt leaves the world (no ghost standing
-     * untickable on the map) and frees its companion slot; its login stays blocked (its last save is older than what
-     * it carried) until a GM looks.
+     * untickable on the map) and frees its companion slot. AL-1 (ticket 183): the mark no longer outlives the login -
+     * {@link #beginLogin} and {@link #clearFailed} drop it, so its player is never locked out until a restart.
      */
     private void giveUp(int id, Entry entry, RuntimeException why) {
         if (!entry.detached) {
@@ -376,12 +387,36 @@ public final class OwnedAltService {
             }
         }
         synchronized (this) { entry.detached = true; }
-        audit(entry, "gave up on alt=" + id + " after " + SAVE_TRIES + " failed saves: out of the world, slot freed, login blocked");
+        audit(entry, "gave up on alt=" + id + " after " + SAVE_TRIES + " failed saves: out of the world, slot freed, mark cleared at login");
         org.slf4j.LoggerFactory.getLogger(OwnedAltService.class)
-                .error("Owned alt {} could not be saved after {} tries; taken out of the world, login blocked", id, SAVE_TRIES, why);
+                .error("Owned alt {} could not be saved after {} tries; taken out of the world, its login goes back to the last save", id, SAVE_TRIES, why);
         if (entry.owner != null && entry.alt != null) {
-            entry.owner.yellowMessage(entry.alt.getName() + " could not be saved and was sent away. Please contact a GM before logging into it.");
+            entry.owner.yellowMessage(entry.alt.getName() + " could not be saved and was sent away. Logging into it picks up its last save.");
         }
+    }
+
+    /**
+     * AL-1 (ticket 183): {@code !alts clear <id>} - drop a given-up alt's failed-save mark on a GM's word, without
+     * waiting for its player to try logging in. Returns the line for the GM who ran the command.
+     */
+    public String clearFailed(int id) {
+        Entry entry;
+        synchronized (this) {
+            entry = entries.get(id);
+            if (entry == null || entry.state != State.FAILED) {
+                return "No failed save is holding character " + id + ".";
+            }
+            if (!entry.detached) {
+                return (entry.alt != null ? entry.alt.getName() : "Character " + id)
+                        + " is still being saved again. Try `!alts clear " + id + "` in a moment.";
+            }
+            entries.remove(id);
+        }
+        String name = entry.alt != null ? entry.alt.getName() : "character " + id;
+        audit(entry, "cleared the failed save mark by GM alt=" + id);
+        org.slf4j.LoggerFactory.getLogger(OwnedAltService.class)
+                .warn("Owned alt {} (id {}) cleared by a GM: failed-save mark dropped, login allowed", name, id);
+        return name + "'s failed save is cleared. It can log in and be called again.";
     }
 
     /**

@@ -37,6 +37,8 @@ import tools.Randomizer;
 
 import java.util.List;
 
+import static java.util.concurrent.TimeUnit.HOURS;
+
 /**
  * @author Jay Estrella
  * @author kevintjuh93
@@ -62,9 +64,9 @@ public final class ItemRewardHandler extends AbstractPacketHandler {
             if (Randomizer.nextInt(rewards.getLeft()) < reward.prob) {//Is it even possible to get an item with prob 1?
                 if (ItemConstants.getInventoryType(reward.itemid) == InventoryType.EQUIP) {
                     final Item item = ii.getEquipById(reward.itemid);
-                    if (reward.period != -1) {
-                        // TODO is this a bug, meant to be 60 * 60 * 1000?
-                        item.setExpiration(currentServerTime() + reward.period * 60 * 60 * 10);
+                    long expiration = rewardExpiration(currentServerTime(), reward.period);
+                    if (expiration != -1) {
+                        item.setExpiration(expiration);
                     }
                     InventoryManipulator.addFromDrop(c, item, false);
                 } else {
@@ -72,14 +74,41 @@ public final class ItemRewardHandler extends AbstractPacketHandler {
                 }
                 InventoryManipulator.removeById(c, InventoryType.USE, itemId, 1, false, false);
                 if (reward.worldmsg != null) {
-                    String msg = reward.worldmsg;
-                    msg.replaceAll("/name", c.getPlayer().getName());
-                    msg.replaceAll("/item", ii.getName(reward.itemid));
+                    String msg = rewardMessage(reward.worldmsg, c.getPlayer().getName(), ii.getName(reward.itemid));
                     Server.getInstance().broadcastMessage(c.getWorld(), PacketCreator.serverNotice(6, msg));
                 }
                 break;
             }
         }
         c.sendPacket(PacketCreator.enableActions());
+    }
+
+    /**
+     * Expiration stamp (epoch millis) for an equip granted by a reward box, or -1 when the reward entry carries no
+     * {@code period} node (WZ default -1).
+     * <p>
+     * The WZ {@code reward/period} unit is HOURS. The one entry in the shipped client data that this method can
+     * actually reach is {@code Item.wz/Consume/0202.img.xml} items 02022503-02022524/02022550: their reward 0 grants
+     * equip 1132010 with period 7200, i.e. 300 days. 1132010 / 1000000 = 1, so it is an EQUIP and the gate above is
+     * what sends it here. Unreachable, but corroborating the same "whole days times 24" shape, is
+     * {@code Item.wz/Cash/0553.img.xml} item 05530000 (4170012, period 21600): 4170012 / 1000000 = 4, an ETC item,
+     * so it takes the addById branch and its period is never consulted - it is not evidence for this method's unit,
+     * only for how the field is written. Reading the field as days would make the pig's egg cape expire in 7200 days
+     * (about 19.7 years), which is indistinguishable from permanent and would make the number meaningless.
+     */
+    static long rewardExpiration(long now, int period) {
+        if (period == -1) {
+            return -1;
+        }
+        return now + HOURS.toMillis(period);
+    }
+
+    /**
+     * Substitutes the two tokens the WZ {@code reward/worldMsg} template uses: {@code /name} becomes the winner's name
+     * and {@code /item} the granted item's name. {@link String#replace} is literal on purpose - the template is plain
+     * WZ text, and a player name is player-supplied data that must never be read as a regular expression.
+     */
+    static String rewardMessage(String template, String playerName, String itemName) {
+        return template.replace("/name", playerName).replace("/item", itemName);
     }
 }

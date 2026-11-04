@@ -1,0 +1,51 @@
+# What a bot says after the content run it was in has ended (1.6.4 run chatter, owner 2026-11-03: "woo we beat" /
+# "dang we tried but failed"). Win: the run cleared its last stage. Loss: the party played it and could not finish it.
+# A run that a human stopped, that lost its members or that never started has no lines: the bots say nothing.
+#
+# Said by the bot's own tick (BotRunOutcome), only where a real player can see it and inside the ambient chat budget,
+# never from the run's thread. {CONTENT} is the content's name as players say it ("Kerning PQ", "Zakum"); it is
+# filled in when the run ends, so no token reaches chat. WinPq/LossPq are for party quests, WinBoss/LossBoss for expeditions and boss rows.
+WinPq:
+  - "woo we beat {CONTENT}!"
+  - "{CONTENT} cleared, gg"
+  - "gg guys, we got {CONTENT}"
+  - "we did it! {CONTENT} done"
+  - "yesss {CONTENT} cleared"
+  - "nice run guys, {CONTENT} cleared"
+  - "woo! finally got {CONTENT}"
+  - "gg wp, we cleared {CONTENT}"
+  - "we did it, gg"
+  - "that was a good {CONTENT} run"
+WinBoss:
+  - "woo we killed {CONTENT}!"
+  - "{CONTENT} down, gg"
+  - "we beat {CONTENT}! gg all"
+  - "yesss {CONTENT} is dead"
+  - "gg wp, {CONTENT} down"
+  - "finally, {CONTENT} went down"
+  - "nice one guys, {CONTENT} done"
+  - "we did it, gg"
+  - "wooo {CONTENT} cleared"
+  - "that was a good {CONTENT} run"
+LossPq:
+  - "dang, we failed {CONTENT}"
+  - "aww we didnt clear {CONTENT}"
+  - "{CONTENT} didnt work out, oh well"
+  - "ugh we failed {CONTENT}, next time"
+  - "well we tried {CONTENT}... didnt make it"
+  - "rip {CONTENT}, we didnt get it this time"
+  - "dang, no clear on {CONTENT}"
+  - "we tried, didnt clear. gl next time"
+  - "aw we didnt finish {CONTENT}"
+  - "ah well, we tried {CONTENT}"
+LossBoss:
+  - "dang, {CONTENT} got us"
+  - "aww we couldnt kill {CONTENT}"
+  - "{CONTENT} beat us this time"
+  - "rip, we failed {CONTENT}"
+  - "we tried {CONTENT}, didnt work out"
+  - "ugh {CONTENT} was too much for us"
+  - "dang we lost to {CONTENT}"
+  - "well we tried. {CONTENT} next time"
+  - "we tried but failed, oh well"
+  - "ah well, no {CONTENT} today"

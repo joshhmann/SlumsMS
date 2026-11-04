@@ -1,6 +1,7 @@
 package soloMapling.ArtificialPlayer.BotLifeSystem;
 
 import client.Character;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import testutil.PropsRestored;
 
 /**
  * 1.6.1 say-do (ticket 114, "then they really do it"): a bot that said yes to a come-along (or whose crew's leader
@@ -32,6 +34,7 @@ import static org.mockito.Mockito.when;
  * the yes only tilted its next decision and a bot hanging out kept its stay (TEST 2026-10-28: 7 of 178 come-alongs
  * arrived). A bot that cannot drop what it is doing says why, so it can answer no instead.
  */
+@ExtendWith(PropsRestored.class)
 class LifeRuntimeSayDoTest {
 
     static final int HENESYS = 100000000, ELLINIA = 101000000;

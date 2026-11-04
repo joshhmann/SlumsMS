@@ -30,7 +30,7 @@ var expedMembers;
 var player;
 var em;
 const ExpeditionType = Java.type('server.expeditions.ExpeditionType');
-const exped = ExpeditionType.ZAKUM;
+var exped = ExpeditionType.ZAKUM;
 var expedName = "Zakum";
 var expedBoss = "Zakum";
 var expedMap = "Zakum's Altar";
@@ -38,15 +38,37 @@ var expedItem = 4001017;
 
 var list = "What would you like to do?#b\r\n\r\n#L1#View current Expedition members#l\r\n#L2#Start the fight!#l\r\n#L3#Stop the expedition.#l";
 
+/**
+ * 1.6.4 (branch 164-bossrows, chaos round): the Chaos Zakum expedition, offered only when the server turns it on with
+ * -Dslums.chaos.zakum=true. It is the same altar one instance id over, so the whole menu above works unchanged once
+ * these four names point at the chaos expedition.
+ */
+function chaosEnabled() {
+    return java.lang.System.getProperty("slums.chaos.zakum") == "true";
+}
+
+function useChaos() {
+    exped = ExpeditionType.CHAOS_ZAKUM;
+    expedName = "ChaosZakum";
+    expedBoss = "Chaos Zakum";
+    expedMap = "Chaos Zakum's Altar";
+    em = cm.getEventManager("ChaosZakumBattle");
+}
+
+/** Who is talking, which expedition they belong to and which event serves it (chaos once the menu switched over). */
+function refresh() {
+    player = cm.getPlayer();
+    expedition = cm.getExpedition(exped);
+    em = cm.getEventManager(exped == ExpeditionType.CHAOS_ZAKUM ? "ChaosZakumBattle" : "ZakumBattle");
+}
+
 function start() {
     action(1, 0, 0);
 }
 
 function action(mode, type, selection) {
 
-    player = cm.getPlayer();
-    expedition = cm.getExpedition(exped);
-    em = cm.getEventManager("ZakumBattle");
+    refresh();
 
     if (mode == -1) {
         cm.dispose();
@@ -61,7 +83,8 @@ function action(mode, type, selection) {
                 cm.sendOk(player.getLevel() < exped.getMinLevel() ? "You need to be at least level " + exped.getMinLevel() + " to battle " + expedBoss + "." : "You need to be level " + exped.getMaxLevel() + " or lower to battle " + expedBoss + ".");
                 cm.dispose();
             } else if (expedition == null) { //Start an expedition
-                cm.sendSimple("#e#b<Expedition: " + expedName + ">\r\n#k#n" + em.getProperty("party") + "\r\n\r\nWould you like to assemble a team to take on #r" + expedBoss + "#k?\r\n#b#L1#Lets get this going!#l\r\n\#L2#No, I think I'll wait a bit...#l");
+                var chaos = chaosEnabled() ? "\r\n#L3#Take on Chaos Zakum instead (level 120+).#l" : "";
+                cm.sendSimple("#e#b<Expedition: " + expedName + ">\r\n#k#n" + em.getProperty("party") + "\r\n\r\nWould you like to assemble a team to take on #r" + expedBoss + "#k?\r\n#b#L1#Lets get this going!#l\r\n\#L2#No, I think I'll wait a bit...#l" + chaos);
                 status = 1;
             } else if (expedition.isLeader(player)) { //If you're the leader, manage the exped
                 if (expedition.isInProgress()) {    // thanks Conrad for noticing exped leaders being able to still manage in-progress expeds
@@ -124,6 +147,15 @@ function action(mode, type, selection) {
                 cm.sendOk("Sure, not everyone's up to challenging " + expedBoss + ".");
                 cm.dispose();
 
+            } else if (selection == 3 && chaosEnabled()) {
+                useChaos();
+                if (em == null) {
+                    cm.sendOk("The Chaos Zakum event could not be initialized, please report this on the forum.");
+                    cm.dispose();
+                    return;
+                }
+                status = 0;
+                action(1, 0, 0);    // the same menu, now pointed at the chaos expedition
             }
         } else if (status == 2) {
             if (selection == 1) {

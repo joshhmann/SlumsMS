@@ -29,6 +29,10 @@ public class BotWhyCommand extends Command {
         Character chr = bot.getChr();
         if (chr != null) {
             lines.addAll(soloMapling.ArtificialPlayer.BotLifeSystem.SocialSelf.of(chr.getId()).describe());
+            // 1.6.4 stage 6a: its mode and its social mind (mood, top two emotions, strongest need), memory only
+            lines.addAll(soloMapling.ArtificialPlayer.BotSocialSystem.SocialMetrics.whyLines(chr.getId(), bot, now));
+            // 1.6.4 stage 5: the promises it means to keep (live intents), memory only
+            lines.addAll(soloMapling.ArtificialPlayer.BotSocialSystem.SocialMetrics.intentLines(chr.getId(), now));
             // 1.6.0 S2: its top bonds with other bots, and its crew (where they are)
             lines.addAll(soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.describe(chr.getId()));
             // 1.6.0 S9: what it learned (quadrant, crossings, today's budget), the fads it follows, its band's trends

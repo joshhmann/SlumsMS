@@ -196,7 +196,8 @@ public final class BotPopulationDirector {
 
     /** A weighted-sampling key: the highest keys log in, in-window players far more often than off-window ones. */
     private static double loginKey(Candidate c, int minuteOfDay, Random rng) {
-        double weight = c.inWindow(minuteOfDay) ? 1.0 : OFF_WINDOW_WEIGHT;
+        double weight = (c.inWindow(minuteOfDay) ? 1.0 : OFF_WINDOW_WEIGHT)
+                * soloMapling.ArtificialPlayer.BotSocialSystem.SocialPilot.loginBoost(c.botId()); // 1.6.4 stage 7: the pilot logs in first
         return Math.pow(rng.nextDouble(), 1.0 / weight);
     }
 
@@ -490,6 +491,7 @@ public final class BotPopulationDirector {
             long now = System.currentTimeMillis();
             PlayerWealthIndex.maybeUpdate();   // 1.6.0: hourly, off-thread, returns at once otherwise
             soloMapling.ArtificialPlayer.BotLifeSystem.LifeLearning.maybeStep(now); // 1.6.0 S9: 5-min sweep, off-thread
+            soloMapling.ArtificialPlayer.BotSocialSystem.SocialPilot.maybeStep(now, BotPopulationDirector::activeRosterSlots); // 1.6.4 stage 7: who is in the pilot
             List<Candidate> roster = candidates();
             int target = curve().target(directorPeak(), local);
             Plan plan = plan(roster, guildOfRoster(), target, local.getHour() * 60 + local.getMinute(), now, maxLogins,
@@ -533,6 +535,8 @@ public final class BotPopulationDirector {
             BotWorldGossip.maybeStep(now); // ticket 85: bots bring up boss kills, weddings and big drops
             soloMapling.ArtificialPlayer.BotPartySystem.BotPartyChat.maybeStep(now); // ticket 85: bot-only parties chat
             soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.maybeStep(now); // 1.6.0 S2: bot-to-bot bonds
+            soloMapling.ArtificialPlayer.BotLifeSystem.ModeSwitch.maybeLogSummary(now, log); // 1.6.4: mode census and counters
+            soloMapling.ArtificialPlayer.BotSocialSystem.SocialLod.maybeStep(now, CharacterStorage.getAllBots().values()); // 1.6.4 S6b: tier census and slow maintenance
             soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.maybeStep(now); // ticket 58: a handful of couples
             soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.maybeStep(now); // 1.5.0: bot guilds
             soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.maybeStep(now); // 1.5.0: bot drama (romance, rivals, wars)
@@ -570,6 +574,9 @@ public final class BotPopulationDirector {
     private static List<Candidate> candidates() {
         List<Candidate> roster = new ArrayList<>();
         long now = System.currentTimeMillis();
+        ZonedDateTime local = localNow();
+        int minuteOfDay = local.getHour() * 60 + local.getMinute();
+        int held = 0;
         for (BotRoster.Member m : BotRoster.members()) {
             BotSM live = CharacterStorage.getBotById(m.charId());
             BotPersonality.Traits traits = m.traits();
@@ -582,11 +589,31 @@ public final class BotPopulationDirector {
             // 1.6.0 S7: a bot that rage quit stays away for its hours (RageQuit logs it back in itself)
             boolean active = m.status() == BotRoster.Status.ACTIVE && (online
                     || !soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.awayAfterRageQuit(m.charId(), now));
+            // 1.6.4 stage 7: a pilot bot inside its own play window is held online: no session-length logout, not trimmed
+            // above the curve (a zero session length never ends, and mayLogOut false skips the trim). Outside its window,
+            // and for every other way a session ends (stop, GM, rage quit), it is an ordinary roster bot.
+            boolean pilotHold = online && soloMapling.ArtificialPlayer.BotSocialSystem.SocialPilot.holds(m.charId(), windowStart,
+                    windowLen, minuteOfDay);
+            if (pilotHold) {
+                held++;
+            }
             roster.add(new Candidate(m.botId(), online, active, m.lastLoginAt(),
-                    m.lastLogoutAt(), windowStart, windowLen, session, online && mayEndSession(live)
+                    m.lastLogoutAt(), windowStart, windowLen, pilotHold ? 0 : session, !pilotHold && online && mayEndSession(live)
                     && !soloMapling.ArtificialPlayer.BotConvo.LfgParty.holds(m.charId()), ended)); // 1.6.0: LFG trip
         }
+        soloMapling.ArtificialPlayer.BotSocialSystem.SocialPilot.setHeld(held);
         return roster;
+    }
+
+    /** The roster slots of the members that may log in (for the pilot's selection; read at most every ten minutes). */
+    private static java.util.List<Integer> activeRosterSlots() {
+        java.util.List<Integer> out = new ArrayList<>();
+        for (BotRoster.Member m : BotRoster.members()) {
+            if (m.status() == BotRoster.Status.ACTIVE) {
+                out.add(m.botId());
+            }
+        }
+        return out;
     }
 
     /**

@@ -11,11 +11,14 @@ import soloMapling.ArtificialPlayer.BotTypes.FollowerBot;
 import soloMapling.ArtificialPlayer.BotTypes.SocialBot;
 import soloMapling.ArtificialPlayer.BotTypes.TrainingBot;
 import soloMapling.server.BotShutdown;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.function.Consumer;
 
 import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.expirePlayerChatCommands;
 import static soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getBotById;
@@ -25,6 +28,10 @@ import static soloMapling.server.ExecutorServiceManager.getScheduledExecutorServ
 import static soloMapling.BotLogger.log;
 
 public class Dispatcher implements Runnable {
+
+    private static final Logger LOG = LoggerFactory.getLogger(Dispatcher.class);
+    /** How many times a line whose delivery threw goes back on the queue before it is dropped. */
+    private static final int RETRIES = 1;
 
     private static final Dispatcher dispatcher = new Dispatcher(MessageQueue.getInstance());
     private final MessageQueue messageQueue;
@@ -54,32 +61,58 @@ public class Dispatcher implements Runnable {
 
     //    @Override
     private void processMessages() {
-        // Every waiting line, not one per pass: at one line per 2 s pass, a burst of more than five lines outlives
-        // the queue's 10 s expiry (QueueCleaner) and the tail is dropped before any bot sees it.
-        ChatMessage message;
-        while ((message = messageQueue.getMessageNonBlocking("primary")) != null) {
-            dispatch(message);
+        drain(messageQueue, this::dispatch);
+    }
+
+    /**
+     * One pass over the waiting lines of the primary queue, handing each to {@code deliver}. A line whose delivery
+     * throws is not lost: it goes back on the queue after the pass and is tried again on the next one, once
+     * ({@link #RETRIES}); a second failure drops it with an error in the log, so one bad line cannot loop forever.
+     * It keeps its original timestamp, so the queue's 10 s expiry (QueueCleaner) still clears a line that has gone
+     * stale. Package-private so a test can run a pass over its own queue.
+     */
+    static void drain(MessageQueue queue, Consumer<ChatMessage> deliver) {
+        List<ChatMessage> retry = new ArrayList<>();
+        try {
+            // Every waiting line, not one per pass: at one line per 2 s pass, a burst of more than five lines
+            // outlives the queue's 10 s expiry (QueueCleaner) and the tail is dropped before any bot sees it.
+            ChatMessage message;
+            while ((message = queue.getMessageNonBlocking("primary")) != null) {
+                try {
+                    deliver.accept(message);
+                } catch (Exception e) {
+                    if (message.noteDispatchFailure() <= RETRIES) {
+                        LOG.warn("Dispatcher: delivery of {}'s line failed, retrying on the next pass: {}",
+                                message.getSender().getName(), message.getContent(), e);
+                        retry.add(message);
+                    } else {
+                        LOG.error("Dispatcher: delivery of {}'s line failed again, dropping it: {}",
+                                message.getSender().getName(), message.getContent(), e);
+                    }
+                }
+            }
+        } finally {
+            // after the loop, not inside it: a failed line waits for the next pass instead of being re-polled now
+            for (ChatMessage message : retry) {
+                queue.requeueMessage("primary", message);
+            }
         }
     }
 
     private void dispatch(ChatMessage message) {
-        try {
-            if (partyOrder(message)) {
-                return;
-            }
-            Collection<Character> chars_on_map = message.getMap().getCharacters();
-            final int[] botToCall = new int[1];  // Using an array to hold the bot ID
+        if (partyOrder(message)) {
+            return;
+        }
+        Collection<Character> chars_on_map = message.getMap().getCharacters();
+        final int[] botToCall = new int[1];  // Using an array to hold the bot ID
 
-            boolean characterFound = checkIfCharacterOnMap(chars_on_map, message, botToCall);
+        boolean characterFound = checkIfCharacterOnMap(chars_on_map, message, botToCall);
 
-            // Determine if the message is for any registered bot
-            if (characterFound) {
-                handleBotRunning(botToCall, message);
-            } else if (!routeWithoutExactName(chars_on_map, message)) {
-                handleMessageWithNoBotName(message);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+        // Determine if the message is for any registered bot
+        if (characterFound) {
+            handleBotRunning(botToCall, message);
+        } else if (!routeWithoutExactName(chars_on_map, message)) {
+            handleMessageWithNoBotName(message);
         }
     }
 

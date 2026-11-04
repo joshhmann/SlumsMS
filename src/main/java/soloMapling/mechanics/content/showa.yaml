@@ -1,0 +1,58 @@
+# Ticket 130 boss lane, branch 164-bossrows: Showa (1.6.4).
+#
+# Read only when the server runs with -Dslums.mechanics.boss=true (off by default). One room, opened by a reactor a bot
+# clicks, and a three-form chain that ends the instance on the script's own timer.
+#
+# What OUR scripts say the room is:
+#  - the gate is the script's own: 3-30 players, levels 100-255, one lobby (ShowaBattle.js:29-30,41);
+#  - the room is opened by reactor 8001000 (Map.wz/Map/Map8/801040100.img.xml; the map's own life also holds NPC 9120202
+#    and trash mobs that the script respawns every 15 s, :112-116). The reactor is act()-based
+#    (scripts/reactor/8001000.js:22-23) so a bot's click reaches it (Reactor.java:242-246); it spawns 9400112 at
+#    (420,160) and nothing else;
+#  - the fight is a WZ revive chain: 9400112 -> 9400113 (Mob.wz/9400112.img.xml revive/0) -> 9400300
+#    (Mob.wz/9400113.img.xml revive/0), and 9400300 has none. 9400300 is isTheBoss (ShowaBattle.js:209-211);
+#  - the clear is clearPQ (ShowaBattle.js:196-207): killAllMonsters on the fight map, stopEventTimer, then
+#    setEventCleared(SHOWA). No property decides it -> instance: true, and the instance's own 60-minute timer is the
+#    backstop.
+#  - the bonus map 801040101 is DROPPED, and this is deliberate. The bonus mob 9400114 is spawned by clearPQ itself
+#    (:200-205) in the very call that clears, on a map the party never walks to, and the solver has no step that would
+#    take a bot there. A second stage would therefore be a stage whose only content is a monster the clear already
+#    spawned, and whose emptiness the row would then have to declare. The money drop that matters is 9400300's own.
+#
+# The wz facts are from /root/work/SlumsMS-170-evan/wz, which is not version-pinned to this branch (docs/PROVENANCE.md).
+id: showa
+name: Showa (expedition)
+kind: BOSS
+eventScript: ShowaBattle
+recruitMap: 801040004
+exitMap: 801040004
+minPlayers: 3
+maxPlayers: 30
+minLevel: 100
+maxLevel: 255
+timeLimitMinutes: 60
+sources:
+  - "scripts/event/ShowaBattle.js (ours, the truth): minPlayers 3 / maxPlayers 30, levels 100-255 (:29-30), entryMap 801040100 and exitMap 801040004 (:31-32), clearMap 801040101 (:34), minMapId 801040100 / maxMapId 801040101 (:36-37), eventTime 60 (:39), maxLobbies 1 (:41), respawnStages keeps the trash alive (:112-116), clearPQ (:196-207) killAllMonsters + stopEventTimer + setEventCleared(SHOWA) + the bonus spawn, isTheBoss = 9400300 (:209-211), monsterKilled (:213-221)"
+  - "scripts/reactor/8001000.js:22-23 - act() spawns 9400112 at (420,160); act()-based, so Reactor.java:242-246 sends a bot's click to it"
+  - "Map.wz/Map/Map8/801040100.img.xml (dump /root/work/SlumsMS-170-evan/wz): the map's life holds NPC 9120202, the trash mobs and reactor 8001000, no boss. Mob.wz/9400112.img.xml revive/0 = 9400113, Mob.wz/9400113.img.xml revive/0 = 9400300, Mob.wz/9400300.img.xml none"
+stages:
+  - stage: 1
+    map: 801040100
+    name: Showa
+    solver: boss-phases
+    # the bot clicks 8001000 once; 9400112 arrives from that click, so the room may stand empty until it does.
+    hitReactors: [8001000]
+    # 60 s is a policy number (the click, the spawn and a respawn animation, with margin), not a WZ one.
+    spawnWaitSeconds: 60
+    mobs:
+      - 9400112
+      - 9400113
+      - 9400300
+    objectives:
+      - id: boss
+        kind: DEFEAT
+        mob: 9400300
+        note: the last form of the revive chain, and the id isTheBoss waits for
+    # ShowaBattle.js:196-207 writes no property; the instance's own flag is the clear.
+    clear:
+      instance: true

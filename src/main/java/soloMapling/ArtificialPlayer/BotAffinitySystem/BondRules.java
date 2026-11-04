@@ -55,9 +55,13 @@ public final class BondRules {
         return faded(bond.score, now - bond.updatedAt);
     }
 
-    /** Whether the bond has faded to nothing (it may be dropped). */
+    /**
+     * Whether the bond has faded to nothing (it may be dropped): its score is under {@link AffinityRules#FADED} and no
+     * axis but familiarity still holds a feeling (0.03, as 3 of 100). A grudge the score forgot but resentment kept is
+     * not dropped.
+     */
     public static boolean faded(Bond bond, long now) {
-        return Math.abs(scoreAt(bond, now)) < AffinityRules.FADED;
+        return Math.abs(scoreAt(bond, now)) < AffinityRules.FADED && Axes.feeling(axesAt(bond, now)) < 0.03;
     }
 
     /** Which state the bond is in now (NEUTRAL for none). */
@@ -88,11 +92,25 @@ public final class BondRules {
     }
 
     /**
-     * Applies one event at {@code now} with an already-scaled {@code delta}. False (nothing changes) when the pair's
-     * cooldown for it is still running (unless {@code ignoreCooldown}: QA acceleration only) or the delta is 0.
+     * Applies one event at {@code now} with an already-scaled {@code delta} to the score, and the event's
+     * {@link AxisTable} row to the axes (a neutral character). See the {@link Persona} overload.
      */
     public static boolean apply(Bond bond, BondEvent event, double delta, long now, boolean ignoreCooldown) {
-        if (delta == 0) {
+        return apply(bond, event, delta, now, ignoreCooldown, Persona.NEUTRAL);
+    }
+
+    /**
+     * Applies one event at {@code now}: {@code delta} (already Bartle-scaled) to the score exactly as before, and the
+     * event's {@link AxisTable} row, scaled by {@code persona}, to the faded axes; then the stage moves at most one
+     * rung ({@link Stage#step}) from where time left it. False (nothing changes) when the pair's cooldown for the
+     * event is still running (unless {@code ignoreCooldown}: QA acceleration only), or the delta is 0 and the event
+     * has no axis effect either. An event with a 0 delta and an axis row ({@link BondEvent#GIFT_GIVEN}) moves the
+     * axes only.
+     */
+    public static boolean apply(Bond bond, BondEvent event, double delta, long now, boolean ignoreCooldown,
+                                Persona persona) {
+        double[] row = AxisTable.scaled(event, persona);
+        if (delta == 0 && AxisTable.isZero(row)) {
             return false;
         }
         long last = bond.lastAt(event);
@@ -101,6 +119,8 @@ public final class BondRules {
             return false;
         }
         double current = scoreAt(bond, now);
+        double[] axes = axesAt(bond, now);
+        Stage prev = Stage.settle(bond.stage, axes, false);
         if (Math.abs(current) < AffinityRules.FADED) {
             bond.kind = 0;      // a faded history is forgotten: earning a state starts over
             bond.hostile = 0;
@@ -108,11 +128,32 @@ public final class BondRules {
         bond.score = Math.max(-MAX, Math.min(MAX, current + delta));
         if (delta > 0) {
             bond.kind = Math.min(999, bond.kind + 1);
-        } else {
+        } else if (delta < 0) {
             bond.hostile = Math.min(999, bond.hostile + 1);
         }
+        bond.axes = Axes.plus(axes, row);
+        bond.stage = Stage.step(prev, bond.axes, true);
         bond.updatedAt = now;
         bond.stamp(event, now);
+        bond.dirty = true;
+        return true;
+    }
+
+    /**
+     * Ticket 271 stage 5: moves the axes only by {@code row} (already scaled) at {@code now}: the score, kind and
+     * hostile counters stay as they are, so nothing that reads the legacy score sees it; the stage moves at most one
+     * rung. A row of nothing changes nothing and returns false.
+     */
+    public static boolean nudge(Bond bond, double[] row, long now) {
+        if (AxisTable.isZero(row)) {
+            return false;
+        }
+        double[] axes = axesAt(bond, now);
+        Stage prev = Stage.settle(bond.stage, axes, false);
+        bond.score = scoreAt(bond, now); // the score is stored as of updatedAt: bring it to now before the stamp moves
+        bond.axes = Axes.plus(axes, row);
+        bond.stage = Stage.step(prev, bond.axes, true);
+        bond.updatedAt = now;
         bond.dirty = true;
         return true;
     }
@@ -134,5 +175,25 @@ public final class BondRules {
         bond.score = score;
         bond.kind = kind;
         bond.hostile = hostile;
+        bond.axes = Axes.legacy(score, kind, hostile);
+        bond.stage = Stage.settle(Stage.STRANGER, bond.axes, true);
+    }
+
+    // ── ticket 271 stage 2: axes and stage ──
+
+    /** The bond's eight axes faded to {@code now} (a new vector; each axis by its own half-life). */
+    static double[] axesAt(Bond bond, long now) {
+        return Axes.faded(bond.axes, now - bond.updatedAt);
+    }
+
+    /** The bond's stage at {@code now}: the stored stage, cooled by whatever time has faded (never raised by time). */
+    static Stage stageAt(Bond bond, long now) {
+        return Stage.settle(bond.stage, axesAt(bond, now), false);
+    }
+
+    /** How much the bond matters when a full list must drop one ({@link Axes#significance}). */
+    static double significance(Bond bond, long now) {
+        double[] axes = axesAt(bond, now);
+        return Axes.significance(scoreAt(bond, now), axes, Stage.settle(bond.stage, axes, false));
     }
 }

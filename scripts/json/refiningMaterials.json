@@ -1237,46 +1237,26 @@
     "name": "Genesis Fragment",
     "itemId": 4036539,
     "quantity": 1,
+    "cost": 1000000,
+    "requiredLevel": 225,
+    "requiredMakerLevel": 3,
     "materials": [
       {
-        "itemId": 4001890,
-        "amount": 4
+        "itemId": 4036535,
+        "amount": 1
       },
       {
-        "itemId": 4033732,
-        "amount": 4
+        "itemId": 4036536,
+        "amount": 1
       },
       {
-        "itemId": 4001693,
-        "amount": 24
+        "itemId": 4036537,
+        "amount": 1
       },
       {
-        "itemId": 4000659,
-        "amount": 10
-      },
-      {
-        "itemId": 4001893,
-        "amount": 4
-      },
-      {
-        "itemId": 4001894,
-        "amount": 4
-      },
-      {
-        "itemId": 4032133,
-        "amount": 64
-      },
-      {
-        "itemId": 4001094,
-        "amount": 48
-      },
-      {
-        "itemId": 4021010,
-        "amount": 40
+        "itemId": 4036538,
+        "amount": 1
       }
-    ],
-    "cost": 100000000,
-    "requiredLevel": 1,
-    "requiredMakerLevel": 3
+    ]
   }
 ]

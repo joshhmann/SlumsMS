@@ -244,7 +244,7 @@ class OwnedAltCompanionTest {
         assertFalse(s.fighting);
         assertEquals(OwnedAltGate.Why.OWNER_IDLE, s.gate);
         assertEquals(1, s.swings.get(), "no swing while its owner idles");
-        verify(owner, times(1)).yellowMessage(OwnedAltGate.Why.OWNER_IDLE.tell);
+        verify(owner, times(1)).yellowMessage(OwnedAltGate.Why.OWNER_IDLE.tell(alt.getName()));
         movement.verify(() -> GCMovement.follow(alt, owner), Mockito.atLeastOnce());
         OwnedAltGate.forceIdleForQa(OWNER, false); // the owner moves again: it joins in again
         OwnedAltCompanion.tick(owner, alt, s, NOW + 600, 0);
@@ -398,12 +398,12 @@ class OwnedAltCompanionTest {
         for (int i = 0; i < 10; i++) {
             OwnedAltCompanion.tick(owner, alt, s, NOW + i * 200L, i % 2 == 0 ? OwnedAltGate.FIGHTING_PER_MAP : 0);
         }
-        verify(owner, times(1)).yellowMessage(OwnedAltGate.Why.MAP_FULL.tell);
+        verify(owner, times(1)).yellowMessage(OwnedAltGate.Why.MAP_FULL.tell(alt.getName()));
         for (int i = 0; i < 30; i++) { // open for six seconds: the line may be said again
             OwnedAltCompanion.tick(owner, alt, s, NOW + 2_000 + i * 200L, 0);
         }
         OwnedAltCompanion.tick(owner, alt, s, NOW + 9_000, OwnedAltGate.FIGHTING_PER_MAP);
-        verify(owner, times(2)).yellowMessage(OwnedAltGate.Why.MAP_FULL.tell);
+        verify(owner, times(2)).yellowMessage(OwnedAltGate.Why.MAP_FULL.tell(alt.getName()));
     }
 
     /** Audit B13: once its save begins, a tick in flight finishes first and no later tick loots or swings. */
