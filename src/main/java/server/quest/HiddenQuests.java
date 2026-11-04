@@ -19,7 +19,7 @@ import java.util.TreeMap;
  * <ul>
  *   <li>skill-book quests whose reward skill MapleRoot removed from Skill.wz (the player would do the whole quest
  *       for a skill that does not exist);</li>
- *   <li>MapleRoot's own unfinished chains (Von Leon, Henesys Ruins): steps that need an item nothing drops, an NPC
+ *   <li>MapleRoot's own unfinished chains (Henesys Ruins; the Von Leon chain came back in 1.6.4): steps that need an item nothing drops, an NPC
  *       that stands on no map, or that only follow such a step. Steps that work are not here.</li>
  *   <li>medal quests that ask for a medal item nothing in the server hands out, and whose acts grant nothing
  *       anyway.</li>
@@ -51,9 +51,9 @@ public final class HiddenQuests {
         // (tools/data-align/add_maker_skill.py), so the chain teaches Maker 1/2/3. That data is a release step per
         // server, not code, so the chain is kept out of this map and gated in isHidden() on the skill being loaded.
 
-        // --- MapleRoot's Von Leon chain (3163 and 3172 work on their own and stay) ---
-        hide(ALL_JOBS, 3164, 3165, 3166, 3167, 3168, 3169, 3170, 3171);
-        hide(ALL_JOBS, 3173, 3174, 3175, 3176, 3177, 3181, 3182);
+        // --- the Von Leon chain 3163-3177, 3181-3182 is open again (1.6.4, owner Round 7): every item has a quest-only
+        // drop (065-lkc-quest-drops), Murt 2160000 has his Npc.wz entry (tools/data-align/add_murt.py) and the Von Leon
+        // NPCs and the Rose Garden golem stand on their maps. The fight itself keeps the rebirth gate (2161000.js).
 
         // --- MapleRoot's Henesys Ruins quests that need an item nothing gives (or follow one that does) ---
         hide(ALL_JOBS, 31110, 31111, 31114, 31115, 31116, 31117, 31118, 31122, 31123);

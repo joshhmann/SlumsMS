@@ -43,9 +43,9 @@ class HiddenQuestsTest {
     private static final int SAYRAM = 6150;             // hidden for Paladins only (Heaven's Hammer is gone)
     private static final int NPC = 1052001;
 
-    // 3168 is already on the hidden list and Quest.wz marks it autoStart; the fixture gives it the start item act
+    // 31110 is on the hidden list; the fixture marks it autoStart and gives it the start item act
     // that 3181's block carries, so the ordering inside Quest.start is observable
-    private static final int HIDDEN_AUTO_START = 3168;
+    private static final int HIDDEN_AUTO_START = 31110;
     private static final int OPEN_AUTO_START = 3140;    // not hidden, same autoStart and same granting act
     private static final int GRANTED_ITEM = 4032859;
 
@@ -146,13 +146,14 @@ class HiddenQuestsTest {
     @Test
     void theOwnersListIsHidden() {
         for (int id : new int[]{6141, 6150, 6153, 6200, 6202, 6330, 6340, 6350, 6410,
-                3164, 3182, 31110, 31160}) {
+                31110, 31160}) {
             assertTrue(HiddenQuests.ids().contains(id), id + " must be hidden");
         }
         // these work and must stay: lead-ins, Holy Charge (6280 still teaches 1221003), the Arcane Path to 5th job,
         // the Rebirth Path, Henesys Ruins steps whose mobs and NPCs exist
         // Moren's Maker chain 6029-6036 came back in 1.6.2 (ticket 112)
         for (int id : new int[]{6029, 6030, 6031, 6032, 6033, 6034, 6035, 6036, 6140, 6280, 6281, 3163, 3172, 31100, 31104, 31108, 31149, 31153, 31161, 31167,
+                3164, 3165, 3166, 3167, 3168, 3169, 3170, 3171, 3173, 3174, 3175, 3176, 3177, 3181, 3182,
                 31168, 31170}) {
             assertFalse(HiddenQuests.ids().contains(id), id + " must stay startable");
         }
