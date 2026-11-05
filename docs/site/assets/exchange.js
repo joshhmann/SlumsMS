@@ -27,10 +27,14 @@
   var CATALOG = /^[SUE][0-9]{7}$/;  // the item catalog's ids (exchange_desk.py CATALOG)
   var CATS = [["all", "All items"], ["scroll", "Scrolls"], ["use", "Use"], ["etc", "Etc"]];
   var PAGE = 40;  // the item browser shows this many rows, then "Show more"
+  // a catalog item is called by its name (owner 2026-11-05: "show items name"); its code (S2040602) stays small beside it
+  var NAMES = {};  // catalog id -> item name, from the last whole ticker list (for orders, which carry only the id)
   function label(t) {  // a ticker object, or a bare id
     var id = typeof t === "string" ? t : t && t.id;
+    if (id && CATALOG.test(id)) return (t && t.name) || NAMES[id] || id;
     return (id && TICKER_LABEL[id]) || id || "";
   }
+  function isCatalog(t) { return !!(t && CATALOG.test(typeof t === "string" ? t : t.id)); }
   function fmt(n) { return n === null || n === undefined ? "-" : nf.format(n); }
   function short(v) {
     if (v === null || v === undefined) return "-";
@@ -181,7 +185,7 @@
     var base = window.live(API + "book", 10);
     var init = base.init;
     return extend(base, {
-      fmt: fmt, short: short, when: when, clock: clock, pct: pct, dirOf: dirOf, icon: icon, iconFail: iconFail, label: label,
+      fmt: fmt, short: short, when: when, clock: clock, pct: pct, dirOf: dirOf, icon: icon, iconFail: iconFail, label: label, isCatalog: isCatalog,
       range: "3d", ranges: [["24h", DAY], ["3d", 3 * DAY], ["7d", 7 * DAY], ["30d", 30 * DAY]],
       candles: [], candlesFor: "",
       cats: CATS, cat: "all", q: "", sort: "volume", shown: PAGE, all: null, fullAt: 0,
@@ -192,7 +196,11 @@
       },
       merge: function (d) {  // a lite answer replaces its tickers in the last whole list and keeps the rest
         if (!d || !d.tickers) return;
-        if (!d.lite || !this.all) { this.all = d.tickers; this.fullAt = Date.now(); return; }
+        if (!d.lite || !this.all) {
+          this.all = d.tickers; this.fullAt = Date.now();
+          d.tickers.forEach(function (t) { if (CATALOG.test(t.id) && t.name) NAMES[t.id] = t.name; });
+          return;
+        }
         var fresh = {};
         d.tickers.forEach(function (t) { fresh[t.id] = t; });
         this.all = this.all.map(function (t) { return fresh[t.id] || t; });
@@ -430,7 +438,7 @@
     var base = window.live(API + "me", 20);
     var init = base.init;
     return extend(base, {
-      fmt: fmt, when: when, lim: lim, label: label,
+      fmt: fmt, when: when, lim: lim, label: label, isCatalog: isCatalog,
       side: "BUY", qty: null, price: null, character: "", busy: false, msg: "", msgClass: "", pv: null, left: 0, clock: null,
       stale: false, staleGame: false, needPw: false, pw: "",
       init: function () {

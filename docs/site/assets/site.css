@@ -757,6 +757,7 @@ table.t { width: 100%; border-collapse: collapse; }
   background: var(--xc-panel); border: 1px solid var(--xc-line); color: var(--xc-ink); }
 .xc-tk img { grid-row: 1 / 3; }
 .xc-tk b { font-size: .82rem; letter-spacing: .06em; } .xc-tk span { grid-column: 2; font-size: .8rem; }
+.xc-tk.xc-tkname b { letter-spacing: 0; max-width: 16em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .xc-tk small { grid-column: 3; grid-row: 1 / 3; font-size: .74rem; font-weight: 700; }
 .xc-tk.on { border-color: var(--xc-sun); box-shadow: inset 0 -3px 0 var(--xc-sun); }
 .xc-last { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }

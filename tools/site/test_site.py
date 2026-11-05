@@ -991,6 +991,7 @@ console.log(JSON.stringify(out));""")
         for bit in ('x-model.debounce.200ms="q"', '<template x-for="t in page"', "trade(t.id, 'SELL')", "shown += 40"):
             self.assertIn(bit, flat)
         self.assertIn("log out of the game first, or sell while you're playing that character", flat)
+        self.assertIn("isCatalog(cur) ? cur.id : cur.name", flat, "a catalog item is called by its name, its code small")
         self.assertNotIn("so it needs the character logged in", flat)
         line = database.exchange_line
         self.assertIn('data-xc-item="2040805"', line({"stats": {}}, 2040805))

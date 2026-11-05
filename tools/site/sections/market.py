@@ -725,7 +725,7 @@ update: the patch notes will say when.</p>
 <template x-for="e in events" :key="e.id"><p class="xc-alert xc-event" @click="e.ticker && pick(e.ticker)"><b>Market event:</b>
 <span x-text="eventText(e)"></span></p></template></div>
 <nav class="xc-tabsbar" style="grid-area: tabs" aria-label="Tickers"><template x-for="t in tabs" :key="t.id">
-<button type="button" class="xc-tk" :class="cur && cur.id === t.id && 'on'" @click="pick(t.id)" :aria-pressed="cur && cur.id === t.id">
+<button type="button" class="xc-tk" :class="[cur && cur.id === t.id && 'on', isCatalog(t) && 'xc-tkname']" @click="pick(t.id)" :aria-pressed="cur && cur.id === t.id">
 <img :src="icon(t)" alt="" width="22" height="22" loading="lazy" @error="iconFail($event)"><b x-text="label(t)"></b>
 <span x-text="short(t.last)"></span><small :class="dirOf(t.change_24h_pct)" x-text="pct(t.change_24h_pct)"></small></button></template></nav>
 <section class="xc-p xc-browse" style="grid-area: browse" x-show="hasCatalog" x-cloak><h2>Items
@@ -750,7 +750,7 @@ x-text="'Show more (' + (found.length - shown) + ' left)'"></button></p>
 takes orders: set yours.</p></section>
 <header class="xc-tick" style="grid-area: tick" x-show="cur && cur.id !== 'NX'" x-cloak>
 <div class="xc-sym"><img :src="icon(cur)" alt="" width="36" height="36" @error="iconFail($event)"><div><b x-text="label(cur)"></b>
-<span x-text="cur && cur.name"></span></div></div>
+<span x-text="cur && (isCatalog(cur) ? cur.id : cur.name)"></span></div></div>
 <div class="xc-last"><b x-text="fmt(cur && cur.last)">-</b><span :class="dir" x-text="pct(cur && cur.change_24h_pct)"></span>
 <small x-text="unit"></small></div>
 <dl class="xc-stats">
