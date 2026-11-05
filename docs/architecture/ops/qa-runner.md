@@ -61,14 +61,14 @@ Client-MCP worker start (owner, on the Windows box): `Start-QA.cmd` — self-ele
    `check_id/key/note`, `tools/ops/autoqa-proof:89-112`), cross-checked against `AutoQaCatalog.java`
    (`catalogue_ids`, `:152-170`) so an undeclared id or a repeated id is a hard error (`:169,183`). A key of `-` means
    manual-only, `-Dprop=value` means a switch the check needs (`:104-110`). Verdicts: docs-only and tests-only exit 0
-   with prose (`:238-243`), a covered change prints a pasteable `tools/ops/autoqa-run <ids>` line (`:358,390`), nothing
-   covered exits 3 (`:392`). It never queues anything.
+   with prose (`:238-243,344`), a covered change prints a pasteable `tools/ops/autoqa-run <ids>` line (`:321,379`),
+   nothing covered exits 3 (`:371,385`). It never queues anything.
 7. **Feature-health sweep.** `feature-health` fetches or loads `live.json` (`:134-137,145`), reads every row of
    `tools/ops/feature-health.tsv` (`:58-65`), evaluates the rule (`:67-113`) with helpers `fail_rate`/`per_hour`/`ratio`,
    groups by feature and sorts worst-first (`:119-132`), then prints `feature-health: N OK, N SILENT, N FAILING, N SLOW
    (uptime Xh)` (`:155`) and exits 1 only when something is FAILING (`:166`).
 8. **Map / PQ audit.** `map-integrity` indexes `Map.wz/Map/**` plus `Mob/Npc/Reactor/String.wz` and classifies ten issue
-   kinds (`tools/ops/map-integrity:143-200,234-245`), ignoring `portalInertTarget` in the exit code (`:266`).
+   kinds (`tools/ops/map-integrity:139-190,234-245`), ignoring `portalInertTarget` in the exit code (`:266`).
    `pq-audit` finds every `scripts/event/*.js` with `isPq = true` (`tools/ops/pq-audit:175-180`), parses its
    eligibility and maps (`:44-54`), then diffs the maps against stock Cosmic (`:116-130`) and labels the delta
    deliberate (level cap 255, scroll rewards, quantity/order only) or "review" (`:136-163`).
@@ -206,7 +206,7 @@ into a verdict.
 ## State
 
 `working`, with two open accuracy defects and one review gap. Evidence: the queue path is complete and tested offline
-(`test_autoqa_run.sh`, `test_autoqa_proof.py:187-211`), the guard is tested at shell level (`test_testhost.sh`) and in
+(`test_autoqa_run.sh`, `test_autoqa_proof.py:169-187`), the guard is tested at shell level (`test_testhost.sh`) and in
 `test_qatools.py:249-295`, the report carries per-check evidence (build/mode/commit/logs) so a FAIL can be cited
 (`AutoQaReport.java:125-148`), and docs/ops/qa-suite.md records full runs on TEST (`d4f103b0e`, 2026-10-30, 181 checks,
 9,578 s; 187 checks at 4 lanes the next day). Partial: parallel accuracy (b284) and the worker's batched-event handling

@@ -2,9 +2,9 @@
 
 ## Purpose
 
-The workstation scripts that take a Windows client build, prove it differs from the shipped client only where someone said
-it may, and publish it as an immutable feed layer with a release manifest pointing at it. The launcher's own pipeline and
-the gates both share are in `../launcher/publishing.md`; this page is the operator side.
+The workstation scripts that take a Windows client build, prove it differs from the shipped client only where someone said it
+may, and publish it as an immutable feed layer plus a release manifest pointing at it. The launcher's own pipeline and the
+gates both share are documented in `../launcher/publishing.md`; this page is the operator side.
 
 ## Entry points
 
@@ -16,16 +16,16 @@ the gates both share are in `../launcher/publishing.md`; this page is the operat
 | `tools/release/release <v>` | `--client-version`, `--source`, `--news`, `--no-packs`, `--no-client`, `--host-env`, `--inject`, `--yes`, `--dry-run` (`release:50-56`) | step 3 = `publish-client … --no-announce` with the server down (`:170-182`) |
 | `tools/release/set-min-client-build <config.yaml> <build>` | `--dry-run`, `--allow-lower`, `--show` (`:4-5`) | rewrites the `MIN_CLIENT_BUILD:` line under `server:` |
 | `tools/release/publish-launcher <build dir>` | `--version X.Y.Z`, `--out DIR`, `--sync-publisher`, `--dry-run` (`:4-18`) | launcher channel; see the sibling page |
-| `slumsms-monitor client-ready live <v>` (host) | target, release (`publish-client:152-155`) | Cody's "client is in the launcher" post |
+| `slumsms-monitor client-ready live <v>` (host) | target, release (`publish-client:152-155`) | "client is in the launcher" post |
 
 ## How it works
 
 1. **Pick the gate first.** `MIN_CLIENT_BUILD` is a release-conf key (`docs/release/1.6.4.conf:284`) that `gen-deploy`
    copies into the deploy script (`gen-deploy:19,85-88`) and the apply step writes into live's config
    (`templates/deploy.body.sh:243`); stage that build, nothing cross-checks the pair.
-2. **Stage.** `stage-client` hashes `slums.dll`, `slums-build.txt`, `Custom.wz` on the build desktop
-   (`stage-client:47,50-63`), scp's and re-hashes ("changed in transit", `:79-84`), parses the stamp (`:91-92`) and only
-   *warns* on a release-prefix mismatch (`:93`) — see `../client/build-stamp-and-version.md:358`.
+2. **Stage.** `stage-client` hashes `slums.dll`, `slums-build.txt`, `Custom.wz` on the build desktop (`stage-client:47,50-63`),
+   scp's and re-hashes ("changed in transit", `:79-84`), parses the stamp (`:91-92`) and only *warns* on a release-prefix
+   mismatch (`:93`) — see `../client/build-stamp-and-version.md:358`.
 3. **Build the tree.** A full copy, not hardlinks (`cp -a --no-preserve=links -T`, `:118`), of the layer players have
    (`:96-99`); `slums.dll`, `Custom.wz`, `slums-build.txt` and `--data` targets are unlinked first so nothing is written
    through (`:120,126-130`). `$OUT` must be empty (`:101`), `<v>` unpublished (`:102`), both path shapes re-checked after
@@ -53,10 +53,10 @@ the gates both share are in `../launcher/publishing.md`; this page is the operat
    retryable (`release:178`, `docs/release/README.md:51`).
 9. **Undo a manifest, or do it all at once.** `--restore-manifest` verifies every layer it names is still published
    (`:47-57`), keeps the replaced file as `manifest-replaced-<UTC>.json`, writes atomically via `.restore` + `mv`, mirrors
-   `/launcher-test/` when `layers` is a symlink, and posts nothing (`:59-63`). `tools/release/release` runs all of this in one
-   command: pre-flight dry run (`:125`), the publish with the server down (`:170-182`), and on failure `restore_manifest`
-   then `--phase restart-old` (`:176-177`); `--inject` needs a scratch feed (`:61-65`). Order rule: "old server + old
-   client, or new server + new client, never new client + old server" (`docs/release/README.md:44`).
+   `/launcher-test/` when `layers` is a symlink, and posts nothing (`:59-63`). `tools/release/release` runs all of this in
+   one command: pre-flight dry run (`:125`), the publish with the server down (`:170-182`), and on failure
+   `restore_manifest` then `--phase restart-old` (`:176-177`); `--inject` needs a scratch feed (`:61-65`). Order rule: "old
+   server + old client, or new server + new client, never new client + old server" (`docs/release/README.md:44`).
 
 **Manual vs automated.** What no script does, and therefore never checks:
 
@@ -76,9 +76,9 @@ the gates both share are in `../launcher/publishing.md`; this page is the operat
 - **Staging** `/srv/slums-staging` (`publish-lib.sh:3`): `client-<v>/`, `client-<v>.STAGED.txt`, `news-<v>.json`,
   `manifest-before-<release>.json` (the way back; never overwritten with differing bytes, `publish-client:142-144`),
   `manifest-replaced-<UTC>.json`, `reference-client.hashes.json` (`:8`, `(size, mtime)` cache, `verify-client.py:43-68`).
-- **Transient**: `/tmp/slums-client-allow.txt` (`publish-client:103,117`), a `.mapleroot-publish-*` dir inside the target
-  layer while hashing, `/tmp/slums-launcher-dryrun.*` (`publish-launcher:28-29`); `release` tees to
-  `dist/release-runs/release-<v>-<UTC>.log` (`release:68`). `publish-client` writes no log, it prints.
+- **Transient**: `/tmp/slums-client-allow.txt` (`publish-client:103,117`), `.mapleroot-publish-*` inside the target layer
+  while hashing, `/tmp/slums-launcher-dryrun.*` (`publish-launcher:28-29`); `release` tees to
+  `dist/release-runs/release-<v>-<UTC>.log` (`release:68`); `publish-client` only prints.
 
 ## Switches
 
@@ -143,7 +143,8 @@ Later shape commits: `aee6f180d` (live-endpoint refusal), `23eae9ffb` (`--no-pac
 
 ## Tests and QA
 
-`python3 -m unittest discover -s tools/release -p 'test_*.py'` (`tools/release/README.md:126`): all offline, `ssh`/`scp` stubbed (`test_publish_client_rerun.py:29-37`), scratch feed.
+`python3 -m unittest discover -s tools/release -p 'test_*.py'` (`tools/release/README.md:126`): all offline, `ssh`/`scp`
+stubbed (`test_publish_client_rerun.py:29-37`), scratch feed.
 
 - `tools/release/test_publish_client_rerun.py` — `NewsRulesTest:55` runs 25 fixtures (`:56-63`) against the Python
   checker *and* the publisher's `validateManifest` (`:71`); `PublishClientRerunTest:84` shows bad news stops both the dry
@@ -151,15 +152,14 @@ Later shape commits: `aee6f180d` (live-endpoint refusal), `23eae9ffb` (`--no-pac
   aborts (`:170-178`); `LayerManifestMirrorTest:182` pins odd file names against `publish.mjs` (`:183-196`).
 - `tools/release/test_live_endpoint.py` — passes (`:69`); test host/port refused (`:74`); case and spacing ignored (`:80`);
   no `config.ini` refused (`:84`); a published manifest checked too (`:88`); a move needs the flag (`:94`); `main` fails on
-  the endpoint even when the hash-diff passes (`:101`); `--live-feed` only for the live feed (`:122-125`).
+  the endpoint though the hash-diff passes (`:101`); `--live-feed` only for the live feed (`:122-125`).
 - `tools/release/test_release_config.py` — the gate helper: lower value refused with bytes unchanged (`:40-45`), idempotent
   with inode/mode/CRLF kept (`:47-59`), no-final-newline kept (`:61-65`), `--dry-run` writes nothing (`:75-78`); ordering
   asserts for step 3 before apply-start and the deploy's `"$MIN_CLIENT_BUILD"` call (`:271,283-288`); `--no-packs`
   regression (`:289-299`). `test_stage_client_lib.py` covers `parse`/`data_spec`.
 
-**Not covered:** `stage-client` end to end (every step is ssh/scp), `publish-launcher`, the `/launcher-test/` mirror
-(`publish-client:147-150`), `--restore-manifest` failures beyond the dry run, any real reference tree; and auto-QA has no
-publishing scenario — nothing under `src/main/java/soloMapling/qa/` reads the feed, so `!qa` cannot see a bad layer.
+**Not covered:** `stage-client` end to end (all ssh/scp), `publish-launcher`, the `/launcher-test/` mirror
+(`publish-client:147-150`), `--restore-manifest` failures, any real reference tree; auto-QA never reads the feed, so `!qa` cannot see a bad layer.
 
 ## Known issues
 
@@ -178,16 +178,16 @@ publishing scenario — nothing under `src/main/java/soloMapling/qa/` reads the 
   `--out` is unvalidated (`:15`), so a typo publishes into a fresh empty folder that answers 404.
 - NEW-FINDING: `client-allow.txt` goes to one fixed host path, `/tmp/slums-client-allow.txt` (`publish-client:103,117`), so
   overlapping publishes clobber each other's review artefact mid-run.
-- NEW-FINDING: `--restore-manifest` re-checks that layers exist but not the endpoint (`:47-57`), so a manifest naming a
-  client with another `config.ini` restores silently.
+- NEW-FINDING: `--restore-manifest` checks that layers exist but not the endpoint (`:47-57`); a manifest naming a client
+  with another `config.ini` restores silently.
 
 ## State
 
 **Working**, offline-proven, not runtime-verified here: the tests drive the real `publish-client` and `publish_checks.py`
 against a scratch feed; `client-allow.txt:5` came from the published 1.3.0 set; ticket 44 ran `publish-client` only as
-`--dry-run`, the host publisher being out of sync (`docs/tickets/44-release-pipeline.md:58-61`). `/srv/slums-patch` is not
-on this workstation, so the live manifest, the layer list and whether `launcher-rc` exists are unknown; live's client layer
-is `layers/client/1.2.1` per `docs/ops/lxc125-architecture.md:101` — a doc, not a read.
+`--dry-run`, its host publisher out of sync (`docs/tickets/44-release-pipeline.md:58-61`). `/srv/slums-patch` is not on this
+workstation, so the live manifest, the layer list and whether `launcher-rc` exists are unknown; live's client layer is
+`layers/client/1.2.1` per `docs/ops/lxc125-architecture.md:101` — a doc, not a read.
 
 ## Open questions
 
@@ -197,4 +197,4 @@ is `layers/client/1.2.1` per `docs/ops/lxc125-architecture.md:101` — a doc, no
   MIN_CLIENT_BUILD stays 10721" (`:10-11`) and its in-game check still says "1.6.2 client, build 10721 or later" (`:297`),
   while `docs/release/1.6.4-playbook.md:17,28` says 10740. Nothing cross-checks; the header looks stale.
 - **Is `client-allow.txt` current for 1.6.4?** Captured from the 1.3.0 set (`:5`); a change inside a listed glob passes, one
-  outside fails. Whether the list was refreshed is not recorded.
+  outside fails; whether the list was refreshed is not recorded.
