@@ -127,8 +127,8 @@ class SiteBuildTest(unittest.TestCase):
         with open(os.path.join(self.out, "patch-notes", "1.6.4", "index.html"), encoding="utf-8") as f:
             flat = " ".join(f.read().split())
         self.assertIn("150,000,000 mesos per account per day", flat)
-        self.assertIn("Every scroll, use item and etc item has a ticker", flat)
-        self.assertIn("The wedding NPCs load again", flat)
+        self.assertIn("The exchange trades items now", flat)
+        self.assertIn("You can marry your own alt", flat)
         for bad in ("MapleStory", "Nexon", "Wizet", "GMS", "v83", "MapleRoot"):
             self.assertNotIn(bad, flat)
 
