@@ -68,44 +68,42 @@ inbox/outbox folder.
 9. The next page view (step 4 above) shows the post. The JS tells the player it will appear "once the game checks
    it, within a minute or two" (docs/site/assets/market.js:325) — true only while the server runs.
 
-**Moderation.** A player's own take-down is `close_post` with the row's account equal to the session's
+**Moderation.** A player's own take-down is `close_post` when the row's account equals the session's
 (tools/site/market_service.py:464-465, `status='closed'`). A GM take-down needs a session signed in within
-`GM_FRESH = 12 h` (`gm_fresh`, tools/site/market_service.py:455-457, audit W13); a stale GM cookie gets 401 (:466-467)
-and a fresh one sets `status='removed', reason='taken down by a GM'` (:468-469); anyone else gets 403 (:470-471).
-In game, `!board remove` reaches `SiteBoard.gmRemove` (SiteBoard.java:202-209) → `Engine.remove` (SiteBoard.java:574-600)
-which records the id in the state file, drops it from both lists and rewrites `removed.json`; the site's `_removed`
-then flips the row to `status='removed'` on its next sync (tools/site/market_service.py:266-272). Rejections travel
-the same way through `rejected.json` (`_rejected`, tools/site/market_service.py:258-264) and both reasons show up on
-My market under the post (docs/site/assets/market.js:201-202).
+`GM_FRESH = 12 h` (`gm_fresh`, :455-457, audit W13): a stale GM cookie gets 401 (:466-467), a fresh one sets
+`status='removed', reason='taken down by a GM'` (:468-469), anyone else gets 403 (:470-471). In game, `!board remove`
+reaches `SiteBoard.gmRemove` (SiteBoard.java:202-209) → `Engine.remove` (:574-600), which records the id in the state
+file, drops it from both lists and rewrites `removed.json`; the site's `_removed` flips the row to
+`status='removed'` on its next sync (tools/site/market_service.py:266-272). Rejections travel the same way through
+`rejected.json` (:258-264) and both reasons show on My market under the post (docs/site/assets/market.js:201-202).
 
-**Offers.** Bots answer posts from the server side only: `offerOnNew` fires on the first sighting
-(SiteBoard.java:448-455), `moreOffers` allows a second offer an hour later at 25% (SiteBoard.java:457-467, constants
-SiteBoard.java:66-67), `deliver` whispers any online character of the account or leaves a note, re-checking the post is
-still open and the bot still has the item or the mesos (SiteBoard.java:495-533). The site never sees an offer until
-`offers.json` is read for the bell (tools/site/market_service.py:316-335).
+**Offers.** Bots answer from the server side only: `offerOnNew` fires on the first sighting (SiteBoard.java:448-455),
+`moreOffers` allows one more an hour later at 25% (:457-467, constants :66-67), and `deliver` whispers any online
+character of the account or leaves a note, re-checking the post is still open and the bot still has the item or the
+mesos (:495-533). The site only sees offers in `offers.json`, for the bell (tools/site/market_service.py:316-335).
 
 **The NPC.** `npcPage(int)` returns a closed message when the engine is null (SiteBoard.java:160-166); otherwise
 `npcPage(List, page)` shows 8 posts newest-first as `#eBuy/Sell Board#n` with `#bWTB#k`/`#rWTS#k`, `#t<item>#`,
-`PriceBook.shorthand` and `#d<character>#k`, with `#L0`/`#L1` Next/Previous (SiteBoard.java:168-201).
+`PriceBook.shorthand` and `#d<character>#k`, plus `#L0`/`#L1` paging (:168-201).
 
 ## Data
 
 | Where | Shape | Written by |
 |---|---|---|
-| `/var/lib/slums-market/market.db` | `posts(id, account, character, kind, item, qty, price, created, expires, status, reason)`; also `watch`, `alerts`, `cards`, `seen_files`, `notes_seen` | tools/site/market_service.py:79-89 (schema), :451-452 (insert) |
-| `inbox/posts.json` | `{schema:1, generated_at, posts:[{id, account, character, kind, itemId, qty, price, createdAt, expiresAt}]}`, open rows only, oldest first | tools/site/market_service.py:274-292 |
-| `inbox/alerts.json` | `{schema:1, generated_at, accounts:{"<acct>":{watch:[], alerts:[{id,itemId,dir,price,armed,armedAt}]}}}` | tools/site/market_service.py:283-291 |
-| `outbox/board.json` | `{schema:1, generated_at, posts:[{id, character, kind, itemId, qty, price, createdAt, expiresAt}]}`, open posts, newest first, no account | src/main/java/soloMapling/Economy/board/BoardOutbox.java:39-63 |
+| `/var/lib/slums-market/market.db` | `posts(id, account, character, kind, item, qty, price, created, expires, status, reason)` plus `watch`, `alerts`, `cards`, `seen_files`, `notes_seen` | tools/site/market_service.py:79-89 (schema), :451-452 (insert) |
+| `inbox/posts.json` | `{schema:1, generated_at, posts:[{id, account, character, kind, itemId, qty, price, createdAt, expiresAt}]}` — open rows, oldest first, account included for the game side only | tools/site/market_service.py:274-292 |
+| `inbox/alerts.json` | `{schema:1, generated_at, accounts:{"<acct>":{watch:[itemIds], alerts:[{id,itemId,dir,price,armed,armedAt}]}}}` | tools/site/market_service.py:283-291 |
+| `outbox/board.json` | `{schema:1, generated_at, posts:[{id, character, kind, itemId, qty, price, createdAt, expiresAt}]}` — open posts, newest first, **no account field** | src/main/java/soloMapling/Economy/board/BoardOutbox.java:39-63 |
 | `outbox/offers.json` | `{postId, bot, price, t}` per offer, 7 days kept | BoardOutbox.java:67-83; tools/site/market_service.py:316-335 |
-| `outbox/rejected.json`, `removed.json` | `{schema, generated_at, rejected|removed:[{id, reason, by, t}]}` | BoardOutbox.java:85, :99 |
+| `outbox/rejected.json`, `removed.json` | `{schema, generated_at, rejected\|removed:[{id, reason, by, t}]}` | BoardOutbox.java:85, :99 |
 | `outbox/alerts-fired.json` | fired alert ids per account | BoardOutbox.java:116 |
 | `Server/data/site-board-state.json` | which bots answered which post, GM removals, fired alerts (`slums.board.state` moves it) | SiteBoard.java:102-104, :639-651 |
-| `market/board.html`, `mine.html` | static shells, empty `<tbody id="mk-board">`, server-rendered nothing | tools/site/sections/market.py:651-681 |
-| `database/migrations/034-site-board-npc.sql` | one `plife` row (world 0 and 1) placing NPC 1092017 on 910000000 | migration file |
+| `market/board.html`, `mine.html` | static shells with an empty `<tbody id="mk-board">` and `#mk-board-empty`; the builder renders no post | tools/site/sections/market.py:651-681 |
+| `database/migrations/034-site-board-npc.sql` | one `plife` row per world (0 and 1) placing NPC 1092017 on 910000000 | migration file, id `034-site-board-npc` |
 
-Any player-visible field is written as JSON and rendered with `textContent`; the build's `html.escape`
-(tools/site/common.py:11) never touches a board row because board rows are not built. `market/` is a private section,
-so `check.py` only guards that it stays out of public pages (tools/site/check.py:233-245).
+Player-visible strings are JSON in and `textContent` out; the build's `html.escape` (tools/site/common.py:11) never
+touches a board row because the builder never sees one. `market/` is a private section, so `check.py` only guards that
+it stays out of public pages (tools/site/check.py:233-245).
 
 ## Switches
 
@@ -194,19 +192,30 @@ threads, because they do not exist.
   "later"), which is a different surface, and `e01` (:111, ticket 175's economy rework) which proposes board changes
   rather than reporting a defect. `docs/tickets/175-economy-rework-flea-lessons.md:77-82` lists unbuilt ideas
   (level gate, listing fee, slots by reputation, category bans, barters) — all future, none implemented.
-- NEW-FINDING: the site has no rate limit of its own. `Store.rate` lives in `market_service.py:208-214` and is keyed
-  on a per-process dict (`self.writes`, tools/site/market_service.py:181) that is lost on restart and never shared;
-  the deployed `market_app.py` does not call it at all for its own layer — the only write throttle in production is
-  nginx's `60r/m` per visitor (tools/site/slums-login.nginx.conf:5, :19-20), which a client that rotates its
-  `X-Forwarded-For` (or has many addresses) can beat. Reads are unlimited apart from that same limit, so
-  `GET /api/market/board` can be polled as fast as nginx allows.
+- NEW-FINDING: the write limiter is memory-only and read-only endpoints are not limited at all. `Store.rate`
+  (tools/site/market_service.py:208-214) keeps a sliding 60 s window in the process dict `self.writes`
+  (tools/site/market_service.py:181), so a restart clears every account's budget and a second worker process would
+  keep its own. Every board write does pass through it: `POST /api/market/posts` and `/posts/close` map to
+  `store.change` (tools/site/market_app.py:96-97 → tools/site/market_service.py:497-504), and the stdlib service's
+  route table does the same (tools/site/market_service.py:579-580), so the gap is durability and scale, not a missing
+  call. `GET /api/market/board` is unlimited except by nginx's
+  `60r/m` per visitor (tools/site/slums-login.nginx.conf:5, :19-20), and the nginx key is the right-most
+  `X-Forwarded-For` entry, which is the visitor's own address only because the front proxy appends it
+  (tools/site/slums-report.nginx.conf:7-11).
 - NEW-FINDING: with the game server off, the board page silently freezes. `Store.board` reads only
   `outbox/board.json` (tools/site/market_service.py:374-392) and never falls back to its own `posts` table, so new
   posts show under "Your posts" but never reach the board (and `board.json`'s `generated_at` goes stale) while
   `-Dslums.board` is off. Nothing in the response or the UI says the game side is stale.
-- NEW-FINDING: `X-Slums: 1` is the only cross-site gate for writes; a missing `Origin` is accepted
-  (tools/site/market_service.py:558-560, tools/site/market_app.py:58-61). Any non-browser client can post — which is
-  probably the intent — but the "Origin must match Host" comment reads as though it always applies.
+- Origin is not the cross-site gate and is not meant to be: `X-Slums: 1` is, and it works because a cross-site
+  form or `fetch` cannot set a custom header without a preflight the service never allows
+  (tools/site/market_service.py:556-557, tools/site/market_app.py:56-57, stated in the docstring at
+  tools/site/market_service.py:28-30). The `Origin` check only fires when a browser sends one (:558-560 / :58-61), so
+  a script client can post freely — by design, but it means the header is the whole defence and any future endpoint
+  that skips `write_body` has none.
+- NEW-FINDING: nothing renders `board.json`'s `generated_at`, so a stale board is indistinguishable from a live one.
+  `Store.board` returns it (tools/site/market_service.py:392) and `drawBoard` ignores it, printing only a row count
+  (docs/site/assets/market.js:297). Combined with the freeze above, a player cannot tell "nobody has posted" from
+  "the game server has been off for two days".
 - NEW-FINDING: no `Content-Security-Policy` and no `X-Frame-Options` on `/market/`
   (tools/site/slums-login.nginx.conf:45-51 sets only `Cache-Control`, `nosniff` and `Referrer-Policy`). Impact today
   is low because every player-written string goes through `textContent` (docs/site/assets/market.js:3, :28-33), but
@@ -225,9 +234,8 @@ including the identity, moderation, cap and expiry cases, and the server half ha
 rules plus an in-game QA scenario. Evidence for the file channel being live: `docs/release/1.6.4.conf:230` names the
 switch in `SERVER_SET` and `slums-market.service:14-27` ships the service with the matching inbox/outbox paths.
 
-**Partial** in two named respects: the deployed `market_app.py` carries no in-app write limiter (Known issues), and
-the board's own view depends on the game server being up (Known issues). Neither is a live incident; both are code
-facts.
+**Partial** in two named respects: the board's own view depends on the game server being up (Known issues), and the
+write limiter is per-process and memory-only (Known issues). Neither is a live incident; both are code facts.
 
 ## Open questions
 
