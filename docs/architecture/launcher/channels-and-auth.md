@@ -67,6 +67,17 @@ and the `host:port` that folder's client joins.
     (`site.rs:310-399`), sealed with the origin inside, so a token copied to the other site's file is refused
     (`site.rs:351`, test `:454-462`).
 
+**Where Test and RC differ from Live.** The feed path prefix (`channels.rs:36-42`), the install folder
+(`{live}-test`/`{live}-rc`, `channels.rs:159-174`), the sign-in site (`site.rs:25-30`: the LAN TEST site instead of the
+public one), and the `host`/`port` the client joins — each channel's client layer carries its own `config.ini` server
+and `merge_server` copies only those two keys from the layer into the player's file (`game_config.rs:109-129`).
+
+**What stops an RC client layer from reaching Live.** Only that `config.ini` merge, plus the server-side
+`min_client_build` gate. If the player hand-edited the server after the launcher's last write
+(`hand_edited`, `install.rs:568-569`), the launcher keeps the player's value and the RC folder can be pointed at Live;
+nothing in the launcher, the channel table, or the credential path prevents it. Both channels also share one exe
+identity, one data folder and one settings file — the separation is folder and site, not process.
+
 ## Data
 
 The channel table (base URL shapes come from `channel_feed`, `channels.rs:49-56`, applied to the Live feed the build

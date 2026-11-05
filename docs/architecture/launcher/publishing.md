@@ -14,12 +14,10 @@ invisible to players. This page covers the two pipelines and their gates; the ho
 | Start it with | Runs on | Does |
 |---|---|---|
 | `tools/release/stage-client <v> --build-dir 'Z:\...\Release'` | workstation → build desktop → host | builds the staging tree (client flow step 1) |
-| `tools/release/publish-client <v> --source DIR [--release V --news F --no-packs] [--dry-run]` | workstation → host | hash-diff + client layer + release manifest (`tools/release/publish-client:5-27`) |
-| `publish-client --restore-manifest FILE` | workstation → host | puts a saved release manifest back (`publish-client:42-66`) |
+| `tools/release/publish-client <v> --source DIR [--release V --news F --no-packs] [--dry-run]` | workstation → host | hash-diff, client layer, release manifest (`publish-client:5-27`); `--restore-manifest FILE` puts a saved one back (`:42-66`) |
 | `tools/release/publish-launcher <build dir> [--version X.Y.Z] [--dry-run]` | workstation → host | launcher channel (`tools/release/publish-launcher:14-35`) |
 | `tools/release/release <v>` | workstation → host | step 3 runs `publish-client --no-announce` between stop-backup and apply-start (`tools/release/release:171-181`) |
-| `node tools/publish.mjs --layer/--release/--launcher/--packs/--tauri-launcher` | host | the publisher itself (`publish.mjs:555-655`) |
-| `python3 -I - news FILE` / `same-layer SRC PUB LAYER VER` | host | the two pre-checks, fed on stdin (`tools/release/publish_checks.py:127-147`) |
+| `node tools/publish.mjs --layer/--release/--launcher/--packs/--tauri-launcher` | host | the publisher itself (`publish.mjs:555-655`); its two pre-checks (`publish_checks.py:127-147`) are fed on stdin as `python3 -I - news FILE` / `same-layer SRC PUB LAYER VER` |
 
 No opcode or scheduler starts any of this: it is release-time tooling. The one runtime consumer is
 `src/main/java/net/server/handlers/login/ClientVersionGate.java:110`, which refuses a login below `MIN_CLIENT_BUILD`.
@@ -87,13 +85,12 @@ No opcode or scheduler starts any of this: it is release-time tooling. The one r
 | Gate | Verifies | Refuses | Where |
 |---|---|---|---|
 | News rules | ≤10 entries; title ≤120, body ≤1000 UTF-16 units; no control chars; no `NaN`/`Infinity` | the run, before the layer | `publish_checks.py:29-31,44-60,123-136`; called `publish-client:83-84` |
-| Layer immutability / rerun | published layer `manifest.json` byte-identical to what this tree would produce, files at listed sizes | an existing layer with different bytes | `publish_checks.py:104-120`; `publish-client:88-94` |
+| Layer immutability / rerun | published layer `manifest.json` byte-identical to what this tree would produce, files at listed sizes; NFC-uppercased `assertNoAlias`, `wx` writes, `mkdir` version dir, `.mapleroot-publish.lock` | an existing layer with different bytes, a case variant, a concurrent publish | `publish_checks.py:104-120`, `publish.mjs:15,188-203,244-248`; `publish-client:88-94` |
 | Hash-diff | base + client effective set vs `$REFERENCE`: no unexpected missing/different/extra, and `--previous` keeps every file of the current release (a dropped overlay was the 1.2.0 Arcane-maps crash) | any difference not in `client-allow.txt` | `verify-client.py:172-236`; run `publish-client:116,120` and `:138` |
 | Live endpoint | new layer's `config.ini` `[config] host`/`port` equals the live layer's | a test-server client on `/srv/slums-patch` | `verify-client.py:129-150`; wired `publish-client:108-114` |
 | Allow list | every overlay path named explicitly | an unlisted extra/missing/different file | `tools/release/client-allow.txt:1-6`; `verify-client.py:172-222` |
 | Publisher identity | sha256 of `tools/ src/ package.json` on both sides, first 16 hex | a host publisher that is not the reviewed one | `publish-lib.sh:16-27` |
 | Source hygiene | no symlinks or non-regular files; output not equal to or inside source | weird trees | `publish.mjs:42-56,173-186`; `publish_checks.py:67-82` |
-| Immutable names, one publisher | NFC-uppercased `assertNoAlias`, `wx` writes, `mkdir` version dir, exclusive `.mapleroot-publish.lock` | a collision, an overwrite, a concurrent publish | `publish.mjs:15,188-203,244-248` |
 | Release manifest | `launch.executable` in some layer; no `MANIFEST.JSON` alias; version not already live | a manifest pointing at nothing | `publish.mjs:383-393` |
 | Backup / restore | `manifest-before-<rel>.json` never overwritten with different bytes; every layer a restored manifest names exists | losing the way back, restoring into a hole | `publish-client:47-58,142-144` |
 | Launcher build | asar version = `--version`; built-in access key; exe present; no `launcher.config.json`; no downgrade | a build that locks friends out or regresses | `publish.mjs:443-449,455-460` |
@@ -103,9 +100,9 @@ No opcode or scheduler starts any of this: it is release-time tooling. The one r
 
 ## Data
 
-- **Published** (`/srv/slums-patch`, `publish-lib.sh:2`): `manifest.json` (release entry), `launcher.json`,
-  `layers/base/<v>/`, `layers/client/<v>/`, `launcher/<platform>/<v>/`, `tauri/<v>/`. A layer version dir holds `files/…`
-  plus `manifest.json` with `files[]` entries `{path,size,sha256,url:"files/…"}` at `schemaVersion: 2`
+- **Published** (`/srv/slums-patch`, `publish-lib.sh:2`): release `manifest.json`, `launcher.json`, `layers/base/<v>/`,
+  `layers/client/<v>/`, `launcher/<platform>/<v>/`, `tauri/<v>/`. A layer version dir holds `files/…` plus a
+  `manifest.json` with `files[]` entries `{path,size,sha256,url:"files/…"}` at `schemaVersion: 2`
   (`publish_checks.py:93-101`, `publish.mjs:242-244`).
 - **Staging** (`/srv/slums-staging`, `publish-lib.sh:3`): `client-<v>/` trees with `client-<v>.STAGED.txt` beside them,
   `news-<v>.json`, `manifest-before-<release>.json`, `manifest-replaced-<UTC>.json`, the reference hash cache (`:8`). In
@@ -127,7 +124,7 @@ No opcode or scheduler starts any of this: it is release-time tooling. The one r
 | `LIVE_PATCH_DIR` | `/srv/slums-patch` (`publish-client:108`) | the one feed where the endpoint check applies |
 | `ALLOW_LIVE_ENDPOINT_CHANGE` | `0` (`publish-client:112`) | allow a deliberate live host/port move |
 | `STAGING_DIR` | `/srv/slums-staging` (`publish-lib.sh:3`) | trees, news, manifest backups |
-| `PUBLISHER` / `NODE` | `/opt/slums-tools/launcher`, `/opt/slums-tools/node/bin/node` (`publish-lib.sh:4-5`) | host publisher and its node |
+| `PUBLISHER` / `NODE` | `/opt/slums-tools/launcher`, `/opt/slums-tools/node/bin/node` (`publish-lib.sh:4-5`) | host publisher and node |
 | `LAUNCHER_REPO` / `REFERENCE` / `REF_CACHE` | `/root/work/launcher`, `/opt/mapleroot-control/…/Game Files`, `$STAGING_DIR/reference-client.hashes.json` (`publish-lib.sh:6-8`) | the publisher, the hash-diff and its cache |
 | `ANNOUNCE_TARGET` | `live` (`publish-client:70`) | channel the `client-ready` post names |
 | `PUBLISH_TEST_FAIL` | empty (`publish-client:37-40`) | `after-layer`/`after-manifest` rehearsal injection, refused on the live feed |
@@ -184,10 +181,10 @@ Seven commits follow: `a50fe655f` (Cody post), `ae3c91cb7` (`/launcher-test/` mi
 
 `python3 -m unittest discover -s tools/release -p 'test_*.py'` (`tools/release/README.md:126`):
 
-- `tools/release/test_live_endpoint.py` — `LiveEndpointTest` (`:32`): the endpoint passes (`:69`), a test-server host or
-  port is refused (`:74`), case/spacing do not matter (`:80`), a missing `config.ini` is refused (`:84`), a published layer
-  manifest is checked rather than a tree (`:88`), a deliberate move needs `--allow-endpoint-change` (`:94`), `main` fails
-  on the endpoint even when the hash-diff passes (`:101`), and `publish-client` adds the live feed only for the live
+- `tools/release/test_live_endpoint.py` — `LiveEndpointTest` (`:32`): the endpoint passes (`:69`); a test-server host or
+  port (`:74`), a missing `config.ini` (`:84`) and a deliberate move without `--allow-endpoint-change` (`:94`) are
+  refused; case/spacing do not matter (`:80`); a published layer manifest is checked rather than a tree (`:88`); `main`
+  fails on the endpoint even when the hash-diff passes (`:101`); `publish-client` adds the live feed only for the live
   `PATCH_DIR` (`:122`).
 - `tools/release/test_publish_client_rerun.py` — `NewsRulesTest` (`:55`): eleven entries refused with the publisher's own
   message (`:65`) and the same verdict as the publisher's `validateManifest` (`:71`, skipped without node);
