@@ -295,12 +295,10 @@ function writeFeatureTab_Project() {
 }
 
 function writeAllFeatures() {
-    var re = /[ ,&\/]+/g;
-
     for (var i = 0; i < tabs.length; i++) {
         feature_cursor = [];
 
-        var tabName = (tabs[i]).replace(re, "");
+        var tabName = stripSeparators(tabs[i]);
         this["writeFeatureTab_" + tabName]();
 
         feature_tree.push(feature_cursor);
@@ -369,4 +367,14 @@ function generateSelectionMenu(array) {
         menu += "#L" + i + "#" + array[i] + "#l\r\n";
     }
     return menu;
+}
+
+// Drops spaces, commas, ampersands and slashes; no regex: the shipped GraalJS has no regex engine.
+function stripSeparators(s) {
+    var out = "";
+    for (var i = 0; i < s.length; i++) {
+        var c = s.charAt(i);
+        if (c != " " && c != "," && c != "&" && c != "/") out += c;
+    }
+    return out;
 }
