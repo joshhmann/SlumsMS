@@ -23,13 +23,12 @@ client-build metadata the UI turns into "your client is older than the server ac
 
 ### Release load (`tauri/core/src/release.rs:133-196`)
 
-1. **Fetch and validate the top manifest.** `read_bytes(network_url(feed_url)?, "release manifest", Some(access), cancel,
-   None)` (`:134`) — one GET, ≤5 redirects (`tauri/core/src/http.rs:124-184`), body capped at `MAX_MANIFEST_BYTES` = 128 MiB
-   (`:20`); the key rides as Basic auth only on the feed origin (`:133-135`). Then `parse_json` (`release.rs:135`) +
-   `validate_manifest` (`tauri/core/src/manifest.rs:354-377`): `schemaVersion` 1 or 2 (`:356`), non-empty `version` (`:359`),
-   `launch` (`:254`), optional `news` (`:209-232`) / `playerOwned` (`:239`) / `minClientBuild`; schema 1 needs `files` +
-   `check_tree` + the executable spelled identically (`:368-373`), schema 2 `layers` (`:375`); schema-1 file URLs resolve
-   against the *final* top URL (`release.rs:139-145`).
+1. **Fetch and validate the top manifest.** `read_bytes(network_url(feed_url)?, "release manifest", Some(access), cancel, None)` (`:134`) — one GET,
+   ≤5 redirects (`tauri/core/src/http.rs:124-184`), body capped at `MAX_MANIFEST_BYTES` = 128 MiB (`:20`); the key rides as Basic auth only on the feed
+   origin (`:133-135`). Then `parse_json` (`release.rs:135`) + `validate_manifest` (`tauri/core/src/manifest.rs:354-377`): `schemaVersion` 1 or 2
+   (`:356`), non-empty `version` (`:359`), `launch` (`:254`), optional `news` (`:209-232`) / `playerOwned` (`:239`) / `minClientBuild`; schema 1 needs
+   `files` + `check_tree` + the executable spelled identically (`:368-373`), schema 2 `layers` (`:375`); schema-1 file URLs resolve against the *final*
+   top URL (`release.rs:139-145`).
 2. **Per layer (schema 2).** `request_url = resolve(top_final, reference.manifest_url)` (`release.rs:148`); try `cached_layer`
    (`:85-98`), which accepts a cached body only when the recorded `requestUrl` matches, the body still hashes to the reference
    SHA-256 and its `finalUrl` passes `network_url`; otherwise `read_bytes` (`:155`) plus an immediate
@@ -56,18 +55,17 @@ enforcement (`install-and-packs.md` §5-6).
 
 ### Writing to disk
 
-4. **Only three writes exist**, all under `.slumsms-launcher/` (§Data for shapes): the layer cache via `write_layer_cache`
-   (`release.rs:100-124`; temp+rename `tauri/core/src/fsutil.rs:240-252`, stale `.json` deleted `:117-124`, schema 1 returns
-   early `:102-104`); `state.json` via `write_install_state` (`:319-334`); `installed.json` via `write_installed_record`
-   (`:408-419`), skipped when unchanged (`:421-433`) and never for an empty `manifest_sha256` — the launcher's own channel
-   (`:422-424`). Game files are never written here.
+4. **Only three writes exist**, all under `.slumsms-launcher/` (§Data for shapes): the layer cache via `write_layer_cache` (`release.rs:100-124`;
+   temp+rename `tauri/core/src/fsutil.rs:240-252`, stale `.json` deleted `:117-124`, schema 1 returns early `:102-104`); `state.json` via
+   `write_install_state` (`:319-334`); `installed.json` via `write_installed_record` (`:408-419`), skipped when unchanged (`:421-433`) and never for an
+   empty `manifest_sha256` — the launcher's own channel (`:422-424`). Game files are never written here.
 
 ### Client build metadata (`tauri/core/src/client_build.rs`)
 
 5. `read_client_build` reads `slums-build.txt` beside `slums.dll` (`BUILD_FILE`, `:17`), ≤4096 bytes (`:19`), strips a BOM, tolerates CRLF/blank
    lines/extra keys (`:50-70`). `release` ≤32 printable ASCII, `build` ≤9 digits and >0; a missing half is derived (`:60-66`) and `build` wins over a
    disagreeing `release`. Pre-1.6.0 clients have no file, so the UI falls back to the installed `client` layer version (`tauri/ui/version-status.mjs:44-50`).
-6. `build_number("1.6.0") = 1*10_000 + 6*100 + 0 = 10600` (`:30-41`); anything not `MAJOR.MINOR.PATCH` with major ≤9999, minor ≤99, patch ≤99 is `None`.
+6. `build_number("1.6.0") = 1*10_000 + 6*100 + 0 = 10600` (`:30-41`); anything not `MAJOR.MINOR.PATCH`, or out of major ≤9999 / minor ≤99 / patch ≤99, is `None`.
 
 ### `minClientBuild` end to end
 
@@ -121,7 +119,7 @@ No `-D` surface. The knobs are `tauri/launcher.config.json` (shipped) and the pl
 | `MIN_CLIENT_BUILD` (server) | `0` = off | `src/main/java/config/ServerConfig.java:61`; live 1.6.4 `10740` (`docs/release/1.6.4.conf:284`) |
 
 Live, RC and Test differ only by feed path (`channels-and-auth.md`); these code paths are identical on all three. TEST's `MIN_CLIENT_BUILD`: unknown
-(`start-test.sh` was not read). Of the 69-flag `UNIT_EDITS` set (`docs/release/1.6.4.conf:271`), only `MIN_CLIENT_BUILD` reaches the launcher.
+(`start-test.sh` was not read); of the 69-flag `UNIT_EDITS` set (`docs/release/1.6.4.conf:271`), only it reaches the launcher.
 
 ## Invariants
 
@@ -149,8 +147,8 @@ Live, RC and Test differ only by feed path (`channels-and-auth.md`); these code 
 | `tauri/launcher.config.json` | `80a3be1` "feat: simplify launcher flow with built-in defaults and release news" (2026-10-18) |
 | `tauri/docs/checkpoint.md`, `handover-plan.md` | `fdc98a0` "Docs, owner QA script, and wait for the channel probe before a Test/RC check" |
 
-`manifest.rs`/`release.rs` port the Electron launcher's `manifest.mjs`/`releases.mjs`; `tauri/core/src/release.rs:1-4` says the
-formats are byte-compatible, which is why both suites assert the same fixtures.
+`manifest.rs`/`release.rs` port the Electron launcher's `manifest.mjs`/`releases.mjs`; `tauri/core/src/release.rs:1-4` says the formats are
+byte-compatible, which is why both suites assert the same fixtures.
 
 ## Tests and QA
 
@@ -173,10 +171,10 @@ Node (`npm test`, 13 suites): `test/tauri-versions.test.mjs:9` (formula), `:16` 
 minimum is named and the client is older; `'10600'`, `-1`, `0`, `1.5`, `null` → no note), `:46`; manifest fixtures in `test/layers.test.mjs`,
 `test/releases.test.mjs`, `test/packs.test.mjs`, `test/versions.test.mjs`.
 
-Auto-QA and `!qa`: nothing. `soloMapling/autoqa/AutoQaCatalog.java` and `src/main/java/soloMapling/qa` contain no launcher check, so a bad feed is caught only
-by `npm test`, `cargo test` and `--self-test` (`tauri/app/src/launcher.rs:39-80`).
+Auto-QA and `!qa`: nothing. `soloMapling/autoqa/AutoQaCatalog.java` and `src/main/java/soloMapling/qa` contain no launcher check, so a bad feed is caught
+only by `npm test`, `cargo test` and `--self-test` (`tauri/app/src/launcher.rs:39-80`).
 
-**Not covered:** `write_layer_cache` eviction (only reached indirectly); `Available` → UI wiring beyond the pure Node functions; "installed build <
+**Not covered:** `write_layer_cache` eviction (only reached indirectly); `Available` → UI wiring beyond the pure Node functions; "installed build below
 `minClientBuild` still launches" (no test asserts the refusal path); `build_number` against a real 1.6.2+ `slums-build.txt`.
 
 ## Known issues
@@ -202,13 +200,12 @@ by `npm test`, `cargo test` and `--self-test` (`tauri/app/src/launcher.rs:39-80`
 
 ## State
 
-**Working.** `load_release` produces verified releases end to end, backed by 87 unit + 34 integration tests; a recorded clean first install put 306 files
-down in 1.7 s with every file SHA-256-verified (`tauri/docs/checkpoint.md:18`); schema 1, 2, redirects, tampered layers, unsafe paths and 401 are exercised
-(`tauri/core/tests/feed.rs:194-398`); the formats match the Electron launcher's (`tauri/core/src/release.rs:1-4`), so a migrated install keeps its fast
-verify (`tauri/core/tests/feed.rs:91`).
+**Working.** `load_release` produces verified releases end to end, backed by 87 unit + 34 integration tests; a recorded first install put 306 files down
+in 1.7 s, all SHA-256-verified (`tauri/docs/checkpoint.md:18`); schema 1, 2, redirects, tampered layers, unsafe paths and 401 are exercised
+(`tauri/core/tests/feed.rs:194-398`); the formats match the Electron launcher's (`tauri/core/src/release.rs:1-4`), so a migrated install keeps its fast verify
+(`tauri/core/tests/feed.rs:91`).
 
-**Partial** for the client-build story: the metadata is read and displayed correctly, but the decision it feeds is advisory
-only (the first three NEW-FINDINGs).
+**Partial** for the client-build story: the metadata is read and displayed correctly, but the decision it feeds is advisory only (three NEW-FINDINGs).
 
 ## Open questions
 

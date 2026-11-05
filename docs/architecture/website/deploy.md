@@ -12,22 +12,19 @@ automated installer is TEST-only (`tools/site/test164/install.sh`) and refuses t
 
 "Live host" is whatever machine serves `/srv/slums-site`; the repo names it only as the address in
 `tools/site/deploy-build-164.sh:8`, so this doc does not repeat it. "TEST host" is `SLUMS_TEST_HOST`, default
-`192.168.0.111` (`install.sh:11`). Every service binds loopback (`login_service.py:838`,
-`report_service.py:502,509,526`, `market_app.py:286`); nginx is the only routable listener.
+`192.168.0.111` (`install.sh:11`). Every service binds loopback; nginx is the only routable listener
+(`login_service.py:838`, `report_service.py:502,509,526`, `market_app.py:286`).
 
 | Unit / entry | Host | Port | What it does |
 |---|---|---|---|
 | `slums-login.service` | live | 127.0.0.1:8094 | sign-in, session check, download passes (`slums-login.service:9,12`) |
 | `slums-market.service` | live | 127.0.0.1:8095 | Flask market app, exchange, board (`slums-market.service:14,27`) |
 | `slums-report.service` | live | 127.0.0.1:8093 public, :8097 staff | reports, staff reader (`slums-report.service:9,17`) |
-| live nginx `server{}` | live | :8092 | serves `/srv/slums-site` (`LAUNCH.md:26-27`) |
+| live nginx `server{}` + `slums-{login,report,pass}.nginx.conf` | live | :8092 | serves `/srv/slums-site`; the snippets are numbered parts pasted into the block (`LAUNCH.md:26-27`) |
 | `slums-site-{market,world}.timer`→`.service` | live | none | section rebuild every 2 min (`slums-site-market.timer:10`) |
 | `deploy-build-164.sh` | 187 → live | none | copies sources to `/opt/slums-site-build` (`:21-28`) |
-| `slums-{login,report,pass}.nginx.conf` | live | under :8092 | numbered parts pasted into the live block |
-| `slums-{login,market,report}-test.service` | **TEST** | 127.0.0.1:8194 / 8195 / 8193+8197 | mirror of the three services |
-| `slums-site-test-web.service` | **TEST** | `SLUMS_TEST_HOST`:8192 | second nginx process, own config (`:7-9`) |
-| `slums-site-test-{market,world}.timer` | **TEST** | none | same rebuilds into `/srv/slums-site-test` |
-| `test164/install.sh`, `qa.sh` | 187 → TEST | none | the only full installer, and the HTTP checks |
+| `slums-{login,market,report,site}-test*.service` | **TEST** | 127.0.0.1:8194 / 8195 / 8193+8197 / `SLUMS_TEST_HOST`:8192 | mirror of the three services plus a second nginx process with its own config (`slums-site-test-web.service:7-9`) |
+| `slums-site-test-{market,world}.timer`, `test164/install.sh`, `qa.sh` | 187 → TEST | none | same rebuilds into `/srv/slums-site-test`; the only full installer and the HTTP checks |
 | `deploy/site/slumsms-site-avatars{,-test}.{service,timer}` | game host | none | PNG avatar export into the site data folder |
 | `deploy/dashboard/slums-dashboard-live.nginx.conf` / `slumsms-dashboard.nginx.conf` | live :8096 LAN-only / **TEST** :8091 | as listed | staff dashboard; live adds `allow 192.168.0.0/24` + basic auth (`:15-19`) |
 
@@ -43,7 +40,7 @@ The live path, in the order the recipe enforces (`docs/site/DEPLOY.md:152-252`):
    `conf.d` loads as a second config and `nginx -t` stops on the duplicate `map` (`:173-175`).
 2. **Ship the tree.** `deploy-build-164.sh` preflights five paths and exits if any is missing — `build.py`,
    `docs/site/home.html`, `extra-icon-items.txt`, the Hidden Street `items.json`, the icon manifest (`:18-19`) — then
-   `ssh mkdir -p`, seven `rsync -a --delete` copies (`:21-27`) and `DEPLOYED_COMMIT` (`:28`).
+   `ssh mkdir -p` (`:21`), six `rsync -a --delete` copies (`:22-27`) and `DEPLOYED_COMMIT` (`:28`).
 3. **Build beside the live folder.** `build.py --private --world --no-tar --out /var/tmp/slums-site-161`
    (`DEPLOY.md:183-190`) renders into `{out}.new-{pid}` and renames it in only after the checks (`build.py:148-175`).
 4. **Check.** `build.finish` runs `check.check_all` and raises `SystemExit("site check failed with N problem(s): the
@@ -67,16 +64,17 @@ because one's link check would otherwise run while the other swaps a folder.
 
 TEST is the same build with another host, port and paths (`install.sh:11-95`): validate `SLUMS_TEST_HOST` and
 `SLUMS_TEST_NX_DESK` (`:11-17`), preflight the icon list (`:37-39`), hash the shared nginx's pid and `/etc/nginx`
-(`:40`), make folders and throwaway keys under `umask 077` (`:48-65`), rsync seven times with `testdata/nx-desk` as the
-only testdata (`:67-76`), then one remote script: `DEPLOYED_COMMIT`, `sed` `@TEST_HOST@`/`@NX_DESK@` into the config and
-every unit, `daemon-reload`, `nginx -t -q -c`, a full build under `flock -w 300`/`nice -n 19`, `enable` and restart four
-services and two timers, start the oneshots, `is-active` (`:77-93`), then re-hash and fail on any change (`:94-95`).
-`--remove` reverses it, keeping the key, salts and market db (`:26-33`).
+(`:40`), make folders and throwaway keys under `umask 077` (`:48-65`), rsync six times with `testdata/nx-desk` as the
+only testdata and the icon cache copied only if present (`:67-76`), then one remote script: `DEPLOYED_COMMIT`, `sed`
+`@TEST_HOST@`/`@NX_DESK@` into the config and every unit, `daemon-reload`, `nginx -t -q -c`, a full build under
+`flock -w 300`/`nice -n 19`, `enable` and restart four services and two timers, start the oneshots, `is-active`
+(`:77-93`), then re-hash and fail on any change (`:94-95`). `--remove` reverses it, keeping the key, salts and market db
+(`:26-33`).
 
 What rolls back: nothing automatic. The live rollback restores the step-1 backups in a fixed order — timers stopped, failed
 folders moved aside, `/opt/slums-site-build`, `/srv/slums-site`, the two Python files, the three units,
-`conf.d/slums-report.conf` and the site file back, `daemon-reload`, restart, timers on (`DEPLOY.md:254-272`); market-only
-is one unit restore (`:274-277`); 1.6.3 added a desk-only variant (`:347-351`). TEST's rollback is `install.sh --remove`.
+`conf.d/slums-report.conf` and the site file back, `daemon-reload`, restart, timers on (`DEPLOY.md:254-272`); market-only is
+one unit restore (`:274-277`); 1.6.3 added a desk-only variant (`:347-351`). TEST's rollback is `install.sh --remove`.
 
 ## Data
 
@@ -113,7 +111,8 @@ rollback state is the operator's `.bak-$S`/`.old-$S` folders.
 
 The live address is hard-coded in `deploy-build-164.sh:8` and `install-live-dashboard:23,37`; the TEST one is not
 (`test_deploy.py:223-234`). Whether any value differs on the running host is **unknown** — the repo units are copies, and
-the recipe says to `diff` a live unit before installing (`DEPLOY.md:199-200`).
+the recipe says to `diff` a live unit before installing (`DEPLOY.md:198-199`, which records that the live login unit
+lacks the `SLUMS_LOGIN_INSPECT_*` lines, `:288-289`).
 
 ## Invariants
 
@@ -131,18 +130,17 @@ the recipe says to `diff` a live unit before installing (`DEPLOY.md:199-200`).
 - **TEST never touches the shared nginx** — `install.sh:40` hashes `/etc/nginx` and `:94-95` fails the run if the pid or
   hash changed; the TEST nginx is a separate process with its own pid and temp dirs (`test164/nginx.conf:8-25`).
 - **TLS ends outside the repo**, and redirects are relative because of `absolute_redirect off`
-  (`slums-login.nginx.conf:79-83`). Convention, not enforcement: nothing fails if 8092 is exposed directly.
-- **Services listen on loopback only** (`login_service.py:838`, `report_service.py:502,509,526`, `market_app.py:286`).
+  (`slums-login.nginx.conf:79-83`). Convention, not enforcement: nothing fails if 8092 is exposed directly, and every
+  unit still trusts `X-Forwarded-For` from whoever reaches it (`slums-report.nginx.conf:7-10`).
 
 ## Origin
 
 All custom — the base v83 repack ships no site. Site repo branch `site-164-street`, 714 commits, root `03d13cb21`
 2026-10-18 "Establish deployable MapleRoot server baseline"; every deploy file arrives in one 2026-10-24…27 burst
-(`git log --follow … | tail -1`). `docs/site/DEPLOY.md` `74099f82c` was first (10-24, "Add a public website"),
-`slums-report.*` `5122b392d` (10-25), then `93bbca9bb` (login), `99a001c04` (market), `61359e94a` (`deploy-build-164.sh`),
-`fc3daae81` (market units, message "not installed"), `c5e619de7` (world units) and `671c779de` (TEST copy) on 10-26,
-`fd7f7ac7f` (download pass) on 10-27. Server-repo counterparts: avatars `d614b3a18` 2026-10-27, dashboards `a3d8a6ebf`
-2026-10-19, `slums-dashboard-extras@.*` `196a52e20` 2026-10-20, `install-live-dashboard` `b746d8899` 2026-10-26.
+(`git log --follow … | tail -1`): `docs/site/DEPLOY.md` `74099f82c` (10-24), `slums-report.*` `5122b392d` (10-25), then
+`93bbca9bb`, `99a001c04`, `61359e94a`, `fc3daae81` (market units, message "not installed"), `c5e619de7`, `671c779de`
+(10-26), `fd7f7ac7f` (10-27). Server repo: avatars `d614b3a18` 10-27, dashboards `a3d8a6ebf` 10-19, extras `196a52e20`
+10-20, `install-live-dashboard` `b746d8899` 10-26.
 
 ## Tests and QA
 
@@ -163,9 +161,9 @@ folder), `test_site.py:276-301` (rebuild in place, no `.stage`/`.old` left, roll
 `test_download_pass.py:122-153` (the pass endpoint's 204/401/503 through a real server).
 
 Not covered: nothing runs nginx or systemd, so no test asserts that a live unit's port, path or user matches the snippet
-proxying to it (only the NX-desk mode is paired); nothing tests part 2's gating of `/street/`, `/market/`, `/secret/`;
-nothing proves the `--delete` rsyncs cannot remove live files (`DEPLOY.md:121-123` relies on an operator's icon count);
-the rollback has never been rehearsed (`DEPLOY.md:256`); and no check compares an installed live unit with its repo copy.
+proxying to it (only the NX-desk mode is paired); part 2's gating of `/street/`, `/market/`, `/secret/` is untested;
+nothing proves the `--delete` rsyncs cannot remove live files (`DEPLOY.md:121-123` relies on an operator's icon count); the
+rollback has never been rehearsed (`DEPLOY.md:256`); and no check diffs an installed live unit against its repo copy.
 
 ## Known issues
 
@@ -178,8 +176,10 @@ the rollback has never been rehearsed (`DEPLOY.md:256`); and no check compares a
   `slums-login.nginx.conf:33-37`, `test164/nginx.conf:127-130`), content side not.
 - **w10 (Website, later)** — more Slums-chan cards; new pictures under `docs/site/secret/` need a full rebuild, since
   `copy_assets` copies them at build time (`build.py:93-94`), not a timer run.
-- **NEW-FINDING:** `docs/architecture/website/README.md:41` says `deploy-build-164.sh` "ships the checked output and
-  reloads the units and nginx" — it copies sources and stops (`deploy-build-164.sh:21-29`); `DEPLOY.md:177` agrees.
+- **Corrected during review:** the architecture index once said `deploy-build-164.sh` "ships the checked output and
+  reloads the units and nginx". It copies sources, data and the icon cache to the build folder and writes
+  `DEPLOYED_COMMIT`, then stops (`/root/work/SlumsMS-site-164-street/tools/site/deploy-build-164.sh:21-29`); the
+  index now says so.
 - **NEW-FINDING:** `docs/site/LAUNCH.md:168` says "`cache/site-icons` is not needed", while `deploy-build-164.sh:14-15,27`
   copies it because a build without it empties the live icon slots (`DEPLOY.md:121-123`). LAUNCH.md is stale.
 - **NEW-FINDING:** the rebuild is called "15-minute" in `fc3daae81`'s message, `test164/README.md:17` and `build.py:193`,
@@ -192,19 +192,19 @@ the rollback has never been rehearsed (`DEPLOY.md:256`); and no check compares a
 
 ## State
 
-**Partial.** Copying, building, the atomic swap, the section rebuilds, the unit set and the nginx snippets all exist and
-are exercised by tests and by two release nights (`DEPLOY.md:152-290`); the TEST installer rehearses the whole flow except
-hosting. What is missing is any *automation* of the live half: the live deploy is eight hand-run steps whose only guard is
-a written checklist, one swap (`DEPLOY.md:192-198`) done by hand rather than by `build.py`, and a rollback never run
-(`DEPLOY.md:256`). Evidence about the running host is out of scope — the repo's units are copies.
+**Partial.** Copying, building, the atomic swap, the section rebuilds, the unit set and the nginx snippets exist and are
+exercised by tests and two release nights (`DEPLOY.md:152-290`); the TEST installer rehearses the whole flow except
+hosting. Missing is any *automation* of the live half: eight hand-run steps guarded only by a written checklist, one swap
+(`DEPLOY.md:192-198`) done by hand rather than by `build.py`, and a rollback never run (`DEPLOY.md:256`). Evidence about
+the running host is out of scope — the repo's units are copies.
 
 ## Open questions
 
-- Do the installed live units match the repo copies? `DEPLOY.md:199-200` tells the operator to `diff` first, implying they
-  diverged at least once (the 1.6.2 night: `DEPLOY.md:288-289`). Nothing records the answer.
+- Do installed live units match the repo copies? `DEPLOY.md:198-199` says to `diff` first, implying divergence at least
+  once (the 1.6.2 night: `DEPLOY.md:288-289`). Nothing records the answer.
 - Which machine is "the live host" — the one running the game database, or the LXC `DEPLOY.md:24-34` describes? The recipe
   says "the LXC" and uses `/opt/slums-site-build` in the same breath; unresolved here.
-- Is `slums-site-market.service` still "not installed" as `fc3daae81` says? `DEPLOY.md:229-230` starts and `is-failed`
+- Is `slums-site-market.service` still "not installed" as `fc3daae81` says? `DEPLOY.md:229-231` starts and `is-failed`
   checks it, so the message looks stale, but no file proves an install.
 - Why does `deploy-build-164.sh:22` exclude `testdata/` from the `tools/site` copy but nothing else? `testdata/nx-desk` is
   exactly what `SLUMS_TEST_NX_DESK=mock` serves (`install.sh:67`), so a live tree carrying unread fixtures is harmless

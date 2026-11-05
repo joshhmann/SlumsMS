@@ -38,7 +38,8 @@ flowchart TB
 
 1. **Build.** `build.py` renders the sections into the static output; `check.py` re-reads the output and refuses if a
    rule (escaping, no local paths, no private data) is broken; the build fails rather than ships (`build-and-checks.md`).
-2. **Deploy.** `deploy-build-164.sh` ships the checked output and reloads the units and nginx (`deploy.md`).
+2. **Deploy.** `deploy-build-164.sh` copies the tool, data and icon cache to the build folder on the site host and
+   records `DEPLOYED_COMMIT`; it neither builds, publishes nor reloads anything (`deploy.md`).
 3. **Login.** Sign-up and login go through `login_service.py` into the game server's auth API; the account then exists
    for both the launcher and the game (`login-service.md`).
 4. **Market.** Prices come from the server's market/economy exports; the service serves a cached view
