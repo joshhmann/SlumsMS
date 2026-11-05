@@ -15,13 +15,13 @@ SlumsMS-specific corrections to that model: a routing table that refuses doorway
 |---|---|---|
 | `Server.run` → `WorldConfigs.validate` → `initWorld` loop | validates world ids, then constructs one `World` per configured entry | src/main/java/net/server/Server.java:957, :984-986 |
 | `Server.initWorld()` | builds `World` + its channels, registers them | src/main/java/net/server/Server.java:452-495 |
-| `Server.addChannel(int)` | adds a channel at runtime | src/main/java/net/server/Server.java:382-425 |
-| `Channel(int,int,long,int)` | starts a channel's `ChannelServer` and its (empty) `MapManager` | src/main/java/net/server/channel/Channel.java:130-176 |
+| `Server.addChannel(int)` | adds a channel at runtime | src/main/java/net/server/Server.java:382-424 |
+| `Channel(int,int,long,int)` | starts a channel's `ChannelServer` and its (empty) `MapManager` | src/main/java/net/server/channel/Channel.java:130-170 |
 | `MapManager.getMap(int)` / `getMapOrFallback(int)` | the only way a map instance is obtained | src/main/java/server/maps/MapManager.java:105-131 |
 | `MapFactory.loadMapFromWz` | materializes a `MapleMap` from WZ + DB | src/main/java/server/maps/MapFactory.java:151 |
-| `RespawnTask.run` | the respawn tick for every non-empty channel | src/main/java/net/server/task/RespawnTask.java:14-26 |
+| `RespawnTask.run` | the respawn tick for every non-empty channel | src/main/java/net/server/task/RespawnTask.java:13-26 |
 | `MapleMap.addPlayer` / `removePlayer` | character entry/exit, bot counting, minidungeon hooks | src/main/java/server/maps/MapleMap.java:2814, :3192 |
-| `Channel.shutdown` / `World.shutdown` | tears maps down in order | src/main/java/net/server/channel/Channel.java:188-215; src/main/java/net/server/world/World.java:2200 |
+| `Channel.shutdown` / `World.shutdown` | tears maps down in order | src/main/java/net/server/channel/Channel.java:188-215; src/main/java/net/server/world/World.java:2200-2275 |
 | `MapRouting.move` / `blocked` | every portal move consults it | src/main/java/server/maps/MapRouting.java:178, :233 |
 | `BotMapCap.onBotCountChanged` | re-evaluates the per-map bot cap | src/main/java/soloMapling/ArtificialPlayer/BotMapCap.java:212 |
 
@@ -45,7 +45,7 @@ flowchart TD
 1. **Boot gate, before anything binds.** `Server.run` calls `WorldConfigs.validate(YamlConfig.config.worlds,
    GameConstants.WORLD_NAMES.length)` (src/main/java/net/server/Server.java:957). It throws `IllegalStateException`
    for an empty list, an empty entry, `id < -1`, `id >= WORLD_NAMES.length` or a duplicate id, naming the 1-based
-   entry (src/main/java/config/WorldConfigs.java:55-84). Nothing is bound or written before this point.
+   entry (src/main/java/config/WorldConfigs.java:55-81). Nothing is bound or written before this point.
 2. **World count.** `worldCount = Math.min(YamlConfig.config.worlds.size(), YamlConfig.config.server.WORLDS)`
    (src/main/java/net/server/Server.java:978); if `WORLDS` exceeds the configured entries a warning is logged
    (:979-982) and the loop starts `worldCount` worlds (:984-986).
@@ -54,7 +54,7 @@ flowchart TD
    is `>= 0`, else the slot (src/main/java/config/WorldConfigs.java:23) — so a `config.yaml` that lists a single
    `id: 1` boots Bera and never world 0. `new World(id, flag, event_message, exp, drop, bossdrop, meso, quest,
    travel, fishing)` then `new Channel(id, j, bootTime, slot)` for `j = 1..wc.channels`
-   (src/main/java/net/server/Server.java:469-482), then `registerWorld` (Server.java:501-521) which refuses a slot
+   (src/main/java/net/server/Server.java:470-482), then `registerWorld` (Server.java:501-517) which refuses a slot
    out of order or an id already in use, and `setServerMessage(wc.server_message)`.
 4. **World construction registers the world's timers, not its maps.** The `World` ctor stores rates, seeds
    `runningPartyId` to `1000000001` and `runningMessengerId` to 1 (src/main/java/net/server/world/World.java:180-181),
@@ -68,7 +68,7 @@ flowchart TD
    (Channel.java:144). Event scripts are only loaded when `Server.getInstance().isOnline()`, i.e. on a runtime
    `addChannel`, not during boot (Channel.java:146-153, comment "postpone event loading to improve boot time").
 6. **Map load is demand-driven and never substitutes a bad map.** `MapManager.getMap` read-locks the cache and on a
-   miss calls the `synchronized` `loadMapFromWz` (src/main/java/server/maps/MapManager.java:105-115). That method
+   miss calls the `synchronized` `loadMapFromWz` (src/main/java/server/maps/MapManager.java:105-113, :65). That method
    first asks `MapRouting.blocked(mapid)` and returns **null**, logging
    `"map routing: map {} is blocked ({})"`, instead of returning some other map
    (MapManager.java:72-76); otherwise it calls `MapFactory.loadMapFromWz(mapid, world, channel, event)`
@@ -109,7 +109,7 @@ flowchart TD
     `map.checkMapOwnerActivity()` (src/main/java/net/server/channel/Channel.java:1115-1127). Each occupied map also
     runs its own `TimerManager` tasks started in `addPlayer`: the item monitor at `ITEM_MONITOR_TIME`, drop expiry at
     `ITEM_EXPIRE_CHECK` and, when `USE_SPAWN_LOOT_ON_ANIMATION`, a 200 ms loot spawner
-    (src/main/java/server/maps/MapleMap.java:949-1006).
+    (src/main/java/server/maps/MapleMap.java:949-1004).
 12. **Entry placement.** `addPlayer` records a per-entry stamp, increments the bot counter for bots, notifies
     `BotMapCap` (src/main/java/server/maps/MapleMap.java:2834-2850). `sendObjectPlacement` then splits the map into
     what the entrant can see and what is deferred: bots (`deferrableCharacter`) and `ITEM` objects outside
@@ -118,11 +118,11 @@ flowchart TD
     src/main/java/server/maps/MapEntryPlacement.java:39-45). Mobs never trickle (MapEntryPlacement.java:87-90).
 13. **Unload.** `Channel.shutdown` runs every step through `shutdownStep(what, Runnable)` so one failure cannot abort
     the rest: merchants, away players, players, event scripts, then `mapManager.dispose()` and `mapManager = null`
-    (src/main/java/net/server/channel/Channel.java:196-215). `MapManager.dispose` disposes each cached map and drops
+    (src/main/java/net/server/channel/Channel.java:198-215). `MapManager.dispose` disposes each cached map and drops
     the event reference (src/main/java/server/maps/MapManager.java:166-172); `MapleMap.dispose` disposes every
     monster, clears objects, nulls footholds/portals/effect and cancels the map's own timers
     (src/main/java/server/maps/MapleMap.java:5292-5330). A `World.shutdown` shuts its channels first and then
-    cancels its own schedules (src/main/java/net/server/world/World.java:2200-2255). Event instances get their own
+    cancels its own schedules (src/main/java/net/server/world/World.java:2200-2275). Event instances get their own
     `MapManager` (src/main/java/scripting/event/EventInstanceManager.java:147) which is disposed a minute after the
     event ends (src/main/java/scripting/event/EventInstanceManager.java:837-847).
 
@@ -130,13 +130,13 @@ flowchart TD
 
 | Object | Holds | File:line |
 |---|---|---|
-| `Server` | `worlds` (start order), `worldsById`, `channels` (id → channelId → ip) | src/main/java/net/server/Server.java:117-121 |
-| `World` | id, flag, event message, 7 rates, `List<Channel>`, `PlayerStorage`, party/guild/messenger stores, 13 `ScheduledFuture`s | src/main/java/net/server/world/World.java:82-167 |
-| `Channel` | world id, channel id, port, `MapManager`, `PlayerStorage`, `ChannelServer`, `dungeons`, `ownedMaps` (weak set), dojo arrays | src/main/java/net/server/channel/Channel.java:74-119 |
+| `Server` | `worlds` (start order), `worldsById`, `channels` (world id → channel id → ip) | src/main/java/net/server/Server.java:120-122 |
+| `World` | id, flag, event message, 7 rates, `List<Channel>`, `PlayerStorage`, party/guild/messenger stores, 13 `ScheduledFuture`s | src/main/java/net/server/world/World.java:82-90, :130-165 |
+| `Channel` | world id, channel id, port, `MapManager`, `PlayerStorage`, `ChannelServer`, `dungeons`, `ownedMaps` (weak set), dojo arrays | src/main/java/net/server/channel/Channel.java:73-97 |
 | `MapManager` | `Map<Integer,MapleMap> maps` (`HashMap`) + fair RW locks; optional `EventInstanceManager` | src/main/java/server/maps/MapManager.java:35-42 |
 | `MapleMap` | `mapobjects`, `monsterSpawn`, `allMonsterSpawn`, `spawnedMonstersOnMap`, `characters`, `botCount`, `entryStamps`, `portals`, `footholds`, `droppedItems`, `mapOwner` | src/main/java/server/maps/MapleMap.java:71-139 |
-| `SpawnPoint` | monster id, position, foothold, f/team, `mobTime`, `mobInterval`, `nextPossibleSpawn`, live count, `denySpawn` | src/main/java/server/life/SpawnPoint.java:22-44 |
-| `MapRouting` | `BLOCKED`, `KIND`, `BY_PORTAL` (key = `(from<<32)|target`), `ANY_PORTAL`, `FROM_ANYWHERE`, `FALLBACK` | src/main/java/server/maps/MapRouting.java:66-80, :98-100 |
+| `SpawnPoint` | monster id, position, foothold, f/team, `mobTime`, `mobInterval`, `nextPossibleSpawn`, live count, `denySpawn` | src/main/java/server/life/SpawnPoint.java:34-44 |
+| `MapRouting` | `BLOCKED`, `KIND`, `BY_PORTAL` (key = `(from<<32)|target`), `ANY_PORTAL`, `FROM_ANYWHERE`, `FALLBACK` | src/main/java/server/maps/MapRouting.java:66-80 |
 
 Persistent inputs used at map build time: table `plife` (map + world scoped life overrides, src/main/java/server/maps/MapFactory.java:107),
 table `playernpcs` (MapFactory.java:289), and the classpath table `/soloMapling/map-routing.tsv`
@@ -151,7 +151,7 @@ tree; the generator (and the third "mob without an image" class of 229 maps) is 
 | `-Dslumsms.channelLoad.botWeight` | `0.25` | src/main/java/net/server/channel/Channel.java:299-300 | a bot counts as 25 % of a player in the channel load bar |
 | `-Dslums.maps.routing` | `true` | src/main/java/server/maps/MapRouting.java:50 | master off switch: `false` makes every `route`/`move` return null |
 | `-Dslums.maps.routing.table` | `/soloMapling/map-routing.tsv` | src/main/java/server/maps/MapRouting.java:49 | overrides the table path (file instead of classpath) |
-| `-Dslums.mobStatOverrides` | `true` | src/main/java/server/life/MobStatOverrides.java | loads `/soloMapling/mob-stat-overrides.tsv` (ticket 81 HP/EXP) |
+| `-Dslums.mobStatOverrides` | `true` | src/main/java/server/life/MobStatOverrides.java:62 | loads `/soloMapling/mob-stat-overrides.tsv` (ticket 81 HP/EXP) |
 | `WORLDS` | `1` (example) | src/main/java/config/ServerConfig.java:21; config.example.yaml:57 | upper bound on started worlds |
 | `WLDLIST_SIZE` | `21` | ServerConfig.java:22; config.example.yaml:58 | hard bound in `initWorld` |
 | `CHANNEL_SIZE` | `20` | ServerConfig.java:23; config.example.yaml:59 | `addChannel` refuses at this count (-2) |
@@ -160,10 +160,10 @@ tree; the generator (and the third "mob without an image" class of 229 maps) is 
 | `MAP_ENTRY_TRICKLE` | `true` | ServerConfig.java:137; config.example.yaml:118 | enables deferred entry placement |
 | `BOT_MAP_CAP` | `50` | ServerConfig.java:197; config.example.yaml:142 | bots allowed per (channel, map) |
 | `BOT_MAP_CAP_OVERRIDES` | `""` | ServerConfig.java:199; config.example.yaml:143 | `mapId:cap,...`; `0` = uncapped |
-| `BOT_TOWN_MAP_MAX` | `200` | ServerConfig.java:183 | raised cap for a town map while town pull is on |
-| `WORLD_EVENT_MAP_MAX` | `200` | ServerConfig.java:203 | raised cap during a world invasion |
+| `BOT_TOWN_MAP_MAX` | `200` | ServerConfig.java:183; config.example.yaml:138 | raised cap for a town map while town pull is on |
+| `WORLD_EVENT_MAP_MAX` | `200` | ServerConfig.java:203; config.example.yaml:144 | raised cap during a world invasion |
 | `USE_ENABLE_FULL_RESPAWN` | `false` | ServerConfig.java:351; config.example.yaml:258 | spawn-point-count spawn instead of the player-scaled rate |
-| `ITEM_EXPIRE_TIME` / `ITEM_EXPIRE_CHECK` / `ITEM_LIMIT_ON_MAP` | `180000` / `10000` / `200` | ServerConfig.java:421, :427, :428; config.example.yaml:324, :334, :336 | drop lifetime, sweep period, per-map drop ceiling |
+| `ITEM_EXPIRE_TIME` / `ITEM_MONITOR_TIME` / `ITEM_EXPIRE_CHECK` / `ITEM_LIMIT_ON_MAP` | `180000` / `300000` / `10000` / `200` | ServerConfig.java:421, :423, :427, :428; config.example.yaml:324, :328, :334, :336 | drop lifetime, map item-monitor period, expiry sweep, per-map drop ceiling |
 | `MAP_DAMAGE_OVERTIME_INTERVAL` / `_COUNT` | `2500` / `2` | ServerConfig.java:430-431; config.example.yaml:340, :342 | map HP decay period and ticks per hit |
 | `worlds[].id` / `channels` / rates | `-1` (slot) / `1` / `1` | src/main/java/config/WorldConfig.java:3-17 | world identity, channel count, exp/drop/meso/quest/travel/fishing multipliers |
 
@@ -176,7 +176,7 @@ Live (docs/release/1.6.4.conf) sets `CHANNELS=5` (:277), `CHANNEL_LOAD=125` (:27
 ## Invariants
 
 - A world id comes from config, not from position; duplicates or out-of-range ids stop the boot
-  (src/main/java/config/WorldConfigs.java:55-84, called at src/main/java/net/server/Server.java:957).
+  (src/main/java/config/WorldConfigs.java:55-81, called at src/main/java/net/server/Server.java:957).
 - Worlds register in slot order and an id can never run twice (src/main/java/net/server/Server.java:501-521;
   src/test/java/net/server/ServerWorldRegistryTest.java:49).
 - Channel ports follow the world's *slot*, not its id, so a lone Bera keeps 7585-7592
@@ -229,14 +229,14 @@ errors").
 
 | Layer | Coverage | File |
 |---|---|---|
-| World id rules | Bera alone is world 1, no world 0, home world, duplicate id refused | src/test/java/config/WorldConfigsTest.java:34; src/test/java/net/server/ServerWorldRegistryTest.java:31, :49, :61, :68 |
-| Channel ports | first world gets base ports whatever its id; later worlds take the next hundred | src/test/java/net/server/channel/ChannelPortTest.java:10, :16 |
+| World id rules | Bera alone is world 1, no world 0, home world, duplicate id refused | src/test/java/config/WorldConfigsTest.java:33; src/test/java/net/server/ServerWorldRegistryTest.java:30, :48, :60, :67 |
+| Channel ports | first world gets base ports whatever its id; later worlds take the next hundred | src/test/java/net/server/channel/ChannelPortTest.java:9, :15 |
 | Respawn maths | denied points, requested count, multiplier applied once | src/test/java/server/maps/MapRespawnLimitsTest.java:27, :37, :43 |
-| Entry trickle | chunking, nearest-first, stamps, listener | src/test/java/server/maps/MapEntryPlacementTest.java:40, 66, 80, 93, 107, 131, 150, 171 |
-| Routing table | table in jar, Gollux blocked, Rampart loads again, no route into a blocked map, every blocked map has a fallback | src/test/java/server/maps/MapRoutingTableTest.java; MapRoutingWzTest.java:107, :128, :159 |
-| Routing at runtime | blocked `getMap` returns null, only fallback substitutes, login paths | src/test/java/server/maps/MapRoutingWzTest.java:70, :76; src/test/java/net/server/CharacterLoginMapRoutingTest.java; MapRoutingEntryPathsTest.java |
-| Reactors | unnamed item event tolerated, no image → inert | src/test/java/server/maps/ReactorLoadTest.java:58, 69, 76, 86, 108 |
-| Bot counting | bots count in and out, players do not | src/test/java/server/maps/MapBotCountTest.java:17 |
+| Entry trickle | chunking, nearest-first, stamps, listener | src/test/java/server/maps/MapEntryPlacementTest.java:39, 65, 79, 92, 106, 130, 149, 170 |
+| Routing table | table in jar, Gollux blocked, Rampart loads again, no route into a blocked map, every blocked map has a fallback, every destination really loads | src/test/java/server/maps/MapRoutingTableTest.java; src/test/java/server/maps/MapRoutingWzTest.java:106, :127, :158 |
+| Routing at runtime | blocked `getMap` returns null, only fallback substitutes, login paths, warp rows | src/test/java/server/maps/MapRoutingWzTest.java:69, :75; src/test/java/net/server/CharacterLoginMapRoutingTest.java; src/test/java/net/server/MapRoutingEntryPathsTest.java; src/test/java/server/maps/MapRoutingWarpTest.java |
+| Reactors | unnamed item event tolerated, no image → inert | src/test/java/server/maps/ReactorLoadTest.java:57, 68, 75, 85, 107 |
+| Bot counting | bots count in and out, players do not | src/test/java/server/maps/MapBotCountTest.java:16 |
 | Drops / ownership on a map | global drops, item owner packet | src/test/java/server/maps/MapleMapGlobalDropTest.java; MapItemOwnerClientTest.java |
 | Portals / areas | quiet portal triggers, Crack in Time, Lower Grandis, Orbis, AreaGates, Zakum arms | src/test/java/server/maps/CrackInTimePortalsTest.java, LowerGrandisPortalsWzTest.java, PortalTriggerQuietTest.java, AreaGatesTest.java, ZakumArmShieldTest.java |
 | Life factory | failed-load cache, missing exp, override file, cache concurrency | src/test/java/server/life/LifeFactoryFailedLoadCacheTest.java, LifeFactoryMissingExpTest.java, MobStatOverridesTest.java, MobCacheConcurrencyTest.java |

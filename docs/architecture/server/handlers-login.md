@@ -335,7 +335,7 @@ here for TEST's configuration, so "working" is a statement about the code, not a
   `USE_IP_VALIDATION` and `LOGIN_*` values: not in docs/release/1.6.4.conf and `config.yaml` is not readable here.
 - TEST's `-D` set (`start-test.sh` is on another host); in particular whether TEST passes
   `-Dslums.client.allowQa=true` today, which docs/qa/client-scripts/README.md:64, :244 says it needs.
-- Which `MIN_CLIENT_BUILD` actually goes up: 10721 (conf header, OWNER-DECISIONS.md:43) or 10740 (conf :284).
+- Which `MIN_CLIENT_BUILD` actually goes up: 10721 (conf header, /root/work/OWNER-DECISIONS.md:43) or 10740 (conf :284).
 - Whether `DETERRED_MULTICLIENT` is on anywhere: with it off, both the HWID ban checks and
   `MAX_ALLOWED_ACCOUNT_HWID` are bypassed (SessionCoordinator.java:168-171, :201-205).
 - Whether `Pair`'s `getClass` key comparison is intentional; if it is, the only caller of

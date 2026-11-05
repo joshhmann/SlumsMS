@@ -7,7 +7,7 @@ them as 32-bit values capped at 99,999, on both sides of the wire:
 
 - client: `src/hpmp.cpp` + `src/hpmp_patch.h` rewrite 87 sites inside `MapleStory.exe` so the nine packet fields are
   read with `CInPacket::Decode4`, the four `GW_CharacterStat` slots hold a raw `int`, and the ~57 places that
-  truncate a read-back value to 16 bits stop truncating (`src/hpmp_patch.h:23-25`, `README.md:93`).
+  truncate a read-back value to 16 bits stop truncating (`src/hpmp_patch.h:23-25`, `/root/work/client/src-164-data/README.md:93`).
 - server: the nine fields are written with `writeInt`
   (`src/main/java/tools/PacketCreator.java:168-171`, `:1011-1013`, `:1056`, `:1074`) and clamped to
   `GameConstants.MAX_HPMP = 99_999` (`src/main/java/constants/game/GameConstants.java:34`).

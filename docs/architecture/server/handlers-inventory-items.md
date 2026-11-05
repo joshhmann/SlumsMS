@@ -107,20 +107,23 @@ implementation (src/main/java/client/command/CommandsExecutor.java:246).
    stamps autoban slot 6 with a 300 ms window, then reads `type`, `src`, `action`, `quantity`.
 2. Dispatch: `src < 0 && action > 0` → `unequip`; `action < 0` → `equip`; `action == 0` → `drop`; else `move`.
 3. `InventoryManipulator.move` (src/main/java/client/inventory/manipulator/InventoryManipulator.java:674) rejects
-   negative slots, `dst > slotLimit` and a null source, then calls `Inventory.move(src, dst, slotMax)`
-   (src/main/java/client/inventory/Inventory.java:240). That method relocates into an empty target, swaps when the two
-   stacks are the same id/rechargeability/owner or when they would overflow `slotMax`, and otherwise merges quantities.
-   Packets: one merge sends two `ModifyInventory(1, …)`; a plain move sends `(3, source)` + `(1, target)`.
+   negative slots (:677-679), `dst > slotLimit` (:680-682) and a null source (:686-688), then calls
+   `Inventory.move(src, dst, slotMax)` (src/main/java/client/inventory/Inventory.java:240), which relocates into an
+   empty target (:248-251), swaps two EQUIP/CASH or non-stackable items (:253-254, :263-265), splits the overflow at
+   `slotMax` (:255-258) or merges the quantities (:259-262). Packets (:697-707): an overflowing merge sends
+   `ModifyInventory(1, source)` + `(1, initialTarget)`, a full merge sends `(3, source)` + `(1, initialTarget)`, and
+   any other move sends `(2, source, src)`.
 4. `equip` (:711-838) gates on `ii.canWearEquipment`, refuses explorer mount for Cygnus and vice versa, stamps
    `UNTRADEABLE` for `isUntradeableOnEquip` ids, pre-unequips the conflicting slot (-6 overall vs -5 top, -10/-11
    two-handed, -18 mount) with an inventory-full abort, runs `Equip.equip()` for rings, cancels `BOOSTER` when a
    weapon goes on, and ends with `chr.equipChanged()`. It also emits the `!qa cs-2` log line (:721-722).
-5. `drop` (:903-1014) forces `type = EQUIPPED` for negative slots, refuses GMs via `client.GmGiving.blocksDrop`
-   (ticket 43) and via `gmLevel() < MINIMUM_GM_LEVEL_TO_DROP`, refuses while trading or in a minigame, refuses the
-   hard-coded 1142146 ("Locks monsterbook stat item in inventory"), unequips a pet being dropped, and for a partial
-   stack copies the item and decrements the source. Afterwards it clears the item effect / chalkboard / Ariant score
-   when the last copy left. Each stack goes to `map.disappearingItemDrop(...)` or `map.spawnItemDrop(...)`
-   (:963-966, :994-997) depending on `isDisappearingItemDrop`.
+5. `drop` (:903-1014) forces `type = EQUIPPED` for negative slots (:905), refuses GMs via `client.GmGiving.blocksDrop`
+   (:912, ticket 43) and via `gmLevel() < MINIMUM_GM_LEVEL_TO_DROP` (:917), refuses the hard-coded 1142146
+   ("Locks monsterbook stat item in inventory", :928), rejects a quantity above the stack or below zero (:933),
+   unequips a pet being dropped, and for a partial stack copies the item and decrements the source (:947-961).
+   Each stack goes to `map.disappearingItemDrop(...)` (:964, :995) or `map.spawnItemDrop(...)` (:966, :997, both with
+   `playerDrop = true`) depending on `isDisappearingItemDrop`, and an equipped item also triggers `equipChanged()`
+   (:969, :983).
 
 ### 4. Who may take a drop
 
@@ -144,9 +147,10 @@ implementation (src/main/java/client/command/CommandsExecutor.java:246).
 
 ### 5. The pickup path
 
-1. `ItemPickupHandler` (src/main/java/net/server/channel/handlers/ItemPickupHandler.java:42) reads oid, resolves it with
-   `map.getMapObject(oid)`, drops it silently when null, and refuses with a `log.warn("Chr {} tried to pick up an item
-   too far away. …")` beyond 800 px horizontally / 600 px vertically. Then `chr.pickupItem(ob)`.
+1. `ItemPickupHandler.handlePacket` (src/main/java/net/server/channel/handlers/ItemPickupHandler.java:42) reads
+   timestamp/byte/cpos/oid (:43-46), resolves it with `map.getMapObject(oid)` and returns silently when null (:48-51),
+   then refuses further than 800 px horizontally / 600 px vertically with a
+   `log.warn("Chr {} tried to pick up an item too far away. …")` (:55-59) and finally `chr.pickupItem(ob)` (:61).
 2. `Character.pickupItem(ob, petIndex)` (src/main/java/client/Character.java:2478-2500) emits the `pickup`
    `PlayerTrail` event (ticket 131), clears the thread-local "picked" marker for a real player pickup
    (`MapleMap.clearPickedOnThisThread()`, :2485), and dispatches on `isUsingModifiedPickupItem()`
@@ -165,39 +169,57 @@ implementation (src/main/java/client/command/CommandsExecutor.java:246).
    scripted-item branch, but routes USE/ETC/SETUP items into `infinityBag.storePickup(mItem, AdventurerBag.wzRules())`
    (:2781) and only falls back to the inventory when the bag refuses, and it has **no** `isSelfLootableOnly`,
    `needQuestItem`, `GodlyDrops.tellLooter` or Ariant-score call (see Known issues).
-5. `AdventurerBag` (src/main/java/client/inventory/AdventurerBag.java:36) is a per-character count store backed by the
-   `infinitystorage` table (`SELECT itemid FROM infinitystorage …` :417, `UPDATE`/`INSERT` :425-426), capped at
-   `MAX_PER_ITEM = 100_000_000` (:39). It refuses non-bag types, flagged/expiring/owner-tagged stacks, quest and cash
-   items and "one-of-a-kind" ids (:355-363, rules at :71-135).
+5. `AdventurerBag` (src/main/java/client/inventory/AdventurerBag.java:36) is a per-character count store backed by a
+   loader-loaded `Map<Integer,Integer>` (:106-109) persisted to `infinitystorage` (`SELECT itemid FROM infinitystorage
+   WHERE charid = ?` :417, `UPDATE`/`INSERT` :425-426), capped at `MAX_PER_ITEM = 100_000_000` (:39).
+   `storePickup(drop, rules)` (:355) refuses anything that is not USE/ETC/SETUP-and-not-rechargeable (`isBagType`,
+   :136-140), anything `isPlain` rejects — any flag other than a legitimate `ACCOUNT_SHARING`, any expiration, any pet,
+   any owner tag (:148-158) — a zero quantity, `Rules.refused` (quest/PQ/cash) and `Rules.oneOfAKind`
+   (`isPickupRestricted`), with the rules supplied by `wzRules()` (:71-96).
 
 ### 6. Using a USE item
 
 1. `UseItemHandler.handlePacket` (src/main/java/net/server/channel/handlers/UseItemHandler.java:44) refuses a dead
-   character, matches slot+itemId, records a `use` trail (:56), then handles the hard-coded cures (ALL_CURE, EYEDROP,
-   TONIC, HOLY_WATER, :58-72), town scrolls (:73, `USE_BANISHABLE_TOWN_SCROLL` decides whether the banish point is
-   recorded) and the anti-banish scroll (:84); everything else is removed first and applied second (:100-105).
-   `ItemId.HAPPY_BIRTHDAY` is the only map-wide item (:102-105); the comment at :108-110 records that MapleRoot's
-   Lion King's Castle map-wide "expedition potions" were deleted in 1.5.2.
+   character (:46-49), matches slot+itemId under a `quantity > 0` check (:54-55) and records a `use` trail (:56), then
+   handles the hard-coded cures — ALL_CURE, EYEDROP, TONIC, HOLY_WATER (:57-74, each `remove`s and returns) — town
+   scrolls (:75-87: the banish point is recorded only when `USE_BANISHABLE_TOWN_SCROLL`, :81-83) and the anti-banish
+   scroll (:88-95, messaging "You cannot recover from a banish state at the moment."). Everything else is removed
+   **first** and applied second (:97-106), and `ItemId.HAPPY_BIRTHDAY` is the only map-wide item (:99-105). The comment
+   at :108-110 records that MapleRoot's Lion King's Castle map-wide "expedition potions" were removed in 1.5.2: a potion
+   now heals only the one who drinks it.
 2. `ItemRewardHandler` (src/main/java/net/server/channel/handlers/ItemRewardHandler.java:48) is the WZ reward-box path:
-   `ii.getItemReward(itemId)` gives `(totalWeight, rewards)` (:58), each reward is space-checked (:60), rolled against
-   `Randomizer.nextInt(total)` (:63), granted as an equip (`getEquipById` + `rewardExpiration` + `setExpiration`) or as
-   a plain `addById` (:71-73), and the box is consumed with `removeById(USE, itemId, 1, false, false)` (:75). A reward
-   with a `worldmsg` is also broadcast as a server notice (:77).
-   `rewardExpiration(now, period)` (:99) treats the WZ `period` unit as **hours**; the only reachable equip reward is
-   Consume 02022503-02022524/02022550 → 1132010 with period 7200 (300 days), and 05530000's period is never read
-   because it takes the `addById` branch (:88-97).
-3. Item-external USE handlers: `UseSummonBagHandler` spawns `getSummonMobs` entries and consumes the bag **before**
-   spawning (src/main/java/net/server/channel/handlers/UseSummonBagHandler.java:53-60); `UseCatchItemHandler` is a switch
-   over the catchable ids (PHEROMONE_PERFUME, MUTANT_PIG_ROPE, POUCH, ARPQ_ELEMENT_ROCK, MAGIC_CANE, TRANSPARENT_MARBLE_1..3,
-   EPQ_PURIFICATION_MARBLE which delegates to `MonsterCatch.usePurifierMarble`, FISH_NET, and a generic `default` using
-   `getCreateItem`/`getMobHP` with per-item `AutobanManager` spam windows)
-   (src/main/java/net/server/channel/handlers/UseCatchItemHandler.java:45-231); `UseMountFoodHandler` heals up to 30
-   tiredness, converts the healed fraction into mount EXP and levels the mount up to 31
-   (src/main/java/net/server/channel/handlers/UseMountFoodHandler.java:42-89); `UseSolomonHandler` converts an item into
-   gacha exp under a `getMaxLevelById` gate (src/main/java/net/server/channel/handlers/UseSolomonHandler.java:43-79);
-   `UseGachaExpHandler` autobans for redeeming exp it does not have (:39-54); `SkillBookHandler` reads the book's
-   `skillid`/`masterLevel`, bumps the skill, and broadcasts `skillBookResult` so the whole map sees it
-   (src/main/java/net/server/channel/handlers/SkillBookHandler.java:41-105).
+   it validates slot+itemId+`countById` (:52-55), takes `(totalWeight, rewards)` from `ii.getItemReward(itemId)` (:58),
+   space-checks each candidate and answers `getShowInventoryFull` (:60-62), rolls `Randomizer.nextInt(total) < prob`
+   (:64), grants the winner as an equip (`getEquipById` → `rewardExpiration` → `setExpiration` → `addFromDrop`) or as a
+   plain `addById` (:65-74), consumes exactly one box with `removeById(USE, itemId, 1, false, false)` and `break`s
+   (:75-80). A reward with a `worldmsg` is also broadcast as a server notice (:76-79). Note the box is consumed only
+   when a reward actually rolled — an empty roll leaves it in place (:83).
+   `rewardExpiration(now, period)` (:99) treats the WZ `period` unit as **hours**, and the javadoc at :86-98 records the
+   evidence: the only reachable equip reward is Consume 02022503-02022524/02022550 → 1132010 with period 7200 (300
+   days), while Cash 05530000's 21600 is never read because 4170012 is ETC and takes the `addById` branch.
+3. Item-external USE handlers:
+   - `UseSummonBagHandler.handlePacket` (src/main/java/net/server/channel/handlers/UseSummonBagHandler.java:42) refuses a
+     dead character (:44), then consumes the bag at :55 **before** the spawn loop at :56-63 (`Randomizer.nextInt(100) <
+     toSpawnChild[1]` per entry), so a bag whose mob list is empty is still consumed (:53-64).
+   - `UseCatchItemHandler.handlePacket` (src/main/java/net/server/channel/handlers/UseCatchItemHandler.java:45) refuses
+     when the character does not hold the item (:55-57) and switches on the id (:61): PHEROMONE_PERFUME :62, MUTANT_PIG_ROPE
+     :73, POUCH :86, ARPQ_ELEMENT_ROCK :102, MAGIC_CANE :128, TRANSPARENT_MARBLE_1..3 :141/:154/:167,
+     EPQ_PURIFICATION_MARBLE :180 (delegates to `MonsterCatch.usePurifierMarble`, deliberately server-side so a bot can
+     use it), FISH_NET :185, and a generic `default` :199 using `getCreateItem`/`getMobItem`/`getMobHP`/`getUseDelay`
+     with `AutobanManager` spam windows 5 and 10 (:49, :189).
+   - `UseMountFoodHandler.handlePacket` (src/main/java/net/server/channel/handlers/UseMountFoodHandler.java:42) heals
+     `min(tiredness, 30)` (:60), converts the healed fraction into `ceil(factor * (2*level + 6))` mount EXP (:66) and
+     levels the mount while `level < 31` (:68-71), all under the USE lock (:55-80), then broadcasts `updateMount` (:83).
+   - `UseSolomonHandler.handlePacket` (src/main/java/net/server/channel/handlers/UseSolomonHandler.java:43) grants
+     `ii.getExpById(itemId)` gacha exp (:60, :67) under an item/quantity/`getMaxLevelById` gate and an
+     `Integer.MAX_VALUE` overflow gate (:61-66), then removes one (:68).
+   - `UseGachaExpHandler.handlePacket` (src/main/java/net/server/channel/handlers/UseGachaExpHandler.java:39) autobans
+     `GACHA_EXP` when there is nothing to redeem (:44) and otherwise `gainGachaExp()` (:46).
+   - `SkillBookHandler.handlePacket` (src/main/java/net/server/channel/handlers/SkillBookHandler.java:41) refuses a dead
+     character (:42), reads `getSkillStats(itemId, job)` (:65), consumes one book under the USE lock (:84), rolls
+     `rollSuccessChance(skilldata.get("success"))` and bumps the master level on success, then broadcasts
+     `skillBookResult(player, skill, maxlevel, canuse, success)` so the whole map sees it (:105) — the comment at :104
+     records "thanks Vcoc for noting skill book result not showing for all in area".
 
 ### 7. Scroll application
 
@@ -261,44 +283,64 @@ implementation (src/main/java/client/command/CommandsExecutor.java:246).
 
 ### 9. Stat and skill-point assignment
 
-1. `DistributeAPHandler` (:32) and `DistributeSPHandler` (:31) are thin: they read the packed target / skill id and hand
-   off to the processors.
+1. `DistributeAPHandler.handlePacket` (:32) and `DistributeSPHandler.handlePacket` (:31) are thin: they skip an int,
+   read the packed AP target (:34) or the skill id (:33) and hand off to the processors (:36 / :35).
 2. `AssignAPProcessor.APAssignAction(Client, int num)` (src/main/java/client/processor/stat/AssignAPProcessor.java:600)
-   locks the client and switches on the packed AP target (64 STR, 128 DEX, 256 INT, 512 LUK, 2048 HP, 8192 MP), calling
-   `assignStr/assignDex/assignInt/assignLuk/assignHP/assignMP`; each refusal messages "Couldn't execute AP assign
-   operation." and re-enables actions.
+   locks the client and calls `addStat(player, num, false)` (:603), whose switch (:609) maps 64 STR, 128 DEX, 256 INT,
+   512 LUK, 2048 HP (`assignHP(calcHpChange(...))`, :639-644) and 8192 MP (:646-651); a refusal messages "Couldn't
+   execute AP assign operation." and re-enables actions, and an unknown target answers an `EMPTY_STATUPDATE` (:653-655).
+   The cash-shop AP reset reuses the same tail: `APResetAction(c, APFrom, APTo)` (:477) takes the point off the source
+   stat and lands it with `addStat(player, APTo, true)` (:593).
 3. `AssignSPProcessor.SPAssignAction(Client, int skillid)` (src/main/java/client/processor/stat/AssignSPProcessor.java:61)
-   derives the skill book from `skillid/10000`, refuses with `canSPAssign`, recomputes beginner-skill points without
-   consuming SP, and clamps the new level to `getMasterLevel` for 4th-job skills before `changeSkillLevel`.
+   derives the skill book from `skillid / 10000` (:69), refuses with `canSPAssign` (:64), recomputes beginner-skill
+   points as `min(level - 1, 6)` minus the three beginner skills already learned and spends no SP for them (:72-79),
+   clamps the new level to `getMasterLevel` for 4th-job skills (:82) and then `changeSkillLevel`s — with the Aran
+   Full Swing / Over Swing combos also writing their hidden follow-up skills (:88-97).
 
 ### 10. Keymap, quickslot, macro, effects, tints
 
-1. `KeymapChangeHandler.handlePacket` (:35) handles mode 0 (key rebinds; a banned/GM/off-job skill bind is silently
-   skipped with `continue;   // fk that`), mode 1 (auto-HP: item must exist in the USE tab or the client is
-   disconnected) and mode 2 (auto-MP, same rule).
-2. `QuickslotKeyMappedModifiedHandler` (:13) accepts exactly `QuickslotBinding.QUICKSLOT_SIZE * Integer.BYTES` and
-   forwards to `chr.changeQuickslotKeybinding`.
-3. `SkillMacroHandler` (:34) caps at 5 macros, disconnects with a `PACKET_EDIT` autoban alert when a name exceeds 12
-   chars, and stores `SkillMacro(skill1..3, name, shout, position)`.
-4. `UseItemEffectHandler` (:34) validates the item for BUMMER/GOLDEN_CHICKEN effects, then `setItemEffect(itemId)` and a
-   map broadcast — the item is **not** consumed. `CancelItemEffectHandler` (:32) negates the id, refuses
-   `noCancelMouse` effects and calls `cancelEffect`. `UseDeathItemHandler` (:31) only sends the effect.
-5. `UseHammerHandler` (:33) answers `sendHammerMessage()` and nothing else; the real hammer path is the 557 cash branch.
-6. `WeaponTintHandler` (:84) is the Coloring Prism window: it refuses non-players (`ColorPrism.isPlayer`) and the
-   feature gate (`ColorPrism.enabled()`, src/main/java/server/colorprism/ColorPrism.java:37-39), then handles
-   snapshot/apply/restore/apply-look/restore-look under `synchronized (player)` so two Confirms cannot spend one prism.
-7. `SetItemHandler` (:20) serves the set-item catalog (1) and piece list (2) from
-   `server.setitem.SetItems.sendCatalog/sendPieces`.
+1. `KeymapChangeHandler.handlePacket` (:35) requires at least 8 readable bytes (:36) and then:
+   - mode 0 (:38-65) rebinds keys; a `type == 1` skill bind (:45) whose id is a banned bind, a GM-only skill used by a
+     non-GM, or an off-job-tree skill (:50) is silently `continue`d (:56) with the `PACKET_EDIT` alert, the
+     `FilePrinter` line and the `disconnect` all commented out (:51-54). Everything else reaches
+     `changeKeybinding(key, new KeyBinding(type, action))` (:64).
+   - mode 1 (:66-72) is auto-HP: `itemID != 0 && findById(itemID) == null` disconnects (:68-70), otherwise
+     `changeKeybinding(91, new KeyBinding(7, itemID))` (:72). Mode 2 (:73-79) is auto-MP with the same rule and key 92.
+2. `QuickslotKeyMappedModifiedHandler.handlePacket` (:13) returns unless the payload is exactly
+   `QuickslotBinding.QUICKSLOT_SIZE * Integer.BYTES` and the player is in game (:15-19), reads the ints as bytes
+   (:21-25) and calls `changeQuickslotKeybinding` (:27).
+3. `SkillMacroHandler.handlePacket` (:34) returns when `num > 5` (:36-39), disconnects after a `PACKET_EDIT` alert when
+   a macro name exceeds 12 chars (:43-47), and otherwise stores `new SkillMacro(skill1, skill2, skill3, name, shout, i)`
+   via `updateMacros(i, macro)` (:53-54).
+4. `UseItemEffectHandler.handlePacket` (:34) resolves BUMMER/GOLDEN_CHICKEN from ETC and everything else from CASH
+   (:37-41), returns when the stack is missing unless the id is 0 (:42-46), then `setItemEffect(itemId)` and a map
+   broadcast (:47-48) — the item is **not** consumed. `CancelItemEffectHandler.handlePacket` (:32) negates the id (:33),
+   refuses `noCancelMouse` effects (:34) and calls `cancelEffect` (:37). `UseDeathItemHandler.handlePacket` (:31) sets
+   and echoes the effect without any inventory lookup (:32-34).
+5. `UseHammerHandler.handlePacket` (:33) answers `sendHammerMessage()` and nothing else (:34); the real hammer path is
+   the 557 cash branch.
+6. `WeaponTintHandler.handlePacket` (:84) refuses a null player, a bot/console character (`ColorPrism.isPlayer`) and a
+   disabled feature (`ColorPrism.enabled()`, both at :86; gate is `COLOR_PRISM_ENABLED && ColorPrismStore.schemaPresent()`,
+   src/main/java/server/colorprism/ColorPrism.java:37-39), then switches on the action byte (:93-94): snapshot :95,
+   apply :96-109, restore :110-120, apply-look :121-133, restore-look :134-147 — the mutating arms under
+   `synchronized (player)` (:106, :117, :130, :140) so two Confirms cannot spend one prism, and the prism is consumed
+   only when a tint really changes (`Effects.consumePrism`, :56-58).
+7. `SetItemHandler.handlePacket` (:20) returns on a null player or an empty body (:22-24) and switches on one byte:
+   1 = `SetItems.sendCatalog(chr)`, 2 = `SetItems.sendPieces(chr)`, anything else ignored (:25-30).
 
 ### 11. Sorting and merging
 
-1. `InventoryMergeHandler` (:40) bails when `USE_ITEM_SORT` is off, disconnects on an invalid invType, then runs
-   "RonanLana's SLOT MERGER": for every `dst`, merge every later slot with the same item id into it until `slotMax`, then
-   compact the tab by moving the first occupied slot above each hole into it (:60-110). Answers `finishedSort`.
-2. `InventorySortHandler` (:289) copies every item, removes every slot (emitting `ModifyInventory(3, …)`), sorts with
-   `PairedQuicksort` (:42, ctor :258) on itemId/quantity/name/level with a secondary sort inside each item-id run, and
-   re-adds them (`ModifyInventory(0, item.copy())` "to prevent crashes"), then `finishedSort2`. Projectile subtypes 206,
-   207 and 233 are reversed so the stronger stack sorts first (:253-275).
+1. `InventoryMergeHandler` (:40) bails when `USE_ITEM_SORT` is off (src/main/java/net/server/channel/handlers/InventoryMergeHandler.java:45-48),
+   disconnects on an invalid invType (:51-54), then runs "RonanLana's SLOT MERGER": for every `dst`, merge every later
+   slot with the same item id into it until `slotMax` (:65-86, `InventoryManipulator.move(c, inventoryType, src, dst)` at
+   :84), then compact the tab by moving the first occupied slot above each hole into it (:93-112). Answers
+   `finishedSort` (:117).
+2. `InventorySortHandler` (:289) copies every item (`item.copy()`, :314), removes every slot while queueing
+   `ModifyInventory(3, item)` (:319-320), sorts with `PairedQuicksort` (class :42, ctor :258) on `sortCriteria =
+   USE_ITEM_SORT_BY_NAME ? 2 : 0` and `invTypeCriteria = EQUIP ? 3 : 1` (:323-325), re-adds them with
+   `ModifyInventory(0, item.copy());//to prevent crashes` (:328-329), then sends the batch, `finishedSort2` and
+   `enableActions` (:336-338). Projectile subtypes 206, 207 and 233 are reversed so the stronger stack sorts first
+   (:265-267).
 
 ## Data
 
@@ -336,8 +378,10 @@ values are unknown for every row below**; only the code default is evidence.
 | `USE_PERFECT_GM_SCROLL` | :442 | false | GM scrolls always succeed and never spend a slot |
 | `USE_PERFECT_SCROLLING` | :443 | false | a failed scroll never spends an upgrade slot |
 | `SCROLL_CHANCE_ROLLS` | :447 | 0 | passed to `rollSuccessChance` (src/main/java/server/ItemInformationProvider.java:641) |
-| `CHSCROLL_STAT_RATE` / `CHSCROLL_STAT_RANGE` | :449 | 0 | chaos-scroll stat loop and its range (src/main/java/server/ItemInformationProvider.java:689,725) |
-| `USE_EQUIPMNT_LVLUP` / `_SLOTS` / `_POWER` / `_CASH` | :512-518 | false/0 | equip levelling on kills; `Equip.gainLevel` was cut down to WZ-only stats (classifications entry below) |
+| `USE_ENHANCED_CHSCROLL` | :444 | false | switches the chaos-scroll stat loop to the `CHSCROLL_*` knobs |
+| `CHSCROLL_STAT_RATE` / `CHSCROLL_STAT_RANGE` | :448, :449 | 0 / 0 | `scrollEquipWithChaos` does nothing while the rate is 0 (src/main/java/server/ItemInformationProvider.java:689); otherwise the rate is the number of stats nudged per chaos scroll (:725) and the range feeds `chscrollRandomizedStat` (:728) |
+| `USE_EQUIPMNT_LVLUP_SLOTS` / `_POWER` / `_CASH` | :512-514 | false | equip levelling on kills — which channels may grow an equip (`Equip.gainLevel`, src/main/java/client/inventory/Equip.java:539) |
+| `MAX_EQUIPMNT_LVLUP_STAT_UP` / `MAX_EQUIPMNT_STAT` / `USE_EQUIPMNT_LVLUP` | :516, :517, :518 | 0 | per-level-up stat cap, absolute stat cap, and the level at which an item counts as maxed / the floor of `min(30, max(WZ level, this))` (src/main/java/client/inventory/Equip.java:611, :656) |
 | `USE_COMPULSORY_AUTOPOT` | :535 | false | pet autopot drinks enough pots to reach the ratio instead of one |
 | `PET_AUTOHP_RATIO` / `PET_AUTOMP_RATIO` | :537,538 | 0.0 | target ratios for the compulsory mode |
 | `COLOR_PRISM_ENABLED` | :57 | **false** | with `ColorPrismStore.schemaPresent()` gates WeaponTintHandler (commit `11898a01c`, "off by default") |
@@ -452,7 +496,8 @@ plus the lock at src/main/java/client/Character.java:2526); b289, b290 and b297 
 one test on this branch.
 
 Evidence against "working": three cards that are fixed here are still open as live defects in
-/root/work/STATUS-1.6.4.md:39-46, and the release they target is 1.6.4 — the fixes are not what live runs. The pickup
+/root/work/STATUS-1.6.4.md (:39 b289, :40 b290, :47 b297), and the release they target is 1.6.4 — the fixes are not
+what live runs. The pickup
 path exists twice and the second copy has lost the quest/self-loot/godly-drop gates (NEW-FINDING above), reachable by
 any player. The incubator cash item is provably broken (grants 0). Half of the handlers in scope have no test at all,
 including every branch of `ScrollHandler.handlePacket`.
