@@ -247,6 +247,14 @@ class Probes164SocialTest {
                 Probes164Social.socialActsProblem(stuck, budgetCounters(250, 12, 3)));
     }
 
+    @Test
+    void socialActsCountsAFailureOnceNotAgainUnderItsReason() {
+        Map<String, Long> acts = actCounters("GREET.ok", "12", "CONVERSE.ok", "30", "ACCEPT.ok", "14",
+                "ACCEPT.failed", "11", "ACCEPT.failed: could not go through with it", "11");
+        assertNull(Probes164Social.socialActsProblem(acts, budgetCounters(250, 12, 3)),
+                "11 failures in 25 attempts is under half; counted twice it was 22 of 36");
+    }
+
     // ── t-pi-1 ──
 
     @Test

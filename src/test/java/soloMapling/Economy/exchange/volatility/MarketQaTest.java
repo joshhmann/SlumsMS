@@ -114,4 +114,50 @@ class MarketQaTest {
         assertTrue(r.get(0).startsWith("FAIL no online trader"), String.join("\n", r));
         assertTrue(r.stream().anyMatch(l -> l.contains(A + " MAKER offline")), String.join("\n", r));
     }
+
+    @Test
+    void scrollCheckPassesForEveryArchetypeHoldingOneScroll() {
+        for (TraderBrain.Archetype a : TraderBrain.Archetype.values()) {
+            traders.clear();
+            wallets.clear();
+            now.addAndGet(60_000); // clear the order cooldown of the last round
+            FakeBotWallet w = new FakeBotWallet(A, 5_000_000).with(Asset.CHAOS, 5);
+            wallets.put(A, w);
+            traders.add(new MarketTraders.Trader(A, a, A));
+            List<String> r = MarketQa.scrollCheck(ex, roster, now.get());
+            // never a FAIL; a MAKER (which quotes both sides on a flat market) must reach the real order and PASS
+            assertTrue(!r.get(0).startsWith("FAIL"), a + ": " + String.join("\n", r));
+            if (a == TraderBrain.Archetype.MAKER) {
+                assertTrue(r.get(0).startsWith("PASS"), String.join("\n", r));
+            }
+        }
+    }
+
+    @Test
+    void scrollCheckPassesWhenOneTraderHoldsBothScrolls() {
+        FakeBotWallet w = trader(A, 5_000_000).with(Asset.CHAOS, 5).with(Asset.WS, 2);
+        List<String> r = MarketQa.scrollCheck(ex, roster, now.get());
+        assertTrue(r.get(0).startsWith("PASS"), String.join("\n", r));
+    }
+
+    @Test
+    void aHolderInsideTheOrderCooldownIsPassedOverForOneThatIsReady() {
+        FakeBotWallet busy = trader(A, 5_000_000).with(Asset.CHAOS, 5);
+        FakeBotWallet ready = trader(B, 5_000_000).with(Asset.CHAOS, 5);
+        assertTrue(ex.placeBot(new Exchange.Place("xc3", A, A, Side.BUY, 1_000, 1, "ELIXIR"), busy).ok());
+        now.addAndGet(2_000);
+        List<String> r = MarketQa.scrollCheck(ex, roster, now.get());
+        assertTrue(r.get(0).startsWith("PASS"), String.join("\n", r));
+        assertTrue(r.stream().anyMatch(l -> l.contains("inside the order cooldown")), String.join("\n", r));
+        assertEquals(5, ready.items.get(Asset.CHAOS));
+    }
+
+    @Test
+    void whenEveryHolderIsInsideTheOrderCooldownTheCheckSkipsInsteadOfFailing() {
+        FakeBotWallet busy = trader(A, 5_000_000).with(Asset.CHAOS, 5);
+        assertTrue(ex.placeBot(new Exchange.Place("xc3", A, A, Side.BUY, 1_000, 1, "ELIXIR"), busy).ok());
+        now.addAndGet(2_000);
+        List<String> r = MarketQa.scrollCheck(ex, roster, now.get());
+        assertTrue(r.get(0).startsWith("SKIP"), String.join("\n", r));
+    }
 }
