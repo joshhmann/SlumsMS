@@ -615,6 +615,21 @@ class ExchangeDeskTest {
     }
 
     @Test
+    void bookAndTickersDescribeTheDeskNotAnOrderBook() throws Exception {
+        Exchange e = start(deskCfg, HOUSE);
+        seedDesk(4_000, 40_000_000);
+        store.login(2, 12);
+        LiveWallet w = store.finder().find(2);
+        String book = String.join("\n", ExchangeChat.handle(e, w, new String[]{"book"}));
+        assertTrue(book.contains("no order book") && book.contains("desk buys from you at 4,900")
+                && book.contains("sells to you at 5,100"), book);
+        assertFalse(book.contains(" ask ") || book.contains(" bid "), book);
+        String tk = String.join("\n", ExchangeChat.handle(e, w, new String[]{"tickers"}));
+        assertTrue(tk.contains("desk buys at 4,900, sells at 5,100"), tk);
+        assertFalse(tk.lines().filter(l -> l.startsWith("NX ")).anyMatch(l -> l.contains("bid")), tk);
+    }
+
+    @Test
     void theRunnerWritesTheDeskFileEachTickAndRemovesItWithTheDeskOff(
             @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
         Exchange e = start(deskCfg, HOUSE);
