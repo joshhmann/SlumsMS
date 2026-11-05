@@ -115,11 +115,11 @@ selected repeatedly and started rarely.
 
 | Switch | Default | Effect | Read at |
 |---|---|---|---|
-| `-Dslums.botlife.enabled` | on (only `false` disables) | brain runs at all | LifeRuntime.java:108-112 |
-| `-Dslums.botlife.execute` | on (only `false` disables) | choices are carried out; off = shadow | LifeRuntime.java:115-117 |
-| `-Dslums.botlife.reach` | `all`; `training` = training bots only | which bot types run the brain | LifeRuntime.java:126-128 |
-| `-Dslums.botlife.logEvery` | 500 | one decision in N logged at INFO | LifeRuntime.java:39 |
-| `-Dslums.botlife.metrics` | `true` | 60 s metrics report | LifeRuntime.java:882 |
+| `-Dslums.botlife.enabled` | on (only `false` disables) | brain runs at all; `enabled()` also requires `executeOn()` | LifeRuntime.java:93-97 |
+| `-Dslums.botlife.execute` | on (only `false` disables) | choices are carried out; off = shadow | LifeRuntime.java:99-102 |
+| `-Dslums.botlife.reach` | `all`; `training` = training bots only | which bot types run the brain | LifeRuntime.java:108-112 |
+| `-Dslums.botlife.logEvery` | 500 | one decision in N logged at INFO | LifeRuntime.java:38 |
+| `-Dslums.botlife.metrics` | `true` | 60 s metrics report | LifeRuntime.java:884 |
 | `-Dslums.qa` / `QaSuite.isEnabled()` | off | lets QA drive life activities even with the brain off | TrainingBot.java:829-831 |
 
 Live: `docs/release/1.6.4.conf` drops `-Dsolomapling.fads=false` (docs/HANDOFF.md:212 records the 1.6.0.4 hang) but no
