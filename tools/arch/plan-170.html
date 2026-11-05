@@ -1,0 +1,354 @@
+<title>SlumsMS 1.7.0 Plan</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one reading column like the architecture pages; status strip, phases, then design sections, tickets, gates, decisions */
+:root{
+  --bg:#f3f5f2;--card:#ffffff;--fg:#1d2420;--mute:#5d6a63;--line:#dbe2dd;--accent:#2f7a5c;--accent-bg:#e2f1ea;
+  --warn:#9a5b0f;--warn-bg:#fbefd9;--bad:#a43a30;--bad-bg:#f8e1dd;--unk:#56606b;--unk-bg:#e8ebee;--code-bg:#eef2ef;
+  --display:"Fraunces",Georgia,serif;--body:"Source Sans 3",system-ui,sans-serif;--mono:"JetBrains Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121614;--card:#1a201d;--fg:#e4ebe6;--mute:#93a39a;--line:#2c3631;--accent:#6cc79f;--accent-bg:#1b3328;--warn:#e3a85a;--warn-bg:#352812;--bad:#ef8b80;--bad-bg:#3a1d19;--unk:#a9b3bd;--unk-bg:#252b30;--code-bg:#222a26;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121614;--card:#1a201d;--fg:#e4ebe6;--mute:#93a39a;--line:#2c3631;--accent:#6cc79f;--accent-bg:#1b3328;--warn:#e3a85a;--warn-bg:#352812;--bad:#ef8b80;--bad-bg:#3a1d19;--unk:#a9b3bd;--unk-bg:#252b30;--code-bg:#222a26;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:16px/1.55 var(--body)}
+.wrap{max-width:980px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1{font:600 clamp(28px,4vw,38px)/1.15 var(--display);margin:0 0 6px;text-wrap:balance}
+h2{font:600 22px/1.25 var(--display);margin:0 0 8px;text-wrap:balance}
+h3{font-size:14px;margin:14px 0 4px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute)}
+p{margin:0 0 10px;max-width:72ch}
+.lede{color:var(--mute);max-width:70ch;margin-bottom:18px}
+a{color:var(--accent)}
+code{font:500 13px var(--mono);background:var(--code-bg);border-radius:4px;padding:0 4px;overflow-wrap:anywhere}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 18px 14px;margin-bottom:16px;scroll-margin-top:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}.grid>div{min-width:0}
+ul{margin:0 0 8px;padding-left:20px}li{margin:3px 0}
+.diagram{overflow-x:auto;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;margin:8px 0 12px}
+.tbl{overflow-x:auto;margin-bottom:8px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:7px 8px;border-bottom:1px solid var(--line)}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--mute)}
+td.id{font:500 12.5px var(--mono);white-space:nowrap}
+.pill{display:inline-block;font:500 11.5px var(--mono);padding:1px 7px;border-radius:999px;white-space:nowrap}
+.s-ok{background:var(--accent-bg);color:var(--accent)}.s-part{background:var(--warn-bg);color:var(--warn)}.s-bad{background:var(--bad-bg);color:var(--bad)}.s-unk{background:var(--unk-bg);color:var(--unk)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 18px}
+.toc a{font-size:14px;text-decoration:none;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:3px 10px}
+.toc a:hover,.toc a:focus-visible{border-color:var(--accent);outline:none}
+.status{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+.verdict{border:2px solid var(--accent);background:var(--accent-bg);border-radius:10px;padding:12px 16px;margin-bottom:16px}
+.verdict b{font:600 18px var(--display);color:var(--accent)}
+.phase{border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--bg)}
+.phase .when{font:500 11.5px var(--mono);color:var(--mute);text-transform:uppercase;letter-spacing:.05em}
+.phase h4{font:600 17px var(--display);margin:2px 0 6px}
+.phase.now{border-color:var(--warn);background:var(--warn-bg)}
+.phase p{font-size:14px;margin:0 0 6px}
+.phase .exit{font-size:13px;color:var(--mute)}
+.ticket{border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--bg)}
+.ticket .tid{font:500 12px var(--mono);color:var(--accent)}
+.ticket h4{font:600 16px var(--display);margin:2px 0 6px}
+.ticket ul{font-size:14px}
+.ticket .dep{font-size:13px;color:var(--mute);margin-bottom:4px}
+.finding{border-left:4px solid var(--bad);padding-left:10px;margin:8px 0}
+.finding b{display:block}
+.finding span{font-size:14px;color:var(--mute)}
+.foot{color:var(--mute);font-size:13px;margin-top:20px}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+
+<div class="wrap">
+  <p style="margin-bottom:4px"><a href="https://claude.ai/artifact/TetRFuyLqi5UGzDDbWh74r">SlumsMS Systems hub</a></p>
+  <h1>SlumsMS 1.7.0 Plan</h1>
+  <p class="lede">The systems-first stabilization release. It makes the game engine, playerbots, owned alts, content, QA and supporting services reliable enough to build on. 1.7.0 adds no new features: it repairs, completes and proves what already exists. This page summarises the signed-off plan in <code>docs/plans/1.7.0/</code> on branch <code>plan-1.7.0</code>.</p>
+
+  <div class="status">
+    <span class="pill s-ok">architecture locked</span>
+    <span class="pill s-part">waiting on 1.6.4 release</span>
+    <span class="pill s-unk">1.6.5 folded in</span>
+    <span class="pill s-unk">feature freeze</span>
+  </div>
+
+  <div class="verdict">
+    <b>Architecture locked.</b> Approved by the owner on Nov 5 as the 1.7.0 baseline. Any material change needs evidence and owner approval. Implementation starts once 1.6.4 is released and verified on live. That commit, tagged <code>v1.6.4</code>, becomes the baseline. Until then, 1.6.4 is the only active release.
+  </div>
+
+  <nav class="toc" aria-label="Sections">
+    <a href="#phases">Phases</a><a href="#first">First tickets</a><a href="#found">What the code showed</a>
+    <a href="#authority">Action authority</a><a href="#policies">Bots and alts</a><a href="#memory">Memory</a>
+    <a href="#capabilities">Capabilities</a><a href="#tickets">Tickets</a><a href="#qa">QA</a>
+    <a href="#metrics">Metrics</a><a href="#gates">Gates</a><a href="#decisions">Decisions</a><a href="#history">Review history</a>
+  </nav>
+
+  <section id="phases">
+    <h2>Phases</h2>
+    <div class="grid">
+      <div class="phase now"><div class="when">Now</div><h4>1.6.4 release</h4><p>Release checks, owner click-through, owner-approved deploy, live verification.</p><div class="exit">Exit: 1.6.4 verified on live, tag <code>v1.6.4</code></div></div>
+      <div class="phase"><div class="when">1.7.0 · 1</div><h4>Foundation</h4><p>QA event reliability, honest outcomes, the HELP_FRIEND slice, the P0 safety batch including the operation journal.</p><div class="exit">Exit: slice passes on TEST; buyback and merchant journal proven</div></div>
+      <div class="phase"><div class="when">1.7.0 · 2</div><h4>Expansion</h4><p>The remaining bot actions, owned alts, cross-bot handshakes, world knowledge, the capability registry, high-fanout engine repairs, launcher compatibility.</p><div class="exit">Exit: migrated-action coverage reported; capability report published</div></div>
+      <div class="phase"><div class="when">1.7.0 · 3</div><h4>Certification</h4><p>12 golden paths, safety fault tests, full-population 24 h soak, client compatibility, manifest checks, restore and rollback proof.</p><div class="exit">Exit: gates G0–G5 green with evidence</div></div>
+    </div>
+  </section>
+
+  <section id="first">
+    <h2>First three tickets</h2>
+    <div class="grid">
+      <div class="ticket"><div class="tid">P1-A1</div><h4>Failure reasons and honest learning</h4><div class="dep">Needs: the 1.6.4 baseline</div><ul><li>Entering GRIND no longer marks an activity as done</li><li>Logout, death and preemption change no likes</li><li>Logout ends as "interrupted", not "cancelled"</li><li>Each test fails on 1.6.4 and passes after</li><li>1 h of TEST outcomes broken down by reason</li></ul></div>
+      <div class="ticket"><div class="tid">P1-A2</div><h4>Action ledger and the HELP_FRIEND slice</h4><div class="dep">Needs: P1-A1</div><ul><li>Positive case <code>bl-hf-ok</code> passes on TEST</li><li>Town case <code>bl-hf-town</code>: 0 EXP, a reason given, personality unchanged</li><li>Nothing outside the ledger can end an action (architecture test)</li><li>24 h soak: no stuck or double-ended attempts</li></ul></div>
+      <div class="ticket"><div class="tid">P1-Q1</div><h4>Client QA runner keeps every event</h4><div class="dep">Needs: the 1.6.4 baseline (runs alongside)</div><ul><li>Two signals in one batch: both waits succeed</li><li>An unrelated event survives for a later wait</li><li>One run on the Windows test VM records both</li></ul></div>
+    </div>
+    <p style="margin-top:10px">P0 safety work runs in parallel with the bot and QA work from day one. Every P0 item is a mandatory release blocker.</p>
+  </section>
+
+  <section id="found">
+    <h2>What reading the code showed</h2>
+    <p>The plan was checked against <code>release-1.6.4</code>. These confirmed facts shaped the design:</p>
+    <div class="finding"><b>Most of the action contract already exists</b><span><code>LifeActivityQueue</code> (one waiting and one active per bot, duplicate ends ignored), <code>LifeAcceptance</code> (admission), <code>LifeExecutor</code> (adapter), <code>LifeOutcomes</code> (how it ended). 1.7.0 grows these; it does not add a controller.</span></div>
+    <div class="finding"><b>Bots get credit without proof</b><span>Entering GRIND marks the current activity done (<code>TrainingBot.java:575-579</code>), so HELP_FRIEND "succeeds" on arrival and learning rewards it.</span></div>
+    <div class="finding"><b>Engine faults shape personality</b><span>Every failure, a logout included, lowers the bot's liking for that activity (<code>LifeLearning.java:276-285</code>).</span></div>
+    <div class="finding"><b>Running activities have no deadline</b><span>Only waiting requests expire (30 s). A path that never ends its activity can leave the bot busy forever.</span></div>
+    <div class="finding"><b>Town EXP is wider than one activity</b><span>Mob level −1 is turned into 1 at 11 places in <code>TrainingBot</code>, so the fix goes where the training target is set.</span></div>
+    <div class="finding"><b>Bot memory saves can't change version</b><span><code>LifeMemory</code> wipes saves with an unknown version, and the 1.6.4 writer drops unknown keys. New data goes in as an extra key, and a round-trip test proves rollback is safe.</span></div>
+  </section>
+
+  <section id="authority">
+    <h2>Action authority</h2>
+    <p><b>LifeRuntime decides; the ledger owns execution truth.</b> The existing executors keep all game mechanics. Every state change goes through one <code>transition</code> call, and nothing else can end an action.</p>
+    <div class="diagram"><pre class="mermaid">
+flowchart LR
+  P[LifePlanner + LifePolicy<br/>what the bot wants] --> R[LifeRuntime<br/>picks intent, replans]
+  R --> L[Action ledger<br/>admit, claim, cancel, end]
+  L --> X[Existing executors<br/>TrainingBot, travel, combat, quests, social]
+  X --> V[Proof<br/>observed world change]
+  V --> L
+  L --> O[LifeOutcomes<br/>one terminal event]
+  O --> M[Memory and learning<br/>by reason]
+</pre></div>
+    <h3>Lifecycle</h3>
+    <div class="diagram"><pre class="mermaid">
+stateDiagram-v2
+  [*] --> PROPOSED
+  PROPOSED --> REJECTED: refused, with reason
+  PROPOSED --> ADMITTED: claims taken
+  ADMITTED --> RUNNING
+  RUNNING --> SUCCEEDED: proof observed
+  RUNNING --> FAILED
+  RUNNING --> TIMED_OUT: deadline
+  RUNNING --> INTERRUPTED: safety, owner, preempt
+  RUNNING --> COMPENSATING: mid-transaction stop
+  COMPENSATING --> INTERRUPTED: settled
+  COMPENSATING --> FAILED: cannot settle, escalated
+</pre></div>
+    <h3>Resources each bot can claim</h3>
+    <div class="tbl"><table>
+      <tr><th>Resource</th><th>Covers</th><th>Typical claimers</th></tr>
+      <tr><td class="id">BODY</td><td>position, movement, map changes</td><td>travel, grind, hang out, alt follow</td></tr>
+      <tr><td class="id">HANDS</td><td>attacks, skills, combat item use</td><td>grind, combat, alt fight</td></tr>
+      <tr><td class="id">BAG</td><td>inventory and mesos</td><td>shop, sell, trade, gifting</td></tr>
+      <tr><td class="id">DIALOG</td><td>an open NPC, shop, trade or storage window</td><td>shop, trade, quest turn-in</td></tr>
+      <tr><td class="id">PARTY</td><td>party and guild membership changes</td><td>PQ and guild invites</td></tr>
+    </table></div>
+    <p>Two actions conflict only when they claim the same resource, so chatting while grinding stays fine. Admission is all-or-nothing per bot, with no locks shared between bots. Parents claim only what they need throughout; each step claims its own.</p>
+    <h3>Priority</h3>
+    <p><span class="pill s-bad">safety</span> › <span class="pill s-part">owner command</span> › <span class="pill s-unk">committed trade or PQ</span> › <span class="pill s-ok">the bot's own choice</span></p>
+    <h3>Between two bots</h3>
+    <ul>
+      <li>Each trade, invite or help request has a transaction ID and a deadline on both sides.</li>
+      <li>A repeated or late answer is ignored.</li>
+      <li>A bot has only one pending request at a time, and the lower ID wins a simultaneous ask.</li>
+      <li>If the partner disappears, the action ends immediately.</li>
+    </ul>
+    <h3>Half-finished trades and purchases</h3>
+    <ul>
+      <li>Every transactional step writes a journal entry before it changes anything.</li>
+      <li>Cleanup never blocks the game loop: small slices per tick, database work off the tick, and a 2 s deadline spread across ticks. It reports done, pending or failed.</li>
+      <li>A bot keeps its claims while the outcome is uncertain.</li>
+      <li>Boot settles open entries before anyone logs in.</li>
+    </ul>
+  </section>
+
+  <section id="policies">
+    <h2>Bots and alts</h2>
+    <p>Roster bots and owned alts share one implementation (ledger, adapters, proofs, outcomes) and differ only in who proposes actions.</p>
+    <div class="tbl"><table>
+      <tr><th></th><th>Roster bots</th><th>Owned alts</th></tr>
+      <tr><td>Who proposes</td><td>LifeRuntime: needs, goals, plans</td><td>the owner's orders and the companion tick</td></tr>
+      <tr><td>Default</td><td>its own choice</td><td>follow the owner, fight engaged mobs</td></tr>
+      <tr><td>Own wants</td><td>yes</td><td>never anything that leaves the owner</td></tr>
+      <tr><td>Learns</td><td>world, experience, social</td><td>world and experience; no personality drift</td></tr>
+    </table></div>
+  </section>
+
+  <section id="memory">
+    <h2>Three kinds of memory</h2>
+    <div class="tbl"><table>
+      <tr><th>Memory</th><th>Holds</th><th>Written by</th><th>Never written by</th></tr>
+      <tr><td><b>World knowledge</b></td><td>routes, map limits, broken capabilities, short backoffs</td><td>rejections and failures with engine, content or contention reasons</td><td>death, logout, shutdown, preemption</td></tr>
+      <tr><td><b>Experience</b></td><td>what it did and how well it worked</td><td>proven successes; failures the bot itself caused</td><td>rejections, engine reasons, interruptions</td></tr>
+      <tr><td><b>Social / personality</b></td><td>Bartle point, bonds, rivalry, gossip</td><td>social events only</td><td>any engine or environment reason</td></tr>
+    </table></div>
+    <p><b>After a fix:</b> each world-knowledge entry records what it depends on (capability, map, route, content version, switch). After a deploy or switch change, affected entries get a probe, at most one per capability per world every 10 min, so fixing the engine wakes bots back up.</p>
+  </section>
+
+  <section id="capabilities">
+    <h2>Capabilities</h2>
+    <p>A capability is something the engine or content must do for an action to be possible, such as <code>quest.objective.credit</code> or <code>nav.portal.edge</code>. States: <span class="pill s-bad">missing</span> <span class="pill s-bad">broken</span> <span class="pill s-unk">unverified</span> <span class="pill s-ok">verified</span> <span class="pill s-part">switched off</span></p>
+    <ul>
+      <li><b>Bound to context.</b> A verdict holds only for its server build, environment (simulation, TEST or live), content version, relevant switches and client build. If any of these differ, it reads as unverified.</li>
+      <li><b>Verified is not available.</b> Whether the NPC is spawned or the route is open is checked at every admission. A short outage never downgrades a verdict.</li>
+      <li><b>Per character, every time.</b> Level, job, items and permissions are checked fresh for each attempt.</li>
+    </ul>
+    <p>The inventory covers navigation, map loading, NPCs, quests, combat, economy, persistence, social, scripting, WZ references and client protocol. Every failure gets a class: <code>ENGINE</code> <code>CONTENT</code> <code>BOT</code> <code>CLIENT_PROTOCOL</code> <code>TEST_INFRA</code> <code>CONFIG_DEPENDENT</code>.</p>
+  </section>
+
+  <section id="tickets">
+    <h2>Tickets</h2>
+    <h3>P0: safety, items and mesos, saves, deploy and recovery</h3>
+    <div class="tbl"><table>
+      <tr><th>ID</th><th>Ticket</th></tr>
+      <tr><td class="id">P0-1</td><td>Buyback is all-or-nothing (introduces the operation journal)</td></tr>
+      <tr><td class="id">P0-2</td><td>Merchant close and shop buy are atomic and guarded; boot reconciles</td></tr>
+      <tr><td class="id">P0-3</td><td><code>deploy-test</code> proves the server is up before marking the deploy</td></tr>
+      <tr><td class="id">P0-4</td><td>A failed boot exits with an error code</td></tr>
+      <tr><td class="id">P0-5</td><td>Saves report failure honestly; <code>!saveall</code> tells the truth</td></tr>
+      <tr><td class="id">P0-6</td><td>The incubator doesn't eat items</td></tr>
+      <tr><td class="id">P0-7</td><td>Banned accounts lose their site sessions</td></tr>
+      <tr><td class="id">P0-8</td><td>Backups and restores are proven and monitored</td></tr>
+    </table></div>
+    <h3>P1: bot correctness, engine capabilities, golden-path breaks, QA</h3>
+    <div class="tbl"><table>
+      <tr><th>ID</th><th>Ticket</th></tr>
+      <tr><td class="id">P1-Q1</td><td>Client QA runner never loses batched events</td></tr>
+      <tr><td class="id">P1-Q2</td><td>Client QA module ships from the release client line</td></tr>
+      <tr><td class="id">P1-Q3</td><td>Change-based test selection and honest skips</td></tr>
+      <tr><td class="id">P1-A1</td><td>Failure reasons and honest learning</td></tr>
+      <tr><td class="id">P1-A2</td><td>Action ledger and the HELP_FRIEND slice</td></tr>
+      <tr><td class="id">P1-A3</td><td>Action trees for travel, grind, restock, sell, PQ and invites; handshakes; settling</td></tr>
+      <tr><td class="id">P1-A4</td><td>Owned alts on the shared ledger</td></tr>
+      <tr><td class="id">P1-A5</td><td>Town stays get a ceiling; party grinding respects map caps</td></tr>
+      <tr><td class="id">P1-A6</td><td>World knowledge and reassessment after fixes; memory round-trip test</td></tr>
+      <tr><td class="id">P1-C1</td><td>Capability registry and scanners</td></tr>
+      <tr><td class="id">P1-E1</td><td>One bad spawn entry no longer kills a map load</td></tr>
+      <tr><td class="id">P1-E2</td><td>Guild expel and party leader handlers don't crash</td></tr>
+      <tr><td class="id">P1-L1</td><td>One client build number; the manifest carries the minimum build</td></tr>
+      <tr><td class="id">P1-L2</td><td>Game-content manifest signing and rollback protection <span class="pill s-part">open until verified</span></td></tr>
+      <tr><td class="id">P1-R1</td><td>Release rehearsal covers WZ and extra steps; receipt binds hashes</td></tr>
+    </table></div>
+    <h3>P2</h3>
+    <ul>
+      <li>Quest turn-in refusals spending the day's budget</li>
+      <li>Supply check side effects</li>
+      <li>The script cache never hitting</li>
+      <li>An opcode table check</li>
+      <li>Cash-shop gifts (needs your decision first)</li>
+      <li><code>!enableauth</code></li>
+      <li>The launcher's TEST site address</li>
+      <li>Monitor gaps</li>
+      <li>Grudges lost on reboot</li>
+      <li>1.6.5 carry-over fixes: b287, b291, b274, b280</li>
+      <li>Content repairs ranked by how much each unblocks</li>
+    </ul>
+    <h3>Deferred to 1.8</h3>
+    <p>Holiday PQ, Elnath PQ stages, Von Leon, Cygnus, Hard Lotus, Balrog Easy, Chaos Horntail, new classes or PQs, cosmetic expansion, chat-model upgrades.</p>
+  </section>
+
+  <section id="qa">
+    <h2>QA</h2>
+    <div class="tbl"><table>
+      <tr><th>Measured on TEST, Nov 5</th><th>Checks</th><th>Time</th></tr>
+      <tr><td>Full release auto-QA</td><td>197</td><td>2 h 22 min</td></tr>
+      <tr><td>Targeted rerun</td><td>16</td><td>20 min</td></tr>
+      <tr><td>Single check</td><td>1</td><td>2.5 min</td></tr>
+    </table></div>
+    <p>QA extends the existing tools; no new framework. A checked-in table maps changed files to the checks they need, and any unknown file triggers the broad set. The time target for full certification comes from measured per-check timings, never from cutting a soak or a restore drill.</p>
+    <h3>Golden paths</h3>
+    <div class="tbl"><table>
+      <tr><th>#</th><th>Path</th></tr>
+      <tr><td class="id">GP1</td><td>New account: site, launcher, client gate, first map, relog</td></tr>
+      <tr><td class="id">GP2</td><td>Beginner to first job advance</td></tr>
+      <tr><td class="id">GP3</td><td>A quest chain through a restart</td></tr>
+      <tr><td class="id">GP4</td><td>Buy potions, grind, sell drops</td></tr>
+      <tr><td class="id">GP5</td><td>Kerning PQ with an owned alt</td></tr>
+      <tr><td class="id">GP6</td><td>A player trade, then both relog</td></tr>
+      <tr><td class="id">GP7</td><td>An exchange sell and buy under the cap</td></tr>
+      <tr><td class="id">GP8</td><td>Hired merchant through Fredrick retrieval</td></tr>
+      <tr><td class="id">GP9</td><td>Bot HELP_FRIEND, positive and town cases</td></tr>
+      <tr><td class="id">GP10</td><td>Bot restock trip</td></tr>
+      <tr><td class="id">GP11</td><td>A boss entry with a party</td></tr>
+      <tr><td class="id">GP12</td><td>Death, respawn, EXP penalty, save</td></tr>
+    </table></div>
+  </section>
+
+  <section id="metrics">
+    <h2>Bot metrics</h2>
+    <p>Each metric has its own denominator, so cancelling or rejecting actions can never make the numbers look better. Windows are rolling 1 h and 24 h; an eligible bot is online for at least half the window.</p>
+    <div class="tbl"><table>
+      <tr><th>Metric</th><th>Out of</th></tr>
+      <tr><td>Admission rate</td><td>proposed actions</td></tr>
+      <tr><td>Rejection rate, by reason</td><td>proposed actions</td></tr>
+      <tr><td>Completion rate</td><td>started actions</td></tr>
+      <tr><td>Ended within deadline (G2 target 99.9%)</td><td>started actions</td></tr>
+      <tr><td>Cancellation and timeout rates</td><td>started actions</td></tr>
+      <tr><td>Repeated-failure rate</td><td>eligible bots</td></tr>
+      <tr><td>Time to first meaningful progress</td><td>p50 and p95 after login</td></tr>
+      <tr><td><b>AMPR</b>, meaningful progress rate</td><td>eligible bots</td></tr>
+    </table></div>
+    <p><b>Counts as meaningful progress:</b></p>
+    <ul>
+      <li>levels, job advances and real EXP gains;</li>
+      <li>quest steps;</li>
+      <li>new maps and arrivals at a planned destination;</li>
+      <li>net-worth gains and gear upgrades;</li>
+      <li>new bonds, parties that stick, PQ clears, accepted gifts and invites;</li>
+      <li>goal steps.</li>
+    </ul>
+    <p><b>Doesn't count:</b> chat, emotes, idle wander, breaks and repeated moves. AMPR gets thresholds after a week of baseline data and is not a 1.7.0 gate.</p>
+  </section>
+
+  <section id="gates">
+    <h2>Release gates</h2>
+    <div class="tbl"><table>
+      <tr><th>Gate</th><th>Blocks when</th><th>Proof</th><th>Exception</th></tr>
+      <tr><td class="id">G0</td><td>QA can lose events or can't tie a failure to its build</td><td>runner regression green; every result carries run, commit, environment and capability</td><td>none</td></tr>
+      <tr><td class="id">G1</td><td>any open P0</td><td>a fault test per P0 that failed before the fix; GP4, GP6, GP8 green</td><td>owner sign-off per item; never for item or mesos loss</td></tr>
+      <tr><td class="id">G2</td><td>runaway loops, starvation, or hidden legacy failures</td><td>24 h soak: 99.9% of started actions end in time; no stuck or double-ended actions; coverage of converted actions shown; old-code actions no worse than 1.6.4</td><td>an activity may be switched off visibly, or a legacy family signed off and listed</td></tr>
+      <tr><td class="id">G3</td><td>a golden path fails or hits a missing reference</td><td>GP1–GP12 pass on the release candidate</td><td>non-golden content excluded with routing, listed</td></tr>
+      <tr><td class="id">G4</td><td>an incompatible client, launcher or manifest can launch</td><td>mismatched or unsigned manifests refused; GP1 on the VM</td><td>none for new players</td></tr>
+      <tr><td class="id">G5</td><td>rollback or restore unproven</td><td>rehearsal PASS bound to staged hashes; restore drill; backup timers green; memory round trip</td><td>none</td></tr>
+    </table></div>
+    <p>No false greens: a flaky check needs two passes in a row, a skipped golden path is a failure, and every gate names its evidence file.</p>
+  </section>
+
+  <section id="decisions">
+    <h2>Key decisions</h2>
+    <div class="tbl"><table>
+      <tr><th>Decided</th><th>Rejected</th></tr>
+      <tr><td>Grow the existing queue into a per-bot ledger</td><td>a central controller service</td></tr>
+      <tr><td>One transition method; an architecture test bans bypasses</td><td>convention only</td></tr>
+      <tr><td>Each step has its own ID; parents succeed only on their own proof</td><td>counting child successes</td></tr>
+      <tr><td>Nothing resumes halfway; goals persist and start fresh</td><td>checkpointed actions</td></tr>
+      <tr><td>Five resources; per-bot admission; handshakes between bots</td><td>cross-bot locks</td></tr>
+      <tr><td>Bounded cleanup, a journal and boot reconcile</td><td>unbounded synchronous cleanup</td></tr>
+      <tr><td>One implementation for bots and alts, two policies</td><td>a separate alt executor</td></tr>
+      <tr><td>Learning routed by reason; three kinds of memory</td><td>success/fail-only learning (today)</td></tr>
+      <tr><td>Extra key in memory format 2; no version bump</td><td>a format-3 save that breaks rollback</td></tr>
+      <tr><td>Context-bound capability verdicts, separate from availability</td><td>global true/false flags</td></tr>
+      <tr><td>Extend the existing QA tiers</td><td>a new test harness</td></tr>
+      <tr><td>Keep triaged / ontest / check / fixed</td><td>a 9-state ticket workflow</td></tr>
+      <tr><td>Content manifest authenticity stays open until signed</td><td>treating launcher signing as content trust</td></tr>
+      <tr><td>No 1.7.0 code before 1.6.4 is verified</td><td>starting in parallel</td></tr>
+    </table></div>
+    <p>There are no blocking questions. Optional owner choices: swaps to the golden-path list, and the cash-shop gift decision.</p>
+  </section>
+
+  <section id="history">
+    <h2>Review history</h2>
+    <ul>
+      <li><b>Nov 5:</b> DeepSeek deep review produced <code>docs/architecture/</code> and <code>HOLES.md</code>.</li>
+      <li><b>Nov 5:</b> Codex proposal, then Claude's corrections: QA takes 2 h 22 min, not 6 h; site source is on GitHub; reuse what exists.</li>
+      <li><b>Nov 5:</b> Codex review of the corrections. All 10 revisions accepted (ownership, policies, memory, QA targets, manifest, tickets, KPIs, W6, slice).</li>
+      <li><b>Nov 5:</b> Final architecture A–F, checked against source.</li>
+      <li><b>Nov 5:</b> Codex final review. Safeguards added: handshakes, bounded cleanup, per-step claims, memory round trip, verified vs available, G2 coverage, phases.</li>
+    </ul>
+    <p>Source documents: <code>docs/plans/1.7.0/README.md</code> with A (architecture RFC), B (dependency map), C (tickets), D (QA and capabilities), E (readiness), F (decisions), plus <code>docs/plans/1.7.0-stabilization.md</code>, all on branch <code>plan-1.7.0</code>.</p>
+  </section>
+
+  <p class="foot">A snapshot of the locked plan, not a progress tracker. Once 1.7.0 starts, this page will be generated from the release book and QA evidence. The A–F documents remain the engineering source of truth. Every live change still needs the owner's go. Updated Nov 5 2026.</p>
+</div>
