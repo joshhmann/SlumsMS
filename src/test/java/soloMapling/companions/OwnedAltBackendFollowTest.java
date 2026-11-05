@@ -41,6 +41,29 @@ class OwnedAltBackendFollowTest {
         }
     }
 
+    @Test void anAltSavedDeadGetsUpAtFiftyHp() {
+        Character owner = mock(Character.class), alt = mock(Character.class), alive = mock(Character.class);
+        MapleMap map = mock(MapleMap.class); Channel ch = mock(Channel.class);
+        BotClient client = mock(BotClient.class); Party party = mock(Party.class);
+        when(owner.getMap()).thenReturn(map); when(map.getChannelServer()).thenReturn(ch);
+        for (Character a : List.of(alt, alive)) {
+            when(a.getClient()).thenReturn(client); when(a.getWorldServer()).thenReturn(mock(World.class));
+        }
+        when(client.getChannelServer()).thenReturn(ch);
+        when(owner.getParty()).thenReturn(party); when(party.getLeaderId()).thenReturn(1); when(owner.getId()).thenReturn(1);
+        when(party.getMembers()).thenReturn(List.of()); when(party.getId()).thenReturn(77);
+        when(owner.getPosition()).thenReturn(new Point(10, 20));
+        when(alt.getHp()).thenReturn(0); when(alive.getHp()).thenReturn(120);
+        try (MockedStatic<Party> parties = mockStatic(Party.class);
+             MockedStatic<GCMovement> movement = mockStatic(GCMovement.class)) {
+            parties.when(() -> Party.joinParty(any(), eq(77), eq(true))).thenReturn(true);
+            new OwnedAltBackend().attach(owner, alt);
+            new OwnedAltBackend().attach(owner, alive);
+        }
+        verify(alt).updateHp(50);
+        verify(alive, never()).updateHp(anyInt());
+    }
+
     @Test void aRefusedJoinNeverStartsFollowing() {
         Character owner = mock(Character.class), alt = mock(Character.class);
         MapleMap map = mock(MapleMap.class); Channel ch = mock(Channel.class);

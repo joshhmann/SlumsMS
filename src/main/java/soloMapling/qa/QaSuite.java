@@ -176,6 +176,7 @@ public final class QaSuite {
         QaLog.attach(run);
         List<String> lines;
         try {
+            dramaBaseline(ctx);
             lines = scenario.stage(ctx);
         } catch (QaRefusal r) {
             run.stop("refused: " + r.getMessage(), clock.instant());
@@ -291,5 +292,23 @@ public final class QaSuite {
         } catch (RuntimeException e) {
             return "?";
         }
+    }
+
+    /**
+     * Every run starts with the GM's @botdrama on, put back at stop. The setting is stored per character, so a run cut
+     * off by a restart (af-3 on Nov 5, mid-deploy) never undid its "off", and every drama check after it skipped.
+     */
+    static void dramaBaseline(QaContext ctx) {
+        QaWorld w = ctx.world();
+        if (!w.setBotDramaOff(ctx.gm(), false)) {
+            return;
+        }
+        ctx.log("@botdrama on for this run (was off)");
+        ctx.onStop("@botdrama back off", () -> {
+            Character now = ctx.gmNow();
+            if (now != null) {
+                w.setBotDramaOff(now, true);
+            }
+        });
     }
 }

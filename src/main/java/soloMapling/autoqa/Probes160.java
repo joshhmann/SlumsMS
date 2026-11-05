@@ -3511,9 +3511,14 @@ final class Probes160 {
             if (me.getMeso() - mesoBefore != gets) {
                 bad.add("the payout did not land online: mesos +" + (me.getMeso() - mesoBefore) + ", want +" + gets);
             }
-            // (3) a resting sell at the top price takes 10 more leaves; a cancel gives exactly those back
+            // (3) a resting sell above the bid takes more leaves; a cancel gives exactly those back. With the daily
+            // item-sell cap on (live: 20,000,000), the top price would be refused (ITEMS_CAP), so one leaf rests at
+            // twice the bid instead
             Thread.sleep(cfg.cooldownMs() + 1_000);
-            sellPreview(p, "@nx leaf sell " + n + " " + t.maxPrice());
+            boolean capped = soloMapling.Economy.exchange.ExchangeLimits.sellCapMesosPerDay() > 0;
+            long restN = capped ? 1 : n;
+            long restPrice = capped ? Math.min(t.maxPrice(), bid * 2) : t.maxPrice();
+            sellPreview(p, "@nx leaf sell " + restN + " " + restPrice);
             String rest = sayAndHear(p, "@nx confirm", "^Order \\d+ placed|\\([A-Z_]+\\)$", 8_000);
             out.add("@nx leaf resting sell: " + rest);
             long l2 = w.have(leaf);
@@ -3522,13 +3527,13 @@ final class Probes160 {
             if (om == null || !om.find()) {
                 bad.add("the resting leaf sell was not placed: " + rest);
             } else {
-                if (l1 - l2 != n) {
-                    bad.add("the resting sell escrowed " + (l1 - l2) + " leaves, want " + n);
+                if (l1 - l2 != restN) {
+                    bad.add("the resting sell escrowed " + (l1 - l2) + " leaves, want " + restN);
                 }
                 String c = sayAndHear(p, "@nx cancel " + om.group(1), "cancelled|\\([A-Z_]+\\)$", 8_000);
                 out.add("@nx cancel: " + c + "; leaves " + l2 + " -> " + w.have(leaf));
                 if (w.have(leaf) != l1) {
-                    bad.add("the cancel returned " + (w.have(leaf) - l2) + " of " + n + " leaves");
+                    bad.add("the cancel returned " + (w.have(leaf) - l2) + " of " + restN + " leaves");
                 }
             }
         } finally {
