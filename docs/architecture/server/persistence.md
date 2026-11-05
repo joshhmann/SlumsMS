@@ -43,9 +43,9 @@ durable, what is lost when a write fails, and what a rollback of a release actua
    (src/main/java/net/server/Server.java:960-961, :1070, :1076).
 
 2. **Pool shape.** `MAX_POOL_SIZE = 10` (src/main/java/tools/DatabaseConnection.java:33). `getConfig()` sets the JDBC
-   URL (`DB_HOST` env var overrides `YamlConfig`, :180-190), user, password, `setInitializationFailTimeout` from
+   URL (`DB_HOST` env var overrides `YamlConfig`, :180-187), user, password, `setInitializationFailTimeout` from
    `INIT_CONNECTION_POOL_TIMEOUT`, `setConnectionTimeout(connectionTimeoutMs())` and
-   `setMaximumPoolSize(MAX_POOL_SIZE)` (src/main/java/tools/DatabaseConnection.java:211-225), plus
+   `setMaximumPoolSize(MAX_POOL_SIZE)` (src/main/java/tools/DatabaseConnection.java:211-227), plus
    `cachePrepStmts=true`, `prepStmtCacheSize=25`, `prepStmtCacheSqlLimit=2048`. A configured timeout ≤ 0 falls back to
    `DEFAULT_CONNECTION_TIMEOUT_MS = 30_000`, and nothing below `MIN_CONNECTION_TIMEOUT_MS = 250` is accepted
    (src/main/java/tools/DatabaseConnection.java:190-208).
@@ -146,16 +146,21 @@ durable, what is lost when a write fails, and what a rollback of a release actua
 12. **Migrations and the ledger.** `database/migrations/` holds 61 forward `.sql` files and 61 matching
     `.rollback.sql` files (122 `.sql`, plus `map-columns.json`); the newest are `059-normal-gear-through-200`,
     `060-royal-crafting-materials`, `061-normal-gear-bridge`, `062-bot-relationship-axes`, `063-bot-memory-social`,
-    `064-casino-chip-shop`, `065-lkc-quest-drops`. Each forward file creates `mapleroot_integration_migrations
-    (migration_id varchar(100) PRIMARY KEY, applied_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB`
-    (database/migrations/001-preserve-arcane.sql:5-8), sets `@apply = NOT EXISTS (SELECT 1 FROM
-    mapleroot_integration_migrations WHERE migration_id='…')` (:9), gates every DML on `WHERE @apply`, and ends with
-    `INSERT IGNORE INTO mapleroot_integration_migrations(migration_id) VALUES ('…')` (:17). The rollback mirrors it:
-    `@apply = EXISTS (...)` (database/migrations/001-preserve-arcane.rollback.sql:11), reverse DML gated on `@apply`,
-    then `DELETE FROM mapleroot_integration_migrations WHERE migration_id=…` (:19). Re-running a migration is a no-op
-    because the ledger row short-circuits it. `065-lkc-quest-drops.sql` adds a second bookkeeping table,
+    `064-casino-chip-shop`, `065-lkc-quest-drops`. 60 of the 61 forward files begin with `CREATE TABLE IF NOT EXISTS
+    mapleroot_integration_migrations (migration_id varchar(100) PRIMARY KEY, applied_at timestamp NOT NULL DEFAULT
+    CURRENT_TIMESTAMP) ENGINE=InnoDB` (database/migrations/001-preserve-arcane.sql:5-8); `002-classic-fm-return.sql`
+    is the exception, a bare `ALTER TABLE savedlocations` that assumes the table exists
+    (database/migrations/002-classic-fm-return.sql:2). 22 files then do the full row gate — `SET @apply = NOT EXISTS
+    (SELECT 1 FROM mapleroot_integration_migrations WHERE migration_id='…')` (:9) and every DML `WHERE @apply` — while
+    the other 39 (including 001, whose `@apply` guards only the `UPDATE`s) rely on `CREATE TABLE IF NOT EXISTS`,
+    `INSERT IGNORE` and `INSERT … SELECT … WHERE NOT EXISTS`. Every file ends with `INSERT IGNORE INTO
+    mapleroot_integration_migrations(migration_id) VALUES ('…')` (:17). The rollback mirrors it: `@apply = EXISTS (...)`
+    (database/migrations/001-preserve-arcane.rollback.sql:11) where the forward used the gate, reverse DML otherwise, then
+    `DELETE FROM mapleroot_integration_migrations WHERE migration_id=…` (:19). `065-lkc-quest-drops.sql` adds a second
+    bookkeeping table,
     `mapleroot_integration_migration_rows(migration_id, table_name, row_id)`, so its rollback deletes only rows that
-    script inserted (:18-23); `064` uses the same table. The header of `001` states the operating rule: "PREPARED ONLY:
+    script inserted (database/migrations/065-lkc-quest-drops.sql:18-23); `064` uses the same table
+    (database/migrations/064-casino-chip-shop.sql:27, :48). The header of `001` states the operating rule: "PREPARED ONLY:
     never run against a live server with players connected … MyISAM tables are present: SQL transactions cannot roll
     back all these tables … restore the database backup before retrying" (database/migrations/001-preserve-arcane.sql:1-4).
 
@@ -207,11 +212,11 @@ Not persisted anywhere (in-memory only, zero `getConnection`/`prepareStatement` 
 
 | Switch | Where | Default | Live / TEST |
 |---|---|---|---|
-| `USE_AUTOSAVE` | src/main/java/config/ServerConfig.java:327; config.example.yaml:232 | `true` | unknown for both; the 1.6.4 conf does not override it, so live runs the `true` default from `config.yaml` (file not opened) |
-| `SHUTDOWNHOOK` | src/main/java/config/ServerConfig.java:95; config.example.yaml:105 | `true` | same |
+| `USE_AUTOSAVE` | src/main/java/config/ServerConfig.java:327 (`public boolean USE_AUTOSAVE;` — no code default, the value comes from `config.yaml`); config.example.yaml:232 | example says `true` | live and TEST unknown: `config.yaml` was not read, and docs/release/1.6.4.conf does not mention it, so the released jar carries whatever the file says. Off means the hourly character sweep and the async save service do nothing (src/main/java/net/server/task/CharacterAutosaverTask.java:43, src/main/java/client/Character.java:9873) |
+| `SHUTDOWNHOOK` | src/main/java/config/ServerConfig.java:95 (no code default); config.example.yaml:105 | example says `true` | unknown for both; when on, `Server` installs a JVM shutdown hook that runs `shutdownInternal` (src/main/java/net/server/Server.java:930-933) |
 | `DB_CONNECTION_TIMEOUT_MS` | src/main/java/config/ServerConfig.java:18 | `30000` | live: left at the code default (docs/release/1.6.4.conf:149-151 notes `=10000` "makes a wedged pool" fail loudly); TEST unknown |
-| `INIT_CONNECTION_POOL_TIMEOUT` | src/main/java/config/ServerConfig.java:13; config.example.yaml:53 | `90` | unknown |
-| `DB_HOST` / `DB_USER` / `DB_PASS` / `DB_URL_FORMAT` | src/main/java/config/ServerConfig.java:9-12 | example: `jdbc:mysql://%s:3306/slumsms`, `127.0.0.1`, `slumsms` | `DB_HOST` env var overrides the yaml (src/main/java/tools/DatabaseConnection.java:180-190); values not inspected |
+| `INIT_CONNECTION_POOL_TIMEOUT` | src/main/java/config/ServerConfig.java:13; config.example.yaml:53 | `90` s in the example | unknown; feeds `setInitializationFailTimeout` (src/main/java/tools/DatabaseConnection.java:219-220) |
+| `DB_HOST` / `DB_USER` / `DB_PASS` / `DB_URL_FORMAT` | src/main/java/config/ServerConfig.java:9-12 | example: `jdbc:mysql://%s:3306/slumsms`, `127.0.0.1`, `slumsms` | `DB_HOST` env var overrides the yaml (src/main/java/tools/DatabaseConnection.java:180-187); values not inspected |
 | `-Dslums.shutdown.playerBudgetMs` | src/main/java/soloMapling/server/ShutdownSaves.java:29 | `60000` | not set in the 1.6.4 conf → default |
 | `-Dslums.shutdown.botBudgetMs` | src/main/java/soloMapling/server/ShutdownSaves.java:32 | `60000` | same |
 | `-Dslums.db.snapshotConnectTimeoutMs` | src/main/java/tools/DatabaseConnection.java:46 | `10000` | unset → default |
@@ -237,9 +242,16 @@ Not persisted anywhere (in-memory only, zero `getConnection`/`prepareStatement` 
   src/main/java/net/server/Server.java:2134-2142).
 - The player phase of a shutdown completes (or times out) before any bot work begins
   (src/main/java/soloMapling/server/ShutdownSaves.java:59-77).
-- Every migration is idempotent: gated on its own ledger row, and it inserts that row last, so a partial run leaves no
-  ledger entry and the deploy tool dies on it instead of continuing
-  (database/migrations/001-preserve-arcane.sql:9-17; tools/release/templates/deploy.body.sh:217-220).
+- Every migration records itself in the ledger as its last statement, so a partial run leaves no ledger entry and the
+  deploy/rollback tools stop on it instead of continuing
+  (database/migrations/001-preserve-arcane.sql:17; tools/release/templates/deploy.body.sh:220).
+- A migration is idempotent by one of two idioms: **row-gated** (22 of the 61 forward files put
+  `SET @apply = NOT EXISTS (SELECT 1 FROM mapleroot_integration_migrations WHERE migration_id='…')` up front and write
+  gates its DML on `WHERE @apply`, database/migrations/001-preserve-arcane.sql:9-16) or **statement-guarded** (the
+  other 39 use `CREATE TABLE IF NOT EXISTS` / `INSERT IGNORE` / `INSERT … SELECT … WHERE NOT EXISTS`, as in
+  database/migrations/059-normal-gear-through-200.sql:162-165 and
+  database/migrations/060-royal-crafting-materials.sql:27-30). Only the row-gated files skip their DML entirely on a
+  re-run; the statement-guarded ones re-execute and rely on each statement to be a no-op.
 - Every forward migration has a `.rollback.sql` that deletes the same ledger row; the deploy generator refuses to build
   without it (tools/release/gen-deploy:28-35).
 
@@ -267,14 +279,14 @@ Not persisted anywhere (in-memory only, zero `getConnection`/`prepareStatement` 
 | `ShutdownSavesTest` | players saved before bot work; bot phase overrun does not hold the shutdown; a hanging player save is reported | src/test/java/soloMapling/server/ShutdownSavesTest.java:24, :50, :78, :102 |
 | `AutosaveDuringShutdownTest` | a shutting-down world is not autosaved; a running world still is | src/test/java/net/server/task/AutosaveDuringShutdownTest.java:56, :65 |
 | `PlayerStorageDisconnectAllTest` | one throwing disconnect does not strand the rest | src/test/java/net/server/PlayerStorageDisconnectAllTest.java:23 |
-| `BotShutdownTest` | bot shutdown/settle path | src/test/java/soloMapling/server/BotShutdownTest.java |
+| `BotShutdownTest` | the bot shutdown gate closes once and runs every hook exactly once; a late hook runs immediately | src/test/java/soloMapling/server/BotShutdownTest.java:29, :48 |
 | Migration tests | `LkcQuestDropsMigrationTest`, `CasinoChipShopMigrationTest`, `CharacterLookupIndexMigrationTest` parse the SQL only; the `*MigrationIT` classes (`CasinoChipShop`, `FamilyBuffs`, `FamilyBotJuniors`, `NormalGearBridge`, `NewerAreaCards`, `BossDropGaps`, `BbDropTables`, `StarterChairRepair`) run against a scratch schema only when a JDBC URL is supplied | src/test/java/database/ |
 
 Auto-QA: `t-vb-7` "Storage, Duey and a trade between two players" exercises the storage store/take-out and Duey claim
 paths that end in these saves (src/main/java/soloMapling/autoqa/AutoQaCatalog.java:825-831); `t-oa-1` covers an owned
 alt being saved on dismiss (:1231); `t-ng-10` is the only migration row in
 src/main/resources/soloMapling/autoqa-coverage.tsv:223 (`061-normal-gear-bridge`). `!qa` scenario `np-3` closes a
-merchant "in place of the restart" (src/main/java/soloMapling/qa/QaScenarios.java:687). Bot life profile round trip is
+merchant "in place of the restart" (src/main/java/soloMapling/qa/QaScenarios.java:688). Bot life profile round trip is
 src/main/java/soloMapling/qa/BotLifeScenarios.java:173, which says itself that it proves the database round trip "on this server, not a full restart".
 
 Explicitly **not** covered: no test restarts the process or asserts a full save→reload cycle of a `Character`; no test
@@ -291,6 +303,7 @@ pool. No test asserts that `!saveall` did anything.
 | `NEW-FINDING` | `Guild.writeToDB` catches `SQLException` and only prints, so a failed guild save is invisible to the caller — the same swallow b294 fixed on the storage side. | src/main/java/net/server/guild/Guild.java:198 `catch (SQLException se) { se.printStackTrace(); }` (base has it too). |
 | `NEW-FINDING` | `Character.saveCharToDB(boolean)` returns `void` and swallows every error, so `!saveall` reports "All players saved successfully." without proof. | src/main/java/client/Character.java:10324-10328; src/main/java/client/command/commands/gm6/SaveAllCommand.java:40-48. |
 | `NEW-FINDING` | The logout writes are split across connections: `saveCooldowns` (cooldowns + playerdiseases) and `Pet.saveToDb` each take their own connection and swallow errors, so a successful character commit does not imply the cooldowns/pets were written. | src/main/java/client/Character.java:9625-9670; src/main/java/client/inventory/Pet.java:133-148. |
+| `NEW-FINDING` | `002-classic-fm-return.sql` is the one forward migration that does not create the ledger table, so it cannot be applied to a database where 001 has not run (or the ledger was rebuilt): its `INSERT IGNORE` fails and the deploy tool then stops on "did not record itself in the ledger". | database/migrations/002-classic-fm-return.sql:2-3 vs. the `CREATE TABLE IF NOT EXISTS mapleroot_integration_migrations` in every other forward file; tools/release/templates/deploy.body.sh:220. |
 | `NEW-FINDING` | Merchant close is two non-atomic writes on two connections: the items, then `fredstorage`. A crash between them leaves items saved with no Fredrick log, or vice versa. | src/main/java/server/maps/HiredMerchant.java:761-781. |
 
 ## State

@@ -131,21 +131,23 @@ implementation (src/main/java/client/command/CommandsExecutor.java:246).
 ### 4. Who may take a drop
 
 1. `MapItem` keeps `character_ownerid`, `party_ownerid`, `meso`, `questid` (src/main/java/server/maps/MapItem.java:41)
-   plus the drop type, `dropTime`, `playerDrop`, `partyDrop`, `conjured` and an `itemLock`; every constructor copies the
-   owner's id (:54, :67, :81).
-2. `isFFADrop()` is `type == 2 || type == 3 || hasExpiredOwnershipTime()` (src/main/java/server/maps/MapItem.java:133-138);
-   the ownership window is **15 seconds** (`SECONDS.toMillis(15)`, :138).
+   plus `type`, `pickedUp`, `playerDrop`, `partyDrop`, the `conjured` marker (:42-47) and an `itemLock` (:48); all three
+   constructors copy the owner's id and party id (:54-56, :67-69, :81-83).
+2. `isFFADrop()` is `type == 2 || type == 3 || hasExpiredOwnershipTime()` (src/main/java/server/maps/MapItem.java:133-135);
+   the ownership window is **15 seconds** (src/main/java/server/maps/MapItem.java:137-139).
 3. `canBePickedBy(chr, byPet)` (src/main/java/server/maps/MapItem.java:144-181) first refuses when the map's quest id
-   needs an item the character does not hold, then refuses a non-meso drop the character has no space for (answering
-   `getInventoryFull()`, suppressed for pets), then allows the owner and FFAs, promotes a party drop for the picker's
-   own party, and finally falls back to the expired window. `hasClientsideOwnership` (:129) is the same rule minus the
-   space check, used to tell the client which drops to dim.
-4. The pickup itself is serialised per drop: `mapitem.lockItem()` … `finally unlockItem()`
-   (src/main/java/client/Character.java:2526-2644), with `isAlreadyPickedUp()` re-checked inside the lock and
-   `MapleMap.pickItemDrop(pickupPacket, mdrop)` removing it from the map
-   (src/main/java/server/maps/MapleMap.java:1192).
+   needs an item the character does not hold (:145), then refuses a non-meso, non-consume-on-pickup drop the character
+   has no space for (answering `getInventoryFull()` + `getShowInventoryFull()`, suppressed for pets, :149-159), then
+   allows ownerless and FFA drops (:160), adopts the picker's party id when the dropper's party is unknown but the
+   picker is a party member of the dropper (:167-168), and finally falls back to the expired window (:180).
+   `hasClientsideOwnership` (:129-131) is the same rule minus the space check, used to tell the client which drops to
+   dim.
+4. The pickup itself is serialised per drop: `mapitem.lockItem()` … `finally mapitem.unlockItem()`
+   (src/main/java/client/Character.java:2526-2645), with `isAlreadyPickedUp()` re-checked inside the lock (:2528-2532)
+   and `this.getMap().pickItemDrop(pickupPacket, mapitem)` removing it from the map (:2638,
+   src/main/java/server/maps/MapleMap.java:1192).
 5. The client-side anti-double-click gate is 400 ms from `dropTime`:
-   `System.currentTimeMillis() - mapitem.getDropTime() < 400` → `enableActions()` and return
+   `System.currentTimeMillis() - mapitem.getDropTime() < 400 || !mapitem.canBePickedBy(this)` → return
    (src/main/java/client/Character.java:2515).
 
 ### 5. The pickup path
@@ -164,9 +166,10 @@ implementation (src/main/java/client/command/CommandsExecutor.java:246).
    split over `getPartyMembersOnSameMap()` (:2545-2549); one space check for the whole item (:2559); self-loot maps
    (`MapId.isSelfLootableOnly`, Happyville trees and guild PQ) admit only the dropper (:2562); NX cards pay into the
    cash shop with the optional hint (:2564-2567); `needQuestItem(mapitem.getQuest(), itemId)` refuses quest items
-   (:2589); consume-on-pickup items apply and vanish (:2617); `243xxxx` scripted items run their script after the lock
-   is released (:2619-2626); everything else goes through `InventoryManipulator.addFromDrop`; the Ariant spirit jewel
-   updates the score (:2630) and `server.GodlyDrops.tellLooter` sees the drop (:2632).
+   (:2589); consume-on-pickup items apply and vanish (:2617); `243xxxx` scripted items are looked up at :2619-2626 and
+   their script is run **after** the lock is released (:2647-2650); everything else goes through
+   `InventoryManipulator.addFromDrop`; the Ariant spirit jewel updates the score (:2630) and
+   `server.GodlyDrops.tellLooter` sees the drop (:2632).
 4. The `@backpack` variant, `modifiedPickupItem` (src/main/java/client/Character.java:2656-2827), is a **separate copy**
    of that body: it keeps the 400 ms gate, the meso branch, NX cards, consume-on-pickup, `2430030` pet refusal and the
    scripted-item branch, but routes USE/ETC/SETUP items into `infinityBag.storePickup(mItem, AdventurerBag.wzRules())`
@@ -340,21 +343,22 @@ implementation (src/main/java/client/command/CommandsExecutor.java:246).
    slot with the same item id into it until `slotMax` (:65-86, `InventoryManipulator.move(c, inventoryType, src, dst)` at
    :84), then compact the tab by moving the first occupied slot above each hole into it (:93-112). Answers
    `finishedSort` (:117).
-2. `InventorySortHandler` (:289) copies every item (`item.copy()`, :314), removes every slot while queueing
-   `ModifyInventory(3, item)` (:319-320), sorts with `PairedQuicksort` (class :42, ctor :258) on `sortCriteria =
-   USE_ITEM_SORT_BY_NAME ? 2 : 0` and `invTypeCriteria = EQUIP ? 3 : 1` (:323-325), re-adds them with
-   `ModifyInventory(0, item.copy());//to prevent crashes` (:328-329), then sends the batch, `finishedSort2` and
-   `enableActions` (:336-338). Projectile subtypes 206, 207 and 233 are reversed so the stronger stack sorts first
-   (:265-267).
+2. `InventorySortHandler` (:289) stamps autoban window 3 with 4 ms (:292) and bails when `USE_ITEM_SORT` is off
+   (:294-296). Under the tab lock it copies every item (`item.copy()`, :311-316), removes every slot while queueing
+   `ModifyInventory(3, item)` (:318-321), sorts with `PairedQuicksort` (class :42, ctor :258) on
+   `sortCriteria = USE_ITEM_SORT_BY_NAME ? 2 : 0` and `invTypeCriteria = EQUIP ? 3 : 1` (:323-325), re-adds the sorted
+   list and queues `ModifyInventory(0, item.copy());//to prevent crashes` (:327-330), then unlocks and sends the batch,
+   `finishedSort2` and `enableActions` (:336-338). Projectile subtypes 206/207/233 are reversed so the stronger stack
+   sorts first (:265-267).
 
 ## Data
 
 | Store | Where | Contents |
 |---|---|---|
-| `Inventory.inventory` | src/main/java/client/inventory/Inventory.java:38 | `LinkedHashMap<Short,Item>`, keyed by slot; per-tab `Character.inventory[]` |
-| `inventoryitems` | src/main/java/client/inventory/ItemFactory.java:214,234,367,401 | one row per item: position, quantity, itemid, owner, petid, flag, expiration, cashid |
-| `inventoryequipment` | src/main/java/client/inventory/ItemFactory.java:132,161 | equip extension row (stats, slots, level, ringid, tints via `ColorPrismStore.equipTintJoin`) |
-| `infinitystorage` | src/main/java/client/inventory/AdventurerBag.java:417-426 | `(charid, itemid, amount, type, position)` counts for the Adventurer's Bag |
+| `Inventory.inventory` | src/main/java/client/inventory/Inventory.java:44 | `Map<Short,Item>` built as a `LinkedHashMap`, keyed by slot; per-tab `Character.inventory[]` |
+| `inventoryitems` | src/main/java/client/inventory/ItemFactory.java:214,367 | one row per item: account/character id, itemid, position, quantity, owner, petid, flag, expiration, cashid (`INSERT … VALUES (DEFAULT, ?, …)` with 12 placeholders) |
+| `inventoryequipment` | src/main/java/client/inventory/ItemFactory.java:132,161,234,401 | equip extension row joined on `inventoryitemid` (stats, slots, level, ringid, tints via `ColorPrismStore.equipTintJoin`) |
+| `infinitystorage` | src/main/java/client/inventory/AdventurerBag.java:417-426 | `(charid, itemid, amount, type, position)` counts for the Adventurer's Bag; `type`/`position` are written NULL (:426) |
 | `keymap`, `skillmacros`, `queststatus` | src/main/java/client/Character.java:3159 | per-character UI and quest state deleted/loaded with the character |
 | `CashIdGenerator.existentCashids` | src/main/java/client/inventory/manipulator/CashIdGenerator.java:38-39 | in-memory set of live cash ids, loaded from the DB at boot (:54) |
 
@@ -458,13 +462,15 @@ tree, the `modified` one being the `@backpack` fork.
 | src/test/java/server/ShopRechargeableStockPriceTest.java:40, ShopRechargePriceParityTest.java, CasinoChipSellTest.java, ShopMathTest.java | b289: every rechargeable on sale has a stack price the counter can charge, and quick-sell goes through `Shop.sellPayout` |
 | src/test/java/client/inventory/InventoryListSnapshotTest.java:29,48 | a write during a `list()`/iterator walk does not throw |
 | src/test/java/client/inventory/manipulator/CheckSpaceWithoutPlayerTest.java:21 | `checkSpace` with a client that has no player answers false instead of throwing |
-| src/test/java/client/inventory/AdventurerBagTest.java, BotInventoryAddTest.java | bag flag preservation, adding to a bot's empty inventory |
+| src/test/java/client/inventory/AdventurerBagTest.java, BotInventoryAddTest.java, BotEquipExpTest.java | bag flag preservation, adding to a bot's empty inventory, equip EXP on a bot |
+| src/test/java/server/StatItemTest.java, src/test/java/server/setitem/SetBonusStatsTest.java, SetItemCatalogTest.java, SetItemPacketsTest.java | scroll stat application and the set-bonus table/catalog/packets |
+| src/test/java/server/colorprism/ColorPrismPacketsTest.java, ColorPrismPushTest.java, TintTest.java | the prism wire packets, the push-on-login path and the tint application |
 
 QA hooks in production code: `QaLog.Topic.EQUIP` tagged `!qa cs-2`
 (src/main/java/client/inventory/manipulator/InventoryManipulator.java:721), `Topic.SCROLL` tagged `!qa gn-2`
 (src/main/java/net/server/channel/handlers/ScrollHandler.java:179), `Topic.PETPOT` tagged `!qa pp-1`
 (src/main/java/net/server/channel/handlers/PetAutoPotHandler.java:43, scenario
-src/main/java/soloMapling/qa/PetPotScenarios.java:35). `AutoQaCatalog` drives scroll flows only through the bots —
+src/main/java/soloMapling/qa/PetPotScenarios.java:34-38). `AutoQaCatalog` drives scroll flows only through the bots —
 `t-gb-5` "EV scrolling: a careful bot declines an EV-negative scroll, a gambler gambles"
 (src/main/java/soloMapling/autoqa/AutoQaCatalog.java:1457) and `t-sc-1`/"A gambler bot scrolls its sword" (:667).
 
@@ -478,7 +484,7 @@ compilation; nothing tests the cash-item dispatch for 504/505/506/508/509/520/52
 
 | Id | Line | Issue |
 |---|---|---|
-| b289 | /root/work/STATUS-1.6.4.md:39 | S1: a 9,999 throwing-star stack bought for 500 mesos sold back for 10,249. Old bug. Fixed on this branch by `e8ca08368` — `Shop.buy` now charges `ii.getPrice(itemId, slotMax)` for a rechargeable and `Shop.sellPayout` pays the same expression (src/main/java/server/Shop.java:109-117, :265). STATUS still lists it open with the owner's "just add it to 1.6.4". |
+| b289 | /root/work/STATUS-1.6.4.md:39 | S1: a 9,999 throwing-star stack bought for 500 mesos sold back for 10,249. Old bug. Fixed on this branch by `e8ca08368` — `Shop.buy` forces `quantity = ii.getSlotMax(...)` for a rechargeable and charges `ii.getPrice(itemId, quantity)`, and `Shop.sellPayout` pays the same expression (src/main/java/server/Shop.java:109-117, :265-268). STATUS still lists it open with the owner's "just add it to 1.6.4". |
 | b290 | /root/work/STATUS-1.6.4.md:40 | S2: Vega's Spell discarded the fed scroll and rolled the item's own level, a pure loss at level 15+. Ticket 182 (docs/tickets/182-server-code-audit-1-6-4.md:51) and brief `s-b290/BRIEF.md`. Fixed here (`4e5a3851f`, `b0e5e4c58`) and tested; STATUS still records it as a live paid-item loss with no closer assigned. |
 | b297 | /root/work/STATUS-1.6.4.md:47 | S2: megaphones 5070000/5073000/5074000 were consumed with no broadcast. Fixed by the `default` arm at src/main/java/net/server/channel/handlers/UseCashItemHandler.java:375-378 (`3837df51f`) and tested. Still open in STATUS ("paid-item loss"). |
 | b287 | /root/work/STATUS-1.6.4.md:83 | S4, adjacent: the t-xc-5 scroll trader bot holding a Chaos/White Scroll never lists it — a supply-side scroll bug, not this subsystem's handler. |

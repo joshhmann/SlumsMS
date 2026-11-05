@@ -7,10 +7,10 @@ client implements. Sibling doc `crash-guards.md` covers the guard hooks that pre
 happens after one and what happens to the text.
 
 **Are reports enabled for players by default? No.** The client reporter is behind `MAPLEROOT_CRASH_REPORT`, default
-`OFF` (`CMakeLists.txt:17`), and the shipping build script never passes it (`scripts/build.ps1:11` lists
-`-DMAPLEROOT_INTEGRATION=ON` and eleven addon switches, `MAPLEROOT_CRASH_REPORT` absent), so a Release `slums.dll`
-carries no reporter at all. There is no minidump of any kind (see Known issues). The server half of the upload is
-enabled but dormant: no client ever sends caps bit 1, so no upload is ever requested from a real client
+`OFF` (`CMakeLists.txt:17`), and the shipping build script never passes it (`scripts/build.ps1:11` passes twelve
+`-D` switches — `MAPLEROOT_INTEGRATION=ON` plus the addons — but not `MAPLEROOT_CRASH_REPORT`), so a Release
+`slums.dll` carries no reporter at all. There is no minidump of any kind (see Known issues). The server half of the
+upload is enabled but dormant: no client ever sends caps bit 1, so no upload is ever requested from a real client
 (`src/bypass.cpp:399-419`).
 
 ## Purpose
@@ -67,7 +67,7 @@ opens a socket (`grep GetPrivateProfile|ReadSwitch` in `src/crash_report.cpp`, `
 
 ### B. Classification (pure, no Windows)
 
-6. `CrashClassify::Classify` (`src/crash_classify.h:77-99`) applies 18 rules in order, first match wins:
+6. `CrashClassify::Classify` (`src/crash_classify.h:77-99`) applies 17 rules in order, first match wins:
    low memory < 64 MB / `0xC0000017` / `0x8007000E` / `0x22000003` → `OutOfMemory` (`:81`); `0xC00000FD` →
    `StackOverflow` (`:83`); `0xC0000006` → `DiskRead` (`:84`); missing asset or HRESULT `0x22000004..6` →
    `MissingData` (`:85`); AV in a `ModuleClass::Graphics` module (`:86`); Overlay/Sound/DataLibrary/Addon by module
@@ -168,7 +168,7 @@ opens a socket (`grep GetPrivateProfile|ReadSwitch` in `src/crash_report.cpp`, `
 | Server: an *uploaded client* line is `[line removed]` when it mentions password/pwd/pin/pic/secret/token/cookie/authorization/api key/serial/license key | `BugPrivacy.java:31-32` (`DROP_CLIENT_LINE`), applied `:52-55` |
 | Server: uploaded text is redacted (not dropped) for `C:\Users\<name>`/`Documents and Settings`, `computer name=`/`hostname:`/`username=`-style pairs, e-mail, MAC, IPv6, IPv4, and the reporter's own account name (quoted, case-insensitive) | `BugPrivacy.java:33-39`, applied `:56-64`; account name at `:62-64` |
 | Server: control characters except `\n`/`\t` stripped from uploaded text | `BugPrivacy.java:65` |
-| Explicit non-secret: the slums.dll sha256 is kept on purpose | `BugPrivacy.java:41-45` (javadoc), `:68` in the test |
+| Explicit non-secret: the slums.dll sha256 is kept on purpose | `BugPrivacy.java:41-45` (javadoc); asserted at `src/test/java/server/reports/BugPrivacyTest.java:68` |
 
 Note the asymmetry: the server trusts nothing the client did (`BugClientLogs.java:36-37`, "the text is scrubbed again
 here whatever the client did"), while the client's own scrubber is the only thing protecting `LATEST_CRASH.txt` on
@@ -293,9 +293,9 @@ then decide how (or whether) the file ever leaves the machine.
   is `1<<1` (`BugClientLogs.java:40`) and `BugContext.capsNames` names it `logUpload` (`BugContext.java:151-153`),
   but `ClientDataCaps()` can only ever produce `kCapCustomNpcData` (`src/bypass.cpp:399-419`,
   `src/buildstamp_proto.h:25`). `docs/tickets/131-bug-reports.md:4-5` says so openly ("no client sets that bit yet").
-- `NEW-FINDING: docs/tickets/131-bug-reports.md:186-190` — the server expects a `[crash]` section carrying the tail of
+- `NEW-FINDING: docs/tickets/131-bug-reports.md:184-187` — the server expects a `[crash]` section carrying the tail of
   `LATEST_CRASH.txt`; no client-side code builds such a section, so the contract is unimplemented on the sending side.
-- `NEW-FINDING: src/crash_report.cpp:10` vs the chain` — the header promises "the launcher shows the file and sends it
+- `NEW-FINDING: src/crash_report.cpp:10` -- the header promises "the launcher shows the file and sends it
   only when the player asks". Neither launcher does: `src/launcher.cpp:23-31` only waits and logs the exit code, and
   the Rust launcher has no crash reader. The consent promise is unfulfilled because there is no UI.
 - `NEW-FINDING: CMakeLists.txt:17` vs `src/crash_diagnostics.cpp:32` — the VEH's `NoteCxx` and `resman`/`resolution`
@@ -323,9 +323,9 @@ then decide how (or whether) the file ever leaves the machine.
 
 ## Open questions
 
-1. Is shipping a new `SlumsMS.exe` still off the table ("ship only slums.dll", `docs/research-121-crash-report.md:19-24`)?
+1. Is shipping a new `SlumsMS.exe` still off the table ("ship only slums.dll", `docs/research-121-crash-report.md:16-19`)?
    The only crash classes the in-process filter cannot catch (fast-fail `/GS` `0xC0000409`, CRT abort, hard stack
-   overflow) need the starter-exe backstop described at `docs/research-121-crash-report.md:280-284`, which is not written.
+   overflow) need the starter-exe backstop described at `docs/research-121-crash-report.md:275-277`, which is not written.
 2. Does anyone intend to turn `MAPLEROOT_CRASH_REPORT` on? Nothing in either build path does, and no preset exists
    (`CMakePresets.json`), so the code is currently dead weight in the tree.
 3. Who is supposed to read `crash_reports/LATEST_CRASH.txt` — the Rust launcher (which has no reader) or a human
@@ -336,7 +336,7 @@ then decide how (or whether) the file ever leaves the machine.
    on this line (`/root/work/launcher-160-join`: 0 hits for `LATEST_CRASH`). Was that written against an older
    launcher branch, or is it aspirational?
 6. Should the client-side `[crash]`/`[integration]`/`[build]`/`[display]` sections specified in
-   `docs/tickets/131-bug-reports.md:186-190` be built on top of `LATEST_CRASH.txt`, and does the 32 KiB cap apply to
+   `docs/tickets/131-bug-reports.md:184-187` be built on top of `LATEST_CRASH.txt`, and does the 32 KiB cap apply to
    that file (24 KiB buffer) plus `integration.log` (40 lines) combined?
 7. Is `t-br-1` (`docs/ops/qa-suite.md:620`) expected to ever see a `clientLogs` object, given no client sets caps bit 1?
    As written it does not assert one, which is consistent with the client side being absent.

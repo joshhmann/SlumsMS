@@ -42,17 +42,18 @@ src/main/java/soloMapling/server/AttackCapture.java:48).
    The path is `logs/qa/<scenarioId>-<yyyyMMdd'T'HHmmss'Z'>[-<gmId>].log` (src/main/java/soloMapling/qa/QaRun.java:29, 75-99;
    the `-gmId` suffix only when two lanes stage the same id at once, src/main/java/soloMapling/qa/QaSuite.java:161-163).
 4. `QaLog.attach(run)` puts the run on the log's listener list (src/main/java/soloMapling/qa/QaSuite.java:176 →
-   src/main/java/soloMapling/qa/QaLog.java:245). From here every product hook whose topic the run subscribes to and whose
+   src/main/java/soloMapling/qa/QaLog.java:249). From here every product hook whose topic the run subscribes to and whose
    map/owner matches reaches its file: `QaLog.map/owner/toPlayer/any/chars` (:170-221) → `dispatch` (:224) →
    `QaRun.accepts(topic, mapId, ownerId)` (src/main/java/soloMapling/qa/QaRun.java:124-131) → `QaRun.event` (:167).
 5. `scenario.stage(QaContext)` runs the staging (src/main/java/soloMapling/qa/QaScenario.java:64); every line it returns
-   is written as `STAGE told GM: …` (src/main/java/soloMapling/qa/QaSuite.java:180-193). A `QaRefusal` stops the run with
-   `refused: …`, any other `RuntimeException` with `Staging <id> failed (…); what it had set up is undone` (:183-189).
+   is written as `STAGE told GM: …` (src/main/java/soloMapling/qa/QaSuite.java:191-193). A `QaRefusal` stops the run with
+   `refused: …` (:180-184), any other `RuntimeException` with `Staging <id> failed (…); what it had set up is undone`
+   (:185-189).
 6. A timeout is scheduled at `minutes * 60_000` and `tick(ctx)` is repeated when `tickSeconds() > 0`
-   (src/main/java/soloMapling/qa/QaSuite.java:196-206; defaults `minutes` 15, `tickSeconds` 0 at
+   (src/main/java/soloMapling/qa/QaSuite.java:194-206; defaults `minutes` 15, `tickSeconds` 0 at
    src/main/java/soloMapling/qa/QaScenario.java:50-57).
 7. The GM is told `QA <id> running: <title>` plus the staging lines plus `Logging to <path>. Stops in N min, or !qa stop.`
-   (src/main/java/soloMapling/qa/QaSuite.java:209-212) — the auto-QA step that typed `!qa run` parses exactly that line
+   (src/main/java/soloMapling/qa/QaSuite.java:207-212) — the auto-QA step that typed `!qa run` parses exactly that line
    (src/main/java/soloMapling/autoqa/Steps.java:28, 89-124).
 8. `QaRun.write` fans every line to `QaLog.toListeners(gmId, scenarioId, kind, message)` *and* the file, flushing each
    line (`// auto-QA reads the run as it goes`, src/main/java/soloMapling/qa/QaRun.java:178-198).
@@ -239,7 +240,7 @@ same ids as the release allow-list, src/main/resources/soloMapling/autoqa-releas
 | `data/autoqa/<other>` | `ChatQuality` (chat-quality-*.json), `BotWatch` (:552), `DecideShadow`, `SayDo` (:705) | day files, gzipped after `-Dslums.history.gzipDays` (default 30) and deleted after `-Dslums.history.autoqaKeepDays` (src/main/java/soloMapling/autoqa/AutoQa.java:43-60) |
 | `data/convo/routing/<day>.jsonl` | `RouteLog.log` (src/main/java/soloMapling/ArtificialPlayer/BotMessagingSystem/RouteLog.java:60-85) | routing decisions; also mirrored to the `CONVO` topic as `ROUTE CANDIDATES {json}` |
 
-`QaLog` carries 44 `Topic` constants, each a bit in one `long` mask (src/main/java/soloMapling/qa/QaLog.java:27-76);
+`QaLog` carries 45 `Topic` constants, each a bit in one `long` mask (src/main/java/soloMapling/qa/QaLog.java:28-73);
 hooks are guarded by `QaLog.on(topic)` (:160-162) so they cost one bit test when no run listens. 392 `QaLog.*` call
 sites exist outside `soloMapling/qa` (i.e. in product code), across 119 files.
 
@@ -285,7 +286,7 @@ src/test/java/soloMapling/qa/QaRegistryTest.java:13-24) and setting the lane cou
 | 3 | Non-MANUAL checks must have expectations and a minutes budget; every MANUAL check states why a person is needed | src/test/java/soloMapling/autoqa/AutoQaCatalogTest.java:37-52 |
 | 4 | Cleanup always runs, even on abort/exception, and staging undos run last-first | src/main/java/soloMapling/autoqa/AutoQaRunner.java:404-431; src/main/java/soloMapling/qa/QaRun.java:202-249 |
 | 5 | One `!autoqa` run at a time; one `!qa` run per GM; conflicting claims refused | src/main/java/soloMapling/autoqa/AutoQaService.java:134-136; src/main/java/soloMapling/qa/QaSuite.java:145-155 |
-| 6 | A wait that runs out FAILs; "may legitimately be empty" must be said with `quietFor`/`optionalWait` | src/main/java/soloMapling/autoqa/Steps.java:273-330; docs/ops/qa-suite.md:876-942 (b222) |
+| 6 | A wait that runs out FAILs; "may legitimately be empty" must be said with `quietFor`/`optionalWait` | src/main/java/soloMapling/autoqa/Steps.java:273-330; docs/ops/qa-suite.md:898-942 (b222) |
 | 7 | A release run is fresh, whole-catalogue, normal-clock, and fails on any FAIL or any SKIP not on the allow-list | src/main/java/soloMapling/autoqa/AutoQaRelease.java:120-181; src/main/java/soloMapling/autoqa/AutoQaService.java:263-266 |
 | 8 | A synthetic player is a person to every bot system, never a bot | src/main/java/client/SyntheticClient.java:17-24 |
 | 9 | MANUAL checks never execute headless: they are recorded as SKIP with their reason | src/main/java/soloMapling/autoqa/AutoQaRunner.java:315-320; src/main/java/soloMapling/autoqa/AutoQaReport.java:38-63 |
@@ -347,7 +348,7 @@ thresholds have no test against a live population.
 | b286 | S3 (STATUS:82) | Ticket 179: the QA **worker** loses batched ready events, so consecutive waits time out though the signal was recorded. That is `tools/qa-runner/qarunner.py` (`SilviaWorker.wait_signal`), not `AutoQaRunner`; the release-run rule is "a FAIL that is also b286, rerun serially before acting". |
 | b287 | S4 (STATUS:83) | t-xc-5: a PANIC-style scroll trader holding a Chaos/White Scroll never lists it; serial rerun at 07:00:22 UTC also failed — a real product-side lead in the exchange lane, not a harness bug. |
 | b280 | S3 (STATUS:63) | Product: pet auto-potion does not save a player on a newer map; chased with a TEST-only QA probe (the `PETPOT` topic, src/main/java/soloMapling/qa/QaLog.java:73-74, src/main/java/net/server/channel/handlers/PetAutoPotHandler.java:63). |
-| NEW-FINDING: src/main/java/soloMapling/qa/QaLog.java:76 | — | The comment `// a long: 34 topics no longer fit an int` is stale: the enum holds 44 constants (`lastByKey`/mask are still a single `long`, so this is documentation drift only). |
+| NEW-FINDING: src/main/java/soloMapling/qa/QaLog.java:76 | — | The comment `// a long: 34 topics no longer fit an int` is stale: the enum holds 45 constants (`OWNED_ALT` at :28 … `PETPOT` at :73); the mask is still a single `long`, so this is documentation drift only. |
 | NEW-FINDING: src/test/java/soloMapling/autoqa/AutoQaSchedulerTest.java:251-253 | — | The guard that catches undeclared shared state knows only five literal patterns (`MANNERS|TALLY|WEALTH |TRADE SHOP|clumpsOnMyMap`) and matches them against step *descriptions*; a new probe that reads map-wide lines under another wording passes the guard, which is exactly the failure class of b284. |
 | NEW-FINDING: src/main/java/soloMapling/autoqa/AutoQaRunner.java:211-247 + AutoQaScheduler.java:86-115 | — | A `WORLD` check runs only when `busy` is empty (`canStart`, AutoQaScheduler.java:74-79) while `pick` always takes the first pending check that *can* start (:86-101), so with parallel>1 a world check placed early in the catalogue is pushed to the end of the run and everything behind it runs first — the declared minutes budget is still honoured per check, but the run's wall time pays for it. |
 | NEW-FINDING: src/main/java/soloMapling/autoqa/AutoQaRunner.java:355-400 | — | A check whose expectations all SKIP is reported SKIP with reason `nothing could be judged here`, and a release run then fails it unless it is on the allow-list — an infrastructure skip (server not fully up, probe disabled) is indistinguishable in the report from a genuinely skipped feature. |

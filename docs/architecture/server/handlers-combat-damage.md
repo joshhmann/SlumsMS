@@ -99,22 +99,22 @@ the character is a non-bot GM of level ≥ 2 (`src/main/java/soloMapling/server/
    ownership-restricted map `:109`; banned `:117`; skill effect null → `enableActions` + return `:122-125`;
    **MP gate `:128-132`** — if `player.getMp() < attackEffect.getMpCon()` the server adds an `MPCON` autoban point,
    sends `enableActions` and returns without damaging anything (this is b295); mob-count cap → `MOB_COUNT.autoban`
-   `:161-163`; dead player `:166`. The old `attackCount != attack.numDamage` consistency check is commented out
-   `:169-173`.
+   `:160-162`; dead player `:166`. The old `attackCount != attack.numDamage` consistency check is commented out
+   `:168-173`.
 6. **Per-monster resolution** (`:188-282`): the monster is looked up by OID `:213`; `distanceToDetect` starts at
    `200000.0` `:216` and grows for ranged `:219`, magic `:223`, Aran `:227`, combo/body-pressure `:231`,
    Genesis/Blizzard/Meteor `:233`, Brandish/crushers `:235`, Dragon Roar `:237`, Boomerang Step `:239`. A monster
    beyond it is logged with `DISTANCE_HACK.alert` and its position is refreshed `:242-243`. Magic/weapon immunity
-   collapses every line to `1` (`Collections.fill(onedList, 1)` `:251`, `:255`). Dojo boss secret skills are capped
-   at `ceil(0.3 * maxHp)` `:260`. Crit lines are decoded back with `eachd += Integer.MAX_VALUE` `:273`, the total is
-   clamped to `Integer.MAX_VALUE` `:277-278`, and aggro is recorded with
+   collapses every line to `1` (`Collections.fill(onedList, 1)` `:252`, `:256`). Dojo boss secret skills are capped
+   at `ceil(0.3 * maxHp)` `:260-270`. Crit lines are decoded back with `eachd += Integer.MAX_VALUE` `:273-275`, the total is
+   clamped to `Integer.MAX_VALUE` `:277-279`, and aggro is recorded with
    `monster.aggroMonsterDamage(player, totDamageToOneMonster)` `:282`.
-7. **Post-hit skill chain** (`:290-461`): pickpocket meso drops `:290-303`, drain/vampire heal `:306`, steal `:307`,
-   Fire Demon `:331`, Homing Beacon/Bullseye `:338`, Flame Thrower `:340`, Snow Charge `:349`, Hamstring `:357`,
-   Evan slow `:365`, Marksman Blind `:378`, Venom stacks `:394`, mortal blow (instant `Integer.MAX_VALUE` damage when
-   the mob is under the HP threshold and the dice land) `:400-411`, fixed-damage verification `:417-420`, Three Snails
-   `:422-425`, `HogTaming.totalDamage` remap for the mount hog `:450`, the skill's own statuses `applyStatus`
-   `:452-458`.
+7. **Post-hit skill chain** (`:283-464`): pickpocket meso drops `:283-303`, drain/vampire heal `:305-306`, steal
+   `:307-308`, Fire Demon `:331`, Homing Beacon/Bullseye `:337`, Flame Thrower `:340-346`, Snow Charge `:353-357`,
+   Hamstring `:361-366`, Evan slow `:369-374`, Marksman Blind `:377-382`, Venom stacks `:394`, mortal blow (instant
+   `Integer.MAX_VALUE` damage when the mob is under the HP threshold and the dice land) `:398-411`, fixed-damage
+   verification `:417-420`, Three Snails `:422-425`, `HogTaming.totalDamage` remap for the mount hog `:450`, the skill's own statuses `applyStatus`
+   `:452-457`.
 8. **Damage application.** Heaven's Hammer `:459-461` and Aran Combo Tempest `:462-464` go through
    `damageMonsterWithSkill` `:514` (delayed by the animation time). Everything else falls into
    `map.damageMonster(player, monster, totDamageToOneMonster)` `:470`. Reflect buffs then bounce the hit back at the
@@ -239,10 +239,10 @@ values are unknown.
 - **Client damage numbers are advisory.** Every line is re-clamped against a server-side estimate
   (`AbstractDealDamageHandler.java:844-857`, `:886-892` for negatives; `SummonDamageHandler.java:119`;
   `MobDamageMobHandler.java:63-71`), and a hit on an immune mob is `1` per line
-  (`AbstractDealDamageHandler.java:251`, `:255`).
+  (`AbstractDealDamageHandler.java:252`, `:256`).
 - **A negative damage line is a miss, never a crit.** `clientDamage` maps any negative input to `0`
   (`AbstractDealDamageHandler.java:886-892`); the crit encoding (`markCritical` `:896`) is applied only to positive
-  lines, so decoding with `eachd += Integer.MAX_VALUE` (`:273`) can only ever recover a number the server itself
+  lines, so decoding with `eachd += Integer.MAX_VALUE` (`:273-275`) can only ever recover a number the server itself
   flagged.
 - **No MP, no damage.** `applyAttack` refuses before any HP write when `getMp() < getMpCon()`
   (`AbstractDealDamageHandler.java:128-132`), and a party Heal the caster cannot pay for heals nobody
@@ -354,7 +354,7 @@ mob's EXP.
   `removeMapObject` `:51`) without damage, EXP or drops. There is no position, distance or "the bomb actually went
   off" check, unlike `FieldDamageMobHandler`'s cap.
 - **NEW-FINDING: the damage-line-count check is dead.**
-  `AbstractDealDamageHandler.java:169-173` keeps the `attackCount != attack.numDamage` guard commented out under
+  `AbstractDealDamageHandler.java:168-173` keeps the `attackCount != attack.numDamage` guard commented out under
   `//WTF IS THIS F3,1`, so nothing verifies that a skill declaring N attack lines actually delivered N — a client can
   send fewer or more lines within the ceiling and the missing lines simply count as misses.
 - **NEW-FINDING: `MagicDamageHandler.java:63` reads `+ +YamlConfig.config.server.DOJO_ENERGY_ATK`** — a doubled unary
@@ -368,9 +368,11 @@ mob's EXP.
 Evidence: the attack funnel is wired end to end in code (`AbstractDealDamageHandler.java:534` → `:107` → `:470` →
 `MapleMap.java:1633` → `Monster.java:412` → `:461` → `:360`), the incoming path likewise
 (`TakeDamageHandler.java:63` → `:277` → `AbstractCharacterObject.java:539` → `Character.java:10585` → `:8998`), and
-seven unit tests pin the four behaviours the repack had broken (MP gate, crit flag, negative lines, summon clamp,
-venom, Mana Reflection, Meso Guard). The mob-death NPE seen in 1.6.4 round 11 is fixed in `Monster.java:899-945`
-(`warnMissingRevive`). **Partial** because: nothing in `src/test/java` exercises `Monster.distributeExperience`,
+seven unit tests pin exactly the behaviours the repack had broken: MP gate, crit flag, negative damage lines,
+summon clamp, venom status, Mana Reflection and Meso Guard. The mob-death NPE seen in 1.6.4 round 11 is fixed in
+`src/main/java/server/life/Monster.java:907-914` (`warnMissingRevive`), with the revive itself at `:938-953`.
+
+**Partial** because: nothing in `src/test/java` exercises `Monster.distributeExperience`,
 `killBy`, `MapleMap.damageMonster`'s boss branches, or any of the satellite handlers; the satellite handlers
 `FieldDamageMobHandler`, `LeftKnockbackHandler`, `BeholderHandler`, `HealOvertimeHandler` are untouched Cosmic code; and
 the known issues above include two trust holes (`MonsterBombHandler`, the dead line-count check).
