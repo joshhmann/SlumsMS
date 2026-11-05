@@ -199,7 +199,8 @@ implementation (src/main/java/client/command/CommandsExecutor.java:246).
    (:64), grants the winner as an equip (`getEquipById` → `rewardExpiration` → `setExpiration` → `addFromDrop`) or as a
    plain `addById` (:65-74), consumes exactly one box with `removeById(USE, itemId, 1, false, false)` and `break`s
    (:75-80). A reward with a `worldmsg` is also broadcast as a server notice (:76-79). Note the box is consumed only
-   when a reward actually rolled — an empty roll leaves it in place (:83).
+   when a reward actually rolled — an empty roll leaves it in place (:58-82, the `removeById` sits inside the roll
+   branch).
    `rewardExpiration(now, period)` (:99) treats the WZ `period` unit as **hours**, and the javadoc at :86-98 records the
    evidence: the only reachable equip reward is Consume 02022503-02022524/02022550 → 1132010 with period 7200 (300
    days), while Cash 05530000's 21600 is never read because 4170012 is ETC and takes the `addById` branch.

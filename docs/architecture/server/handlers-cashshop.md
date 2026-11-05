@@ -50,7 +50,7 @@ packets.
 5. `c.sendPacket(server.cashshop.CashShopWindowPackets.open(chr))` (`:44`) — the `RESP_OPEN` frame carrying the three
    balances (`src/main/java/server/cashshop/CashShopWindowPackets.java:79`).
 6. `CashShopWindowHandler.sendCatalog(c, chr)` (`:45`) sends the category index and a cash refresh
-   (`CashShopWindowHandler.java:69-77`). The player never leaves the map.
+   (`CashShopWindowHandler.java:69-72`). The player never leaves the map.
 7. Fallback when the flag is off: `NPCScriptManager.getInstance().start(c, 9010004, chr)` (`:48`) then
    `enableActions()` (`:49`). `scripts/npc/9010004.js:24` turns that NPC into a menu whose option 0 is
    `cm.openNpc(9010004, "rooty")` — i.e. Rooty / Donor Shop, not a cash shop.
@@ -67,7 +67,7 @@ The stock stage transition is gone. `/root/workspace/cosmicms/.../EnterCashShopH
    || chr.getHiredMerchant() != null` → return (`CashShopWindowHandler.java:44-46`).
 2. `if (chr.getCashShop().isOpened()) return;` (`:49`) — the window is refused while the character is flagged as being
    in the legacy stage, so the two UIs can never both be live.
-3. `p.available() < 1` guard, then `final int action = p.readByte()` (`:52-54`).
+3. `p.available() < 1` guard, then `final int action = p.readByte()` (`:53-54`).
 4. `switch`: `ACTION_REQUEST_CATALOG` → `sendCatalog`, `ACTION_REQUEST_CATEGORY` → `sendCategory`,
    `ACTION_BUY` → `buy`, `ACTION_BUY_CART` → `buyCart`, default logs
    `"Cash Shop window: unhandled action {}"` (`:56-60`). Action constants live at
@@ -89,8 +89,8 @@ at `CashShopWindowPackets.java:14-18`, and that file is *not* in this repo.
    later, when the partner-name prompt is answered (`scripts/npc/cashshop_partner_ring.js:31` calls
    `Rings.complete`).
 3. Everything else: `CashShopWindowPurchase.buy(c, chr, new int[]{itemId})` (`:130`). The single-item BUY is a
-   one-element cart on the server — "the cart is the primitive" (`CashShopWindowPurchase.java:46`).
-4. Reply `buyResult(r.code(), itemId)` (`:131`); on `r.ok()` an extra `cash(chr)` frame (`:132-134`).
+   one-element cart on the server — "THE CART IS THE PRIMITIVE" (`CashShopWindowPurchase.java:42`).
+4. Reply `buyResult(r.code(), itemId)` (`:132`); on `r.ok()` an extra `cash(chr)` frame (`:133-135`).
 5. `buyCart` (`:138`): `count` byte (`:142`), then the bounds check **before** the reads —
    `count <= 0 || count > MAX_CART || p.available() < count * 4` → `cartResult(BUY_BAD_CART, 0, 0, 0)` (`:145-150`).
    `MAX_CART = 24` (`CashShopWindowPurchase.java:70`, "matches the client's cap").
@@ -98,7 +98,7 @@ at `CashShopWindowPackets.java:14-18`, and that file is *not* in this repo.
    (`:195`), `synchronized (chr)` (`:199`), a `CashShopCartDelivery` try-with-resources (`:200`), resolve → price →
    space probe → deliver → services → debit. Debit is `cs.gainCash(NX_CREDIT, (int) -total)` (`:352`) immediately
    followed by `delivery.commit()` (`:353`), so a rollback scope exists until the money is taken.
-7. Reply `cartResult(r.code(), r.failedSn(), r.delivered(), r.spent())` (`CashShopWindowHandler.java:159-160`) —
+7. Reply `cartResult(r.code(), r.failedSn(), r.delivered(), r.spent())` (`CashShopWindowHandler.java:156-157`) —
    the cart reply carries counts because a cart is all-or-nothing and the player must be told which happened
    (`CashShopWindowPackets.java:102-109`).
 
@@ -297,7 +297,7 @@ whether TEST runs the window or the NPC 9010004 fallback is unknown.
    (`CashShopWindowPurchase.java:248`); an int sum could wrap into an affordable figure
    (regression test `CashShopPurchaseTest.priceTotalCannotWrapIntoAnAffordableInt`).
 7. **No packet is trusted for its length.** Every reader checks `p.available()` before consuming:
-   action byte (`CashShopWindowHandler.java:52`), category bytes (`:106`), single buy int (`:121`), cart count and
+   action byte (`CashShopWindowHandler.java:53`), category bytes (`:104`), single buy int (`:121`), cart count and
    `count * 4` (`:145`).
 8. **A coupon code is claimed exactly once.** `UPDATE … WHERE code = ? AND retriever IS NULL` and a
    `!= 1` row count means "someone else got it" (`CouponCodeHandler.java:149-158`).
@@ -361,7 +361,7 @@ wire compatibility — the DLL is not in this repo.
 | `NEW-FINDING:` `EnterCashShopHandler.java:41-45` | The window path skips every stocking gate the stock handler had — no `cannotEnterCashShop`, event, or MiniDungeon check, and no `isOpened()` check. A player allowed into an event instance can open the window; `EnterMTSHandler.java:67-83` shows the intended refusals exist, so the window path is the odd one out. Cosmetic only while purchases are inventory-delivered, but it contradicts the sibling handler. |
 | `NEW-FINDING:` `CashShopSurpriseHandler.java:33-40` | Guarded by `cs.isOpened()`, which the window path never sets, so the packet is dead on live. `CashShop.openCashShopSurprise` (`CashShop.java:560`) is reachable only through the dead stage, and item `5222000` is not in `cashshop/catalog.tsv`, so the surprise box can be neither bought nor opened. |
 | `NEW-FINDING:` `MTSHandler.java:60` | 852 lines of unreachable MTS code retained in the tree with DB writes (`mts_items` INSERT/UPDATE/DELETE at `:135`, `:151`, `:253`, `:323`). Keeping the class is `DELIBERATE` per `classifications.json`, but nothing prevents a future `registerHandler` line from enabling an untested economy path. |
-| `NEW-FINDING:` `CashShopWindowHandler.java:121` | A short `p.available() < 4` single buy returns **silently** — no `buyResult`, no `enableActions`. The cart path answers `BUY_BAD_CART` for the equivalent malformed case (`:145-150`), so the two disagree; a crafted short packet leaves a real client waiting. |
+| `NEW-FINDING:` `CashShopWindowHandler.java:121-123` | A short `p.available() < 4` single buy returns **silently** — no `buyResult`, no `enableActions`. The cart path answers `BUY_BAD_CART` for the equivalent malformed case (`:145-150`), so the two disagree; a crafted short packet leaves a real client waiting. |
 | `NEW-FINDING:` `CouponCodeHandler.java:259-268` | The 255 cash-item cap silently drops items beyond 255 (`cashItems = Arrays.asList(new Item[255])` discards the tail) *after* the code has been claimed, so a big reward is unrecoverable. |
 | `NEW-FINDING:` `CashOperationHandler.java:115` | `//TODO check for gender` on the gift action `0x04` — a gift can be sent for a wearable the recipient cannot wear, unlike the window path which refuses with `BUY_CANNOT_WEAR` (`CashShopServices.check`). |
 | `NEW-FINDING:` `CashShop.java:269-283` | `factory` stays `null` for any `jobType` outside 0/1/2 when `USE_JOINT_CASHSHOP_INVENTORY` is false; `loadItems` at `:311` would NPE. Job types come from the DB, so a corrupted/added job type breaks the character load. |

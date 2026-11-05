@@ -3,8 +3,8 @@
 Every packet that ends in a monster losing HP (or a player losing HP to a monster) passes through one shared funnel:
 `AbstractDealDamageHandler` for outgoing attacks, `TakeDamageHandler` for incoming ones, and `MapleMap.damageMonster`
 → `Monster.damage` → `Monster.killBy` for the HP write and the death. This file documents that funnel, the anti-cheat
-ceilings around it, and the twelve odd combat routes (summons, mob-vs-mob, field obstacles, bombs, heal-over-time,
-combo counter) that bolt onto it. Bot-side combat AI is in [../bots/](../bots/README.md); buff/stat application is in
+ceilings around it, and the nine odd combat routes (summons, mob-vs-mob, friendlies, field obstacles, bombs,
+heal-over-time, combo counter, special moves) that bolt onto it. Bot-side combat AI is in [../bots/](../bots/README.md); buff/stat application is in
 `server/life/StatEffect` territory (see `handlers-inventory-items.md` for the item side).
 
 ## Purpose
@@ -137,10 +137,10 @@ the character is a non-bot GM of level ≥ 2 (`src/main/java/soloMapling/server/
     `:1801-1804` → world events `:1807` → `dropFromMonster(dropOwner, monster, false)` `:1808-1813` → boss-HP-bar
     aggro reset `:1815-1821` → `dispatchMonsterKilled(true)` and the kill broadcast in `finally` `:1825-1826`.
 12. **EXP.** `Monster.killBy` (`src/main/java/server/life/Monster.java:916`) first calls
-    `distributeExperience(killerId)` `:917`; that method (`:714`) walks `takenDamage` `:727-749`, computes
+    `distributeExperience(killerId)` `:917`; that method (`:714`) walks `takenDamage` `:725-748`, computes
     `totalDamage = maxHpPlusHeal.get()` `:750` and `expPerDmg = mobExp / totalDamage` `:752`, splits per solo player
-    `:781-787` (with `getExpRateMultiplier()` `:784`) and per party `:788-790`, then hands the expedition its kill and
-    boss damage `:792-801`. `killBy` continues with aggro removal, the revive timer `:938-996` (a `revive` id missing
+    `:779-785` (with `getExpRateMultiplier()` `:783`) and per party `:788-789`, then hands the expedition its kill and
+    boss damage `:792-799`. `killBy` continues with aggro removal, the revive timer `:936-996` (a `revive` id missing
     from `Mob.wz` is skipped and logged, not an NPE — `warnMissingRevive` `:907-914`), the Horntail corpse sweep
     `:965-992`, and finally picks the looter as the highest damager `:1001`.
 
@@ -250,7 +250,7 @@ values are unknown.
   `src/test/java/net/server/channel/handlers/AttackWithoutMpTest.java` and
   `src/test/java/server/StatEffectHealAffordTest.java`.
 - **EXP is a share of recorded damage, not of the killing blow.** `expPerDmg = mobExp / maxHpPlusHeal`
-  (`Monster.java:750-752`), split over `takenDamage`; the "killer" only decides the event credit and the looter
+  (`Monster.java:750-752`), split over `takenDamage` (`:725-748`); the "killer" only decides the event credit and the looter
   (`MapleMap.java:1789`, `Monster.java:1001`).
 - **A player's HP can only be zeroed through the stat pool**, never by direct field writes from a handler;
   `safeAddHP` clamps to `1` (`src/main/java/client/AbstractCharacterObject.java:501-507`) while `addMPHP` /
@@ -368,9 +368,9 @@ mob's EXP.
 Evidence: the attack funnel is wired end to end in code (`AbstractDealDamageHandler.java:534` → `:107` → `:470` →
 `MapleMap.java:1633` → `Monster.java:412` → `:461` → `:360`), the incoming path likewise
 (`TakeDamageHandler.java:63` → `:277` → `AbstractCharacterObject.java:539` → `Character.java:10585` → `:8998`), and
-seven unit tests pin exactly the behaviours the repack had broken: MP gate, crit flag, negative damage lines,
-summon clamp, venom status, Mana Reflection and Meso Guard. The mob-death NPE seen in 1.6.4 round 11 is fixed in
-`src/main/java/server/life/Monster.java:907-914` (`warnMissingRevive`), with the revive itself at `:938-953`.
+eight unit tests pin exactly the seven behaviours the repack had broken: MP gate (two tests), crit flag, negative
+damage lines, summon clamp, venom status, Mana Reflection and Meso Guard. The mob-death NPE seen in 1.6.4 round 11 is fixed in
+`src/main/java/server/life/Monster.java:907-914` (`warnMissingRevive`), with the revive itself at `:936-996`.
 
 **Partial** because: nothing in `src/test/java` exercises `Monster.distributeExperience`,
 `killBy`, `MapleMap.damageMonster`'s boss branches, or any of the satellite handlers; the satellite handlers

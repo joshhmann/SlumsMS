@@ -199,7 +199,7 @@ Writer per table (only real writers, not readers):
 | `fredstorage` (+ merchant `inventoryitems` type 6) | `HiredMerchant.saveItems()` → `FredrickProcessor.insertFredrickLog` src/main/java/server/maps/HiredMerchant.java:761-781 | merchant close |
 | `dueypackages` (+ `inventoryitems` type 9) | `DueyProcessor` src/main/java/client/processor/npc/DueyProcessor.java:152-186, :613 | package send/claim/expiry |
 | `botstore`, `botskills` | `BotStore.save/saveAll/settleAndSaveAll` | bot create, bot removal, hourly sweep, shutdown |
-| `botmemory`, `botaffinity`, `botbonds`, `botguild`, `botguildmember`, `botroster` | `BotMemory`, `BotAffinity*`, `BotGuildSystem.GuildStore`, `BotRoster` | bot lifecycle + sweep; bonds also on a 3-minute flush |
+| `botmemory`, `botaffinity`, `botbonds`, `botguild`, `botguildmember`, `botroster` | `BotMemory` (src/main/java/soloMapling/ArtificialPlayer/BotMemory.java:259), `BotAffinitySystem.AffinityStore` (…/AffinityStore.java:70), `BondStore`, `BotGuildSystem.GuildStore` (src/main/java/soloMapling/ArtificialPlayer/BotGuildSystem/GuildStore.java:96-102), `BotRoster` (src/main/java/soloMapling/ArtificialPlayer/BotRoster.java:134) | bot lifecycle, hourly sweep and shutdown; bonds additionally flush every 3 min (src/main/java/soloMapling/ArtificialPlayer/BotAffinitySystem/BotBonds.java:79) |
 | `economycounters` | `EconomyCounterPersistence` src/main/java/soloMapling/Economy/stats/EconomyCounterPersistence.java:104 | periodic + `EconomySnapshotService.shutdown()` |
 | `traderatings` | `TradeRatings.writeDb` src/main/java/soloMapling/site/TradeRatings.java:175 | periodic + shutdown |
 | `character_achievements` | `JdbcAchievementStore.saveProgress` src/main/java/soloMapling/achievements/JdbcAchievementStore.java:49 | on achievement progress (synchronous) |
@@ -248,8 +248,8 @@ Not persisted anywhere (in-memory only, zero `getConnection`/`prepareStatement` 
   deploy/rollback tools stop on it instead of continuing
   (database/migrations/001-preserve-arcane.sql:17; tools/release/templates/deploy.body.sh:220).
 - A migration is idempotent by one of two idioms: **row-gated** (22 of the 61 forward files put
-  `SET @apply = NOT EXISTS (SELECT 1 FROM mapleroot_integration_migrations WHERE migration_id='…')` up front and write
-  gates its DML on `WHERE @apply`, database/migrations/001-preserve-arcane.sql:9-16) or **statement-guarded** (the
+  `SET @apply = NOT EXISTS (SELECT 1 FROM mapleroot_integration_migrations WHERE migration_id='…')` up front and
+  gate their DML on `WHERE @apply`, database/migrations/001-preserve-arcane.sql:9-16) or **statement-guarded** (the
   other 39 use `CREATE TABLE IF NOT EXISTS` / `INSERT IGNORE` / `INSERT … SELECT … WHERE NOT EXISTS`, as in
   database/migrations/059-normal-gear-through-200.sql:162-165 and
   database/migrations/060-royal-crafting-materials.sql:27-30). Only the row-gated files skip their DML entirely on a
@@ -307,7 +307,7 @@ pool. No test asserts that `!saveall` did anything.
 | `NEW-FINDING` | The logout writes are split across connections: `saveCooldowns` (cooldowns + playerdiseases) and `Pet.saveToDb` each take their own connection and swallow errors, so a successful character commit does not imply the cooldowns/pets were written. | src/main/java/client/Character.java:9625-9670; src/main/java/client/inventory/Pet.java:133-148. |
 | `NEW-FINDING` | `002-classic-fm-return.sql` is the one forward migration that does not create the ledger table, so it cannot be applied to a database where 001 has not run (or the ledger was rebuilt): its `INSERT IGNORE` fails and the deploy tool then stops on "did not record itself in the ledger". | database/migrations/002-classic-fm-return.sql:2-3 vs. the `CREATE TABLE IF NOT EXISTS mapleroot_integration_migrations` in every other forward file; tools/release/templates/deploy.body.sh:220. |
 | `NEW-FINDING` | `PlayerStorage.disconnectAll` logs a throwing disconnect and then still clears the registry, so a character whose teardown failed leaves the world with no record that it was not saved — nothing retries it. | src/main/java/net/server/PlayerStorage.java:113-131. |
-| `NEW-FINDING` | Merchant close is two non-atomic writes on two connections: the items, then `fredstorage`. A crash between them leaves items saved with no Fredrick log, or vice versa. | src/main/java/server/maps/HiredMerchant.java:761-781. |
+| `NEW-FINDING` | Merchant close is two non-atomic writes on two connections: the items (`ItemFactory.MERCHANT.saveItems`), then `fredstorage`; a crash between them leaves items saved with no Fredrick log. The close itself also swallows the SQL error (`catch (SQLException ex) { ex.printStackTrace(); }`), so a merchant that failed to save looks closed. | src/main/java/server/maps/HiredMerchant.java:761-781, :472-478. |
 
 ## State
 
