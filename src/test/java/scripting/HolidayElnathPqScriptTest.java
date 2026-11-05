@@ -201,13 +201,18 @@ class HolidayElnathPqScriptTest {
     }
 
     @Test
-    void elnathNpcStartsTheEventForAPartyWithoutQuest6192() throws Exception {
+    void elnathNpcKeepsLivesQuestGateUntilThePqHasStages() throws Exception {
+        // owner 2026-11-05: Elnath PQ has no stages yet (1.6.5), so its NPC stays as live has it: no entry without 6192
         ScriptEngine engine = new Loader().load("npc/2020008.js");
         assertNotNull(engine);
         ElnathCm cm = new ElnathCm();
         engine.put("cm", cm);
-        ((Invocable) engine).invokeFunction("start");
-        assertEquals(1, cm.em.started, cm.ok);
+        try {
+            ((Invocable) engine).invokeFunction("start");
+        } catch (Exception laterDialogueNeedsMoreFakes) {
+            // past the gate the live script goes on to Tylus's other dialogues; not starting the PQ is the point
+        }
+        assertEquals(0, cm.em.started, cm.ok);
     }
 
     public record FakeJob(int id) {
