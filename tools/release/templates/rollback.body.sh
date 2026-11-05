@@ -1,7 +1,7 @@
 # ---- body: tools/release/templates/rollback.body.sh (the same for every release; the settings are above) ----
 #
 # Undoes deploy.sh with its backup and keeps player progress: runs this release's migration rollbacks newest first
-# for every attempted migration (or one still in the ledger), then puts back the old jar, config.yaml, scripts and
+# for every migration this deploy attempted (its backup/.migration-<id>.attempted marker; no marker, no rollback), then puts back the old jar, config.yaml, scripts and
 # src/main from backup/server-runtime.tgz (jar and config always go back together) and the old unit. The files the
 # deploy left are moved to backup/rolled-back-runtime/, not deleted. Full restore instead: backup/mapleroot.sql.gz
 # (loses progress since the deploy). The rehearsal overrides the same variables as deploy.sh.
@@ -55,8 +55,16 @@ if [ "${#UNIT_EDITS[@]}" -gt 0 ]; then [ -f "$B/slumsms.service" ] || die "no un
 l=$(ledger); echo "ledger: $l"
 todo=()
 for (( i=${#MIGRATION_IDS[@]}-1; i>=0; i-- )); do
-  if [ -e "$B/.migration-${MIGRATION_IDS[$i]}.attempted" ] || [ "$(in_ledger "${MIGRATION_IDS[$i]}")" = 1 ]; then
+  # Only what this deploy started (deploy.sh touches the marker before the forward SQL). A migration in the ledger
+  # without a marker is either from an earlier night (in LEDGER_BEFORE: leave it) or unrecorded (refuse, don't guess).
+  id=${MIGRATION_IDS[$i]}
+  if [ -e "$B/.migration-$id.attempted" ]; then
     todo+=("$i")
+  elif [ "$(in_ledger "$id")" = 1 ]; then
+    case ",$LEDGER_BEFORE," in
+      *",$id,"*) echo "$id was already applied before this deploy - not rolled back" ;;
+      *) die "$id is in the ledger but this deploy's backup has no record that it ran it ($B/.migration-$id.attempted); not guessing - check by hand or import $B/mapleroot.sql.gz" ;;
+    esac
   fi
 done
 echo "migration rollbacks to run: $(for i in "${todo[@]}"; do printf '%s ' "${MIGRATION_IDS[$i]}"; done)"
