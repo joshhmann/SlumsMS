@@ -36,7 +36,7 @@ class NormalGearGuideInteraction {
             if (!item) return ScriptInteractionResult.Dispose;
             let text=`#i${item.id}# #t${item.id}#\r\nEquip level: ${item.equip}\r\n`;
             text+='Your class and stat requirements still apply.\r\n\r\nHunting sources:\r\n';
-            item.sources.forEach(s=>text+=`#o${s.mob}# — #m${s.map}#\r\n`);
+            item.sources.forEach(s=>text+=`#o${s.mob}# in #m${s.map}#\r\n`);
             text+='\r\nStart with gear you can already wear. If a fight is too costly, stay on an easier route while upgrading.';
             text+='\r\nAt 150, look for Commerci; at 160, Sweetwater. Save forged sets for rebirth progression.';
             text+='\r\nChoose enhancements carefully: scrolls and Spell Trace enhancements share upgrade slots.';

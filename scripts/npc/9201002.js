@@ -149,7 +149,7 @@ function describeReservation(weddingId) {
             var inCathedral = (v == 0);
             if (ch.getWeddingReservationStatus(weddingId, inCathedral) >= 0) {
                 var left = ch.getWeddingReservationTimeLeft(weddingId);
-                var when = (left == null) ? "" : String(left).replace(/^[^-]*- /, "");
+                var when = (left == null) ? "" : afterDash(String(left));
                 if (when == "" || when.indexOf("null") >= 0) {
                     when = "very soon";
                 }
@@ -490,4 +490,10 @@ function action(mode, type, selection) {
             }
         }
     }
+}
+
+// Drops everything up to the first "- " (the channel prefix); no regex: the shipped GraalJS has no regex engine.
+function afterDash(s) {
+    var i = s.indexOf("-");
+    return (i >= 0 && s.substring(i, i + 2) == "- ") ? s.substring(i + 2) : s;
 }
