@@ -825,6 +825,8 @@ class WorldTest(unittest.TestCase):
         self.assertEqual(buddy.SLOTS["market/exchange"][0], "chibi-computer")
         self.assertEqual(buddy.SLOTS["report"][0], "chibi-wrench")
         self.assertFalse([p for p in buddy.PICTURES if "slime" in p or "robot" in p])  # owner: none with slimes or robots
+        self.assertNotIn("chibi-sack", buddy.PICTURES)  # owner 2026-11-05: the sack one looks funky
+        self.assertEqual(buddy.SLOTS["guide/money.html"][0], "chan-money")
 
     def test_home_hero_has_a_season_picture_every_month_and_no_retired_ones(self):
         # owner 2026-11-04: of the full and cut pictures keep only the SLUMS MS heart and the sitting peace
