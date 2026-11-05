@@ -165,13 +165,13 @@ every `perform` gate are unexecuted. Server-side auto-QA has just `t-la-1`, a MA
 ## Known issues
 
 - **b270** (S3, Client) — the Live client publish wrote `manifest.json` without `news[]`, so `slumsms-news@live`
-  failed; the news panel and the Megaphone rail have stayed empty (`STATUS-1.6.4.md:75`). Mechanism: `news` reaches
+  failed; the news panel and the Megaphone rail have stayed empty (`/root/work/STATUS-1.6.4.md:75`). Mechanism: `news` reaches
   the page only from `check_release` (`/root/work/launcher-165-server/tauri/app/src/launcher.rs:643`) and `install_files` (`/root/work/launcher-165-server/tauri/app/src/launcher.rs:664`), i.e. only when
   `load_release` ran; the 10-minute background refresh patches `available` alone (`/root/work/launcher-165-server/tauri/app/src/launcher.rs:537-559`). The
   publisher treats `--news` as optional (`tools/publish.mjs:547,558,583-585,647`), the validator only bounds it
   (`tauri/core/src/manifest.rs:209-236`).
-- **b017** (S3, Launcher) — Defender false positive on each new exe; process, not code (`STATUS-1.6.4.md:70`).
-- **o04** (Ops) — move client/launcher builds off Silvia later (`STATUS-1.6.4.md:130`).
+- **b017** (S3, Launcher) — Defender false positive on each new exe; process, not code (`/root/work/STATUS-1.6.4.md:70`).
+- **o04** (Ops) — move client/launcher builds off Silvia later (`/root/work/STATUS-1.6.4.md:130`).
 - Ticket 27 (`docs/tickets/27-launcher-extras.md`) is closed and obsolete (Electron era); the "server online/offline"
   and "Source code link" items were never built.
 - `NEW-FINDING:` `/root/work/launcher-165-server/tauri/ui/renderer.mjs:104` decides whether to hide the byte/speed line by testing the message text

@@ -187,7 +187,7 @@ error string (`…extras:93-96`), which renders as a grey pill rather than an al
   `/root/work/STATUS-1.6.4.md:61` treats live log-silence as awaiting proof. The repo records both states; only the host can say.
 - Does live's `slumsms.service` still carry `-Dsolomapling.dashboard=true` and `.dir`? `docs/release/1.6.0.conf:78` adds them,
   `1.6.1`–`1.6.4` do not mention the flag at all, and `tools/ops/install-live-dashboard:20-21` says the page stays empty without
-  it. `docs/architecture/server/site-and-dashboard.md:209` and `docs/architecture/ops/hosts.md:210-213` already ask this; it
+  it. `docs/architecture/server/site-and-dashboard.md:209` and `docs/architecture/ops/hosts.md:198-201` already ask this; it
   stays open because the repo cannot see the unit file.
 - Why does `targets/live.conf:10` still say `VERSION=1.4.0` while 1.6.4 is being released? The status message would advertise
   the wrong version until an operator edits the conf (`deploy/monitor/README.md:228-229`).

@@ -192,9 +192,9 @@ only by `npm test`, `cargo test` and `--self-test` (`tauri/app/src/launcher.rs:3
 - **NEW-FINDING: `PackSource.sha256` is validated as a digest but never compared** to the downloaded archive (`tauri/core/src/packs.rs:22-29`, `:84`; install
   relies on per-entry hashes, `tauri/core/src/install.rs:411`) — a guarantee the code does not provide.
 - `tauri/docs/checkpoint.md:102` claims 85 tests (57 unit + 26 feed + 2 swap) — now 87 + 34 — and `:3` names the branch `launcher-tauri` while the repo is on
-  `launcher-165-server`. `b017` (`STATUS-1.6.4.md:70`) — a new launcher exe can be flagged by Defender; process, not code. `o04` (`:130`) — move client
+  `launcher-165-server`. `b017` (`/root/work/STATUS-1.6.4.md:70`) — a new launcher exe can be flagged by Defender; process, not code. `o04` (`:130`) — move client
   and launcher builds off Silvia to tarkov2; operational.
-- `b270` (`STATUS-1.6.4.md:75`) — a Live publish wrote `manifest.json` without `news[]`, so `slumsms-news@live` failed; that is the optional `news` field
+- `b270` (`/root/work/STATUS-1.6.4.md:75`) — a Live publish wrote `manifest.json` without `news[]`, so `slumsms-news@live` failed; that is the optional `news` field
   (`tauri/core/src/manifest.rs:209-232`). `docs/tickets/106-launcher-download-pass.md` (FEATURE 1.6.1) — download pass; code half
   `tauri/core/src/http.rs:14-18` (`channels-and-auth.md`).
 

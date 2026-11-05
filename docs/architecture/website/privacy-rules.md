@@ -17,19 +17,19 @@ says *who is a bot* — bots and players are presented as one server (`tools/sit
 | Entry | Starts it | Where |
 |---|---|---|
 | `build.py --private --world` | full build; each section's `build()` runs its own `validate()` first | `tools/site/build.py:63-69`, `:148-176`, `:228-262` |
-| `build.py --section market\|world` | the two 2-minute timers, under one `flock` | `tools/site/slums-site-market.service:14`, `slums-site-world.service:12` |
+| `build.py --section market\|world` | the two 2-minute timers under one `flock` | `tools/site/slums-site-market.service:14` |
 | exporters | `-Dslums.site.export=true` (feed/leaderboards/world), `-Dslums.market.export=true` (market files), `-Dslums.board=true` (board outbox) | `src/main/java/soloMapling/site/PublicSiteExport.java:35-50`, `.../Economy/market/PublicMarketExport.java:45-60`, `.../Economy/board/SiteBoard.java:62` |
 | `@bug` in game / the report form | append one scrubbed report line to the reports file | `src/main/java/server/reports/ReportStore.java:600-632`, `tools/site/report_service.py:409-441` |
 | nginx locations | decide *who* may see `street/ market/ secret/ admin/` and `/admin/data/` | `tools/site/slums-login.nginx.conf:38-64`, `:91-130` |
-| `check.py <dir>` / `unittest discover -s tools/site -p 'test_*.py'` | a stand-alone re-check / the privacy tests | `tools/site/check.py:295-302`, `docs/site/DEPLOY.md:22` |
+| `check.py <dir>` / `unittest discover` | a stand-alone re-check / the privacy tests | `tools/site/check.py:295-302`, `docs/site/DEPLOY.md:22` |
 
 ## How it works
 
 1. **Exporters drop identity.** `PublicSiteExport` writes feed/leaderboards/world with "Names only: no character ids, no
-   account data" (`src/main/java/soloMapling/site/PublicSiteExport.java:35-50`); `SiteLeaderboards.players()` removes
-   staff, banned, template and Auto-QA rows and keeps `id` only to join (`.../site/SiteLeaderboards.java:15`, `:59-75`,
-   `:109`); `SiteFeed` refuses any drama item naming a non-bot (`.../site/SiteFeed.java:20-35`) and its `validName` test
-   drops GMs and QA names (`:148`).
+   account data" (`src/main/java/soloMapling/site/PublicSiteExport.java:35-50`); `SiteLeaderboards.players()` drops staff,
+   banned, template and Auto-QA rows, keeping `id` only to join (`.../site/SiteLeaderboards.java:59-75`, `:109`); `SiteFeed`
+   refuses any drama item naming a non-bot (`.../site/SiteFeed.java:20-35`), its `validName` test dropping GM and QA names
+   (`:148`).
 2. **Market/economy exporters narrow further.** `MarketSales` keeps no parties and cuts times to the UTC hour
    (`.../Economy/market/MarketSales.java:10-16`, `:20-23`); `MarketListings` writes `seller_name`, deliberately no
    `seller_kind` (`MarketListings.java:80-81`); `PublicEconomy` blanks human buckets under 5 and drops `topHolders`
@@ -44,17 +44,16 @@ says *who is a bot* — bots and players are presented as one server (`tools/sit
    `feed`/`world`/`leaderboards` plus the bot-label names (`tools/site/sections/world.py:37`, `:121-146`). `build()` turns
    the list into `SystemExit("… refused: …")` (`market.py:1092-1097`, `world.py:754-762`).
 5. **Templates escape everything they print.** `esc` is `html.escape` (`tools/site/common.py:11`, `:150`); cells, seller
-   cells and feed text all go through it (`tools/site/sections/world.py:466-486`, `:237-242`,
-   `tools/site/sections/market.py:216-220`). In the browser, board text is only set with `textContent`
-   (`docs/site/assets/market.js:3`, `:31`).
+   cells and feed text all go through it (`tools/site/sections/world.py:466-486`, `:237-242`, `market.py:216-220`). In the
+   browser, board text is only set with `textContent` (`docs/site/assets/market.js:3`, `:31`).
 6. **The finished folder is re-read as a stranger.** `build.finish()` runs `check.check_all()`
    (`tools/site/build.py:134-142` → `tools/site/check.py:285-292`): forbidden literals and regexes, link rules, noindex,
    then private-section or top-level-whitelist rules; a failure leaves the published folder untouched (`build.py:148-176`).
-7. **Reports are scrubbed at both ends.** `BugPrivacy` drops whole server log lines that mention a secret and masks paths,
+7. **Reports are scrubbed at both ends.** `BugPrivacy` drops server log lines that mention a secret and masks paths,
    e-mails, IPs and the account name in client text (`src/main/java/server/reports/BugPrivacy.java:21-31`, `:34-43`,
    `:57-70`; called from `BugClientLogs.java:149`, `WarnLogRing.java:125`); the site reader re-scrubs every row and drops
-   IP/e-mail/user-agent keys at any depth (`tools/site/report_service.py:113-114`, `:122-127`, `:138-160`, `:190-207`);
-   the raw IP is never stored, only `sha256(salt + ip)` (`:301-302`, `:309-345`).
+   IP/e-mail/user-agent keys at any depth (`tools/site/report_service.py:113-114`, `:122-127`, `:138-160`); the raw IP is
+   never stored, only `sha256(salt + ip)` (`:301-302`, `:309-345`).
 
 ## Data
 
@@ -77,19 +76,21 @@ says *who is a bot* — bots and players are presented as one server (`tools/sit
 
 | Switch | Default | What it decides |
 |---|---|---|
-| `-Dslums.site.export` / `-Dslums.site.dir` | off / `Server/data/site` | whether feed, leaderboards and world are written at all (`src/main/java/soloMapling/site/PublicSiteExport.java:58-61`) |
-| `-Dslums.market.export` / `-Dslums.market.dir` | off / `Server/data/market` | the market export (`.../Economy/market/PublicMarketExport.java:70-71`) |
+| `-Dslums.site.export`/`-Dslums.site.dir` | off / `Server/data/site` | whether feed, leaderboards and world are written (`src/main/java/soloMapling/site/PublicSiteExport.java:58-61`) |
+| `-Dslums.market.export`/`-Dslums.market.dir` | off / `Server/data/market` | the market export (`.../Economy/market/PublicMarketExport.java:70-71`) |
 | `-Dslums.board` | off | the board outbox the public board API reads (`.../Economy/board/SiteBoard.java:62`) |
 | `SLUMS_MARKET_DATA` / `SLUMS_SITE_DATA` | `cache/market-sample` / `cache/site-sample` | which export folder a build reads (`tools/site/sections/market.py:29`, `.../world.py:31`) |
 | `--private` / `--world` / `--section` | public-only build | whether the private sections and World exist at all (`tools/site/build.py:63-69`) |
 | `--staff-port` (`SLUMS_REPORT_STAFF_PORT`) | `0` = off | the staff reader listener; the public listener never serves staff routes (`tools/site/report_service.py:517-531`, `:409-418`) |
-| `--salt-file` / `--ip-salt-file` / `--proxy-hops` | `/etc/slums-report/salt`, `/etc/slums-login/ip-salt`, `1` | how the IP is hashed and which X-Forwarded-For entry is believed (`tools/site/report_service.py:452-457`, `.../login_service.py:497-501`) |
+| `--salt-file`/`--ip-salt`/`--proxy-hops` | `/etc/slums-report/salt`, `/etc/slums-login/ip-salt`, `1` | how the IP is hashed and which X-Forwarded-For entry is believed (`report_service.py:517-520`, `login_service.py:804`, `:497-501`) |
 | `-Dsolomapling.dashboard.dir` | `reports/dashboard` | where the dashboard snapshots (accounts, resets, reports) are written |
 
 ## Invariants
 
-1. **A private field name anywhere in a market or world export stops the build.** `tools/site/sections/market.py:153-158`,
-   `tools/site/sections/world.py:130-133` — exact names only, `prices/*.json` unwalked (Known issues).
+Each rule below is a prohibition plus the code that enforces it; rule 11 is the prohibitions that exist only as prose.
+
+1. **A private field name anywhere in a market or world export stops the build** (`market.py:153-158`,
+   `world.py:130-133`) — exact names only, `prices/*.json` unwalked (Known issues).
 2. **Every value a page prints is escaped.** `tools/site/common.py:11`, `:150`; cells
    `tools/site/sections/world.py:466-486`; sellers `tools/site/sections/market.py:216-220`.
 3. **Game-written text can never fail a rebuild and can never carry a banned word out.** `check.scrub`
@@ -105,6 +106,10 @@ says *who is a bot* — bots and players are presented as one server (`tools/sit
    `login_service.py:408-413` sends only `ipHash`.
 10. **Human aggregates under 5 people are blanked; `topHolders` never ships.**
     `.../Economy/market/PublicEconomy.java:20`, `:137-145`.
+11. **Prose-only, no enforcing code:** "sales are delayed at least 1 h", "no per-item bot/player split" and "add a privacy
+    lint to check.py for these" (`docs/design/track-d-plan.md:216-226`) — `MarketSales.java:20` only truncates to the
+    hour, `PriceRollup.java:69-70` still writes `player_share`, `check.py` has no `MIN_SAMPLES`/`FLOOR`/`TRADER_MIN`. The
+    comment "Real personal information never goes on the site" (`market.py:105`) is prose backed by rule 1's code.
 
 ## Origin
 
@@ -114,8 +119,8 @@ Both repos are custom (no base-project ancestry for any of this code).
 |---|---|---|
 | `tools/site/check.py`, `build.py`, `test_site.py` | `74099f82c` 2026-10-24 | Add a public website: home, 1.5.0 patch notes and the player guide |
 | `tools/site/sections/market.py` | `ade606c4c` 2026-10-26 | Market v1 (private): Basil Market pages on sample data, ready for the export |
-| `tools/site/sections/world.py` | `c5e619de7` 2026-10-26 | Site: World pages (live world, feed, rankings, economy); Database renamed Slums Street |
-| `tools/site/report_service.py`, `login_service.py` | `5122b392d`/`93bbca9bb` | the report form and its receiver; sign-in with a game account, no password on the web |
+| `tools/site/sections/world.py` | `c5e619de7` 2026-10-26 | World pages (live world, feed, rankings, economy); Database renamed Slums Street |
+| `tools/site/report_service.py` / `login_service.py` | `5122b392d` / `93bbca9bb` | the report form and receiver; sign-in with a game account |
 | `tools/site/sections/admin.py` | `ea44482d1` 2026-10-28 | Staff dashboard on the website at /admin/, for GM level 3 and up |
 | `tools/site/test_build_safety.py` | `f2b2abe9d` 2026-10-30 | Site build: never wipe the site before a good build, refuse broken exports (W2, W4, W5) |
 | `src/main/java/soloMapling/site/*` | `e63bd29d3` 2026-10-26 | WIP: site export (feed, leaderboards, world) |
@@ -123,9 +128,9 @@ Both repos are custom (no base-project ancestry for any of this code).
 | `src/main/java/soloMapling/dashboard/AccountsExport.java` | `71663fe85` 2026-10-26 | Add an Accounts panel to the staff dashboard |
 | `src/main/java/server/reports/BugPrivacy.java` | `3d66a79be` 2026-10-28 | @bug files one site report with versions, context, trail and log lines |
 
-The owner's rule that character names are fine and e-mail/IP are not (2026-10-26) is quoted in `tools/site/check.py:34`;
-the "one server" bot/player-label rule of the same day in `tools/site/sections/market.py:9-12`; `seller_kind` left the
-listings export that day because the build refused it (`docs/design/track-d-plan.md:367`).
+The owner's "character and guild names are fine, emails and IP addresses are not" (2026-10-26) is quoted in
+`tools/site/check.py:34`; the "one server" bot-label rule of that day in `tools/site/sections/market.py:9-12`; `seller_kind`
+left the listings export then because the build refused it (`docs/design/track-d-plan.md:367`).
 
 ## Tests and QA
 
@@ -133,71 +138,63 @@ With only these two repos, a reviewer verifies "no private data on the site" in 
 
 1. Read `tools/site/check.py:22-84` — the whole vocabulary (30 literals, 5 patterns, ALLOW, WORD_OK, GAME_TEXT) is
    constants at the top, one screen.
-2. `python3 tools/site/check.py dist/site-private` — clean prints `site check: 0 problem(s)` (`check.py:295-302`);
-   otherwise each hit prints as `file:line`.
-3. `grep -rn "check.scrub" tools/site/` — two call sites (`sections/market.py:81`, `sections/world.py:58`) plus the
-   avatar index (`sections/world.py:77`). Game-derived text must pass through one of them.
+2. `python3 tools/site/check.py dist/site-private` — clean prints `site check: 0 problem(s) in <dir>`
+   (`check.py:295-302`); otherwise every hit prints as `file:line`.
+3. `grep -rn "check.scrub" tools/site/` — two call sites (`sections/market.py:81`, `sections/world.py:58`) plus the avatar
+   index (`:77`); game-derived text must pass through one of them.
 4. `grep -rn "PRIVATE_FIELDS" tools/site/sections/` — two sets (`market.py:106`, `world.py:37`) and two walks
-   (`market.py:153-158`, `world.py:130-133`). Compare against every export file the build reads.
-5. `python3 -m unittest discover -s tools/site -p 'test_*.py'` — the tests below, plus `test_build_safety.py` proving a
-   failed check leaves the published folder alone.
+   (`market.py:153-158`, `world.py:130-133`); compare against every export file the build reads.
+5. `python3 -m unittest discover -s tools/site -p 'test_*.py'` — the tests below, `test_build_safety.py` included.
 
 | Test | Covers | Gap |
 |---|---|---|
-| `tools/site/test_site.py:197-201` | 22 literals (host, ports, `ssh root@164`, `Password`, `autoqa`, brand names) each fail the check | only the listed literals |
-| `tools/site/test_site.py:204-226` | `Lv. 164`/item `1640001`/quest text pass; `192.168.0.164` and "my password is" fail; `ALLOW` is one exact literal | — |
+| `tools/site/test_site.py:197-226` | 22 literals (host, ports, `ssh root@164`, `Password`, `autoqa`, brand names) fail; `Lv. 164`/item `1640001`/quest text pass; a dotted LAN address ending `.164` and "my password is" fail; `ALLOW` is one exact literal | only the listed literals |
 | `tools/site/test_site.py:92-94` | a full build has zero forbidden strings and zero broken links | sample data, not live exports |
 | `tools/site/test_site.py:76-81`, `:417-428` | robots.txt `Disallow: /` + noindex; `account_id` → "private field"; bad price; wrong schema | only the four walked files |
 | `tools/site/test_site.py:1083-1103`, `:1276-1285` | `is_bot`/`account_id`/unknown kind/wrong schema refused; no `>bot<` on World pages; `ScrubTest` masks words and `[hidden]`s e-mail/IP while leaving `qty: 164` | exact key names; page text not export |
 | `tools/site/test_report.py:215-225`, `:318-380` | raw IP absent, 64-hex `ip_hash`, mode `0o640`; staff rows carry no `ip_hash`/e-mail/`accountId`/UA; public port 404s staff routes | — |
 | `tools/site/test_build_safety.py:31-47`, `:94-130` | a failed check keeps the published site, removes tarball + staging; truncated sales, a non-time `hour`, a broken world file are "refused" | — |
 
-Not covered: an e-mail arriving through a *renamed* key; a private key inside `prices/*.json`; runtime JSON from
-`market_service.py`/`exchange_desk.py` (the check only reads built files); the 1 h sales delay, which has no code.
+Not covered: an e-mail through a *renamed* key; a private key inside `prices/*.json`; runtime JSON from
+`market_service.py`/`exchange_desk.py` (the check reads built files only); the 1 h sales delay (no code).
 
 ## Known issues
 
 - `docs/tickets/165-website-audit-1-6-2.md:32` — **W11 partial**: `slums-report.nginx.conf` keys its rate-limit zone on
-  the raw `$http_x_forwarded_for`, while `report_service.py:354` deliberately ignores left-most entries; one of the two
-  is wrong for the deployed front.
+  the raw `$http_x_forwarded_for` while `report_service.py:354` ignores left-most entries; one is wrong.
 - `docs/architecture/HOLES.md:152` — `server/checkin/SlumsStamps.java:200-213` exports every account with stamps > 0, GM
   accounts included, into the board file the site reads.
-- `docs/architecture/HOLES.md:335-339` — the export surface itself: one executor delays `world.json`/`feed.json`
-  (`PublicSiteExport.java:98-102`), an unused `calibration.json` (`DashboardExporter.java:202-203`), stale maps
-  (`DashboardMapExport.java:306`). None leak player data.
-- No STATUS-1.6.4 card covers privacy; its website cards are L16, w06 and w10.
-- NEW-FINDING: the private-field lint is an exact-name match (`tools/site/sections/market.py:155-157` tests
-  `k.lower() in PRIVATE_FIELDS`), so `seller_email` or `accountName_x` passes; the e-mail/IP regex
-  (`tools/site/check.py:34-43`) only matches *values*, not keys.
-- NEW-FINDING: that walk covers only `listings`, `sales`, `nx-rate`, `economy-public` (`market.py:153`), so a private key
-  inside `prices/YYYY-MM-DD.json` is never refused even though `load()` reads those files (`:77-79`).
-- NEW-FINDING: `prices/*.json` carry `player_share`/`player_count` (`.../Economy/market/PriceRollup.java:69-70`), used for
-  counts only (`market.py:460-468`); the per-item real-player *share* is still on a public file, against the spirit of
-  `market.py:1-13`.
-- NEW-FINDING: the board API returns outbox text unfiltered (`tools/site/market_service.py:374-386`; the service has no
-  `check.scrub` call), so a banned word or e-mail in a title reaches the browser — safe HTML via `textContent`
-  (`docs/site/assets/market.js:3`) but invisible to the build check.
+- `docs/architecture/HOLES.md:335-339` — export-surface defects that leak nothing: one executor delays
+  `world.json`/`feed.json` (`PublicSiteExport.java:98-102`), an unused `calibration.json`
+  (`DashboardExporter.java:202-203`), stale maps (`DashboardMapExport.java:306`).
+- No STATUS-1.6.4 card covers privacy; its website cards are L16, w06, w10.
+- NEW-FINDING: the private-field lint is an exact-name match (`market.py:155-157`), so `seller_email` passes; it walks
+  only `listings`, `sales`, `nx-rate`, `economy-public` (`:153`), so a private key inside `prices/YYYY-MM-DD.json` is never
+  refused even though `load()` reads it (`:77-79`) — and that file carries `player_share`/`player_count`
+  (`PriceRollup.java:69-70`), a per-item real-player share on a public file, against the spirit of `market.py:1-13`.
+- NEW-FINDING: the board API returns outbox text unfiltered (`tools/site/market_service.py:374-386`; no `check.scrub` in
+  that service), so a banned word or e-mail in a title reaches the browser — safe HTML via `textContent`
+  (`docs/site/assets/market.js:3`), invisible to the build check.
 - NEW-FINDING: `docs/design/track-d-plan.md:216-226` promises "sales delayed at least 1 h" and a plan-derived privacy
-  lint. The delay is only hour-truncation (`MarketSales.java:20-23`), and `check.py` knows no `MIN_SAMPLES`, `FLOOR` or
-  `TRADER_MIN`.
+  lint; only hour-truncation exists (`MarketSales.java:20-23`), and no `MIN_SAMPLES`/`FLOOR`/`TRADER_MIN` lint.
 
 ## State
 
-**Working, with named holes.** All three layers hold: exporters write names only (`PublicSiteExport.java:35-50`),
-validation refuses private field names (`market.py:153-158`, `world.py:130-133`), templates escape (`common.py:150`), and
-the post-build check refuses a folder with an e-mail, an IPv4, the server host or a private section (`check.py:132-161`,
-`:233-250`) while a failure leaves the published site untouched (`build.py:134-142`). No raw IP is stored
+**Working, with named holes.** All three layers hold: exporters write names only (`PublicSiteExport.java:35-50`), validation
+refuses private field names (`market.py:153-158`, `world.py:130-133`), templates escape (`common.py:150`), and the
+post-build check refuses a folder with an e-mail, an IPv4, the server host or a private section (`check.py:132-161`,
+`:233-250`) while a failure leaves the site untouched (`build.py:134-142`). No raw IP is stored
 (`report_service.py:301-302`, `login_service.py:404-406`) and `ip_hash` never leaves the GM reader
-(`report_service.py:113-114`, `slums-login.nginx.conf:118-130`). The holes are all in the negative space: exact-name
-matching, unwalked `prices/` files, runtime APIs outside the check, the plan's unbuilt delay/lint. Evidence:
-`tools/site/test_site.py:92-94` (a sample build passes clean), `test_build_safety.py:31-47`.
+(`report_service.py:113-114`, `slums-login.nginx.conf:118-130`). The holes sit in the negative space — exact-name
+matching, `prices/` unwalked, runtime APIs outside the check, the plan's unbuilt delay/lint. Evidence:
+`tools/site/test_site.py:92-94`, `test_build_safety.py:31-47`.
 
 ## Open questions
 
 1. Is `player_share` in `prices/*.json` acceptable? No page prints it, but it is a per-item bot/player split on a public
    file (`market.py:1-13`); the fix would be `PriceRollup.java:69-70`.
-2. Should `check.py` gain the plan's rules (median floor, human-bucket floor, sale delay)? `docs/design/track-d-plan.md:226`
-   asks for it; nothing implements them today.
+2. Should `check.py` gain the plan's rules (median floor, human-bucket floor, sale delay)?
+   `docs/design/track-d-plan.md:226` asks for it; nothing implements them.
 3. Is nginx the intended single gate for the reset-request `contact` that `AccountsExport.java:142-159` writes to
    `/admin/data/`? No build-time check knows that key exists (`tools/site/sections/admin.py:1-22`).
 4. Should `market_service` apply `check.scrub` to board text (NEW-FINDING above), or is display-side safety enough?

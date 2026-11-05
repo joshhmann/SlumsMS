@@ -4,8 +4,8 @@
 
 The stack runs on five machines plus the owner's reverse proxy: the agent workstation (187), the live box (164), the
 TEST box (`mapletest`, 192.168.0.111), the owner's Windows desktop (Silvia) and a GPU box (192.168.0.17) serving the
-bots' chat and classifier calls. This page maps host → unit → port → data dir and the trust boundary each hop crosses, so
-a tool can tell "TEST, free to change" from "live, owner-gated" before touching anything (`AGENTS.md:16,25`).
+bots' chat and classifier calls. This page maps host → unit → port → data dir and the trust boundary each hop crosses,
+so a tool can tell "TEST, free to change" from "live, owner-gated" first (`AGENTS.md:16,25`).
 
 ## Entry points
 
@@ -38,10 +38,10 @@ a tool can tell "TEST, free to change" from "live, owner-gated" before touching 
 | Host | Role | Units | Ports | Data dir | Read by (file:line) |
 |---|---|---|---|---|---|
 | 187 `openclaw` | agent workstation: checkouts, builds, all ops/release tooling | none (no server) | none | `/root/work`, `/root/work/qa-runs` | `AGENTS.md:51`, `tools/qa-runner/qarunner.py:44` |
-| 164 LXC 125 `maplestory` | live game, live DB, patch feed, deploy staging, live dashboard, public site | `slumsms.service`; `.service/.timer` pairs `slumsms-{monitor,status}@live`, `slumsms-announce@live`, `slumsms-backup{,-rotate}`, `slumsms-restore-drill`, `slumsms-nav-bake`, `slumsms-nav-stuck-report`, `slumsms-dashboard-maps`, `slumsms-site-avatars`; `slumsms-news-live.path`; `slumsms-dashboard-extras@live.timer` (not installed) | 8485, 7585+, 3309, 8090, 8092, 8096, 8098, 8186 | `/opt/mapleroot/MapleRoot Full Repack/Server`, `/opt/mapleroot/backups/nightly`, `/opt/mapleroot-deployments`, `/srv/slums-patch`, `/srv/slums-site`, `/srv/slums-dashboard/data` | `AGENTS.md:52,64-67`, `deploy/monitor/targets/live.conf:3-8`, `deploy/monitor/install.sh:54-56,84-90`, `tools/release/lib.sh:4`, `deploy/backup/install.sh:57-60` |
-| mapletest 192.168.0.111 | TEST game, TEST DB, TEST site, TEST dashboard, TEST mirror units | `slums-persistence-test` (transient), `slumsms-monitor@persistence-test.timer`, `slumsms-{dashboard-maps,site-avatars}-test.service/.timer`, `slumsms-dashboard-extras@dashboard-test.timer`, `slums-site-test-web.service`, `slums-{login,market,report}-test.service`, `slums-site-test-{market,world}.timer` | 8489, 7985+, 3307, 8192, 8091, 8194-8197 | `/opt/mapleroot-dev/persistence-test/Server`, `/opt/mapleroot-dev/solomapling-test/mysql`, `/srv/slums-dashboard-test/data`, `/srv/slums-site-test` | `AGENTS.md:53,58-60`, `tools/ops/deploy-test:21-25`, `deploy/monitor/targets/persistence-test.conf:3-8`, `docs/architecture/website/deploy.md:27-30` |
+| 164 LXC 125 `maplestory` | live game, live DB, patch feed, deploy staging, live dashboard, public site | `slumsms.service`; `.service/.timer` pairs `slumsms-{monitor,status}@live`, `slumsms-announce@live`, `slumsms-backup{,-rotate}`, `slumsms-restore-drill`, `slumsms-nav-bake`, `slumsms-nav-stuck-report`, `slumsms-dashboard-maps`, `slumsms-site-avatars`; `slumsms-news-live.path`; `slums-dashboard-extras@live.timer` (not installed) | 8485, 7585+, 3309, 8090, 8092, 8096, 8098, 8186 | `/opt/mapleroot/MapleRoot Full Repack/Server`, `/opt/mapleroot/backups/nightly`, `/opt/mapleroot-deployments`, `/srv/slums-patch`, `/srv/slums-site`, `/srv/slums-dashboard/data` | `AGENTS.md:52,64-67`, `deploy/monitor/targets/live.conf:3-8`, `deploy/monitor/install.sh:54-56,84-90`, `tools/release/lib.sh:4`, `deploy/backup/install.sh:57-60` |
+| mapletest 192.168.0.111 | TEST game, TEST DB, TEST site, TEST dashboard, TEST mirror units | `slums-persistence-test` (transient), `slumsms-monitor@persistence-test.timer`, `slumsms-{dashboard-maps,site-avatars}-test.service/.timer`, `slums-dashboard-extras@dashboard-test.timer`, `slums-site-test-web.service`, `slums-{login,market,report}-test.service`, `slums-site-test-{market,world}.timer` | 8489, 7985+, 3307, 8192, 8091, 8194-8197 | `/opt/mapleroot-dev/persistence-test/Server`, `/opt/mapleroot-dev/solomapling-test/mysql`, `/srv/slums-dashboard-test/data`, `/srv/slums-site-test` | `AGENTS.md:53,58-60`, `tools/ops/deploy-test:21-25`, `deploy/monitor/targets/persistence-test.conf:3-8`, `docs/architecture/website/deploy.md:27-30` |
 | Silvia 192.168.0.186 | owner's Windows desktop: builds the client DLL + launcher exe | none | none | `Z:\MSv83\SlumsMS-dev` (read-write area only) | `AGENTS.md:54`, `docs/ops/lxc125-architecture.md:12` |
-| 192.168.0.17 | GPU box: chat model, classifier, tone | `qwen9b-8095`, `decide-8900`, `decide-8910`, `decide-8913` | 8095, 8900, 8910, 8913 | not in this repo | `docs/release/1.6.4.conf:202`, `tools/chatbank/README.md:25` |
+| 192.168.0.17 | GPU box: chat model, classifier, tone | `qwen9b-8095`, `decide-8900`, `decide-8910`, `decide-8913` | 8095, 8900, 8910, 8913 | not in this repo | `AGENTS.md:55`, `docs/release/1.6.4.conf:202`, `tools/chatbank/README.md:25` |
 | Caddy (owner's) | public TLS front door | none in repo | 443 → 8485 / 8090 / 8092 | not in this repo | `docs/ops/lxc125-architecture.md:15`, `docs/HANDOFF.md:130-134` |
 
 **Trust boundaries.**
@@ -50,16 +50,19 @@ a tool can tell "TEST, free to change" from "live, owner-gated" before touching 
    per-action "go"; reading (logs, files, SELECT) is allowed under the player-privacy rules (`:21-24`). The live DB is
    reachable only on 164:3309 (`AGENTS.md:19`), the dump path never writes there
    (`deploy/backup/slumsms-restore-drill:6,35,225-226`, ledger read SELECT-only at `:154`).
-2. **TEST is agent-reachable; 192.168.0.17 is reachable but unmanaged.** 187 → mapletest is the only routine SSH hop for
-   agents, through one allowlist (`tools/ops/client-mcp-win/src/testhost.py:23`) with its own key (`:26`). The GPU box
-   answers chat/classifier calls (`docs/release/1.6.4.conf:202`), but only the unit files under `tools/chatbank/units/`
-   describe it — nothing in this repo manages it.
+2. **187 may ssh anywhere, but only TEST is free to change.** `AGENTS.md:159-161` grants ssh to 164, to `mapletest`
+   (key `~/.ssh/id_slums_lxc`) and to the owner's PC (key `~/.ssh/id_rsprox_desktop`); `AGENTS.md:25-27` limits what the
+   first of those may do. The ops tools nonetheless funnel TEST traffic through one allowlist
+   (`tools/ops/client-mcp-win/src/testhost.py:23`) with its own key (`:26`). The GPU box answers chat/classifier calls
+   (`docs/release/1.6.4.conf:202`), but only the unit files under `tools/chatbank/units/` describe it — nothing in this
+   repo manages it.
 3. **Keys live on the hosts, not in the repo**: patch key on 164, Tauri signing key on the build desktop, cloud LLM keys
    per host, monitor webhooks on 164 (`AGENTS.md:28-33`). Two nginx htpasswords are reused across boxes — the live
    dashboard authenticates against TEST's file (`deploy/dashboard/slums-dashboard-live.nginx.conf:19`).
 4. **Everything routable is behind nginx or the game port.** Site/auth/inspect services bind loopback
    (`SiteAuthApi.java:155`, `BotInspectApi.java:110-111`); the live dashboard adds a LAN allow-list plus basic auth
-   (`deploy/dashboard/slums-dashboard-live.nginx.conf:15-18`).
+   (`deploy/dashboard/slums-dashboard-live.nginx.conf:15-18`). Nothing in the repo answers on 443; the owner's Caddy
+   terminates TLS (`docs/ops/lxc125-architecture.md:15`).
 5. **The release path defaults to live.** `tools/release/lib.sh:4` points at 164, so a mistyped `stage`/`rehearse` writes
    to the live box's staging tree — the boundary there is procedural (owner runs it), not enforced by a host check.
 
@@ -89,7 +92,7 @@ a tool can tell "TEST, free to change" from "live, owner-gated" before touching 
 | 164 | `/opt/mapleroot/MapleRoot Full Repack/Server` | deploy (`deploy/v1.4.1/deploy.sh:40`) | each release |
 | 164 | `/opt/mapleroot/backups/nightly` + `/var/lib/slumsms-backup/` | `slumsms-nightly-backup` (`deploy/backup/slumsms-nightly-backup:27`), rotation state (`deploy/backup/slumsms-backup.conf.example:27`) | daily 11:00 UTC (`deploy/backup/slumsms-backup.timer:5`); each rotation |
 | 164 | `/var/lib/slumsms-monitor/<target>/`, `/var/log/slumsms-monitor/<target>.log` | monitor state and fallback log (`deploy/monitor/slumsms-monitor:45-46,164,167`) | every run; log when no webhook |
-| 164 `/srv/slums-dashboard/data`; TEST `/srv/slums-dashboard-test/data` (box disputed, see findings) | `DashboardMapExport --out=` (`deploy/dashboard/slumsms-dashboard-maps.service:13`, `...-maps-test.service:9`), `slums-dashboard-extras` (`deploy/dashboard/extras-dashboard-test.conf:4`) | hourly at :40; extras every minute (`deploy/dashboard/slumsms-dashboard-extras@.timer:6`) |
+| 164 `/srv/slums-dashboard/data`; TEST `/srv/slums-dashboard-test/data` (box disputed, see findings) | `DashboardMapExport --out=` (`deploy/dashboard/slumsms-dashboard-maps.service:13`, `...-maps-test.service:9`), `slums-dashboard-extras` (`deploy/dashboard/extras-dashboard-test.conf:4`) | hourly at :40; extras every minute (`deploy/dashboard/slums-dashboard-extras@.timer:6`) |
 | 164 | `/opt/mapleroot-deployments/v<ver>/`, later `/srv/slums-patch/{manifest.json,layers,tauri}` | `stage` (`tools/release/stage:27,82`); `publish-client` / `publish-launcher` (`tools/release/publish-client:108`) | each stage; publish only on the owner's go |
 | 164 | `/var/lib/slums-feedback/reports.jsonl`, `/var/log/slums-dashboard-install.log` | game server (`docs/release/1.6.4.conf:271`); `install-live-dashboard` run from 187 (`tools/ops/install-live-dashboard:18`) | runtime; each install |
 | mapletest | `/opt/mapleroot-dev/persistence-test/Server` (+ `DEPLOYED_COMMIT`) | `deploy-test` (`tools/ops/deploy-test:22`) | each TEST deploy |
