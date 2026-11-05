@@ -234,6 +234,42 @@ esac
         self.assertIn('Import on this host: gzip -dc', result.stdout)
         self.assertIn(str(backup / 'mapleroot.sql.gz'), result.stdout)
 
+    def test_rollback_undoes_only_the_migrations_this_deploy_ran(self):
+        script, _, backup, env = self.rollback_fixture()
+        stage = self.work / 'staging/migrations'
+        stage.mkdir(parents=True)
+        names = IDS[:3]
+        header = 'MIGRATION_IDS=(' + ' '.join(names) + ')\nMIGRATION_FILES=(' + ' '.join(names) + ')\n'
+        script.write_text(script.read_text().replace('MIGRATION_IDS=() MIGRATION_FILES=() UNIT_EDITS=()',
+                                                   header + 'UNIT_EDITS=()'))
+        for name in names:
+            (stage / f'{name}.rollback.sql').write_text(f'ROLLBACK {name}\n')
+        for name in names[:2]:   # the third was already applied on an earlier night, so deploy.sh skipped it
+            (backup / f'.migration-{name}.attempted').touch()
+        trace = self.work / 'sql-trace'
+        sql_stub = self.work / 'sql.sh'
+        sql_stub.write_text('''#!/bin/bash
+read -r query
+case $query in
+  ROLLBACK*) echo "$query" >> "$TRACE";;
+  *"COUNT(*)"*) id=${query#*migration_id=\\'}; id=${id%%\\'*}; case ",$LEDGERED," in *",$id,"*) echo 1;; *) echo 0;; esac;;
+  *) echo '';;
+esac
+''')
+        env.update(SQL_CMD='bash ' + shlex.quote(str(sql_stub)), TRACE=str(trace), LEDGERED=names[2])
+        script.write_text(script.read_text().replace("LEDGER_BEFORE=''", f"LEDGER_BEFORE='{names[2]}'"))
+        result = self.shell(f'bash {shlex.quote(str(script))}', **env)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(trace.read_text().splitlines(), ['ROLLBACK ' + n for n in reversed(names[:2])])
+        # no marker for a migration that is in the ledger and was not there before: refuse, do not guess
+        (backup / f'.migration-{names[1]}.attempted').unlink()
+        trace.unlink()
+        env['LEDGERED'] = names[1] + ',' + names[2]
+        result = self.shell(f'bash {shlex.quote(str(script))}', **env)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn('not guessing', result.stdout + result.stderr)
+        self.assertFalse(trace.exists(), 'nothing may be rolled back when the record is missing')
+
     def test_attempt_marker_precedes_forward_sql(self):
         deploy = (HERE / 'templates/deploy.body.sh').read_text()
         self.assertLess(deploy.index('touch "$B/.migration-$id.attempted"'),

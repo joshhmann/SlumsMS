@@ -212,6 +212,12 @@ public final class ExchangeChat {
                 if (t.item()) {
                     out.add(t.id() + " book (" + t.priceUnit() + "):");
                     out.addAll(ex.bookLines(t.id(), 5));
+                } else if (ex.desk() != null) {
+                    Desk desk = ex.desk();
+                    out.add("NX has no order book: the desk trades at one quote (mesos per NX).");
+                    out.add("  desk buys from you at " + Exchange.perNx(desk.buy()) + ", sells to you at "
+                            + Exchange.perNx(desk.sell()));
+                    out.add("@nx sell <NX> or @nx buy <NX>, then @nx confirm. Items keep their books: @nx leaf book");
                 } else {
                     out.add("NX exchange book (mesos per NX):");
                     List<OrderBook.Level> asks = ex.depth(Side.SELL, 5);
@@ -227,6 +233,11 @@ public final class ExchangeChat {
             }
             case "tickers" -> {
                 for (Ticker x : ex.tickers()) {
+                    if (!x.item() && ex.desk() != null) {
+                        out.add(String.format("%s (%s): desk buys at %s, sells at %s (mesos per NX)", x.id(),
+                                x.name(), Exchange.perNx(ex.desk().buy()), Exchange.perNx(ex.desk().sell())));
+                        continue;
+                    }
                     long bid = ex.depth(x.id(), Side.BUY, 1).isEmpty() ? 0 : ex.depth(x.id(), Side.BUY, 1).get(0).price();
                     long ask = ex.depth(x.id(), Side.SELL, 1).isEmpty() ? 0 : ex.depth(x.id(), Side.SELL, 1).get(0).price();
                     Long last = ex.stats(x.id()).last();
