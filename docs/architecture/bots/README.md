@@ -8,7 +8,7 @@ Make the world feel populated and alive without real players: bots level up, far
 party up, gossip, form crews and guilds, and occasionally marry. They run inside the game server process as ordinary
 `Character` objects whose client is a `BotClient`; their ids start at 1,000,000,000 and
 `Character.getClient().getPlayer()` is `null` for them (see the shared headless client in
-`src/main/java/soloMapling/ArtificialPlayer/BotClient.java`).
+`src/main/java/client/BotClient.java`).
 
 About 1,035 files under `src/main/java/soloMapling/`, of which the bot packages are the majority: 86 top-level
 classes in `ArtificialPlayer/`, 34 bot subpackages, plus `ArtificialPlayer/BotTypes/` (24 scripted bot kinds) and the
