@@ -19,7 +19,8 @@ orders need a sign-in at most 12 h old, like /admin/. Older, the site answers 40
 every request also carries "siteAuthAt", the session's sign-in time in epoch ms, so the game refuses it too (REAUTH).
 
     GET  /api/market/exchange/book          every ticker: its rules, book, rate, 24 h numbers and last trades
-                                            ?ticker=S2040805  a catalog item's book and trades too (below)
+                                            ?ticker=S2040805  a catalog item's book and trades too (below);
+                                            &lite=1  only the 1.6.3 tickers and that one (the 10 s refresh)
     GET  /api/market/exchange/item          ?id=2040805  the ticker that trades that item, or null
     GET  /api/market/exchange/history       ?ticker=LEAF  that ticker's hourly candles (30 days)
     GET  /api/market/exchange/me            my characters, my orders (the game's last "mine" answer), my open requests
@@ -253,7 +254,9 @@ class Mock:
 
 # The exchange item catalog (1.6.4, ticket 270) opens 706 item tickers, ids S/U/E + the 7-digit item id. The game
 # writes 10 levels a side and 20 trades for each, which would make every 10 s refresh of the page about 1.5 MB, so
-# /book sends a catalog ticker's numbers but its depth and trades only when the page asks for that ticker.
+# /book sends a catalog ticker's numbers but its depth and trades only when the page asks for that ticker. Even so a
+# ticker's rules and numbers are ~500 bytes (350 KB for the lot on TEST, 2026-11-05), so the page's 10 s refresh is
+# lite: the 1.6.3 tickers and the picked one; the whole list comes every minute.
 CATALOG = re.compile(r"^[SUE][0-9]{7}$")
 DEPTH = ("bids", "asks", "trades")
 
@@ -416,14 +419,14 @@ class Desk:
                 return t
         raise Refused("Pick a ticker from the list.")
 
-    def book(self, ticker=None):
+    def book(self, ticker=None, lite=False):
         rows, halted, at = self.tickers()
         want = ticker.strip().upper() if isinstance(ticker, str) else None
         rows = [t if not CATALOG.match(t["id"]) or t["id"] == want else {k: v for k, v in t.items() if k not in DEPTH}
-                for t in rows]
+                for t in rows if not lite or not CATALOG.match(t["id"]) or t["id"] == want]
         # the game's limits when it publishes them, else the defaults (the owner may raise them: 2026-10-28)
         limits = dict(DEFAULT_LIMITS, **self.limits)
-        return {"tickers": rows, "halted": halted, "generated_at": at, "limits": limits, "events": self.events,
+        return {"tickers": rows, "lite": bool(lite), "halted": halted, "generated_at": at, "limits": limits, "events": self.events,
                 "rules": RULES}
 
     def item(self, raw):

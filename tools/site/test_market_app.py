@@ -112,6 +112,7 @@ class NxHttpTest(old.Base):
         self.assertEqual((st, "bids" in b["tickers"][-1]), (200, False))
         st, b = self.call("GET", "book?ticker=S2040805")
         self.assertEqual(b["tickers"][-1]["bids"], scroll["bids"])
+        self.assertEqual([t["id"] for t in self.call("GET", "book?lite=1")[1]["tickers"]], ["NX", "LEAF"])
         self.assertEqual(self.call("GET", "item?id=2040805")[1]["ticker"], "S2040805")
         self.assertEqual(self.call("GET", "item?id=4001126")[1]["ticker"], "LEAF")
         self.assertEqual(self.call("GET", "item?id=x")[0], 400)

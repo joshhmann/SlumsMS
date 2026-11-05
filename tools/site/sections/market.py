@@ -815,7 +815,7 @@ character; NX is your account's. If you're logged in to the game, use the charac
 to trade.</p>
 <p class="xc-alert" style="grid-area: form" x-show="reauth && $store.xc.tk !== 'NX'" x-cloak><span x-text="reauthText()"></span>
 <a :href="againUrl()">Sign in again</a> to trade.</p>
-<form class="xc-p xc-form" style="grid-area: form" x-show="data && !reauth && $store.xc.tk !== 'NX'" x-cloak @submit.prevent="preview()" @xc-price.window="price = $event.detail">
+<form class="xc-p xc-form" id="xc-order" style="grid-area: form" x-show="data && !reauth && $store.xc.tk !== 'NX'" x-cloak @submit.prevent="preview()" @xc-price.window="price = $event.detail">
 <h2><span x-text="'New ' + label(meta) + ' order'"></span> <small x-text="openCount() + ' of ' + lim(meta).max_open_per_ticker + ' open'"></small></h2>
 <div class="xc-side"><button type="button" class="buy" :class="side === 'BUY' && 'on'" @click="side = 'BUY'" x-text="'Buy ' + label(meta)"></button>
 <button type="button" class="sell" :class="side === 'SELL' && 'on'" @click="side = 'SELL'" x-text="'Sell ' + label(meta)"></button></div>

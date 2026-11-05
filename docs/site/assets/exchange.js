@@ -182,15 +182,23 @@
       fmt: fmt, short: short, when: when, clock: clock, pct: pct, dirOf: dirOf, icon: icon, label: label,
       range: "3d", ranges: [["24h", DAY], ["3d", 3 * DAY], ["7d", 7 * DAY], ["30d", 30 * DAY]],
       candles: [], candlesFor: "",
-      cats: CATS, cat: "all", q: "", sort: "volume", shown: PAGE,
-      src: function () {  // live.js: a picked catalog item asks for its own depth and trades
-        var tk = store().tk;
-        return API + "book" + (CATALOG.test(tk) ? "?ticker=" + encodeURIComponent(tk) : "");
+      cats: CATS, cat: "all", q: "", sort: "volume", shown: PAGE, all: null, fullAt: 0,
+      src: function () {  // live.js: a picked catalog item asks for its depth; the whole list once a minute (lite between)
+        var tk = store().tk, q = CATALOG.test(tk) ? ["ticker=" + encodeURIComponent(tk)] : [];
+        if (this.all && Date.now() - this.fullAt < 55000) q.push("lite=1");
+        return API + "book" + (q.length ? "?" + q.join("&") : "");
+      },
+      merge: function (d) {  // a lite answer replaces its tickers in the last whole list and keeps the rest
+        if (!d || !d.tickers) return;
+        if (!d.lite || !this.all) { this.all = d.tickers; this.fullAt = Date.now(); return; }
+        var fresh = {};
+        d.tickers.forEach(function (t) { fresh[t.id] = t; });
+        this.all = this.all.map(function (t) { return fresh[t.id] || t; });
       },
       init: function () {
         var self = this;
         init.call(this);
-        this.$watch("data", function () { self.sync(); });
+        this.$watch("data", function (d) { self.merge(d); self.sync(); });
         this.$watch("$store.xc.tk", function (tk) {
           self.sync(); self.loadHistory();
           if (CATALOG.test(tk) && !(self.cur && self.cur.id === tk && self.cur.bids)) self.refresh();
@@ -214,7 +222,7 @@
       trade: function (id, side) {  // an item row's Buy or Sell: pick it and open the form on that side
         this.pick(id);
         store().ask = { side: side };
-        var form = document.querySelector(".xc-form");
+        var form = document.getElementById("xc-order");
         if (form && form.scrollIntoView) setTimeout(function () { form.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50);
       },
       // the item browser: the item tickers (the catalog and the 1.6.3 scroll and use books), by category and search
@@ -262,7 +270,7 @@
         return this.list.filter(function (t) { return !CATALOG.test(t.id) || t.id === tk; });
       },
       get list() {  // with the desk on, the NX tab is SlumsBank's quote panel (xdesk) and has no book: NX comes first
-        var ts = ((this.data && this.data.tickers) || []).filter(function (t) { return !DESK || t.id !== "NX"; });
+        var ts = (this.all || (this.data && this.data.tickers) || []).filter(function (t) { return !DESK || t.id !== "NX"; });
         if (!DESK) return ts;
         var q = store().desk;  // xdesk puts the quote here, so the tab can show the desk's rate and today's move
         return [{ id: "NX", name: "NX desk", unit: "nx", unit_label: "mesos per NX", qty_label: "NX", per: 1,

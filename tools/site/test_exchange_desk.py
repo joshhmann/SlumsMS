@@ -236,6 +236,10 @@ class DeskTest(old.Base):
         self.assertEqual(t["CHAOS"]["bids"], lvl, "the 1.6.3 books keep theirs")
         t = {x["id"]: x for x in self.desk.book("s2040805")["tickers"]}
         self.assertEqual((t["S2040805"]["bids"], len(t["S2040805"]["trades"])), (lvl, 1), "the picked one has its book")
+        lite = self.desk.book("S2040805", lite=True)
+        self.assertEqual(([x["id"] for x in lite["tickers"]], lite["lite"]), (["NX", "LEAF", "CHAOS", "S2040805"], True),
+                         "the 10 s refresh: the 1.6.3 tickers and the picked one")
+        self.assertEqual([x["id"] for x in self.desk.book(None, lite=True)["tickers"]], ["NX", "LEAF", "CHAOS"])
         self.assertEqual(self.desk.item("2040805"), {"ticker": "S2040805", "name": "Scroll for Gloves for ATT 60%",
                                                     "category": "scroll"})
         self.assertEqual(self.desk.item(2049100)["ticker"], "CHAOS", "an item with a 1.6.3 book trades there")

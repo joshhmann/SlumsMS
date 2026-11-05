@@ -140,7 +140,8 @@ def exchange_routes(store, desk):
             store.rate(g.session["a"])
             return reply(200, dict(fn(g.session, body), ok=True))
 
-    bp.add_url_rule("/book", "book", lambda: read(lambda: dict(desk.book(request.args.get("ticker")), open=True)),
+    bp.add_url_rule("/book", "book", lambda: read(lambda: dict(desk.book(request.args.get("ticker"),
+                                                                     request.args.get("lite") == "1"), open=True)),
                     methods=["GET"])
     bp.add_url_rule("/item", "item", lambda: read(lambda: desk.item(request.args.get("id"))), methods=["GET"])
     bp.add_url_rule("/me", "me", lambda: read(lambda: desk.me(g.session, characters(g.session))), methods=["GET"])
