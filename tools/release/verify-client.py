@@ -138,6 +138,21 @@ def client_config(client_dir=None, client_manifest=None, name='config.ini'):
     return layer_file(client_manifest, name)
 
 
+SERVER_INI_BUILD = 10740  # 1.6.4: slums.dll reads server.ini before config.ini (client a6d72a2, b301)
+
+
+def client_build(path):
+    """build=<n> from a slums-build.txt, or None."""
+    if not path or not os.path.isfile(path):
+        return None
+    with open(path, encoding='utf-8', errors='replace') as f:
+        for line in f:
+            key, _, value = line.strip().partition('=')
+            if key == 'build' and value.isdigit():
+                return int(value)
+    return None
+
+
 def check_live_endpoint(feed, client_dir=None, client_manifest=None, allow_change=False):
     """0 when the new client layer points at the live server (or the change is allowed), else 1. Prints why.
     Compares the server slums.dll would actually use on each side: server.ini first, then config.ini (b301)."""
@@ -148,6 +163,13 @@ def check_live_endpoint(feed, client_dir=None, client_manifest=None, allow_chang
     new = client_config(client_dir, client_manifest)
     if not new or not os.path.isfile(new):
         print('LIVE ENDPOINT FAIL: the new client layer has no config.ini')
+        return 1
+    # The launcher never deletes a file a release dropped, so an install that was on the RC channel keeps its TEST
+    # server.ini. A DLL that reads server.ini (build >= SERVER_INI_BUILD) must therefore always ship its own.
+    build = client_build(client_config(client_dir, client_manifest, 'slums-build.txt'))
+    if build is not None and build >= SERVER_INI_BUILD and not client_config(client_dir, client_manifest, 'server.ini'):
+        print(f'LIVE ENDPOINT FAIL: build {build} reads server.ini first but the layer has none; a server.ini left '
+              'behind by the RC channel would send live players to TEST')
         return 1
     want, live_src = effective_endpoint(live, live_config(feed, 'server.ini'))
     got, new_src = effective_endpoint(new, client_config(client_dir, client_manifest, 'server.ini'))

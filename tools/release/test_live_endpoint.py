@@ -126,6 +126,18 @@ class LiveEndpointTest(unittest.TestCase):
         self.assertEqual(rc, 1, out)
         self.assertEqual(self.check(client_dir=str(d), allow_change=True)[0], 1)
 
+    def test_a_server_ini_reading_build_must_ship_server_ini(self):
+        d = self.client_dir(LIVE_INI)
+        Path(d, 'slums-build.txt').write_text('release=1.6.4\nbuild=10740\n')
+        rc, out = self.check(client_dir=str(d))
+        self.assertEqual(rc, 1, out)
+        self.assertIn('has none', out)
+        self.server_ini(d, 'slumsms.asslorde.com', 8485)
+        self.assertEqual(self.check(client_dir=str(d))[0], 0)
+        older = self.client_dir(LIVE_INI)
+        Path(older, 'slums-build.txt').write_text('release=1.6.2\nbuild=10721\n')
+        self.assertEqual(self.check(client_dir=str(older))[0], 0, 'older DLLs never read server.ini')
+
     def test_main_fails_on_the_endpoint_even_when_the_hash_diff_passes(self):
         reference = self.root / 'reference'
         (reference / 'Data').mkdir(parents=True)
