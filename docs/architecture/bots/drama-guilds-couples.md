@@ -1,0 +1,206 @@
+# Drama, guilds and couples
+
+## Purpose
+
+Three related social layers that give bots a life story with and without the player:
+
+| Layer | Question it answers | Root package |
+|---|---|---|
+| Drama | Do bots hold grudges, flirt, tease, rage-quit? | `src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/` |
+| Guilds | Do bots belong to named crews, recruit, fight turf wars? | `src/main/java/soloMapling/ArtificialPlayer/BotGuildSystem/` |
+| Couples | Do bots pair with each other and marry in Amoria? | `src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/` |
+
+Everything funnels through one door, `BotDrama`, so map/chat/death hooks fire drama only after the package switch and the "is this a bot?" check (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/BotDrama.java:19-139`). Romance with a *player* is opt-in per player (`@romance on`, off by default), while bot↔bot couples and guilds need no player consent at all.
+
+The whole surface in one table — event, what triggers it, what the world sees, and the switch that gates it:
+
+| Event | Trigger | Effect | Switch |
+|---|---|---|---|
+| Bot flirts with a player | `BotRomance.onSight` roll 0.3 for ask-out, flirt capped at 20 min per pair / 30 an hour world-wide (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/BotRomance.java:506-585`) | `RomanceFlirt` / `RomanceAsk` line through the shared gate | `@romance on` (off by default, `src/main/java/client/command/commands/gm0/RomanceCommand.java:16,23`; `AGENTS.md:224`) |
+| Player marries a bot | `@romance wedding` in Amoria with an `ENGAGED` row (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:129-168`) | rings created, `marriage` row, gossip | `-Dsolomapling.drama` + `-Dsolomapling.drama.romance` (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/DramaKit.java:85-86`, `src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/BotRomance.java:126`) |
+| Ex objects at the altar | `wedding.objectChance` 0.35 at start (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:173`) | ex/crush/guest objects, bot replies, officiant overrules (`:426-473`) | same as above, plus `@botdrama on` for hostility |
+| Bot runs from the altar | `wedding.runawayChance` 0.08 (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:120-127`) | `WeddingRunaway`, stays engaged | same as above |
+| Revenge follow | player changed map near a rival, 0.5, daily+hourly caps (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/BotRivalry.java:511-560`) | rival follows and demands an apology | `-Dsolomapling.drama.rivals` (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/BotRivalry.java:132-133`) + `@botdrama off` opt-out |
+| KS war | `rivals.ksWarRival` 0.05 / `.ksWarNemesis` 0.15, `rivals.ksWarsPerHour` 3 (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/BotRivalry.java:214-300`) | crew KSing for `rivals.ksWarMinutes` 3 | `solomapling.drama.rivals` |
+| Bot rage quit | expensive item (≥300 000 meso, level ≥50) lost to a bot (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RageQuit.java:50-61,93-110`) | 2-6 h away, `DramaNews` item | `-Dsolomapling.drama.beef` (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/BeefKit.java:35-36`) |
+| Guild application answered | player asks to join a bot guild (`src/main/java/soloMapling/ArtificialPlayer/BotGuildSystem/GuildRules.java:101-124`) | accept at 0.8, refuse on level/being in a guild/hostility | `-Dsolomapling.guilds.enabled` (`src/main/java/soloMapling/ArtificialPlayer/BotGuildSystem/GuildRules.java:50`) |
+| Guild war declared | weekly roll, `wars.maxBotWars` 2 (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/GuildWars.java:602-620`) | 7-day turf war, megaphones | `-Dsolomapling.drama.wars` (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/GuildWars.java:79-80`) |
+| Bot couple forms | `BotCrushes.step` 10 min roll, TTL 3 d (`src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotCrushes.java:54-58,177`) | `botcouple` row, notes, chair sitting | `-Dsolomapling.couples.enabled` / `.crushes` (`src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotCouples.java:161-162`, `src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotCrushes.java:80-81`) |
+| Bot couple breaks up | `soured` + `BREAKUPS_PER_DAY` 1 (`src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotCouples.java:664,710-740`) | megaphone, site feed, `DramaNews` | `solomapling.couples.enabled` |
+| Bot wedding | `curveFraction() >= 0.5` and a 0.1 roll every `weddingGapHours` 24 (`src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotCouples.java:449-474`) | Amoria ceremony, guest blessing ≤20 000 EXP | `solomapling.couples.enabled`, `solomapling.couples.blessExpCap` |
+| Bot becomes a junior | player invite or 3+ chat lines (`src/main/java/soloMapling/ArtificialPlayer/BotFamily.java:62,172-244`) | junior slot in the family | `-Dslums.family.botsOff` (inverse), `USE_FAMILY_SYSTEM` |
+| Bot fames a player | player asks in chat on the same map (`src/main/java/soloMapling/ArtificialPlayer/BotFameRequest.java:87-130`) | one fame, once a day per pair | `-Dslums.bots.famerequest` (live on, `docs/release/1.6.4.conf:271`) |
+
+## Entry points
+
+| Kind | Hook | File:line |
+|---|---|---|
+| Tick | population director calls couples, guilds, drama every pass | `src/main/java/soloMapling/ArtificialPlayer/BotPopulationDirector.java:540-542` |
+| Tick | drama fans out to 6 subsystems | `src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/BotDrama.java:105-116` |
+| Own 2 s tick | player romance wedding beats (not the director) | `src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:189-195` |
+| Own tick | bot-couple wedding beats | `src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotWeddings.java:201` |
+| Chat | general map chat → drama | `src/main/java/net/server/channel/handlers/GeneralChatHandler.java:64` |
+| Chat | guild chat → guild chatter | `src/main/java/net/server/channel/handlers/MultiChatHandler.java:71` |
+| Map | player entered map → romance/rivalry map change | `src/main/java/server/maps/MapleMap.java:2858` |
+| Combat | player death → roasts/revenge | `src/main/java/client/Character.java:9014` |
+| Combat | item boom → rivalry + rage quit | `src/main/java/net/server/channel/handlers/ScrollHandler.java:188` |
+| Level | guild member level up | `src/main/java/client/Character.java:7887` |
+| Guild | join/expel/rank/disband | `src/main/java/net/server/guild/Guild.java:105,428,548,610,720` |
+| Family | invite / summon / summon answer | `src/main/java/net/server/channel/handlers/FamilyAddHandler.java:77`, `src/main/java/net/server/channel/handlers/FamilyUseHandler.java:150,235`, `src/main/java/net/server/channel/handlers/FamilySummonResponseHandler.java:66` |
+| Fame | player asks a bot for fame | `src/main/java/soloMapling/ArtificialPlayer/BotMessagingSystem/Dispatcher.java:384` |
+| Login | bot joined the world | `src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/BotDrama.java:118-123` |
+
+Commands:
+
+| Command | Realm | Surface |
+|---|---|---|
+| `@romance on\|off\|wedding\|breakup\|divorce` | player | `src/main/java/client/command/commands/gm0/RomanceCommand.java:16-36` |
+| `@botdrama off\|on` | player | `src/main/java/client/command/commands/gm0/BotDramaCommand.java:15-38` |
+| `@guildwar` / `@guildwar peace` | player | `src/main/java/client/command/commands/gm0/GuildWarCommand.java:16` |
+| `@botromance …` (status/stage/ask/propose/wedding/object/runaway/crash/divorce/step) | GM | `src/main/java/client/command/commands/gm4/BotRomanceCommand.java:15` |
+| `@botguild …` (list/form/stage/recruit/bossrun/quit/join/kick/step) | GM | `src/main/java/client/command/commands/gm4/BotGuildCommand.java:45` |
+| `@couple …` (list/spawn/form/wedding/break/step) | GM | `src/main/java/client/command/commands/gm4/CoupleCommand.java:34` |
+
+Registration: `src/main/java/client/command/CommandsExecutor.java:294-297` (player) and `:437-441` (GM).
+
+YAML: all dialogue lives in `src/main/java/soloMapling/ArtificialPlayer/BotDialoguePack/DramaDialogue.yaml` (650 lines; root key `Drama:` at `:9`, romance `:11-175`, wedding `:202-265`, roasts `:267-303`, social `:305-372`, KS war `:375-392`, revenge `:397-428`, war/poach/ally `:430-490`, teasing `:492-540`, beef `:544-578`).
+
+## How it works
+
+**Dispatch.** Each `BotDrama` hook returns immediately unless `DramaKit.enabled()` and the subject is not a bot; the remaining work is memory-only or handed to the executor. `BotDrama.maybeStep` (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/BotDrama.java:105`) fans out in order: `BotRomance.maybeStep`, `BotRivalry.maybeStep`, `GuildWars.maybeStep`, `BotBotRivalry.maybeStep`, `GuildFeuds.maybeStep`, `RageQuit.maybeStep`.
+
+**Numbered flow — one drama episode (a romance wedding with an objection):**
+
+1. Player has `@romance on` and an `ENGAGED` row; both are in Amoria (`680000000`) and the bot is live: `RomanceWedding.start` gates on `BotRomance.enabled`, no running ceremony, `ENGAGED`, map, `player.getPartnerId()==botCharId`, ring room, `DramaKit.liveBot`, `freeForScene`, `bringTo` (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:129-168`).
+2. Forced beats are rolled once at start: objection (`wedding.objectChance`, 0.35), runaway (`runawayBeat` → `wedding.runawayChance`, 0.08), crash (`wedding.crashChance`, 0.3); all three require `!BotAffinity.optedOut(player)` and `BotAffinity.hostilityEnabled()` (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:120-127,170-175`).
+3. `gatherGuests` pulls at most three `FRIEND` bots, skipping the ex (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:202-237`).
+4. A dedicated 2 s scheduler started in `start` drives `RomanceWedding.step` (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:189-195`); if the player or bot left the map the ceremony finishes as "the couple left" (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:242-253`).
+5. Scripted seconds after start: officiant 6 s, speak-now 14 s; when an objection was rolled, the runaway/vows/ask beats all shift by `shift = 14` (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:254-262,264-265`).
+6. Objection at 18 s: `object` picks the ex first, else a `FRIEND` crush, else the last guest, and brings it in (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:426-473`); the bot replies 24 s, the officiant overrules 28 s (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:269-275`).
+7. Runaway at 24 s + shift: bot says `WeddingRunaway`, QA records `RUNAWAY`, player is told "still engaged", ceremony ends (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:277-284`).
+8. Bot vows 24 s + shift, officiant asks at 30 s + shift with `Say "i do" in chat.`, and `vowsAskedAt` is stamped (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:285-292`).
+9. The player's map chat hits the `I_DO` regex through `onPlayerChat` (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:69,327-340`); silence for 40 s is taken as yes via `WeddingTakenAsYes` (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:293-296`).
+10. `makeItReal` checks bag room, picks the ring, `createRings`, delivers or deletes, removes tokens, bonds the pair, records `qa(MARRIED)` and gossips (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:349-378`); failure ends the ceremony with the reason (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:297-303`).
+11. After marriage: kiss at +3 s, a guest cheer every 8 s, crash at +15 s (`crash` prefers the ex, then a `RIVAL`, then `WeddingCrash` and a 7 s leave), finish at +50 s (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:308-322,475-520,545-585`).
+
+| Phase | Action | File:line |
+|---|---|---|
+| gate | romance on, engaged, in Amoria, ring room, live bot, scene free, bring the bot in | `src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:129-168` |
+| roll | objection 0.35 / runaway 0.08 / crash 0.3, all gated on hostility not opted out | `src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:170-175` |
+| cast | up to three `FRIEND` guests, ex skipped; officiant picked from guests | `src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:202-237,522-533` |
+| beats | 6 s, 14 s, then objection 18/24/28 s, runaway, vows, ask, marriage, kiss, cheers, crash, finish | `src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:242-323` |
+| answer | `I_DO` regex on map chat, or 40 s silence | `src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:69,327-340,293-296` |
+| commit | rings created and delivered, marriage bonded, `qa(MARRIED)`, gossip | `src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:349-378` |
+
+**Rivalry.** `allowed` = enabled && `BotAffinity.hostilityEnabled` && not opted out (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/BotRivalry.java:145`). `onSight` rolls a KS war (`rivals.ksWarRival` 0.05, `rivals.ksWarNemesis` 0.15, `rivals.ksWarsPerHour` 3) or a callout at nemesis / 4+ hostiles with a 0.1 roll (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/BotRivalry.java:214-300`); revenge on map change is 0.5 gated to one a day and six an hour, then a follow (`:511-560`), then a demand with an apology window (`rivals.apologyWaitMinutes` 1.5, `:576-620`); an apology in chat calms it, mocking turns the grudge into `NEMESIS` (`:662-700`).
+
+**Beef / rage quit.** Bot-vs-bot call-outs (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/BotBotRivalry.java:210`), guild feuds from member spats (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/GuildFeuds.java:40-48,86`), and rare rage quits: only an expensive, high-level item lost to another bot qualifies (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RageQuit.java:50-61,93-110`), the bot logs out 2-6 h, the population director keeps it away (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/BotDrama.java:100-103` → `src/main/java/soloMapling/ArtificialPlayer/BotPopulationDirector.java:591`), and `DramaNews` publishes it (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/DramaNews.java:49-59`).
+
+**Guilds.** `GuildPlan.SPECS` is a fixed table of ten named crews with vibe, size band, level band and rival (`src/main/java/soloMapling/ArtificialPlayer/BotGuildSystem/GuildPlan.java:30-55`). `BotGuilds.step` ensures load, rescales old GP once, then per guild runs party-up, recruit, chatter, a 10-minute quit/kick sweep, refill and rivalry jabs (`src/main/java/soloMapling/ArtificialPlayer/BotGuildSystem/BotGuilds.java:1002-1038`, quit/kick sweep `:1030-1033`, jabs `:1310`). Applications accept at 0.8 with a level floor of `max(minLevel, 50)` for HARDCORE/PVM (`src/main/java/soloMapling/ArtificialPlayer/BotGuildSystem/GuildRules.java:95-124`); non player-led bots quit after `ignoreDays` 21 ignored days (`src/main/java/soloMapling/ArtificialPlayer/BotGuildSystem/GuildRules.java:147`) and get kicked under `kickMinKnown` 3 (`:164`). Boss runs roll every 30 min at 0.25, gather 4 min, run 25 min, and loot named items only (`src/main/java/soloMapling/ArtificialPlayer/BotGuildSystem/GuildBossRuns.java:187-190,244,264-265`). Guild wars last `wars.warDays` 7 with a `wars.cooldownDays` 3 cooldown (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/GuildWarRules.java:22,26`), at most `wars.maxBotWars` 2 bot wars with a `wars.playerCheckMinutes` 30 player-war check (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/GuildWars.java:604,626`), scored minute by minute by the tick at `src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/GuildWars.java:340`.
+
+**Couples.** `BotCouples.step` runs crushes first, then formation, then sour/breakup, then couple behaviour, sweep, and a wedding window (`src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotCouples.java:449-474`): `now-lastWeddingAt >= weddingGapHours 24 && !BotWeddings.running() && WorldEvents.curveFraction() >= 0.5 && rng < 0.1`. Formation is driven by `BotCrushes.step` (`src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotCrushes.java:177`), a 10-minute roll with a 3-day crush TTL (`:54-58`). Breakups are capped at `BREAKUPS_PER_DAY` 1 world-wide (`src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotCouples.java:664,720-740`) and jealousy fights roll 0.15 within 150 px (`src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotCouples.java:666,687,696`). Bot weddings run as a `WorldEvents` ceremony (`src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotWeddings.java:227-280`) and bless every watcher once, capped by `blessExpCap` 20000 (`src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotWeddings.java:352-366,368-370`).
+
+**Family, fame, episodes (the side pieces).** `BotFamily` lets a bot become a player's junior: it offers a junior slot in a whisper within a 30-minute window (`src/main/java/soloMapling/ArtificialPlayer/BotFamily.java:62`), a familiar player is always accepted (`:110-127`), an existing invite is honoured (`onInvite`, `:172-220`) and a chat can end in an offer (`afterChat`, `:221-244`). `BotFame.forBot` gives each bot a stable believable fame from its id instead of its character id (`src/main/java/soloMapling/ArtificialPlayer/BotFame.java:14-30`), and `BotFameRequest.tryHandle` lets a friendly bot fame a player who asks, at most once a day per pair and only above level 15 on the same map (`src/main/java/soloMapling/ArtificialPlayer/BotFameRequest.java:26-27,60-130`). `BotEpisodes` turns those moments into 24 h-throttled memories the chatter can recall (`src/main/java/soloMapling/ArtificialPlayer/BotEpisodes.java:39,76-190`).
+**Pointer — owned-alt weddings.** A player marrying their own out alt at John is a separate path in `src/main/java/soloMapling/companions/OwnedAltWedding.java` (`SWITCH` `:23`, `FEE_TICKET` `:25`, `enabled()` `:31-36`, `marry` `:70`); it shares only the `marriage` table and grants no bonus (`:18-22`). It is documented with the companions work, not here.
+
+## Data
+
+| Table | Columns of note | Migration |
+|---|---|---|
+| `botcouple` | `BotA`/`BotB` UNIQUE, `Stage` default DATING, `FormedAt`, `MarriedAt`, `LastNoteAt` | `database/migrations/012-bot-couples.sql:16-30` |
+| `botguild` | `GuildId` PK, `Vibe`, `RivalId`, `TargetSize`, `CreatedAt` | `database/migrations/014-bot-guilds.sql:21` |
+| `botguildmember` | `BotId`, `GuildId`, `GuildRank` default 5, `AttentionAt` | `database/migrations/014-bot-guilds.sql:31` |
+| `botromance` | PK(`CharacterId`,`BotId`), `Stage`, `TogetherAt`, `RingItemId`, `BotRingId` | `database/migrations/015-bot-romance.sql:17` |
+| `botromanceopt` | `CharacterId` opt-in set | `database/migrations/015-bot-romance.sql:31` |
+| `botguildwar` | `Kind`, `GuildA`/`GuildB`/`BPlayer`, `State`, `ScoreA`/`ScoreB` | `database/migrations/016-bot-guild-wars.sql:15` |
+
+Every store degrades to memory when the table is missing (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceStore.java:20-24,91`). Fame and episodes are computed, not stored: fame is a seeded per-id value capped at 30 000 (`src/main/java/soloMapling/ArtificialPlayer/BotFame.java:14-30`), episodes are 24 h-throttled records (`src/main/java/soloMapling/ArtificialPlayer/BotEpisodes.java:39,69-116`).
+
+## Switches
+
+| Switch | Where | Default | Live (`docs/release/1.6.4.conf:271` UNIT_EDITS; owner answer `docs/release/1.6.4.conf:268`) |
+|---|---|---|---|
+| `-Dsolomapling.drama` | `src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/DramaKit.java:85` | true | not set → on |
+| `solomapling.drama.romance` | `src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/BotRomance.java:126` | true | not set → on |
+| `solomapling.drama.rivals` | `src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/BotRivalry.java:132-133` | true | not set → on |
+| `solomapling.drama.beef` | `src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/BeefKit.java:35-36` | true | not set → on |
+| `solomapling.drama.wars` | `src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/GuildWars.java:79-80` | true | not set → on |
+| `solomapling.drama.<key>` numeric knobs (`wars.warDays` 7, `wars.cooldownDays` 3, `wars.maxBotWars` 2, `rivals.ksWarMinutes` 3, `wedding.objectChance` 0.35, `couples.*`) | `src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/DramaKit.java:64-82` | per key | not set → defaults |
+| `solomapling.guilds.enabled` / `.seed` | `src/main/java/soloMapling/ArtificialPlayer/BotGuildSystem/GuildRules.java:50,55` | true / true | not set → on |
+| `solomapling.couples.enabled` | `src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotCouples.java:161-162` | true | not set → on |
+| `solomapling.couples.crushes` | `src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotCrushes.java:80-81` | true | not set → on |
+| `solomapling.couples.blessExpCap` | `src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotWeddings.java:350` | 20000 | not set |
+| `slums.family.botsOff` | `src/main/java/soloMapling/ArtificialPlayer/BotFamily.java:86-87` | false (inverse) | not set |
+| `slums.bots.famerequest` | `src/main/java/soloMapling/ArtificialPlayer/BotSupportSwitches.java:33` | false | `=true` |
+| `slums.ownedalts.marry` | `src/main/java/soloMapling/companions/OwnedAltWedding.java:26` | false | `=true` |
+| `@romance on\|off` | `src/main/java/client/command/commands/gm0/RomanceCommand.java:16,23`; rule `AGENTS.md:224` (§7) | **off** | per player |
+| `@botdrama off\|on` | `src/main/java/client/command/commands/gm0/BotDramaCommand.java:15` | on | per player |
+
+Numeric drama knobs are read from the same property name plus a suffix (`DramaKit.prop`, `src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/DramaKit.java:66`), so they cannot appear in `config.yaml`, which is strict.
+
+## Invariants
+
+- A bot's `getClient().getPlayer()` is null, so every hook takes a `Character`; bots are identified by id ≥ 1 000 000 000 and packets aimed at a bot go nowhere.
+- Hooks must stay O(1) on the calling thread: each `BotDrama` entry point gates on `DramaKit.enabled()` and membership before rolling (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/BotDrama.java:19-139`).
+- `@romance off` (the default) means no bot flirts, asks out or proposes; ex-taunts additionally require `BotAffinity`'s hostility not to be opted out (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/BotRomance.java:506-560`).
+- `@botdrama off` must stop trash talk, KSing, defames and refusals out of spite, stored per character in `botdrama` (migration 011) (`src/main/java/client/command/commands/gm0/BotDramaCommand.java:9-12`).
+- Couple breakup drama is at most one a day world-wide unless staged (`src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotCouples.java:664,720-728`).
+- A wedding cannot start while `BotWeddings.running()` or another ceremony holds the scene (`src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:129-168`, `src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotWeddings.java:110-123`).
+- No bot wedding or owned-alt wedding grants a stat or EXP bonus beyond the fixed guest blessing (`src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotWeddings.java:352-370`; `src/main/java/soloMapling/companions/OwnedAltWedding.java:18-22`).
+
+## Origin
+
+Base, modified, custom are per-file: every file below is **custom**, added under `soloMapling/` with no upstream v83 ancestor (`git log --follow` on each path returns only soloMapling commits).
+
+| Path | Oldest commit | Count |
+|---|---|---|
+| `BotDramaSystem/` | `b27adfdb5` 2026-10-22 "Add opt-in romance between players and bots (1.5.0 bot drama)" | 47 |
+| `BotGuildSystem/` | `086880a8d` 2026-10-21 "Bot guilds and partying with players (1.5.0 bots lane, ticket 50 B/C)" | 29 |
+| `BotCoupleSystem/` | `e20144653` 2026-10-21 "Bot couples and Amoria weddings (ticket 58)" | 23 |
+| `BotFamily.java` | `68d88c19b` 2026-10-27 | 3 |
+| `BotFame.java` | `d3c22681a` 2026-10-21 "(1.4.2)" | 1 |
+| `BotFameRequest.java` | `5ce80fbb6` 2026-10-30 | 2 |
+| `BotEpisodes.java` | `84fffe0fb` 2026-10-25 | 6 |
+| `companions/OwnedAltWedding.java` | `21ec85c67` 2026-11-04 "Ticket 189 stage 2" | 1 |
+
+## Tests and QA
+
+| Layer | Coverage |
+|---|---|
+| JUnit — drama | 18 classes under `src/test/java/soloMapling/ArtificialPlayer/BotDramaSystem/` (`BeefTest`, `BotBotEscalationTest`, `BotRivalryTest`, `BotRomanceTest`, `ContentGuardTest`, `DramaKitBringToTest`, `GuildWarCheckScopeTest`, `GuildWarsTest`, `RevengeArcTest`, `RomanceDivorce*Test`, `RomanceFactsTest`, `RomanceFollowFreeTest`, `RomanceRulesTest`, `RomanceStoreRetryTest`, `RomanceWeddingRingTest`, `RomanceWeddingRunawayTest`, `TurfContestPickTest`) |
+| JUnit — guilds | 10 classes under `.../BotGuildSystem/` (`BotGuildSafetyTest`, `BotGuildsTest`, `ChatHoldHopTest`, `GuildBossRunCrewPartyTest`, `GuildBossRunPreemptTest`, `GuildBossRunQaCrewTest`, `GuildJabRepeatTest`, `GuildRulesTest`, `GuildShowUpLoginTest`, `KickWhisperTest`) |
+| JUnit — couples | 7 classes under `.../BotCoupleSystem/` (`BotCoupleSafetyTest`, `BotCouplesTest`, `BotCrushesTest`, `CoupleStagingPairTest`, `CoupleTogetherTest`, `WeddingChatterTest`, `WeddingWindowTest`) |
+| JUnit — side pieces | `BotFameTest`, `BotFameRequestTest`, `BotFamilyTest`, `BotFamilyTestSeams`; no dedicated `BotEpisodes` test |
+| Auto-QA | `t-af-2/3` (`src/main/java/soloMapling/autoqa/AutoQaCatalog.java:112,123`), `t-rv-1..5` (`:134,143,153,159`), `t-bg-1` (`:202`), `t-gu-1..6,8` (`:205-282`), `t-gw-1..4` (`:289-310`), `t-cu-1/2` (`:331,339`), `t-rm-1..4` (`:376-415`), `t-su-2` fame requests (`:1470`) |
+| `!qa` | `src/main/java/soloMapling/qa/DramaScenarios.java:33` = `Rm1Dating, Rm2Wedding, Rm3Breakup, Rm4Objection, Rv1Roast, Rv2KsWar, Rv3Callout, Rv4Revenge, Gw1BotWar, Gw2PlayerWar, Gw3Poach, Gw4Alliance`, registered at `src/main/java/soloMapling/qa/QaScenarios.java:87`, plus the `@botdrama`-off scenario at `:1359` |
+
+Not covered: no test drives a couple-ring purchase (auto-QA `t-rg-2` is manual, `src/main/java/soloMapling/autoqa/AutoQaCatalog.java:660`), and nothing exercises the drama tick under population load.
+
+## Known issues
+
+| Card | Line in `/root/work/STATUS-1.6.4.md` | Issue | Overlap with this subsystem |
+|---|---|---|---|
+| b225 | 57 | KPQ: passes bots hand to the leader never show on the ground or in the leader's Etc tab (fix `205acddac` in `5cc8061d1`) | none — party/instance loot, not drama |
+| b232 | 58 | A follower inside an instance does not leave with its leader (`625948ac9`) | none — the follower is `src/main/java/soloMapling/ArtificialPlayer/BotTypes/FollowerBot.java`, not `BotRomance`'s follow |
+| b240 | 59 | Regular bots say they are grinding while standing in town (`23fe8f08f`, `3aba87f15`) | indirect — same chatter/state plumbing `DramaKit.say` writes through |
+| b241 | 60 | KPQ bonus stage: messages keep coming until everyone leaves (`6c257d926`) | none — instance script |
+
+Only b225-b241's four cards exist; b233-b239 are unused, and none of the four is a drama, guild or couple defect. Adjacent: b276 (`:78`, QA feed drops map-scoped PLAN/ROUTE lines), b284 (`:80`, ten-lane false failures), b285 (`:81`, alt upgrade trade refused unless owner online), b298 (`:48`, crafted packets skip the leader check).
+
+NEW-FINDING: `src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:293-296` — an unanswered proposal is auto-accepted after 40 s (`WeddingTakenAsYes`), so a player who walks away from the altar marries the bot without ever saying "i do"; the runaway beat is the only escape and it is rolled at 8%.
+
+NEW-FINDING: `src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotCouples.java:449-474` — the wedding window is only reachable from the 60 s couples step and requires `curveFraction() >= 0.5`, so bot weddings silently stop happening whenever the world event curve is below half, with no switch to override it.
+
+NEW-FINDING: `src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/BotDrama.java:134-137` — `replyAllowed` returns true whenever the drama package is disabled, so `-Dsolomapling.drama=false` also removes the `@romance off` content filter from model replies.
+
+NEW-FINDING: `src/main/java/soloMapling/ArtificialPlayer/BotFamily.java:110-127` — the comment records that the old `slums.family.acceptChance` 80% roll is gone and a familiar player is now always accepted, so the documented accept-chance knob in `AGENTS.md`-adjacent docs no longer has any effect if still set.
+
+## State
+
+**Working, with caveats.** Drama, guilds and couples all tick from the same director line (`src/main/java/soloMapling/ArtificialPlayer/BotPopulationDirector.java:540-542`), their JUnit suites are the largest bot test group (35 classes), and auto-QA plus 12 `!qa` scenarios cover romance, rivalry, guild war, couples and fame. Caveats: the b240 town-vs-grinding chatter bug and the b232 instance-follower bug sit in the same population path, and the auto-accept-at-40-s wedding rule is a behaviour gap rather than a crash.
+
+## Open questions
+
+- Are the `solomapling.drama.*` numeric knobs documented anywhere operators can find them, or only in `DramaKit.prop` call sites?
+- `docs/release/1.6.4.conf:253-256` still says alt weddings and marriage EXP are "OFF (ticket 189 stage 2/3)", but `docs/release/1.6.4.conf:268` records the owner turning them ON and `docs/release/1.6.4.conf:271` passes `-Dslums.ownedalts.marry=true` and `-Dslums.marriage.expbonus=true`; which of the two is authoritative, and who corrects the stale comment, is undecided.
+- Should `BotEpisodes` get a dedicated test, given firm `PARTY`, `TRADE` and `SCAM` episodes feed bot chatter?

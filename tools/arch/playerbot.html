@@ -1,0 +1,242 @@
+<title>SlumsMS Playerbot Architecture</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one reading column; layer cards stacked top (population) to bottom (chat), each with its tick, classes and switches */
+:root{
+  --bg:#f3f5f2;--card:#ffffff;--fg:#1d2420;--mute:#5d6a63;--line:#dbe2dd;--accent:#2f7a5c;--accent-bg:#e2f1ea;
+  --warn:#9a5b0f;--warn-bg:#fbefd9;--bad:#a43a30;--bad-bg:#f8e1dd;--code-bg:#eef2ef;
+  --display:"Fraunces",Georgia,serif;--body:"Source Sans 3",system-ui,sans-serif;--mono:"JetBrains Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121614;--card:#1a201d;--fg:#e4ebe6;--mute:#93a39a;--line:#2c3631;--accent:#6cc79f;--accent-bg:#1b3328;--warn:#e3a85a;--warn-bg:#352812;--bad:#ef8b80;--bad-bg:#3a1d19;--code-bg:#222a26;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121614;--card:#1a201d;--fg:#e4ebe6;--mute:#93a39a;--line:#2c3631;--accent:#6cc79f;--accent-bg:#1b3328;--warn:#e3a85a;--warn-bg:#352812;--bad:#ef8b80;--bad-bg:#3a1d19;--code-bg:#222a26;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:16px/1.55 var(--body)}
+.wrap{max-width:980px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1{font:600 clamp(28px,4vw,38px)/1.15 var(--display);margin:0 0 6px;text-wrap:balance}
+h2{font:600 22px/1.25 var(--display);margin:0 0 8px;text-wrap:balance}
+h3{font-size:15px;margin:14px 0 4px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute)}
+p{margin:0 0 10px;max-width:72ch}
+.lede{color:var(--mute);max-width:70ch;margin-bottom:18px}
+code,.mono{font:500 13px var(--mono);background:var(--code-bg);border-radius:4px;padding:0 4px;overflow-wrap:anywhere}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 18px 14px;margin-bottom:16px}
+.meta{display:flex;flex-wrap:wrap;gap:6px 10px;margin:2px 0 10px}
+.chip{font:500 12px var(--mono);padding:2px 8px;border-radius:999px;background:var(--accent-bg);color:var(--accent)}
+.chip.w{background:var(--warn-bg);color:var(--warn)}.chip.b{background:var(--bad-bg);color:var(--bad)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.grid>div{min-width:0}
+ul{margin:0 0 8px;padding-left:20px}li{margin:3px 0}
+ol.flow{counter-reset:s;list-style:none;padding:0;margin:6px 0 10px;display:grid;gap:6px}
+ol.flow li{counter-increment:s;display:grid;grid-template-columns:30px 1fr;gap:8px;align-items:start}
+ol.flow li::before{content:counter(s);font:500 12px var(--mono);background:var(--accent);color:var(--card);border-radius:50%;width:22px;height:22px;display:grid;place-items:center;margin-top:2px}
+ol.flow li>span{min-width:0}
+.diagram{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:16px}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:7px 8px;border-bottom:1px solid var(--line)}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--mute)}
+td:first-child{white-space:nowrap}
+.weak{border-left:5px solid var(--bad)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 18px}
+.toc a{font-size:14px;color:var(--accent);text-decoration:none;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:3px 10px}
+.toc a:focus-visible,.toc a:hover{border-color:var(--accent)}
+.foot{color:var(--mute);font-size:13px;margin-top:20px}
+:root{--unk:#56606b;--unk-bg:#e8ebee}
+.pill{display:inline-block;font:500 11.5px var(--mono);padding:1px 7px;border-radius:999px;white-space:nowrap}
+.o-base{background:var(--unk-bg);color:var(--unk)}.o-mod{background:var(--warn-bg);color:var(--warn)}.o-custom{background:var(--accent-bg);color:var(--accent)}
+.s-ok{background:var(--accent-bg);color:var(--accent)}.s-part{background:var(--warn-bg);color:var(--warn)}.s-bad{background:var(--bad-bg);color:var(--bad)}.s-unk{background:var(--unk-bg);color:var(--unk)}
+.tot{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+</style>
+
+<div class="wrap">
+<h1>SlumsMS Playerbot Architecture</h1>
+<p class="lede">How the roster bots and your owned alts are built, top to bottom: who is online, what ticks them, how they decide, what they do, how they talk, and how we watch it. Read from release-1.6.4 (447f5c6b1), Nov 5 2026. About 588 Java files under <code>soloMapling/ArtificialPlayer/</code>.</p>
+
+<nav class="toc">
+<a href="#map">Big picture</a><a href="#population">Population</a><a href="#tick">Ticks</a><a href="#core">Decision core</a><a href="#activities">Activities</a><a href="#social">Social</a><a href="#chat">Chat</a><a href="#alts">Owned alts</a><a href="#watch">Observability</a><a href="#switches">Switches</a><a href="#status">Origin and state</a><a href="#weak">Weak spots</a>
+</nav>
+
+<div class="diagram" id="map">
+<pre class="mermaid">
+flowchart TB
+  subgraph POP["Population"]
+    R["BotRoster<br/>identity, persona, play window"] --> D["BotPopulationDirector<br/>target curve, log in / out"]
+    D --> S["BotStore + BotClient<br/>character row, no socket"]
+    S --> G["BotDbGate<br/>bots' share of the DB pool"]
+  end
+  subgraph TICK["Tick engine"]
+    T["BotTickService<br/>1 driver, virtual threads"] --> M["BotSM / TrainingBot<br/>macro tick every 2-3 s"]
+    C["Combat ticker<br/>every 250 ms, observed maps"]
+  end
+  subgraph CORE["Decision core (no LLM)"]
+    LG["LifeGoals: facts"] --> LP["LifePlanner: GOAP"]
+    LP --> PO["LifePolicy: utility scores"]
+    PO --> DE["LifeDecision: pick one"]
+    DE --> EX["LifeExecutor -> activity owner"]
+    EX --> OU["LifeOutcomes: done / failed"]
+    OU --> LE["LifeLearning: likes drift"]
+    LE --> PO
+  end
+  subgraph ACT["Activities"]
+    A1["Grind: TrainingMapChooser, LevelingPath"]
+    A2["Town, restock, shops"]
+    A3["PQs and bosses: mechanics rows, ExpeditionBots"]
+    A4["Gear, scrolls, trade, exchange traders"]
+  end
+  subgraph SOC["Social"]
+    SD["SocialDecider + SocialActions"] --> SB["SocialBudget"]
+    SM["SocialMind: traits, mood, needs"] --> SD
+    BO["Bonds, affinity, gossip, memory, drama"]
+  end
+  subgraph CH["Chat"]
+    IN["Triage + intent rules"] --> RP["ReplyPlanner: decide, then word"]
+    RP --> CR["ChatRouter: local LLM, cloud overflow"]
+    RP --> SY["SayDo: every claim backed?"]
+    CC["Canned chatter packs"]
+  end
+  ALT["Owned alts: 200 ms companion tick<br/>follow, fight, loot, buffs, potions"]
+  POP --> TICK --> M
+  M --> CORE
+  EX --> ACT
+  M --> SOC
+  SOC --> CH
+  ALT -. "same attack, buff, potion, follow code" .-> ACT
+</pre>
+</div>
+
+<section id="population">
+<h2>Population: who is online</h2>
+<div class="meta"><span class="chip">director tick ≥ 5 s</span><span class="chip">8 logins at a time</span><span class="chip">~3,000 peak on TEST</span></div>
+<p>Bots are real character rows with a persona and a play window. The director compares the online count with a daily curve and logs bots in or out, preferring bots whose play window matches the hour. It never logs out a bot that has a commitment (a party, a promise).</p>
+<div class="grid">
+<div><h3>Key parts</h3><ul>
+<li><code>BotRoster</code>: identity, ACTIVE / DORMANT, persona, home. New, quitting and returning bots each day (<code>BotRosterLifecycle</code>).</li>
+<li><code>BotPopulationDirector</code>: target from <code>BotPopulationCurve</code>, 20 min relog cooldown.</li>
+<li><code>BotStore</code>: character + holdings; id = <code>BOT_ID_BASE + botId</code>.</li>
+<li><code>BotClient</code>: a client with no socket; packets go nowhere.</li>
+</ul></div>
+<div><h3>Guard rails</h3><ul>
+<li><code>BotDbGate</code>: bots get a capped share of the DB pool, players keep a reserve. Refusals are logged (TEST sees ~100-160 an hour).</li>
+<li>Boot waves seed the world, then the director takes over (<code>EnvironmentManager</code>).</li>
+</ul></div>
+</div>
+</section>
+
+<section id="tick">
+<h2>Ticks: what runs and how often</h2>
+<div class="meta"><span class="chip">macro tick 2-3 s</span><span class="chip">combat 250 ms</span><span class="chip">life decision every 30 s</span><span class="chip">alts 200 ms</span></div>
+<p>One driver task hands due bots to virtual threads, so a slow bot only blocks itself. A bot's next tick is timed from when its last one finished; deep grinders off-screen slow to 60-120 s.</p>
+<h3>A TrainingBot macro tick, in order</h3>
+<ol class="flow">
+<li><span>Death handling, restock and event calls.</span></li>
+<li><span>Pause if it's in a chat.</span></li>
+<li><span><b>Daily life</b>: <code>LifeRuntime.tick</code> (the decision core below), then run any life activity it queued.</span></li>
+<li><span>Phase switch: <code>INIT, IN_TOWN, SHOP, DECIDE, GO_TRAIN, LIFE_*, GRIND, GO_TOWN, BREAK</code>.</span></li>
+<li><span>Party invites and menus, social intents (promises), mode switch.</span></li>
+</ol>
+<p>Combat is not in the macro tick: a shared 250 ms ticker swings only grinding bots on maps a player can see.</p>
+</section>
+
+<section id="core">
+<h2>Decision core: weighted GOAP + utility, no LLM</h2>
+<div class="meta"><span class="chip">LifeRuntime</span><span class="chip">LifePolicy</span><span class="chip">LifePlanner</span><span class="chip">LifeLearning</span></div>
+<p>This is the part you called the core. It runs every 30 seconds (sooner when something changes) while the bot is grinding, in town or dwelling.</p>
+<ol class="flow">
+<li><span><b>Facts</b> (<code>LifeGoals</code>): level, job, gear, friends nearby, supplies. Some facts the game can't see are "soft" and marked done when the bot finishes the matching activity.</span></li>
+<li><span><b>Plan</b> (<code>LifePlanner</code>, GOAP): cheapest step sequence toward the current goal (gear up, job advance, a prequest). The next step only gets a bonus; it doesn't force the choice.</span></li>
+<li><span><b>Needs</b>: supplies, social, progress, boredom.</span></li>
+<li><span><b>Score options</b> (<code>LifePolicy</code>): each activity scored from needs, mood, player type (Bartle: killer, socializer, explorer, achiever), people nearby, the plan bonus and learned likes.</span></li>
+<li><span><b>Pick</b> (<code>LifeDecision</code>): the best, switching only if it beats the current one by a margin.</span></li>
+<li><span><b>Run</b> (<code>LifeExecutor</code>): hands the activity to its owner (grind, town, PQ...). It grants nothing itself.</span></li>
+<li><span><b>Outcome</b> (<code>LifeOutcomes</code>): done or failed, once per activity.</span></li>
+<li><span><b>Learn</b> (<code>LifeLearning</code>): small, capped drift in what this bot likes, swept every 5 minutes.</span></li>
+</ol>
+<p>Activities it chooses between: <code>GRIND, HANG_OUT, PARTY_QUEST, RESTOCK, SHOW_OFF</code> (plus channel moves, helping a friend).</p>
+</section>
+
+<section id="activities">
+<h2>Activities: what bots actually do</h2>
+<div class="grid">
+<div><h3>Grinding</h3><ul><li><code>TrainingMapChooser</code>, <code>LevelingPath</code>, spot finding, looting (<code>LootPicker</code>).</li><li>Attacks through <code>BotAttackDriver</code>; buffs via <code>BotBuffDriver</code>.</li><li>Movement: <code>GCMovement</code>; travel: <code>BotTransit</code>.</li></ul></div>
+<div><h3>PQs and bosses</h3><ul><li><code>mechanics/</code>: one YAML row per PQ or boss room (stages, arms, reactors, timers, tiers).</li><li>Bots join a player's expedition (<code>ExpeditionBots</code>); GMs stage runs with <code>!mechanics</code> / <code>!qa</code>.</li><li>Chaos Zakum: bots share 25 runs a day.</li></ul></div>
+<div><h3>Town and supply</h3><ul><li>Restock, shopping, potions (<code>BotShopping</code>, <code>BotVitals</code>).</li><li>Town life for town and social bots (<code>LifeTownLife</code>, same brain).</li></ul></div>
+<div><h3>Gear and economy</h3><ul><li>Gear planner and optimizer, scrolling.</li><li>Merchants, the exchange traders (<code>MarketTraders</code>) and the NX desk.</li></ul></div>
+</div>
+</section>
+
+<section id="social">
+<h2>Social: who they like and what they do together</h2>
+<p>A separate, cheaper loop (inside <code>BotTalk.tick</code>, no LLM, no DB reads): each bot due by its own pace picks the best social act and target.</p>
+<div class="grid">
+<div><h3>Deciding</h3><ul><li><code>SocialMind</code>: 12 traits, mood, emotions, needs.</li><li><code>SocialDecider</code> + <code>SocialActions</code>: invite, share news, spread a rumour, help, ask...</li><li><code>SocialBudget</code>: per act, per pair and per minute limits so bots don't loop.</li><li><code>IntentBook</code>: promises they mean to keep.</li></ul></div>
+<div><h3>Remembering</h3><ul><li><code>BotAffinity</code>: ties to real players (−100..100, decays).</li><li><code>BondStore</code> / <code>BotBonds</code>: bot-to-bot bonds, crews.</li><li><code>BotGossip</code>, <code>BotWorldGossip</code>, <code>BotMemory</code>, <code>Reputation</code>.</li><li>Drama: rivalry, romance, guild wars, beef.</li></ul></div>
+</div>
+</section>
+
+<section id="chat">
+<h2>Chat: deciding first, wording second</h2>
+<ol class="flow">
+<li><span><b>Read the line</b>: <code>ChatTriage</code> (kind, intent; rules first, a model second), request rules in <code>BotChatActions</code>.</span></li>
+<li><span><b>Decide the move</b>: <code>ReplyPlanner</code> picks yes/no/what to say from game state (on for live in 1.6.4).</span></li>
+<li><span><b>Word it</b>: <code>ChatRouter</code> sends to the local model first, the cloud model for overflow, within a daily budget; scripted lines if neither answers.</span></li>
+<li><span><b>Check it</b>: <code>SayDo</code> records every claim and whether the bot's state backs it.</span></li>
+</ol>
+<p>Bot-to-bot talk uses <code>TalkPlanner</code>/<code>BotTalk</code>; ambient town chatter comes from canned packs (<code>BotDialoguePack/*.yaml</code>), which don't check state yet (b317).</p>
+</section>
+
+<section id="alts">
+<h2>Owned alts: your characters as companions</h2>
+<div class="meta"><span class="chip">@botme</span><span class="chip">200 ms companion tick</span><span class="chip">up to 5 companions</span></div>
+<p>An alt is your real character, reserved while it's out (<code>OwnedAltService</code>). It doesn't run the decision core: one shared 200 ms tick drives every alt, in this order.</p>
+<ol class="flow">
+<li><span><b>Death</b>: a lethal hit really kills it; it gets up in town and goes home.</span></li>
+<li><span><b>Recovery</b>: HP/MP like a player; drinks its own potions (same <code>BotVitals</code> as bots).</span></li>
+<li><span><b>Catch-up</b>: stuck on another map too long, it's put beside you (never into or out of an instance).</span></li>
+<li><span><b>Gate</b> (<code>OwnedAltGate</code>): closed, it only follows.</span></li>
+<li><span><b>Fight</b> (<code>OwnedAltCombat</code>): nearest mob you're engaged with, its own skills, MP and ammo through the bots' <code>BotAttackDriver</code>.</span></li>
+<li><span><b>Loot</b> into its own bag; <b>buffs</b> via <code>BotBuffDriver</code>; otherwise <b>follow</b> you.</span></li>
+</ol>
+<p>Also: bonds (<code>@bonds</code>), weddings to your own alt, marriage EXP bonus, expeditions (an alt spends a real party slot).</p>
+</section>
+
+<section id="watch">
+<h2>Observability: how we see what they're doing</h2>
+<div class="tbl"><table>
+<tr><th>Tool</th><th>What it shows</th><th>Kept?</th></tr>
+<tr><td><code>!botwhy &lt;name&gt;</code></td><td>One bot's latest decision, goals and plan, type, mood and needs, promises, bonds, learning, last gear pick</td><td>Live only</td></tr>
+<tr><td><code>bot-life.json</code></td><td>Counts since boot: decisions, picked vs run per activity, replans, learning drift</td><td>Rolling</td></tr>
+<tr><td><code>feature-health</code></td><td>Rules over the dashboard export: social acts ok/failed, chat failures, budget refusals, tick cost</td><td>Per run</td></tr>
+<tr><td>QA logs (<code>QaLog</code>)</td><td>Step-by-step reasons (HABITS, BOT_CHAT, ATTACK...) during an auto-QA check</td><td>Per check</td></tr>
+<tr><td>Dashboard <code>live.json</code></td><td>Population, health, social counters every 30 s</td><td>Latest</td></tr>
+</table></div>
+</section>
+
+<section id="switches">
+<h2>Main switches</h2>
+<div class="tbl"><table>
+<tr><th>Layer</th><th>Switches</th></tr>
+<tr><td>Population</td><td><code>solomapling.autopopulate</code>, config <code>BOT_ROSTER_*</code>, <code>BOT_DIRECTOR_*</code></td></tr>
+<tr><td>Decision core</td><td><code>slums.botlife.enabled / execute / learning / reach</code>, <code>slums.modeswitch</code></td></tr>
+<tr><td>Social</td><td><code>slums.bottalk</code>, <code>slums.socialacts</code>, <code>slums.socialbudget</code>, <code>slums.intents</code>, <code>solomapling.drama.*</code>, <code>slums.bonds</code></td></tr>
+<tr><td>Chat</td><td><code>solomapling.convo.planner</code>, <code>slums.decide.shadow</code>, config <code>BOT_LLM_*</code> (local + cloud)</td></tr>
+<tr><td>PQs and bosses</td><td><code>slums.mechanics</code>, <code>.boss</code>, <code>.lobby</code>, <code>.&lt;row&gt;</code>, <code>slums.chaos.zakum</code>, <code>slums.bossfight.revivepause</code></td></tr>
+<tr><td>Gear and economy</td><td><code>slums.gear.optimizer</code>, <code>slums.grind.gearFirst</code>, <code>slums.exchange.*</code></td></tr>
+<tr><td>Alts</td><td><code>OWNED_ALTS_SUMMON_ENABLED</code>, <code>slums.exped.altfollow</code>, <code>slums.ownedalts.marry</code></td></tr>
+</table></div>
+</section>
+
+<section id="status"><h2>Origin and state</h2><p>Origin: <b>base</b> came with the stock server, client or framework; <b>modified</b> is base we changed; <b>custom</b> is ours. State is from code, tests, TEST/live checks and the book's cards on Nov 5.</p><div class="tot"><span class="pill s-ok">working</span><span style="margin-right:8px">6</span><span class="pill s-part">partial</span><span style="margin-right:8px">7</span></div><div class="tbl"><table><tr><th>Component</th><th>Origin</th><th>State</th><th>Evidence</th></tr><tr><td>Population director + roster</td><td><span class="pill o-custom">custom</span></td><td><span class="pill s-ok">working</span></td><td>~2,400-3,000 bots on TEST</td></tr><tr><td>Tick engine (virtual threads, 250 ms combat)</td><td><span class="pill o-custom">custom</span></td><td><span class="pill s-ok">working</span></td><td>TEST tick cost within limits</td></tr><tr><td>Bot state machine + training bots</td><td><span class="pill o-mod">modified</span></td><td><span class="pill s-part">partial</span></td><td>11 of 2,791 bots off their foothold</td></tr><tr><td>Decision core (LifePolicy, LifePlanner)</td><td><span class="pill o-custom">custom</span></td><td><span class="pill s-part">partial</span></td><td>Options scored before feasibility: b318 HANG_OUT 172 of 2,734 run</td></tr><tr><td>Learning (LifeLearning)</td><td><span class="pill o-custom">custom</span></td><td><span class="pill s-part">partial</span></td><td>Failures that aren't the bot's fault still teach dislike</td></tr><tr><td>Social acts + budget</td><td><span class="pill o-custom">custom</span></td><td><span class="pill s-ok">working</span></td><td>INVITE and SHARE_INFO fixed tonight; t-sa-1 PASS</td></tr><tr><td>Bonds, gossip, memory, drama</td><td><span class="pill o-custom">custom</span></td><td><span class="pill s-ok">working</span></td><td>Auto-QA PASS</td></tr><tr><td>Chat: reply planner + router + say-do</td><td><span class="pill o-custom">custom</span></td><td><span class="pill s-ok">working</span></td><td>t-pl-1/t-cv-1 PASS; say-do 100% backed; cloud failures 0% after DNS</td></tr><tr><td>Canned town chatter</td><td><span class="pill o-custom">custom</span></td><td><span class="pill s-part">partial</span></td><td>b317 claims not backed by state</td></tr><tr><td>PQ and boss runs with bots</td><td><span class="pill o-custom">custom</span></td><td><span class="pill s-ok">working</span></td><td>t-ex-2, t-ex-3 PASS; KPQ proven in client</td></tr><tr><td>Owned alts (follow, fight, loot, buffs)</td><td><span class="pill o-custom">custom</span></td><td><span class="pill s-part">partial</span></td><td>b311 Horntail alts; b285 alt upgrade handover</td></tr><tr><td>Exchange traders</td><td><span class="pill o-custom">custom</span></td><td><span class="pill s-part">partial</span></td><td>b287 some trader types never sell scrolls</td></tr><tr><td>Decision trace / review</td><td><span class="pill o-custom">custom</span></td><td><span class="pill s-part">partial</span></td><td>Counters only; trace + admin page are e18</td></tr></table></div></section>
+
+<section id="weak" class="weak">
+<h2>Weak spots we know about</h2>
+<div class="meta"><span class="chip b">core first (1.6.5)</span></div>
+<ul>
+<li><b>Options are scored before anyone checks they can run.</b> <code>LifePolicy</code> scores whether an option fits the moment, not whether its executor can carry it out. Result: picks that fail. Invites failed 66% and news-sharing 94% before tonight's fixes; hang-out runs 172 of 2,734 picks (b318).</li>
+<li><b>Failures teach the wrong lesson.</b> A failure the bot couldn't help (no partner, no room) still lowers its liking for that activity.</li>
+<li><b>Canned chatter isn't grounded.</b> Town chatter can claim a guild or a job advance the bot doesn't have (b317).</li>
+<li><b>Reasons aren't kept.</b> Only counters survive; the decision trace, flagged queue and your Good/Bad review in the admin dashboard are card e18.</li>
+</ul>
+</section>
+
+<section id="deep"><h2>Deep review (Nov 5)</h2><p>An in-depth, code-only review (DeepSeek, Nov 5 2026, 44 doc commits on branch <code>164-archreview</code>, not pushed) wrote one file per subsystem under <code>docs/architecture/bots/</code> with file:line citations. Nothing was run, so "working" there means the code reads consistently, not that it was observed. These are its non-working rows; each is a lead until Server Dev checks it (card n16, 1.6.5).</p><div class="tbl"><table><tr><th>State</th><th>Where</th><th>What</th><th>Checked</th></tr><tr><td><span class="pill s-bad">broken</span></td><td>Bot town &quot;grinding&quot; (b240)</td><td><code>HELP_FRIEND</code> sets a training target from the player&#x27;s map and coerces the mobless sentinel level <code>-1</code> to <code>1</code>, so the abstract-EXP guard <code>currentMobLevel &gt; 0</code> passes in a town and the bot draws EXP for standing there; <code>OffscreenSupplies.accrue</code> then returns <code>1.0</code> on a null rate</td><td>lead, not yet checked</td></tr><tr><td><span class="pill s-part">partial</span></td><td>decision-core</td><td>feasibility is checked before scoring but refused starts never feed back, so the mix drifts toward what the scorer likes and the host refuses; refusal counts exist nowhere</td><td>lead, not yet checked</td></tr><tr><td><span class="pill s-part">partial</span></td><td>tick-engine</td><td>the 100 ms driver and shutdown drain are tested, but watchdog/stuck-bot paths are not, and per-tick work is unbounded</td><td>lead, not yet checked</td></tr><tr><td><span class="pill s-part">partial</span></td><td>training-bot</td><td>a town stay has no cap while a player keeps talking (<code>phaseDeadlineMs</code> is re-armed every tick and <code>BotConversation.holds</code> has no ceiling)</td><td>lead, not yet checked</td></tr><tr><td><span class="pill s-part">partial</span></td><td>chat</td><td>the model still contradicts its own state in production (b099, b101, b240 shipped-waiting); the decide cache is 30 min keyed on the normalised line only; <code>typingDelay</code> is dead; the &quot;late&quot; timing tail can exceed the QA cap</td><td>lead, not yet checked</td></tr><tr><td><span class="pill s-part">partial</span></td><td>decision-memory-learning</td><td>no test drives the memory store against a real MySQL; durability rests on a documented fallback</td><td>lead, not yet checked</td></tr><tr><td><span class="pill s-part">partial</span></td><td>observability</td><td><code>!botwhy</code>&#x27;s preview gate is unreachable while the brain is on, and <code>bot-life.json</code> publishes <code>selected</code> and <code>chosen</code> without explaining the difference</td><td>lead, not yet checked</td></tr><tr><td><span class="pill s-part">partial</span></td><td>owned-alts</td><td>the master switch is off live (see <code>server/companions</code>); <code>OwnedAltWedding</code>&#x27;s &quot;no bonus&quot; comment is contradicted by <code>MarriageExpBonus</code></td><td><b>CORRECTED: the master switch is on live (see server/companions)</b></td></tr><tr><td><span class="pill s-part">partial</span></td><td>party-and-expeditions</td><td>the general PQ lobby is off live; the party GRIND path enters the map without <code>BotMapCap.admit</code></td><td>lead, not yet checked</td></tr><tr><td><span class="pill s-part">partial</span></td><td>quests-and-progression</td><td>refused turn-ins spend the day&#x27;s budget (<code>recordRefused</code> increments <code>doneToday</code>); <code>RECOMMEND_MIN_SCORE</code> has no production caller</td><td>lead, not yet checked</td></tr><tr><td><span class="pill s-part">partial</span></td><td>supply</td><td><code>BotSupplies.shortage()</code> mutates state and a drifting copy lives in <code>LifeRuntime</code>; <code>SupplyNeeds.LOW_POTIONS</code> is disconnected from <code>BotShopping.hpGoal</code></td><td>lead, not yet checked</td></tr><tr><td><span class="pill s-part">partial</span></td><td>affinity-bonds-gossip-memory</td><td>the boot-time reputation rebuild keeps only SCAM/GIFT/FAVOR/PQ/BOSS and KS notes, so FEELING grudges from drop steals, defamation and rude chat survive a restart only as lost data</td><td>lead, not yet checked</td></tr></table></div></section>
+<p class="foot">Sources: release-1.6.4 code (packages under <code>soloMapling/ArtificialPlayer/</code>, <code>soloMapling/companions/</code>, <code>soloMapling/mechanics/</code>), TEST's bot-life.json and feature-health on Nov 5. Book cards b317, b318, e18.</p>
+</div>
