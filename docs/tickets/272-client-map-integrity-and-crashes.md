@@ -306,3 +306,14 @@ portal and missing-loot references, but no full client art pack or included clie
 All ten inspected low-level Edelstein gap mobs have candidate base drop rows; no rates were imported.
 [Source hashes, exact paths, compatibility limits and loot leads](281-swordie271-source-review.md).
 Rose Garden crash/missing mario art remain unresolved; the downloaded Steam assets require a separate sweep.
+
+### Server-side fix for b300 (branch 164-crackintime)
+
+- Correction of the "menu-wiring discrepancy" above: `PortalFactory.loadPortal` builds the fallback script name from
+  `portal.getName()`, which is the portal's INDEX node name (10), not its `pn`. So `270000000.10.js` IS the script the
+  loader finds for portal1; there is no wiring bug. `CrackInTimePortalsTest` loads the real 270000000 map data through
+  `PortalFactory` and pins the binding.
+- Real defect: `272000000` west00 -> `270000000/east00` (absent). `GenericPortal` falls back to portal 0, so the return
+  landed on `sp` at (0,0), not at the Gate. `tools/data-align/portal-fixes.tsv` gains a row (apply with
+  `wz_set_values.py` to the host `wz/`, then restart): west00 now arrives at `270000000/portal1` (the Gate of Time).
+  Same kind of row for `272000310` west00 -> `272000300/sp` (272000300 has no east00).

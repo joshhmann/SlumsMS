@@ -9,3 +9,5 @@
 # No BotTransit.yaml row uses 271010400/271010500.
 file	node	server_value	new_value	note
 Map.wz/Map/Map2/271010400.img.xml	portal/3/tn	west00	out00	north00 -> 271010500: west00 does not exist there
+Map.wz/Map/Map2/272000000.img.xml	portal/1/tn	east00	portal1	b300 Crack in Time west00 -> Temple of Time: 270000000 has no east00 (portals sp, out00, in00, tp, portal1, portal2); portal1 is the Gate of Time, where the Past door belongs
+Map.wz/Map/Map2/272000310.img.xml	portal/1/tn	east00	sp	b300 west00 -> 272000300: 272000300 has no east00 (portals sp, out00, in00); sp is its default spawn
