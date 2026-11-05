@@ -41,11 +41,11 @@ TLS is not in this repo: `theslumsms.asslorde.com` ends at the owner's Caddy, wh
 The live path, in the order the recipe enforces (`docs/site/DEPLOY.md:152-252`):
 
 1. **Stop and back up.** Both rebuild timers stop; `/srv/slums-site`, `/opt/slums-site-build`, the three units, the nginx
-   site file and the report map are copied aside (`DEPLOY.md:162-172`). The report map goes to `/root`, because a `.pre`
-   copy left inside `conf.d` is loaded as a second config and `nginx -t` stops on the duplicate `map` (`:173-174`).
+   site file and the report map are copied aside (`DEPLOY.md:162-172`). The report map goes to `/root` because a `.pre`
+   copy inside `conf.d` loads as a second config and `nginx -t` stops on the duplicate `map` (`:173-174`).
 2. **Ship the tree.** `deploy-build-164.sh` preflights five paths and exits if any is missing — `build.py`,
-   `docs/site/home.html`, `data/site/extra-icon-items.txt`, the Hidden Street `items.json`, `cache/site-icons/manifest.json`
-   (`:18-20`) — then `ssh mkdir -p`, seven `rsync -a --delete` copies (`:21-27`) and `DEPLOYED_COMMIT` (`:28`).
+   `docs/site/home.html`, `extra-icon-items.txt`, the Hidden Street `items.json`, the icon manifest (`:18-20`) — then
+   `ssh mkdir -p`, seven `rsync -a --delete` copies (`:21-27`) and `DEPLOYED_COMMIT` (`:28`).
 3. **Build beside the live folder.** `build.py --private --world --no-tar --out /var/tmp/slums-site-161`
    (`DEPLOY.md:183-187`) renders into `{out}.new-{pid}` and renames it in only after the checks (`build.py:148-172`).
 4. **Check.** `build.finish` runs `check.check_all` and raises `SystemExit("site check failed with N problem(s): the
@@ -56,30 +56,30 @@ The live path, in the order the recipe enforces (`docs/site/DEPLOY.md:152-252`):
 6. **Units.** `diff` against the installed unit, `install -m 0644`, `daemon-reload`, restart login/report/market, then
    curl the three `/health` URLs for `{"ok": true}` (`DEPLOY.md:198-217`).
 7. **nginx.** Paste part 3 of `slums-login.nginx.conf` (clean URLs, `/admin/`, `/admin/data/`, `/api/report/staff/`,
-   `@signagain`, server-level `absolute_redirect off`) and part 1 of `slums-report.nginx.conf` (the `map`), then
+   `@signagain`, server-level `absolute_redirect off`) with part 1 of `slums-report.nginx.conf` (the `map`), then
    `nginx -t && systemctl reload nginx` (`DEPLOY.md:218-227`).
-8. **Timers on, then verify.** One `systemctl start` per oneshot, then the timers, `is-failed` and a grep on the rebuilt
-   page (`DEPLOY.md:229-233`); then signed-out and signed-in checks through `http://127.0.0.1:8092` (`:234-244`).
+8. **Timers on, then verify.** Start each oneshot, then the timers, `is-failed`, a grep on the rebuilt page
+   (`DEPLOY.md:229-233`), then signed-out and signed-in checks through `http://127.0.0.1:8092` (`:234-244`).
 
-Steady state uses `build.rebuild_section` instead (`build.py:178-212`): the section is built into `.stage-<folder>`, the
-live folder renamed to `.old-<folder>`, the stage renamed in (`:194-203`); the section-only check runs *after* the swap
+Steady state uses `build.rebuild_section` instead (`build.py:178-212`): the section builds into `.stage-<folder>`, the
+live folder is renamed to `.old-<folder>`, the stage renamed in (`:194-203`); the section-only check runs *after* the swap
 and, on `SystemExit`, deletes the new folder and renames `.old` back, "so a visitor never sees a half-written section"
 (`:205-211`). Both oneshots serialise through one flock (`slums-site-market.service:11`, `slums-site-world.service:11`),
 because one's link check would otherwise run while the other swaps a folder.
 
-TEST is the same build with another host, port and paths, driven by `install.sh` (`:11-95`): validate `SLUMS_TEST_HOST`
-and `SLUMS_TEST_NX_DESK` (`:11-18`), preflight the icon list (`:37-39`), hash the shared nginx's pid and `/etc/nginx`
-(`:40`), create folders and throwaway keys under `umask 077` (`:42-66`), seven rsyncs with `testdata/nx-desk` as the only
-testdata (`:68-76`), then in one remote script: `DEPLOYED_COMMIT`, `sed` `@TEST_HOST@`/`@NX_DESK@` into the nginx config
-and every unit, `daemon-reload`, `nginx -t -q -c`, a full build under `flock -w 300`/`nice -n 19`, `enable` and restart
-four services and two timers, start the oneshots, `is-active` (`:77-93`), and finally re-hash `/etc/nginx` and fail if the
-pid or config changed (`:94-95`). `--remove` reverses it and keeps the key, salts and market db (`:26-33`).
+TEST is the same build with another host, port and paths (`install.sh:11-95`): validate `SLUMS_TEST_HOST` and
+`SLUMS_TEST_NX_DESK` (`:11-18`), preflight the icon list (`:37-39`), hash the shared nginx's pid and `/etc/nginx`
+(`:40`), make folders and throwaway keys under `umask 077` (`:42-66`), seven rsyncs with `testdata/nx-desk` as the only
+testdata (`:68-76`), then one remote script: `DEPLOYED_COMMIT`, `sed` `@TEST_HOST@`/`@NX_DESK@` into the config and every
+unit, `daemon-reload`, `nginx -t -q -c`, a full build under `flock -w 300`/`nice -n 19`, `enable` and restart four
+services and two timers, start the oneshots, `is-active` (`:77-93`), then re-hash and fail if the pid or config changed
+(`:94-95`). `--remove` reverses it and keeps the key, salts and market db (`:26-33`).
 
-What rolls back: nothing automatic. The live rollback is a restore of step-1 backups in a fixed order — stop the timers,
-move the failed build and site folders aside, restore `/opt/slums-site-build`, `/srv/slums-site`, the two Python files,
-the three units, `conf.d/slums-report.conf` and the nginx site file, `daemon-reload`, restart, start the timers
-(`DEPLOY.md:254-272`); market-only is a single unit restore (`:274-277`). 1.6.3 added a narrower desk-only rollback
-(`DEPLOY.md:347-351`). TEST's only rollback is `install.sh --remove` (`:26-33`).
+What rolls back: nothing automatic. The live rollback restores the step-1 backups in a fixed order — timers stopped, failed
+folders moved aside, `/opt/slums-site-build`, `/srv/slums-site`, the two Python files, the three units,
+`conf.d/slums-report.conf` and the nginx site file back, `daemon-reload`, restart, timers on (`DEPLOY.md:254-272`);
+market-only is one unit restore (`:274-277`); 1.6.3 added a desk-only variant (`:347-351`). TEST's only rollback is
+`install.sh --remove` (`:26-33`).
 
 ## Data
 
@@ -140,7 +140,7 @@ the repo are copies, and the recipe says to `diff` a live unit before installing
 ## Origin
 
 All custom — the base v83 repack ships no site. Site repo branch `site-164-street`, 714 commits, root `03d13cb21`
-2026-10-18 "Establish deployable MapleRoot server baseline"; every file below arrives in one 2026-10-24…27 burst
+2026-10-18 "Establish deployable MapleRoot server baseline"; every deploy file arrives in one 2026-10-24…27 burst
 (`git log --follow … | tail -1`). `docs/site/DEPLOY.md` `74099f82c` was first (2026-10-24, "Add a public website"),
 `slums-report.*` `5122b392d` (10-25), then `93bbca9bb` (login), `99a001c04` (market), `61359e94a` (`deploy-build-164.sh`),
 `fc3daae81` (market units, message "not installed"), `c5e619de7` (world units) and `671c779de` (TEST copy) on 10-26,

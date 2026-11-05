@@ -48,19 +48,19 @@ inside the live folder, so the checks also gate the two unattended timers (`tool
 8. **Check.** `finish()` (`:134-141`) runs `check.check_all()`; each problem is printed as `FAIL <problem>` on stderr
    and the build raises `SystemExit("site check failed with N problem(s): the published site was left as it was,
    nothing was packed")`.
-9. **Swap.** Only on success: `out` → `<out>.old-<pid>`, `<out>.new-<pid>` → `out`, stale folder removed (`:169-172`).
-10. **Pack.** `make_tar()` (`:215-229`) writes `slums-site/…` with `uid=gid=0`, `uname=gname="root"`, modes `0755`
-    dirs / `0644` files, and sorted directory and file order.
-11. **One section.** `rebuild_section()` (`:178-212`) needs an existing `index.html` (`:180-181`), builds into
+9. **Swap and pack.** Only on success: `out` → `<out>.old-<pid>`, `<out>.new-<pid>` → `out`, stale folder removed
+   (`:169-172`). `make_tar()` (`:215-229`) writes `slums-site/…` with `uid=gid=0`, `uname=gname="root"`, modes `0755`
+   dirs / `0644` files, and sorted directory and file order.
+10. **One section.** `rebuild_section()` (`:178-212`) needs an existing `index.html` (`:180-181`), builds into
     `out/.stage-<folder>` (`:194-197`), swaps the folder in with two renames (`:199-203`), then runs the same check
     limited to that folder (`:205-206`); a failing check removes the new folder and restores `.old-<folder>`
     (`:207-211`). `pages` has no folder, so it is built in place (`:187-191`).
-12. **Stand-alone check.** `check_all()` (`tools/site/check.py:285-292`) is `check_forbidden + check_links +
-    check_noindex`, plus `check_top` for a private build, or `check_private` for a public one; a one-section rebuild
-    passes `only` and gets neither of the last two.
-13. **Preview.** `Handler.do_GET` (`tools/site/preview.py:60-71`) answers `/api/login/me`, refuses every other `/api/`
-    with 503, gates `/street/ /market/ /secret/` behind the `slums_session=preview` cookie, and otherwise serves files
-    through `SimpleHTTPRequestHandler` (`:131`).
+11. **Stand-alone check and preview.** `check_all()` (`tools/site/check.py:285-292`) is `check_forbidden +
+    check_links + check_noindex`, plus `check_top` for a private build, or `check_private` for a public one; a
+    one-section rebuild passes `only` and gets neither of the last two. `Handler.do_GET`
+    (`tools/site/preview.py:60-71`) answers `/api/login/me`, refuses every other `/api/` with 503, gates
+    `/street/ /market/ /secret/` behind the `slums_session=preview` cookie, and otherwise serves files through
+    `SimpleHTTPRequestHandler` (`:131`).
 
 ### What `check.py` refuses
 
@@ -120,7 +120,7 @@ half-read (`sections/market.py:48-55`, `sections/world.py:50-55`).
 | Game-written text can never fail a rebuild | one player name must not leave every page stale | `check.scrub()` (`tools/site/check.py:90-108`), called by `world.load` (`sections/world.py:58`) |
 | No absolute local path in output | pages must not leak `/root/…` or `/srv/…` | `FORBIDDEN` `/opt/ /srv/ /root/ /etc/` (`check.py:22-31`) + root-relative link refusal (`check.py:210`); measured zero in a 31,911-file private build |
 | No external request of any kind | the site "loads nothing from elsewhere" | `check.py:205-208` |
-| Deterministic output for the same inputs | section rebuilds must reproduce identical bytes | tested `tools/site/test_site.py:270-278`; two builds at HEAD hash-identical (219/219 files); the tarball is not — `make_tar` keeps each file's mtime (`tools/site/build.py:218-222`), so two builds gave 35 differing entry mtimes plus the gzip header mtime |
+| Deterministic output for the same inputs | section rebuilds must reproduce identical bytes | tested `tools/site/test_site.py:270-278`; two builds at HEAD were hash-identical (219/219 files), but the tarball is not — `make_tar` keeps each file's mtime (`tools/site/build.py:218-222`), so payloads matched while 35 entry mtimes and the gzip header mtime differed |
 | A full build never touches the published folder until the check passes | a visitor must never see a half-built site | `tools/site/build.py:156-172`; `tools/site/test_build_safety.py:31-45`. The `--section` folder path stages too (`:192-211`), but the `pages` branch writes in place (`:187-191`, see Known issues) |
 | Private sections never reach a public build | `/street/`, `/market/` are sign-in guarded | `check_private` (`check.py:236-248`); ordering at `check.py:285-292`; `tools/site/test_site.py:258-262` |
 | Search engines stay out | friends-only site | `robots.txt` + `noindex` in the first 4096 bytes (`check.py:270-282`); `tools/site/test_site.py:76-81` |
@@ -128,8 +128,8 @@ half-read (`sections/market.py:48-55`, `sections/world.py:50-55`).
 
 ## Origin
 
-Custom, written for this stack; the repo's baseline commit is `03d13cb21` (2026-10-18, "Establish deployable
-MapleRoot server baseline"), and every tool below arrived after it on branch `site-164-street`:
+Custom, written for this stack; the repo's baseline commit is `03d13cb21` (2026-10-18, the repack baseline this repo
+was cut from), and every tool below arrived after it on branch `site-164-street`:
 
 | File | First commit |
 |---|---|
@@ -150,7 +150,7 @@ Alpine for the live parts, Flask for the services) is `docs/site/FRAMEWORK.md:1-
 
 | Test file | Covers |
 |---|---|
-| `tools/site/test_site.py` | one real build in `setUpClass` (`:17-27`): pages exist, no leftover `{{` (`:96-101`), robots + noindex (`:76-81`), megaphone rail (`:83-90`), `check_forbidden`/`check_links` both empty (`:92-94`), tarball contents (`:177`), nav hides private sections (`:250-268`), one-section rebuild is byte-identical (`:270-280`), failed section swap rolls back and leaves no dot dirs (`:282-301`), icon tokens (`:332-341`), `ScrubTest` (`:1276-1285`) |
+| `tools/site/test_site.py` | one real build in `setUpClass` (`:17-27`): pages exist, no leftover `{{` (`:96-101`), robots + noindex (`:76-81`), megaphone rail (`:83-90`), both checks empty (`:92-94`), tarball contents (`:177`), nav hides private sections (`:250-268`), one-section rebuild byte-identical (`:270-280`), failed swap rolls back with no dot dirs (`:282-301`), icon tokens (`:332-341`), `ScrubTest` (`:1276-1285`) |
 | `tools/site/test_build_safety.py` | failed check keeps the published site, removes the stale tarball and leaves no `.new-` folder (`:31-45`); a good build replaces the site (`:42-46`); an unknown top-level folder fails a private build (`:51-65`); truncated JSON, `[]`, a row without `player_side`, and bad times are refused with a message, never a traceback (`:94-131`) |
 | `tools/site/test_clean_urls.py` | `clean_links` output exactly (`:26`) and that `check_links` follows clean URLs (`:37`) |
 | `tools/site/test_vendor.py` | the vendored Alpine file's sha256 is pinned and nothing unpinned sits in `vendor/` |
@@ -173,17 +173,16 @@ indirectly through note icon tokens (`test_site.py:332-341`); nothing asserts th
 - **NEW-FINDING:** `rebuild_section("pages", …)` writes into the live folder before checking and does not roll back
   (`tools/site/build.py:187-191`). Measured: after injecting `<a href="nowhere">`, the check failed and the published
   `index.html` kept the broken link.
-- **NEW-FINDING:** the preview cannot serve clean URLs: `/guide/money.html` is 200, `/guide/money` is 404, because
-  `SimpleHTTPRequestHandler` (`tools/site/preview.py:131`) does not emulate nginx's
-  `try_files $uri $uri.html $uri/ =404` (`tools/site/slums-login.nginx.conf:87`) — all 12 clean links on `guide/` are
-  dead in preview.
+- **NEW-FINDING:** the preview cannot serve clean URLs: `/guide/money.html` is 200, `/guide/money` is 404, since
+  `SimpleHTTPRequestHandler` (`tools/site/preview.py:131`) does not emulate nginx's `try_files` chain
+  (`tools/site/slums-login.nginx.conf:87`) — all 12 clean links on `guide/` are dead in preview.
 - **NEW-FINDING:** `check_links` reads only `href`/`src` (`tools/site/check.py:162-196`), so `srcset`, `<style>` `url()`
   in HTML and a web manifest can point at a missing file and still pass (`tools/site/common.py:100` would need it).
 - **NEW-FINDING:** doc drift — `build.py:179` and the comment at `:192-193` say "every 15 minutes"; both timers run
   every 2 minutes (`tools/site/slums-site-market.timer:10`).
-- **NEW-FINDING:** `check_noindex` leaves `robots.txt` unclosed (`tools/site/check.py:275`) — a `ResourceWarning` in
-  the suite — and `tools/site/test_site.py:1272-1273` calls `unittest.main()` mid-file, so `ScrubTest` (`:1276`) and
-  `AvatarTest` (`:1288`) run under `discover` (82 tests) but not under `python3 test_site.py` (80 tests).
+- **NEW-FINDING:** `check_noindex` leaves `robots.txt` unclosed (`tools/site/check.py:275`), a `ResourceWarning` in the
+  suite; and `tools/site/test_site.py:1272-1273` calls `unittest.main()` mid-file, so `ScrubTest` (`:1276`) and
+  `AvatarTest` (`:1288`) run under `discover` (82 tests) but not via `python3 test_site.py` (80 tests).
 
 ## State
 
