@@ -165,7 +165,12 @@ The four doc-level facts worth carrying:
   `BOT_DIRECTOR_BOOT_FILL_PER_SECOND=2`, `BOT_DECIDE_URL`, `BOT_DECIDE_TONE_URL`, `BOT_DECIDE_MODEL=jev-latest`,
   `BOT_DECIDE_TONE_MODEL=jev-latest`, `USE_FAMILY_SYSTEM=true`, `TUTORIAL_ISLAND_PROMPT=true`, `BOT_REBIRTH_ENABLED=true`,
   `BOT_REBIRTH_PER_DAY=2`, `DAMAGE_RANK_ENABLED=true`, `DAMAGE_RANK_MIN_BUILD=10640`, `OWNED_ALTS_SUMMON_ENABLED=true`, the
-  four `COMPANION_*_ENABLED=true`, `OWNED_ALTS_INVITE_SUMMON_ENABLED=true`, `STARFORCE_BOOST_PERCENTAGE2=0.2`.
+  four `COMPANION_*_ENABLED=true`, `OWNED_ALTS_INVITE_SUMMON_ENABLED=true`, `STARFORCE_BOOST_PERCENTAGE2=0.2`. Note what is
+  **absent**: `OWNED_ALTS_ENABLED`, the master switch, is not in 1.6.4's `SERVER_SET` (docs/release/1.6.4.conf:201-215) even
+  though 1.6.3's set it (`OWNED_ALTS_ENABLED=true`, docs/release/1.6.3.conf:113) — with the master at its `false` default
+  (src/main/java/config/ServerConfig.java:103) the six summon/companion switches below it do nothing, which is exactly the
+  1.6.3 regression the `ownedAltSwitchesLine` javadoc records ("left OWNED_ALTS_ENABLED at its false default, so @botme was
+  not available", ServerConfig.java:122-125). Separately,
   `DB_CONNECTION_TIMEOUT_MS` is deliberately **not** set (:149-152 explains why: the code default is 30 s and a 10 s pool
   timeout turned busy boot-fill waits into refusals).
 - **`CHANNELS=5`, `CHANNEL_LOAD=125`, `MIN_CLIENT_BUILD=10740`** are separate variables (:277-284), not `SERVER_SET` keys.
@@ -218,7 +223,7 @@ The four doc-level facts worth carrying:
 | src/test/java/config/ConfigTemplateCompletenessTest.java | 4 tests: every `ServerConfig` field in the template (:68), every `WorldConfig` field (:77), the template passes `WorldConfigs.validate` (:90), no breaking zero in the template (:106) |
 | src/test/java/config/WorldConfigsTest.java | `idOf` positional/explicit ids (:21), `UNSET` default (:29), live Bera-alone (:34), mixed ids (:43), duplicate id throws (:55), unknown id throws (:62) |
 | src/test/java/net/server/ServerWorldRegistryTest.java | the runtime half of ticket 41: `registerWorld` rejects a duplicate id and a wrong slot, worlds register in slot order, Bera-alone resolves as home world (:31-70) |
-| src/test/java/config/OwnedAltSwitchLineTest.java | `ownedAltSwitchesLine()` names all seven switches and reports the values actually booted with; the shipped conf states the master switch (:25-43) |
+| src/test/java/config/OwnedAltSwitchLineTest.java | 3 tests: `ownedAltSwitchesLine()` names all seven switches (:25), reports the values actually booted with (:32), and the shipped conf states the master switch (:43 — it reads `docs/release/1.6.3.conf:44`, so the assertion does not follow 1.6.4) |
 | src/test/java/config/FamilyConfigDefaultsTest.java, GmSecurityDefaultsTest.java, StarForceBoostDefaultTest.java, WeddingConfigDefaultsTest.java | per-family default assertions added when those defaults were wrong once (family, GM levels, star-force %, wedding reservation) |
 
 Auto-QA: `src/main/java/soloMapling/autoqa/AutoQaCatalog.java` has no config-loading check; `src/main/java/soloMapling/qa/`
@@ -236,6 +241,7 @@ by hand or reads the template), and `WorldConfig.channels = 0` is untested.
 | 181 / 273 | The shipped template was 9-10 lines and set 6 of 359 keys, so a fresh install booted with 13 boot-critical fields at 0 (`ITEM_EXPIRE_CHECK` broke the first `MapleMap.addPlayer`, `MAP_VISITED_SIZE` broke the first map change, `MOB_STATUS_AGGRO_INTERVAL` broke the aggro monitor). Fixed on `163-integration` (`fc17b56c4`, `3e451ef3a`) as `config.example.yaml` 537 lines + `ConfigTemplateCompletenessTest`; the ticket stays open only for the forward merge into `release-1.6.4` | docs/tickets/273-config-template-gap.md:3-14, :45-70; /root/work/STATUS-1.6.4.md does not carry the card (no line matches "config template") |
 | b296 | `STARFORCE_BOOST_PERCENTAGE2` was absent from live's config and read 0; live now sets `0.2` via `SERVER_SET` | docs/release/1.6.4.conf:216-217 |
 | 164 | `PARTY_SEARCH_REENTRY_LIMIT` had no initialiser, so an omitted key let a single empty search expire the leader for 77 ticks; now `= 10` at ServerConfig.java:414 | ServerConfig.java:409-414 |
+| NEW-FINDING: docs/release/1.6.4.conf:201-215 | 1.6.4's `SERVER_SET` turns on all six companion/summon switches but drops `OWNED_ALTS_ENABLED`, which 1.6.3's set to `true` (docs/release/1.6.3.conf:113). The master defaults to `false` (ServerConfig.java:103) and the javadoc records that exact configuration as the 1.6.3 failure ("left OWNED_ALTS_ENABLED at its false default, so @botme was not available", ServerConfig.java:122-125), so 1.6.4 ships owned alts disabled again. `OwnedAltSwitchLineTest.theShippedReleaseConfStatesTheMasterSwitch` (:43-51) asserts the master against `docs/release/1.6.3.conf:44`, a hardcoded path that no longer tracks the current release conf, so the test stays green either way | own reading of both confs + the test |
 | NEW-FINDING: src/main/java/config/ServerConfig.java:98 | `SPAWN_BOTS_ON_STARTUP` is declared, documented in config.example.yaml:108, described as unused in docs/release/1.3.0.md:156, and read by nothing in src/main/java. An operator who sets it gets silence | own reading (grep: one occurrence in src/) |
 | NEW-FINDING: src/main/java/config/WorldConfigs.java:55-81 | `validate` checks ids and nothing else. `channels: 0` passes and produces a world that starts, logs "Finished loading world", and can never accept a player; `channels: -3` likewise. Only `id` is range-checked | own reading |
 | NEW-FINDING: src/main/java/config/ServerConfig.java:416 | `WORLD_TRANSFER_COOLDOWN = NAME_CHANGE_COOLDOWN` is evaluated once at construction, so a file setting only `NAME_CHANGE_COOLDOWN` silently moves the world-transfer cooldown with it, while a file setting both is order-independent only because yamlbeans writes fields after construction. The intent ("default is same as name change") is a default, not an alias | own reading |

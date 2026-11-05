@@ -26,7 +26,7 @@ packets.
 | `CASHSHOP_SURPRISE` | `0xA1` (`RecvOpcode.java:169`) | `PacketProcessor.java:262` | `src/main/java/net/server/channel/handlers/CashShopSurpriseHandler.java:33` |
 | `CHECK_CASH` | `0xE4` (`RecvOpcode.java:204`) | `PacketProcessor.java:210` | `src/main/java/net/server/channel/handlers/TouchingCashShopHandler.java:34` |
 | `ENTER_MTS` | `0x9C` (`RecvOpcode.java:165`) | `PacketProcessor.java:188` | `src/main/java/net/server/channel/handlers/EnterMTSHandler.java:56` |
-| `MTS_OPERATION` | `0xFD` (`RecvOpcode.java:210`) | **not registered** — `PacketProcessor.java:227` is commented out | `src/main/java/net/server/channel/handlers/MTSHandler.java:60` (dead) |
+| `MTS_OPERATION` | `0xFD` (`RecvOpcode.java:210`) | **not registered** — `PacketProcessor.java:227` is commented out | `src/main/java/net/server/channel/handlers/MTSHandler.java:58` (dead) |
 | `COUPON_CODE` | `0xE6` (`RecvOpcode.java:206`) | `PacketProcessor.java:212` | `src/main/java/net/server/channel/handlers/CouponCodeHandler.java:189` |
 | `USE_CASH_ITEM` | `0x4F` (`RecvOpcode.java:101`) | `PacketProcessor.java:164` | `src/main/java/net/server/channel/handlers/UseCashItemHandler.java:78` |
 
@@ -55,10 +55,10 @@ packets.
    `enableActions()` (`:49`). `scripts/npc/9010004.js:24` turns that NPC into a menu whose option 0 is
    `cm.openNpc(9010004, "rooty")` — i.e. Rooty / Donor Shop, not a cash shop.
 
-The stock stage transition is gone. `/root/workspace/cosmicms/.../EnterCashShopHandler.java:35-95` had buff storage,
+The stock stage transition is gone. `/root/workspace/cosmicms/src/main/java/net/server/channel/handlers/EnterCashShopHandler.java:41-90` had buff storage,
 `cancelAllBuffs`, quest forfeit, `openCashShop`/`showCashInventory`/`showGifts`/`showWishList` packets,
-`getChannelServer().removePlayer(mc)`, `mc.getMap().removePlayer(mc)`, `getCashShop().open(true)` and
-`mc.saveCharToDB()`. None of those calls exist in ours. `PacketCreator.openCashShop(Client, boolean)`
+`getChannelServer().removePlayer(mc)` (`:87`), `mc.getMap().removePlayer(mc)` (`:88`), `getCashShop().open(true)` (`:89`) and
+`mc.saveCharToDB()` (`:90`). None of those calls exist in ours. `PacketCreator.openCashShop(Client, boolean)`
 (`src/main/java/tools/PacketCreator.java:7239`) still compiles but has no caller.
 
 ### 2. Browsing (`CASHSHOP_WINDOW_ACTION`, 0x3730)
@@ -144,8 +144,8 @@ the inventory rather than the cash locker, because the locker reply (`0x145`) is
 
 ### 5. Cash-shop stage exit
 
-`ChangeMapHandler.java:63` distinguishes a map change from a shop exit by `p.available() == 0` (`:63`).
-`:69` disconnects a normal map change while `isOpened()`. `enterFromCashShop` (`:182-195`): `:185` disconnects if the
+`ChangeMapHandler.java:63` distinguishes a map change from a shop exit by `p.available() == 0`.
+`:69-72` disconnects a normal map change while `isOpened()`. `enterFromCashShop` (`:182-195`): `:185` disconnects if the
 flag is not set (so a forged empty packet cannot be used to skip the map), then socket checks, then
 `chr.getCashShop().open(false)` (`:194`) and a channel change. Other readers of the flag:
 `ChangeChannelHandler.java:44` (refuses a channel change), `WhisperHandler.java:87` (reports `RT_CASH_SHOP`),
@@ -157,15 +157,15 @@ flag is not set (so a forged empty packet cannot be used to skip the map), then 
 `EnterMTSHandler` is the Free Market button (`PacketProcessor.java:188`), not MTS:
 
 1. Dead → notice + `enableActions` (`EnterMTSHandler.java:59-63`).
-2. `if (mc.cannotEnterCashShop())` → bare `enableActions` (`:67`; `cannotEnterCashShop` is the transient
+2. `if (mc.cannotEnterCashShop())` → bare `enableActions` (`:67-70`; `cannotEnterCashShop` is the transient
    `blockCashShop` flag, `Character.java:1002`, only ever toggled by the Vega path,
    `UseCashItemHandler.java:619`/`:641`).
-3. Event instance (`:70`) and `MiniDungeonInfo.isDungeonMap` (`:79-83`) refusals.
+3. Event instance (`:72`) and `MiniDungeonInfo.isDungeonMap` (`:79-82`) refusals.
 4. `fmButtonRefusal(mapId, fieldLimit)` (`:88`, `:121`) refuses `JAIL`, `MAPLEROOT_HUB` ("already in the Free Market")
    and `FieldLimit.CANNOTMIGRATE`. This replaces the stock MTS repack's missing map check (comment at `:85-87`).
 5. `pressAllowed(charId, now)` (`:95`, `:111`) enforces `PRESS_COOLDOWN_MS = 2_000` (`:107`) via a
    `ConcurrentHashMap` of last press (`:109`).
-6. `saveLocation("FREE_MARKET")`, `changeMap(MapId.MAPLEROOT_HUB, 0)`, `saveCharToDB()` (`:99-101`).
+6. `saveLocation("FREE_MARKET")`, `changeMap(MapId.MAPLEROOT_HUB, 0)`, `saveCharToDB()` (`:101-103`).
 
 `MTSHandler.java` (852 lines) is fully present but unreachable: `PacketProcessor.java:227` is
 `//registerHandler(RecvOpcode.MTS_OPERATION, new MTSHandler());`. If it were enabled its gate is
@@ -184,16 +184,17 @@ flag is not set (so a forged empty packet cannot be used to skip the map), then 
    refuses), `SELECT * FROM nxcode WHERE code = ?` (`:124`), `-1` missing, `-2` already retrieved, `-3` expired,
    `-4` inventory cannot hold the reward. Then the claim:
    `UPDATE nxcode SET retriever = ? WHERE code = ? AND retriever IS NULL` (`:151`) and
-   `if (ps.executeUpdate() != 1) return -2` — comment at `:149-150`: *"the claim is the check … two redeems at once
+   `if (ps.executeUpdate() != 1) return -2` (`:151-157`) — comment at `:149-150`: *"the claim is the check … two redeems at once
    both passed the SELECT above and both got the NX"*. A `SQLException` returns `-1` with the comment that nothing is
-   credited unless the claim committed (`:158-162`).
+   credited unless the claim committed (`:159-163`).
 4. Negative results map to `showCashShopMessage` bytes via `parseCouponResult` (`:169`):
    `-1→0xB0`, `-2→0xB3`, `-3→0xB2`, `-4→0xBB`, else `0xB1`.
-5. Reward switch (`:212-247`): type `0` mesos → `gainMeso`; `4` → `gainCash(1, q)` NX credit; `1` → `gainCash(2, q)`
-   maple point; `2` → `gainCash(4, q)` prepaid; `3` → `gainCash(1, q)` plus `gainCash(4, q / 5000)`; default is an
-   item — cash items go through `CashShop.generateCouponItem(item, qty)` into the cash inventory
-   (`CashShop.java:589`), non-cash through `InventoryManipulator.addById`.
-6. Reply: cash items are capped at 255 (`:259-268`), then
+5. Reward switch (`:212-258`): type `0` mesos → `gainMeso` (`:213-216`); `4` → `gainCash(1, q)` NX credit
+   (`:217-220`); `1` → `gainCash(2, q)` maple point (`:221-224`); `2` → `gainCash(4, q)` prepaid (`:225-228`);
+   `3` → `gainCash(1, q)` plus `gainCash(4, q / 5000)` (`:229-234`); default is an item (`:236-257`) — cash items go
+   through `CashShop.generateCouponItem(item, qty)` into the cash inventory (`:249-252`, `CashShop.java:589`),
+   non-cash through `InventoryManipulator.addById` (`:254`).
+6. Reply: cash items are capped at 255 (`:260-268`), then
    `if (nxCredit != 0 || nxPrepaid != 0) showBoughtQuestItem(0) else showCouponRedeemedItems(...)` (`:269-273`) —
    comment: "coupon packet can only show maple points (afaik)". `c.enableCSActions()` (`:274`),
    `releaseClient()` in the `finally` (`:277`).
@@ -234,9 +235,9 @@ Everything else in `UseCashItemHandler` is inventory-side and documented in
 
 | Store | Where | Written by |
 |---|---|---|
-| `accounts.nxCredit / maplePoint / nxPrepaid` | `CashShop.java:286` (read), `:511-540` (save) | every `gainCash`; persisted in `saveCharToDB` (`Character.java:10302`) |
+| `accounts.nxCredit / maplePoint / nxPrepaid` | `CashShop.java:286` (read), `:511-543` (save) | every `gainCash`; persisted in `saveCharToDB` (`Character.java:10302`) |
 | Cash-shop inventory (`ItemFactory` `CASH_EXPLORER`/`CASH_CYGNUS`/`CASH_ARAN`/`CASH_OVERALL`) | `src/main/java/client/inventory/ItemFactory.java:34-46`; loaded `CashShop.java:309-312` | `CashShop.addToInventory` / `removeFromInventory` |
-| `wishlists` | `CashShop.java:298` (read), `:509-540` (delete+insert) | action `0x05` |
+| `wishlists` | `CashShop.java:298` (read), `:529-543` (delete+insert) | action `0x05` |
 | `nxcode` / `nxcode_items` | `CouponCodeHandler.java:124` / `:59` | `UPDATE nxcode SET retriever` (`:151`) |
 | `mts_items` | `MTSHandler.java:115-151` | dead — handler unregistered |
 | `rings` | `cashshop/CashShopPartnerRings.java:397` | partner-ring purchase |
@@ -360,11 +361,11 @@ wire compatibility — the DLL is not in this repo.
 | `b290` (`/root/work/STATUS-1.6.4.md:40`, S2) | Vega's Spell: a level-based roll replaced the fed scroll, a pure loss at level 15+. Fixed by the 5-arg `scrollEquipWithId` (`UseCashItemHandler.java:627`, commit `b0e5e4c58`) with `VegaAppliesFedScrollTest`; `/root/work/COORDINATOR-REPORT-1.6.4.md:300` notes b290/b297 share `UseCashItemHandler.java` with "low" overlap |
 | `NEW-FINDING:` `EnterCashShopHandler.java:41-45` | The window path skips every stocking gate the stock handler had — no `cannotEnterCashShop`, event, or MiniDungeon check, and no `isOpened()` check. A player allowed into an event instance can open the window; `EnterMTSHandler.java:67-83` shows the intended refusals exist, so the window path is the odd one out. Cosmetic only while purchases are inventory-delivered, but it contradicts the sibling handler. |
 | `NEW-FINDING:` `CashShopSurpriseHandler.java:33-40` | Guarded by `cs.isOpened()`, which the window path never sets, so the packet is dead on live. `CashShop.openCashShopSurprise` (`CashShop.java:560`) is reachable only through the dead stage, and item `5222000` is not in `cashshop/catalog.tsv`, so the surprise box can be neither bought nor opened. |
-| `NEW-FINDING:` `MTSHandler.java:60` | 852 lines of unreachable MTS code retained in the tree with DB writes (`mts_items` INSERT/UPDATE/DELETE at `:135`, `:151`, `:253`, `:323`). Keeping the class is `DELIBERATE` per `classifications.json`, but nothing prevents a future `registerHandler` line from enabling an untested economy path. |
+| `NEW-FINDING:` `MTSHandler.java:58-65` | 852 lines of unreachable MTS code retained in the tree with DB writes (`mts_items` INSERT/UPDATE/DELETE at `:135`, `:151`, `:253`, `:323`). Keeping the class is `DELIBERATE` per `classifications.json`, but nothing prevents a future `registerHandler` line from enabling an untested economy path. |
 | `NEW-FINDING:` `CashShopWindowHandler.java:121-123` | A short `p.available() < 4` single buy returns **silently** — no `buyResult`, no `enableActions`. The cart path answers `BUY_BAD_CART` for the equivalent malformed case (`:145-150`), so the two disagree; a crafted short packet leaves a real client waiting. |
 | `NEW-FINDING:` `CouponCodeHandler.java:259-268` | The 255 cash-item cap silently drops items beyond 255 (`cashItems = Arrays.asList(new Item[255])` discards the tail) *after* the code has been claimed, so a big reward is unrecoverable. |
-| `NEW-FINDING:` `CashOperationHandler.java:115` | `//TODO check for gender` on the gift action `0x04` — a gift can be sent for a wearable the recipient cannot wear, unlike the window path which refuses with `BUY_CANNOT_WEAR` (`CashShopServices.check`). |
-| `NEW-FINDING:` `CashShop.java:269-283` | `factory` stays `null` for any `jobType` outside 0/1/2 when `USE_JOINT_CASHSHOP_INVENTORY` is false; `loadItems` at `:311` would NPE. Job types come from the DB, so a corrupted/added job type breaks the character load. |
+| `NEW-FINDING:` `CashOperationHandler.java:114` | `//TODO check for gender` on the gift action `0x04` — a gift can be sent for a wearable the recipient cannot wear, unlike the window path which refuses with `BUY_CANNOT_WEAR` (`CashShopServices.check`). |
+| `NEW-FINDING:` `CashShop.java:269-283` | `factory` stays `null` for any `jobType` outside 0/1/2 when `USE_JOINT_CASHSHOP_INVENTORY` is false, and `factory.loadItems(...)` at `:311` then NPEs — so the character cannot load. `jobType` is `job.getId() / 1000` (`src/main/java/client/Character.java:6403-6405`) and `Job.EVAN1(9900)` (`src/main/java/client/Job.java:63`) divides to `9`, so an Evan character load is the concrete trigger. Inherited from the base (`/root/workspace/cosmicms/src/main/java/server/CashShop.java:84-96` has the same switch), not introduced here, but it is on the cash-shop load path this file documents. |
 
 ## State
 

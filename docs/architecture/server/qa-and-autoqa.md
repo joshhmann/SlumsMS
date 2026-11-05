@@ -12,11 +12,11 @@ live's unit does not pass, and every hook they use is inert when nothing is list
 
 | Entry | What starts it | File:line |
 |---|---|---|
-| `!qa` (no args) | opens the NPC window listing every scenario, grouped | src/main/java/soloMapling/menus/QaMenu.java:78 (NPC id 9010000 at :29), called from src/main/java/client/command/commands/gm3/QaCommand.java:28 |
-| `!qa list` / `run` / `do` / `where` / `stop` | the five command cases | src/main/java/client/command/commands/gm3/QaCommand.java:38-54 |
-| command registration | `if (soloMapling.qa.QaSuite.isEnabled())` → `qa` (rank 3), `botcombat`, `godlydrop` | src/main/java/client/command/CommandsExecutor.java:376-380 |
-| `!autoqa run|status|stop|report|health|list` | registered only when `AutoQa.isEnabled()` | src/main/java/client/command/CommandsExecutor.java:385-387; cases src/main/java/client/command/commands/gm3/AutoQaCommand.java:31-95 |
-| `!botwatch`, `!socialtrace`, `!decideshadow` | same gates, adjacent | src/main/java/client/command/CommandsExecutor.java:389-397 |
+| `!qa` (no args) | opens the NPC window listing every scenario, grouped; a click replays the typed `!qa run <id>` | src/main/java/soloMapling/menus/QaMenu.java:78 (NPC id 9010000 at :29), called from src/main/java/client/command/commands/gm3/QaCommand.java:28-32 |
+| `!qa list` / `run` / `do` / `where` / `stop` | the five command cases, all behind a rank-3 GM | src/main/java/client/command/commands/gm3/QaCommand.java:38-55 |
+| command registration | `if (soloMapling.qa.QaSuite.isEnabled())` → `qa` (rank 3), `botcombat`, `godlydrop` | src/main/java/client/command/CommandsExecutor.java:377-381 |
+| `!autoqa run|status|stop|report|health|list` | registered only when `AutoQa.isEnabled()` | src/main/java/client/command/CommandsExecutor.java:386-388; cases src/main/java/client/command/commands/gm3/AutoQaCommand.java:26-95 (`run` :31, `status` :48, `stop` :49, `report` :50, `health` :51, `list` :56) |
+| `!botwatch`, `!socialtrace`, `!decideshadow` | `!qa` **or** `!autoqa` for botwatch; `!autoqa` or the `SocialTrace`/`DecideShadow` property for the other two | src/main/java/client/command/CommandsExecutor.java:389-397 |
 | health sweeps (no player input) | `AutoQa.boot()` from environment start | src/main/java/soloMapling/Environment/EnvironmentManager.java:151 → src/main/java/soloMapling/autoqa/AutoQa.java:90-105 |
 | nightly `!autoqa run all` | `scheduleAtFixedRate(1 day)` at `AUTOQA_NIGHTLY_UTC_HOUR` | src/main/java/soloMapling/autoqa/AutoQaService.java:375-392 |
 | operator queue (`tools/ops/autoqa-run`, cron/CI) | `run-queue.txt` polled every 30 s | src/main/java/soloMapling/autoqa/AutoQaService.java:403-421; writer tools/ops/autoqa-run:47-57 |
@@ -240,12 +240,12 @@ prefix are the exact count of `Check.auto/half/manual("t-<prefix>-n")` calls, an
 |---|---|---|
 | `Server/logs/qa/<scenarioId>-<yyyyMMddTHHmmssZ>[-<gmId>].log` | `QaRun.open/write/stop` (src/main/java/soloMapling/qa/QaRun.java:75-99, 148-249) | `#` header, `STAGE`, `TOPIC` event lines `<time> <KIND> <message>`, `TICK`, `CLEANUP undone: …`, `SUMMARY <topic n, …> events` |
 | `data/autoqa/report-<yyyy-MM-dd>.json`, `data/autoqa/latest.json` | `AutoQaReport.write` (src/main/java/soloMapling/autoqa/AutoQaReport.java:368) | build, day, updated, `summary{PASS,FAIL,SKIP,NOT_RUN,total}`, `health{status,summary,time}`, `runs[{trigger,started,finished,checks,PASS,FAIL,SKIP,parallel,…}]`, `checks{"t-af-1":{status,title,kind,reason,evidence≤40,started,finished,seconds,build}}` (:16-32) |
-| `data/autoqa/health-latest.json`, `data/autoqa/health/<day>.jsonl` | `HealthSweeper.write` (:114-123) | status, summary, botsSeen, botsSampled, mapsSeen, per-check map |
+| `data/autoqa/health-latest.json`, `data/autoqa/health/<day>.jsonl` | `HealthSweeper.write` (src/main/java/soloMapling/autoqa/HealthSweeper.java:114-123) | time, build, durationMs, status, summary, botsSeen, botsSampled, mapsSeen, `checks{foothold, "foothold (sent)", stuck, clumps, overlap, channelSplit, invalidMaps, errors, mapCap, chatModel}` |
 | `data/autoqa/run-queue.txt`, `run-queue.work`, `run-queue.seq`, `run-request.txt` | `tools/ops/autoqa-run` (:47-57) then `AutoQaRunQueue` (src/main/java/soloMapling/autoqa/AutoQaRunQueue.java:20-67) | one `<n>TAB<UTC stamp>TAB<request>` line per request |
-| `data/autoqa/social-trace/<day>.jsonl`, `social-trace-latest.json` | `SocialTrace` (src/main/java/soloMapling/autoqa/SocialTrace.java:35-41) | one bot↔bot episode per line, pipeline stage verdicts |
-| `data/autoqa/client-verdicts/` | read by `ClientScriptVerdicts.load` (:43), applied per release report (:150) | scripted-client verdicts per check id (ticket 166) |
-| `data/autoqa/<other>` | `ChatQuality` (chat-quality-*.json), `BotWatch` (:552), `DecideShadow`, `SayDo` (:705) | day files, gzipped after `-Dslums.history.gzipDays` (default 30) and deleted after `-Dslums.history.autoqaKeepDays` (src/main/java/soloMapling/autoqa/AutoQa.java:43-60) |
-| `data/convo/routing/<day>.jsonl` | `RouteLog.log` (src/main/java/soloMapling/ArtificialPlayer/BotMessagingSystem/RouteLog.java:60-85) | routing decisions; also mirrored to the `CONVO` topic as `ROUTE CANDIDATES {json}` |
+| `data/autoqa/social-trace/<day>.jsonl`, `social-trace-latest.json` | `SocialTrace` (src/main/java/soloMapling/autoqa/SocialTrace.java:34-41, paths resolved at :816, :820) | one bot↔bot episode per line, pipeline stage verdicts, closed after the follow-up window |
+| `data/autoqa/client-verdicts/` | read by `ClientScriptVerdicts.load` (src/main/java/soloMapling/autoqa/ClientScriptVerdicts.java:43, dir name `client-verdicts` at :31), applied per release report (:150) | scripted-client verdicts per check id (ticket 166) |
+| `data/autoqa/<other>` | `ChatQuality` (`chat-quality-<day>.json`, src/main/java/soloMapling/autoqa/ChatQuality.java:648), `BotWatch` (src/main/java/soloMapling/autoqa/BotWatch.java:552), `DecideShadow`, `SayDo` (src/main/java/soloMapling/ArtificialPlayer/BotConvo/SayDo.java:700-705, skipped entirely on live by `!AutoQa.isEnabled()`) | day files, gzipped after a month and deleted after `-Dslums.history.autoqaKeepDays` (src/main/java/soloMapling/autoqa/AutoQa.java:43-60) |
+| `data/convo/routing/<day>.jsonl` | `RouteLog.log` (src/main/java/soloMapling/ArtificialPlayer/BotMessagingSystem/RouteLog.java:69-85, written only while `toDisk()`) | routing decisions; also mirrored to the `CONVO` topic as `ROUTE CANDIDATES {json}` |
 
 `QaLog` carries 45 `Topic` constants, each a bit in one `long` mask (src/main/java/soloMapling/qa/QaLog.java:28-73);
 hooks are guarded by `QaLog.on(topic)` (:160-162) so they cost one bit test when no run listens. 392 `QaLog.*` call
@@ -257,23 +257,23 @@ sites exist outside `soloMapling/qa` (i.e. in product code), across 119 files.
 |---|---|---|---|
 | `-Dslums.qa` | unset | registers `!qa`/`!botcombat`/`!godlydrop` and turns every `QaLog` hook live (src/main/java/soloMapling/qa/QaSuite.java:33,77; src/main/java/client/command/CommandsExecutor.java:376-380) | **absent** — not in `SERVER_SET` (:201-213) nor in the `-D` list (:217-240); live has no `!qa` |
 | `-Dslums.attackcapture` | unset | also enables `!qa` (`QaSuite.isEnabled` ORs it in, :77-78); TEST is recorded as passing it (docs/ops/qa-suite.md:9, src/test/java/soloMapling/qa/QaRegistryTest.java:13-24) | absent |
-| `-Dslums.autoqa` | unset | registers `!autoqa`, starts health sweeps and the nightly run (src/main/java/soloMapling/autoqa/AutoQa.java:26,33,90) | **absent** — grep for `slums.qa`/`slums.autoqa` over docs/release/1.6.4.conf returns nothing |
-| `AUTOQA_ENABLED` | `false` | config twin of `-Dslums.autoqa` (src/main/java/config/ServerConfig.java:206) | not in `SERVER_SET` (:201-213) → false |
+| `-Dslums.autoqa` | unset | registers `!autoqa`, starts health sweeps and the nightly run (src/main/java/soloMapling/autoqa/AutoQa.java:26,33-42,90-105) | **absent** — grep for `slums.qa`/`slums.autoqa` over docs/release/1.6.4.conf returns nothing |
+| `AUTOQA_ENABLED` | `false` | config twin of `-Dslums.autoqa`; either one is enough (src/main/java/config/ServerConfig.java:206, src/main/java/soloMapling/autoqa/AutoQa.java:33-42) | not in `SERVER_SET` (:201-213) → false |
 | `AUTOQA_SWEEP_MINUTES` | `5` | health sweep period, floored at 1 (src/main/java/soloMapling/autoqa/HealthSweeper.java:42) | not set |
 | `AUTOQA_SWEEP_MAX_BOTS` | `3000` | bots sampled per sweep (ServerConfig.java:208) | not set |
 | `AUTOQA_STUCK_MINUTES` | `3` | same spot while moving = stuck (:209) | not set |
 | `AUTOQA_CLUMP_RADIUS` | `30` px | clump radius (:210) | not set |
 | `AUTOQA_CLUMP_MIN_BOTS` | `5` | floored at 2 by the sweeper (:211) | not set |
 | `AUTOQA_NIGHTLY_UTC_HOUR` | `10` | nightly `run all`; `-1` = none (src/main/java/soloMapling/autoqa/AutoQaService.java:375-380) | not set |
-| `AUTOQA_JUDGE_MAX_CALLS` | `40` | LLM judge calls per run (src/main/java/soloMapling/autoqa/LlmJudge.java:22-28,101) | not set |
-| `-Dslums.qa.timeScale` | unset (1.0) | scales staged windows, clamped 0.1..1.0 (src/main/java/soloMapling/qa/QaTiming.java:22-43); `--fast` sets 0.4 for one run (:25,71-75) | n/a |
-| `-Dslums.autoqa.dir` | `data/autoqa` | report/queue/health root (src/main/java/soloMapling/autoqa/AutoQa.java:67-69) | n/a |
-| `-Dslums.autoqa.parallel` | `1` | lanes, clamped 1..10 (src/main/java/soloMapling/autoqa/AutoQaScheduler.java:22,40-42); docs/ops/qa-suite.md:964 records that a release conf passes `=10` | unset |
-| `-Dslums.autoqa.longestFirst` | `false` | pack lanes longest-budget-first (AutoQaScheduler.java:31-37) | unset |
-| `-Dslums.autoqa.settleMs` | `180000` | settle wait after a server start (src/main/java/soloMapling/autoqa/AutoQaRunner.java:47) | unset |
-| `-Dslums.autoqa.kpqStallMin` | `8` (`0` = off) | a progress-guarded wait FAILs after this much silence (src/main/java/soloMapling/autoqa/Steps.java:158-211) | unset |
+| `AUTOQA_JUDGE_MAX_CALLS` | `40` | LLM judge calls per run, floored at 0 (src/main/java/config/ServerConfig.java:213, read at src/main/java/soloMapling/autoqa/LlmJudge.java:70) | not set |
+| `-Dslums.qa.timeScale` | unset → 1.0 | scales every staged window, clamped 0.1..1.0; a bad value falls back to 1.0 (src/main/java/soloMapling/qa/QaTiming.java:22-28, 79-95); `--fast` overrides it with 0.4 for one run (:25, 71-75) | n/a |
+| `-Dslums.autoqa.dir` | `data/autoqa` | report/queue/health root (src/main/java/soloMapling/autoqa/AutoQa.java:67-69), relative to the server working directory | n/a |
+| `-Dslums.autoqa.parallel` | `1` | lanes, `Math.max(1, Math.min(MAX_LANES, …))` where `MAX_LANES` = 10 (src/main/java/soloMapling/autoqa/AutoQaScheduler.java:21-22, 40-42; src/main/java/soloMapling/autoqa/SyntheticPlayers.java:61). JVM property only — no `config.yaml` key (docs/ops/qa-suite.md:948-950). No `.conf` in docs/release/ passes it | unset |
+| `-Dslums.autoqa.longestFirst` | `false` | pack lanes longest-budget-first (src/main/java/soloMapling/autoqa/AutoQaScheduler.java:30-37) | unset |
+| `-Dslums.autoqa.settleMs` | `180000` | settle wait after a server start, floored at 0 (src/main/java/soloMapling/autoqa/AutoQaRunner.java:46-48) | unset |
+| `-Dslums.autoqa.kpqStallMin` | `8` min (`0` = off) | a progress-guarded wait FAILs after this much silence (src/main/java/soloMapling/autoqa/Steps.java:157-160, 208-212) | unset |
 | `-Dslums.history.autoqaKeepDays` | unset (keep) | deletes auto-QA day files after N days (src/main/java/soloMapling/autoqa/AutoQa.java:43-47) | n/a |
-| `-Dslums.qa.feed` | unset | starts the `/qa/events` HTTP feed (src/main/java/soloMapling/inspect/QaEventFeed.java:60-61,109) | absent |
+| `-Dslums.qa.feed` | unset | starts the `/qa/events` HTTP feed; only the literal `true` counts (src/main/java/soloMapling/inspect/QaEventFeed.java:60-61, 109-116) | absent |
 
 Live verdict: **live runs neither suite.** `SERVER_SET` in docs/release/1.6.4.conf:201-213 carries only `config.yaml`
 keys (bot caps, family/tutorial/rebirth/damage-rank/companion switches, `STARFORCE_BOOST_PERCENTAGE2=0.2`), and the `-D`
@@ -358,6 +358,8 @@ thresholds have no test against a live population.
 | NEW-FINDING: src/main/java/soloMapling/qa/QaLog.java:76 | — | The comment `// a long: 34 topics no longer fit an int` is stale: the enum holds 45 constants (`OWNED_ALT` at :28 … `PETPOT` at :73); the mask is still a single `long`, so this is documentation drift only. |
 | NEW-FINDING: src/test/java/soloMapling/autoqa/AutoQaSchedulerTest.java:251-253 | — | The guard that catches undeclared shared state knows only five literal patterns (`MANNERS|TALLY|WEALTH |TRADE SHOP|clumpsOnMyMap`) and matches them against step *descriptions*; a new probe that reads map-wide lines under another wording passes the guard, which is exactly the failure class of b284. |
 | NEW-FINDING: src/main/java/soloMapling/autoqa/AutoQaRunner.java:211-247 + AutoQaScheduler.java:86-115 | — | A `WORLD` check runs only when `busy` is empty (`canStart`, AutoQaScheduler.java:74-79) while `pick` always takes the first pending check that *can* start (:86-101), so with parallel>1 a world check placed early in the catalogue is pushed to the end of the run and everything behind it runs first — the declared minutes budget is still honoured per check, but the run's wall time pays for it. |
+| NEW-FINDING: docs/ops/qa-suite.md:949 | — | The doc says the lane switch can be set as `AUTOQA_PARALLEL` "in a release conf", but no such `ServerConfig` field exists (src/main/java/config/ServerConfig.java:204-213 lists every `AUTOQA_*` key) and `AutoQaScheduler.parallel()` reads only the JVM property (src/main/java/soloMapling/autoqa/AutoQaScheduler.java:40-42), so a release conf that sets `AUTOQA_PARALLEL` would silently run serial. |
+| NEW-FINDING: docs/tickets/167-parallel-autoqa.md:43 | — | The ticket records the cap as "clamped to 1..4"; the code clamps to `SyntheticPlayers.MAX_LANES` = 10 since 1.6.3 (src/main/java/soloMapling/autoqa/AutoQaScheduler.java:41, src/main/java/soloMapling/autoqa/SyntheticPlayers.java:61), so the ticket's lane/slot arithmetic (`2k+2+logical`, up to slot 12) understates the table that exists (slots 7..24, docs/ops/qa-suite.md:950-953). |
 | NEW-FINDING: src/main/java/soloMapling/autoqa/AutoQaRunner.java:355-400 | — | A check whose expectations all SKIP is reported SKIP with reason `nothing could be judged here`, and a release run then fails it unless it is on the allow-list — an infrastructure skip (server not fully up, probe disabled) is indistinguishable in the report from a genuinely skipped feature. |
 
 ## State

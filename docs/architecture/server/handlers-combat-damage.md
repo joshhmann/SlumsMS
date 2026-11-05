@@ -54,9 +54,9 @@ combat-adjacent scope hints only because of the name.
 
 | Handler | parse call | Gates before `applyAttack` | `applyAttack` argument |
 |---|---|---|---|
-| `CloseRangeDamageHandler` | `parseDamage(p, chr, false, false)` `:55` | morph-without-attack → `getClient().disconnect(false, false)` `:57-60`; dojo secret skill `1009/10001009/20001009` needs 10000 energy `:65`; dojo energy gain `:70-71`; finisher/orb bookkeeping `:80-131`; `SACRIFICE` self-damage `:145`; bamboo dojo reset `:165-170`; cooldown `:176-180`; Darksight/Wind Walk cancel `:184-189` | `attackCount` computed at `:157-159` (`getAttackEffect(chr,null).getAttackCount()`), passed at `:192` |
-| `RangedAttackHandler` | `parseDamage(p, chr, true, false)` `:62` | morph `:65-68`; dojo energy `:74-75`; `WeaponType.NOT_A_WEAPON` return `:106-107`; bullet/soul-arrow/shadow-claw accounting `:112-185`; projectile level gates `:148-161`; visible-projectile (cash `5021`) `:191-204`; cooldown `:226-230`; Darksight cancel `:235-237` | `bulletCount` `:243`; energy-orb/spark/taunt and Shark Wave short-circuit with `1` `:82`, `:86`; Aran combos `2/3/5` `:96`, `:99`, `:102` |
-| `MagicDamageHandler` | `parseDamage(p, chr, false, true)` `:51` | morph `:54-57`; dojo energy `:63-64`; cooldown `:77-83` | `effect.getAttackCount()` `:86`; MP Eater passive after the hit `:87-91` |
+| `CloseRangeDamageHandler` | `parseDamage(p, chr, false, false)` `:55` | morph-without-attack → `getClient().disconnect(false, false)` `:57-60`; dojo secret skill `1009/10001009/20001009` needs 10000 energy `:65-68`; dojo energy gain `:69-72`; finisher/orb bookkeeping `:80-131`; `SACRIFICE` self-damage `:145`; bamboo dojo reset `:165-170`; cooldown `:176-180`; Darksight/Wind Walk cancel `:184-189` | `attackCount` computed at `:157-159` (`getAttackEffect(chr,null).getAttackCount()`), passed at `:192` |
+| `RangedAttackHandler` | `parseDamage(p, chr, true, false)` `:62` | morph `:65-68`; dojo energy `:73-76`; `WeaponType.NOT_A_WEAPON` return `:107-109`; bullet/soul-arrow/shadow-claw accounting `:112-185`; projectile level gates `:148-161`; visible-projectile (cash `5021`) `:191-204`; cooldown `:226-230`; Darksight cancel `:235-237` | `bulletCount` `:243`; energy-orb/spark/taunt and Shark Wave short-circuit with `1` `:82`, `:86`; Aran combos `2/3/5` `:96`, `:99`, `:102` |
+| `MagicDamageHandler` | `parseDamage(p, chr, false, true)` `:51` | morph `:54-57`; dojo energy `:62-65`; cooldown `:77-83` | `effect.getAttackCount()` `:86`; MP Eater passive after the hit `:87-91` |
 | `TouchMonsterDamageHandler` | `parseDamage(p, chr, false, false)` `:35` | player must be at energy-bar 15000 **or** have `BODY_PRESSURE` `:34` | `1` `:37` |
 | `SummonDamageHandler` | hand-rolled (no `parseDamage`) `:88-100` | player alive `:75`; summon OID must belong to the player `:78-85`; ownership-restricted map `:103` | per-hit `capSummonDamage` `:119-121` |
 
@@ -181,13 +181,13 @@ the character is a non-bot GM of level ≥ 2 (`src/main/java/soloMapling/server/
 
 | Route | Flow |
 |---|---|
-| Summon hit | `SummonDamageHandler` `:88-100` reads per-mob damage, recomputes `calcMaxDamage` `:143` (magic vs weapon branch chosen by `summonEffect.getWatk() == 0` `:107`), clamps with `capSummonDamage` `:139`, applies the summon's statuses `:125-127`, then `map.damageMonster` `:129` |
+| Summon hit | `SummonDamageHandler` `:88-100` reads per-mob damage, recomputes `calcMaxDamage` `:108`/`:143` (magic vs weapon branch chosen by `summonEffect.getWatk() == 0` `:107`), clamps with `capSummonDamage` `:119`/`:139`, applies the summon's statuses `:126`, then `map.damageMonster` `:129` |
 | Mob vs mob (hypnotise) | `MobDamageMobHandler` `:48` recomputes `calcMaxDamage(attacker, damaged, magic)` `:77` and clamps above it with a `DAMAGE_HACK` alert `:63-71`, then `map.damageMonster(chr, damaged, dmg)` `:72` |
-| Mob vs friendly NPC | `MobDamageMobFriendlyHandler` `:40` rolls the damage **server-side** `:52`, announces the friendly's death message per mob id `:54-81`, `killFriendlies` `:83`, then `applyAndGetHpDamage` `:87` |
-| Field obstacle | `FieldDamageMobHandler` `:38` requires the map to have an active environment `:45-48` and `0 <= dmg <= GameConstants.MAX_FIELD_MOB_DAMAGE` (`src/main/java/constants/game/GameConstants.java:50`) `:52-56`, then `map.damageMonster` `:59` |
+| Mob vs friendly NPC | `MobDamageMobFriendlyHandler` `:40` rolls the damage **server-side** `:52`, announces the friendly's death message per mob id `:55-77`, `killFriendlies` `:79`, then `applyAndGetHpDamage` `:87` |
+| Field obstacle | `FieldDamageMobHandler` `:38` requires the map to have an active environment `:45-48` and `0 <= dmg <= GameConstants.MAX_FIELD_MOB_DAMAGE` (`src/main/java/constants/game/GameConstants.java:50`) `:51-56`, then broadcasts `:58` and `map.damageMonster` `:59` |
 | Bomb mob fizzle | `MonsterBombHandler` `:41` only accepts `HIGH_DARKSTAR`, `LOW_DARKSTAR` and `9600069` `:32-37`, and removes the object without any damage roll `:48-52` |
 | Own summon taking damage | `DamageSummonHandler` `:35` → `summon.addHP(-damage)` `:47`, `PUPPET` cancelled at 0 HP `:49` |
-| Heal-over-time | `HealOvertimeHandler` `:36` validates `healHP <= 77 * map.getRecovery() * 1.5` `:54-58` and `0 < healMP < 1000` `:65-69` before `addHP`/`addMP` |
+| Heal-over-time | `HealOvertimeHandler` `:36` validates `healHP <= 77 * map.getRecovery() * 1.5` `:53-59` and `0 < healMP < 1000` `:64-69` before `addHP` `:60` / `addMP` `:71` |
 | Aran combo | `AranComboHandler` `:35` reads **no** packet bytes: the combo is server-owned, reset after a 6000 ms gap `:41-43`, buffed at every tenth `:45-56` |
 | Damage-to-summon / rage / knockback | `SpecialMoveHandler` `:69` covers Monster Magnet (aggro, no damage) `:114-134`, MP Recovery (self HP→MP) `:136-141`, and every ordinary buff `:154-158` |
 
@@ -215,7 +215,7 @@ the character is a non-bot GM of level ≥ 2 (`src/main/java/soloMapling/server/
 | `USE_AUTOBAN_LOG` | `ServerConfig.java:326` | `true` (`config.example.yaml:231`) | `src/main/java/client/autoban/AutobanFactory.java:102` | writes the autoban log lines |
 | `USE_DEBUG` | `ServerConfig.java:293` | `false` (`config.example.yaml:200`) | `src/main/java/server/life/Monster.java:467` | prints `Hitted MOB <id>, OID <oid>` per hit |
 | `USE_DEADLY_DOJO` | `ServerConfig.java:554` | `true` (`config.example.yaml:473`) | `TakeDamageHandler.java:201` | when false, deadly attacks inside Dojo deal 0 damage and burn no MP |
-| `DOJO_ENERGY_ATK` | `ServerConfig.java:555` | `100` (`config.example.yaml:474`) | `CloseRangeDamageHandler.java:70`, `RangedAttackHandler.java:74`, `MagicDamageHandler.java:63` | energy gained per attack that lands |
+| `DOJO_ENERGY_ATK` | `ServerConfig.java:555` | `100` (`config.example.yaml:474`) | `CloseRangeDamageHandler.java:69-72`, `RangedAttackHandler.java:73-76`, `MagicDamageHandler.java:62-65` | energy gained per attack that lands |
 | `DOJO_ENERGY_DMG` | `ServerConfig.java:556` | `20` (`config.example.yaml:475`) | `TakeDamageHandler.java:289` | energy gained per hit taken |
 | `USE_ULTRA_THREE_SNAILS` | `ServerConfig.java:454` | `false` (`config.example.yaml:371`) | `AbstractDealDamageHandler.java:424` | lets Three Snails damage scale with shells instead of a fixed line |
 | `USE_FAST_REUSE_HERO_WILL` | `ServerConfig.java:458` | `false` (`config.example.yaml:375`) | `SpecialMoveHandler.java:103` | divides Hero's Will cooldown by 60 |
@@ -344,14 +344,14 @@ mob's EXP.
   `UseItemHandler.java:55`, `:106-118` and `ChangeMapHandler.java:146-153` makes one player's potion heal the whole
   Zakum map and never resets on death. It makes incoming damage survivable in a way `TakeDamageHandler`'s maths does
   not account for.
-- **NEW-FINDING: `MobDamageMobFriendlyHandler.java:83-92` kills the friendly twice.** `map.killFriendlies(monster)`
+- **NEW-FINDING: `MobDamageMobFriendlyHandler.java:79-91` kills the friendly twice.** `map.killFriendlies(monster)`
   runs `killMonster` → `removeKilledMonsterObject` → `disposeMapObject` (`MapleMap.java:1710-1727`,
-  `Monster.java:388-390`), which sets `hp = -1` and already broadcasts the kill; `applyAndGetHpDamage(damage, false)`
-  then runs at `:87` on an object whose HP is `-1`, returns `0`, and the following `getHp() <= 0` branch calls
-  `map.removeMapObject(monster)` a second time `:88-91`.
+  `Monster.java:388-390`), which decrements `spawnedMonstersOnMap`, calls `removeMapObject` and sets `hp = -1`;
+  `applyAndGetHpDamage(damage, false)` then runs at `:87` on an object whose HP is already `-1`, returns `0`, and the
+  following `remainingHp <= 0` branch calls `map.removeMapObject(monster)` a second time `:89-91`.
 - **NEW-FINDING: `MonsterBombHandler.java:41-52` never checks HP or ownership.** Any client can send `MONSTER_BOMB`
-  with the OID of a Darkstar bomb mob and the mob is removed from the map (`dispatchMonsterKilled(false)` `:49`,
-  `removeMapObject` `:51`) without damage, EXP or drops. There is no position, distance or "the bomb actually went
+  with the OID of a Darkstar bomb mob on its own map and the mob is removed (`dispatchMonsterKilled(false)` `:49`,
+  kill broadcast `:50`, `removeMapObject(oid)` `:51`) without damage, EXP or drops. There is no position, distance or "the bomb actually went
   off" check, unlike `FieldDamageMobHandler`'s cap.
 - **NEW-FINDING: the damage-line-count check is dead.**
   `AbstractDealDamageHandler.java:168-173` keeps the `attackCount != attack.numDamage` guard commented out under

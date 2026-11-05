@@ -54,10 +54,10 @@ durable, what is lost when a write fails, and what a rollback of a release actua
    `run()` returns immediately when `YamlConfig.config.server.USE_AUTOSAVE` is off
    (src/main/java/net/server/task/CharacterAutosaverTask.java:43) and again when the world is already shutting down
    (:49). It walks `PlayerStorage.getAllCharacters()` (:53), re-checking `isShuttingDown()` per character (:56).
-   Logged-in characters go through `chr.saveCharToDB(false)` on the timer thread (:62-63). Characters that are not
+   Logged-in characters go through `chr.saveCharToDB(false)` on the shared timer thread (:63). Characters that are not
    logged in and pass `BotHelpers.isBot` are collected (:64-70) and written on a bot-db thread via `runBotDb`:
    `BotStore.saveAll(bots)`, `BotRoster.recordSessions(bots, now, false)`, `BotYieldCaps.flush()`
-   (:73-81). Bots are never logged in, so they never reach the player save at all.
+   (:73-81, on a bot-db thread because the sweep waits for the bots' share of the pool). Bots are never logged in, so they never reach the player save at all.
 
 4. **The character transaction.** `saveCharToDB(boolean)` is `synchronized` (src/main/java/client/Character.java:9889),
    returns for roster bots (:9890) and for any character that is not logged in (:9891), and returns early while an owned
@@ -152,10 +152,10 @@ durable, what is lost when a write fails, and what a rollback of a release actua
     mapleroot_integration_migrations (migration_id varchar(100) PRIMARY KEY, applied_at timestamp NOT NULL DEFAULT
     CURRENT_TIMESTAMP) ENGINE=InnoDB` (database/migrations/001-preserve-arcane.sql:5-8); `002-classic-fm-return.sql`
     is the exception, a bare `ALTER TABLE savedlocations` that assumes the table exists
-    (database/migrations/002-classic-fm-return.sql:2). 22 files then do the full row gate — `SET @apply = NOT EXISTS
-    (SELECT 1 FROM mapleroot_integration_migrations WHERE migration_id='…')` (:9) and every DML `WHERE @apply` — while
-    the other 39 (including 001, whose `@apply` guards only the `UPDATE`s) rely on `CREATE TABLE IF NOT EXISTS`,
-    `INSERT IGNORE` and `INSERT … SELECT … WHERE NOT EXISTS`. Every file ends with `INSERT IGNORE INTO
+    (database/migrations/002-classic-fm-return.sql:2). 22 of the 61 then do the full row gate — `SET @apply = NOT
+    EXISTS (SELECT 1 FROM mapleroot_integration_migrations WHERE migration_id='…')` (:9) and every statement
+    `WHERE @apply` — while the other 39 rely on `CREATE TABLE IF NOT EXISTS`, `INSERT IGNORE` and
+    `INSERT … SELECT … WHERE NOT EXISTS`. Every file ends with `INSERT IGNORE INTO
     mapleroot_integration_migrations(migration_id) VALUES ('…')` (:17). The rollback mirrors it: `@apply = EXISTS (...)`
     (database/migrations/001-preserve-arcane.rollback.sql:11) where the forward used the gate, reverse DML otherwise, then
     `DELETE FROM mapleroot_integration_migrations WHERE migration_id=…` (:19). `065-lkc-quest-drops.sql` adds a second
@@ -184,7 +184,9 @@ Writer per table (only real writers, not readers):
 | `characters` (`guildid`,`guildrank`,`allianceRank`) | `Character.saveGuildStatus()` src/main/java/client/Character.java:9672 | guild/alliance change (own connection, swallow) |
 | `characters` (`HasMerchant`) | `Character.setHasMerchant`, `Server.setAllMerchantsInactive`, `HiredMerchant` | merchant open/close, boot |
 | `characters` (`MerchantMesos`) | `Character.addMerchantMesos` / `setMerchantMeso` src/main/java/client/Character.java:10524, :10539 | merchant sale/withdraw |
-| `accounts` (`loggedin`,`lastlogin`,`ip`,`pin`,`pic`,`hwid`,`macs`,`tos`,`votepoints`,`characterslots`,`gender`,`rewardpoints`,`language`,`autologin`,`nxCredit`,`maplePoint`,`nxPrepaid`) | `Client`, `Character`, `Server`, `MTSHandler`, `CashShop.save` | login/logout, boot, setting changes, cash shop save |
+| `accounts` (`loggedin`,`lastlogin`,`ip`) | `Client.setAccountStatus` src/main/java/client/Client.java:901 | login/logout |
+| `accounts` (`nxCredit`,`maplePoint`,`nxPrepaid`) + `wishlists` + cash `inventoryitems` | `CashShop.save(Connection)` src/main/java/server/CashShop.java:512 | character save (not owned alts) |
+| `accounts` (`pin`,`pic`,`hwid`,`macs`,`tos`,`votepoints`,`characterslots`,`gender`,`autologin`,`rewardpoints`,`language`,`banned`,`banreason`,`tempban`, MTS `nxPrepaid`) | `Client`, `Character`, `MTSHandler`, `UnBanCommand` (each its own statement) | on the individual setting change |
 | `inventoryitems`/`inventoryequipment` | `ItemFactory.INVENTORY.saveItems` (delete-then-insert) src/main/java/client/inventory/ItemFactory.java:199 | character save |
 | `storages` (+`inventoryitems` type 2) | `Storage.saveToDB(Connection)` src/main/java/server/Storage.java:134 | character save when `usedStorage` |
 | `pets` | `Pet.saveToDb()` / `createPet` src/main/java/client/inventory/Pet.java:133, :154 | character save; pet creation |
@@ -199,7 +201,7 @@ Writer per table (only real writers, not readers):
 | `fredstorage` (+ merchant `inventoryitems` type 6) | `HiredMerchant.saveItems()` → `FredrickProcessor.insertFredrickLog` src/main/java/server/maps/HiredMerchant.java:761-781 | merchant close |
 | `dueypackages` (+ `inventoryitems` type 9) | `DueyProcessor` src/main/java/client/processor/npc/DueyProcessor.java:152-186, :613 | package send/claim/expiry |
 | `botstore`, `botskills` | `BotStore.save/saveAll/settleAndSaveAll` | bot create, bot removal, hourly sweep, shutdown |
-| `botmemory`, `botaffinity`, `botbonds`, `botguild`, `botguildmember`, `botroster` | `BotMemory` (src/main/java/soloMapling/ArtificialPlayer/BotMemory.java:259), `BotAffinitySystem.AffinityStore` (…/AffinityStore.java:70), `BondStore`, `BotGuildSystem.GuildStore` (src/main/java/soloMapling/ArtificialPlayer/BotGuildSystem/GuildStore.java:96-102), `BotRoster` (src/main/java/soloMapling/ArtificialPlayer/BotRoster.java:134) | bot lifecycle, hourly sweep and shutdown; bonds additionally flush every 3 min (src/main/java/soloMapling/ArtificialPlayer/BotAffinitySystem/BotBonds.java:79) |
+| `botmemory`, `botaffinity`, `botbond`, `botguild`, `botguildmember`, `botroster` (plus `guilds` for bot guilds) | `BotMemory` (src/main/java/soloMapling/ArtificialPlayer/BotMemory.java:259), `BotAffinitySystem.AffinityStore` (src/main/java/soloMapling/ArtificialPlayer/BotAffinitySystem/AffinityStore.java:70), `BondStore` (…/BondStore.java:41), `BotGuildSystem.GuildStore` (src/main/java/soloMapling/ArtificialPlayer/BotGuildSystem/GuildStore.java:94-102 — it also inserts the real `guilds` row), `BotRoster` (src/main/java/soloMapling/ArtificialPlayer/BotRoster.java:134) | bot lifecycle, hourly sweep and shutdown; bonds additionally flush every 3 min (src/main/java/soloMapling/ArtificialPlayer/BotAffinitySystem/BotBonds.java:79) |
 | `economycounters` | `EconomyCounterPersistence` src/main/java/soloMapling/Economy/stats/EconomyCounterPersistence.java:104 | periodic + `EconomySnapshotService.shutdown()` |
 | `traderatings` | `TradeRatings.writeDb` src/main/java/soloMapling/site/TradeRatings.java:175 | periodic + shutdown |
 | `character_achievements` | `JdbcAchievementStore.saveProgress` src/main/java/soloMapling/achievements/JdbcAchievementStore.java:49 | on achievement progress (synchronous) |

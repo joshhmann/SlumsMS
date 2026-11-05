@@ -185,7 +185,7 @@ being staged.
 | 1.6.1 rc11 / rc12 | 10700 / 10710 | overrides; rc11 was the shipped 1.6.1 client | `docs/release/1.6.1.conf:258-263`; `docs/release/1.6.1-notes.md:68` |
 | 1.6.2 rc1..rc5 | 10720 | `VERSION 1.6.2` under the **new** formula, no override (b205) | `35ff96f`; `docs/release/1.6.2.conf:274` |
 | 1.6.2 rc6 (= shipped) | 10721 | `-DSLUMS_BUILD_NUMBER_OVERRIDE=10721` by owner call | `docs/release/1.6.2-deploy-steps.md:121-124`; `docs/release/1.6.2.conf:281` |
-| 1.6.3 | (no new client) | gate stayed at 10721 | `docs/release/1.6.3.conf:5-6`, `:165` |
+| 1.6.3 | (no new client) | gate stayed at 10721 — "No new client is planned: MIN_CLIENT_BUILD stays 10721" | `docs/release/1.6.3.conf:8-9`, `:165` |
 | 1.6.4 rc1/rc2/rc3 | 10740 | `VERSION 1.6.4-rc*` under the new formula | `9b5dcda`; `docs/release/1.6.4.conf:284`; `docs/release/1.6.4-playbook.md:17` |
 | 1.7.0 (planned) | 10800 | formula | `cmake/BuildStamp.cmake:8` |
 
