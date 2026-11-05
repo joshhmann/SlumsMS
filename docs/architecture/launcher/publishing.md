@@ -4,10 +4,10 @@
 
 Turn a staged client tree and a built launcher into immutable, hash-pinned layers on the patch feed the launcher reads,
 without shipping a file nobody reviewed. One publisher (`/root/work/launcher-165-server/tools/publish.mjs`) serves both
-pipelines; two workstation scripts add the review rules — a hash-diff against the untouched reference client and a
-Live-endpoint check. Version folders are always written before the JSON that points at them, so an aborted run is
+pipelines; the workstation scripts add the review rules — a hash-diff against the untouched reference client and a
+Live-endpoint check — and every version folder is written before the JSON that points at it, so an aborted run is
 invisible to players. This page covers the two pipelines and their gates; the host/nginx side is
-`../ops/client-and-launcher-publishing.md`, and layer consumption is in the sibling pages.
+`../ops/client-and-launcher-publishing.md`, layer consumption in the sibling pages.
 
 ## Entry points
 
@@ -61,22 +61,22 @@ No opcode or scheduler starts any of this: it is release-time tooling. The one r
    `slumsms-monitor client-ready live <REL>` unless `--no-announce` (`:152-156`).
 9. End of pipeline: `/srv/slums-patch/manifest.json`, the file every launcher fetches, pointing at
    `layers/client/<v>/manifest.json` — served by nginx `slums-patch` on 8090 behind basic auth
-   (`docs/ops/lxc125-architecture.md:100-102`; feed manifest no-cache, layer folders immutable).
+   (`docs/ops/lxc125-architecture.md:100-102`), feed manifest no-cache, layer folders immutable.
 
 **Launcher flow — build to channel JSON.**
 
 1. `publish-launcher <SRC>` requires `"SlumsMS Launcher.exe"` (`publish-launcher:21`) and refuses a
-   `launcher.config.json` in the build (`:22`) — that file belongs to the player. `check_publisher "$SYNC"` requires the
-   host copy at `/opt/slums-tools/launcher` to hash the same as `$LAUNCHER_REPO` (`publish-lib.sh:16-27`);
+   `launcher.config.json` in the build (`:22`) — that file belongs to the player. `check_publisher "$SYNC"` (`:23`) makes
+   the host copy at `/opt/slums-tools/launcher` hash the same as `$LAUNCHER_REPO` (`publish-lib.sh:16-27`);
    `--sync-publisher` rsyncs `tools/`, `src/`, `package.json`.
-2. `--dry-run` publishes into `mktemp -d` seeded with the current `launcher.json` and prints it (`:26-31`); the real run
-   is `--launcher SRC --out $OUT` (`:34`).
-3. `publishLauncher` (`publish.mjs:433-471`) reads `resources/app.asar`: the version is the build's own `package.json`
-   and `--version` must match (`:443`); no built-in access key is refused unless `--allow-no-access-key` (`:445`); the exe
-   and `launcher.config.json` rules are re-checked (`:447-449`). No downgrade: `compareVersions(built, previous.version)
-   <= 0` is refused, "launchers never downgrade" (`:455-460`).
+2. `--dry-run` publishes into `mktemp -d` seeded with the current `launcher.json` and prints it (`:26-31`); the real run is
+   `--launcher SRC --out $OUT` (`:34`).
+3. `publishLauncher` (`publish.mjs:433-471`) reads `resources/app.asar`: the version is the build's own `package.json` and
+   `--version` must match (`:443`); no built-in access key is refused unless `--allow-no-access-key` (`:445`); the exe and
+   `launcher.config.json` rules are re-checked (`:447-449`). No downgrade: `compareVersions(built, previous.version) <= 0`
+   is refused, "launchers never downgrade" (`:455-460`).
 4. `writeLayer` publishes `launcher/<platform>/<version>/` (`:462`), then the channel JSON
-   `{schemaVersion:1, version, platform, executable, manifestUrl, sha256}` is renamed into place *last* (`:463-467`),
+   `{schemaVersion:1, version, platform, executable, manifestUrl, sha256}` is renamed into place *last* (`:466-467`),
    validated by `validateLauncherChannel` (`src/updater.mjs:646-660`).
 5. End of pipeline: `$OUT/launcher.json` at the root of `/srv/slums-patch` (or of `…/launcher-test`), served beside the
    game manifest with `manifestUrl` = `launcher/<platform>/<version>/manifest.json` (`publish.mjs:425`). Tauri is the same
@@ -90,10 +90,10 @@ No opcode or scheduler starts any of this: it is release-time tooling. The one r
 | Layer immutability / rerun | published layer `manifest.json` byte-identical to what this tree would produce, files at listed sizes | an existing layer with different bytes | `publish_checks.py:104-120`; `publish-client:88-94` |
 | Hash-diff | base + client effective set vs `$REFERENCE`: no unexpected missing/different/extra, and `--previous` keeps every file of the current release (a dropped overlay was the 1.2.0 Arcane-maps crash) | any difference not in `client-allow.txt` | `verify-client.py:172-236`; run `publish-client:116,120` and `:138` |
 | Live endpoint | new layer's `config.ini` `[config] host`/`port` equals the live layer's | a test-server client on `/srv/slums-patch` | `verify-client.py:129-150`; wired `publish-client:108-114` |
-| Allow list | every overlay path named explicitly | an unlisted extra/missing/different file | `tools/release/client-allow.txt:1-6`; `verify-client.py:172-204` |
+| Allow list | every overlay path named explicitly | an unlisted extra/missing/different file | `tools/release/client-allow.txt:1-6`; `verify-client.py:172-222` |
 | Publisher identity | sha256 of `tools/ src/ package.json` on both sides, first 16 hex | a host publisher that is not the reviewed one | `publish-lib.sh:16-27` |
-| Source hygiene | no symlinks, no non-regular files, output not equal to/inside source | weird trees | `publish.mjs:42-56,173-186`; `publish_checks.py:67-82` |
-| Immutable names, one publisher | `assertNoAlias` on NFC-uppercased names, `wx` writes, `mkdir` version dir, exclusive `.mapleroot-publish.lock` | a collision, an overwrite or a concurrent publish | `publish.mjs:15,188-203,244-248` |
+| Source hygiene | no symlinks or non-regular files; output not equal to or inside source | weird trees | `publish.mjs:42-56,173-186`; `publish_checks.py:67-82` |
+| Immutable names, one publisher | NFC-uppercased `assertNoAlias`, `wx` writes, `mkdir` version dir, exclusive `.mapleroot-publish.lock` | a collision, an overwrite, a concurrent publish | `publish.mjs:15,188-203,244-248` |
 | Release manifest | `launch.executable` in some layer; no `MANIFEST.JSON` alias; version not already live | a manifest pointing at nothing | `publish.mjs:383-393` |
 | Backup / restore | `manifest-before-<rel>.json` never overwritten with different bytes; every layer a restored manifest names exists | losing the way back, restoring into a hole | `publish-client:47-58,142-144` |
 | Launcher build | asar version = `--version`; built-in access key; exe present; no `launcher.config.json`; no downgrade | a build that locks friends out or regresses | `publish.mjs:443-449,455-460` |
@@ -174,11 +174,11 @@ is not derived from the base tree at all (method: `../base-vs-custom.md`):
 | `tools/release/routing-required.txt` | `3482b808c` |
 | `/root/work/launcher-165-server/tools/publish.mjs` | `fcd6e08` (launcher repo, 8 commits) |
 
-Seven commits follow it: `a50fe655f` (the Cody post), `ae3c91cb7` (mirror to `/launcher-test/`), `66a2ae9e8` (1.4.1
-deploy), `0ff53df38` (one release command), `23eae9ffb` (a release without `--no-packs` stopped silently), `aee6f180d`
-(live-endpoint refusal), `fb8286344` (news before publish + layer reuse). The publisher's `--launcher` mode is a
-hand-written Electron/asar reader (`publish.mjs:405-422`), not upstream tooling: a 16-byte prefix, the JSON directory, then
-the packed range at `8 + headerSize + offset` (`:408-419`); an unpacked or non-integer-size entry is refused (`:417`).
+Seven commits follow: `a50fe655f` (Cody post), `ae3c91cb7` (`/launcher-test/` mirror), `66a2ae9e8` (1.4.1 deploy),
+`0ff53df38` (one release command), `23eae9ffb` (a release without `--no-packs` stopped silently), `aee6f180d`
+(live-endpoint refusal), `fb8286344` (news first + layer reuse). `--launcher` mode is a hand-written Electron/asar reader
+(`publish.mjs:405-422`), not upstream tooling: 16-byte prefix, JSON directory, packed range at
+`8 + headerSize + offset` (`:408-419`), and an unpacked or non-integer-size entry is refused (`:417`).
 
 ## Tests and QA
 
@@ -198,13 +198,12 @@ the packed range at `8 + headerSize + offset` (`:408-419`); an unpacked or non-i
   Windows-to-client path mapping.
 
 Launcher repo (`npm test`): `test/layers.test.mjs:62` immutable layer folders with a top manifest pinning layer hashes,
-`:101` later layer overrides, `:122` only changed layers download, `:147` fast verify trusts size+mtime, `:205`
-player-owned `config.ini` installs once and survives repair, `:231` `schemaVersion 1` still loads, `:248`
-traversal/reserved-path rejection, `:288` first install with bounded concurrency and retries; `test/releases.test.mjs:45`
-nested install/repair, `:67` a corrupt payload cannot partially replace a release, `:80` publishing is immutable, exposes
-no linked files, rejects traversal and Windows aliases, `:96` redirected feeds, `:103` news round-trip and bad-news
-rejection; `test/tauri-publish.test.mjs:32` signed Tauri publish immutable with the updater JSON last, `:54` HTTPS-only
-credential-free base URL and a real Windows program — both skipped without `cargo tauri`.
+`:101` later layers override, `:122` only changed layers download, `:147` fast verify trusts size+mtime, `:205`
+player-owned `config.ini` survives repair, `:231` `schemaVersion 1` loads, `:248` traversal/reserved paths rejected,
+`:288` first install with bounded concurrency and retries; `test/releases.test.mjs:45` nested install/repair, `:67` a
+corrupt payload cannot partially replace a release, `:80` publishing is immutable and cannot expose linked files, `:96`
+redirected feeds, `:103` news round-trip plus bad-news rejection; `test/tauri-publish.test.mjs:32` signed Tauri publish
+immutable with the updater JSON last, `:54` HTTPS-only credential-free base URL — both skipped without `cargo tauri`.
 
 Not covered: `set-min-client-build` and `publish-launcher` (only `publishLayer` is tested), the UTF-16 limit and the
 control-character rule in `publish_checks.py`, the real `ssh`/`scp` path, the `/launcher-test/` mirror, and
@@ -218,17 +217,16 @@ publishing scenario, so no `!qa` run can see the patch feed.
   this tree at `publish-client:82-94`, and `publish_checks.py` exists only from `fb8286344`, the commit the card names.
 - **b270** (S3, Client) — a Live publish wrote `manifest.json` without `news[]`, so `slumsms-news@live` failed; cause is
   `--news` not being passed (`docs/release/RUNBOOK.md:49` now passes it). Deferred to 1.6.3, still open.
-- NEW-FINDING: `publish-client:149-150` mirrors the manifest into `/launcher-test/` only when `layers` there is a symlink
-  and downgrades a miss to a stdout `WARN` — Live can publish successfully while the owner's launcher stays on the old
-  release, exit status 0.
-- NEW-FINDING: the endpoint check reads only `host` and `port` (`verify-client.py:96`), so a layer keeping the live
-  host/port but changing other connection settings passes.
-- NEW-FINDING: `check_publisher` hashes `tools/ src/ package.json` (`publish-lib.sh:20-21`) but no lockfile and no
+- NEW-FINDING: `publish-client:149-150` mirrors `/launcher-test/manifest.json` only when `layers` there is a symlink and
+  downgrades a miss to a stdout `WARN` — Live publishes, exit 0, owner's launcher stays on the old release.
+- NEW-FINDING: the endpoint check reads only `host` and `port` (`verify-client.py:96`); a layer keeping them but changing
+  other connection settings passes.
+- NEW-FINDING: `check_publisher` hashes `tools/ src/ package.json` (`publish-lib.sh:20-21`), no lockfile and no
   `node_modules`, so the same sources with different installed deps pass.
-- NEW-FINDING: `--restore-manifest` checks that the named layers exist but never re-runs the endpoint check
-  (`publish-client:47-58`), so an old manifest whose client layer points elsewhere would be accepted.
-- NEW-FINDING: `tools/release/routing-required.txt:5` (map `211080100` held routed until client fix `3e640f1` is live) is
-  enforced by `tools/release/gen-deploy:46-51`, not by `publish-client`: a client publish never consults it.
+- NEW-FINDING: `--restore-manifest` checks the named layers exist but never re-runs the endpoint check
+  (`publish-client:47-58`), so an old manifest pointing elsewhere is accepted.
+- NEW-FINDING: `tools/release/routing-required.txt:5` (map `211080100` routed until client fix `3e640f1` is live) is
+  enforced by `tools/release/gen-deploy:46-51`, not by `publish-client`, which never consults it.
 
 ## State
 

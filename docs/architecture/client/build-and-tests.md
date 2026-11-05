@@ -357,8 +357,9 @@ host (Linux, no MSVC, submodules empty), so this is a static verdict.
 the "ship only the changed files" rule (`AGENTS.md:191`) is currently the only safe option and any future attempt to
 publish a rebuilt `SlumsMS.exe` will ship a differing binary.
 
-**unknown:** whether `prep-build-rc1.ps1` sets anything beyond `scripts/build.ps1:11` (e.g. `CRASH_REPORT`, which no
-in-repo script enables while `docs/architecture/client/crash-report.md` documents a shipped feature).
+**unknown:** whether `prep-build-rc1.ps1` sets anything beyond `scripts/build.ps1:11` — `CRASH_REPORT` is the live
+candidate: no in-repo script enables it, and `docs/architecture/client/crash-report.md:8-11` states that a Release
+`slums.dll` therefore carries no crash reporter at all.
 
 ## Open questions
 

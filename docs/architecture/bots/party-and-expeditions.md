@@ -34,12 +34,12 @@ scripted dev bot that recruits a party in the Orbis PQ lobby and then plays the 
 |---|---|---|
 | gate | `OwnedAltService.interactionRefusal`, level-10 starter rule, `GuildBossRuns.freeForInvite` | src/main/java/net/server/channel/handlers/PartyOperationHandler.java:79-98 |
 | queue | `InviteCoordinator.createInvite` then the `party invite` hook calls `addPartyInvite` | PartyOperationHandler.java:109-115 |
-| store | last-wins `ConcurrentHashMap`; `wakeBotForInvite` nudges the bot's brain 300 ms later | src/main/java/soloMapling/ArtificialPlayer/BotPartySystem/BotPartyQueue.java:41-51 |
+| store | last-wins `ConcurrentHashMap`; `wakeBotForInvite` nudges the bot's brain 300 ms later | src/main/java/soloMapling/ArtificialPlayer/BotPartySystem/BotPartyQueue.java:40-51 |
 | arm | `armIfWelcome` rolls the chance when the player's own text was a party ask | BotRecruitManager.java:120-148 |
 | drain | `pollInvites`: id match → accept; anything else → polite reject | BotRecruitManager.java:155-210 |
 
 `BotPartyQueue` is deliberately last-wins: the coordinator already serialises live invites, so a first-wins entry could
-only ever be stale and would wedge the player's live invite (BotPartyQueue.java:41-44).
+only ever be stale and would wedge the player's live invite (BotPartyQueue.java:40-45).
 
 `armIfWelcome` reads the chance from `BotGuilds.partyChance` (affinity, guildmate, guild boss run,
 src/main/java/soloMapling/ArtificialPlayer/BotGuildSystem/GuildRules.java:232-243) and marks the invite as
@@ -91,11 +91,11 @@ Bots that reach a lobby do not idle: `SocialInitiative.lobbyTick` scans for a re
 `RealRunPool` before making anything (src/main/java/soloMapling/mechanics/KpqLobby.java:108-152). `begin` creates the
 party (`Party.createParty(leader,true)`), joins the rest, talks to Lakelis through `BotNpcTalk`, and hands the resulting
 `EventInstanceManager` to `MechanicsRuns.start` (KpqLobby.java:366-431). One start a tick, world-wide; a refused
-channel is left alone for `REFUSED_BACKOFF_MS` = 10 min (KpqLobby.java:43, :213).
+channel is left alone for `REFUSED_BACKOFF_MS` = 10 min (KpqLobby.java:43, :223-226).
 
 `free` rejects owned alts, partied bots, bots already in an instance, dead bots, bots named by a simulated run, bots
-under a mechanics hold, and bots with fewer than `MIN_FREE_ETC_SLOTS` = 3 free etc slots (KpqLobby.java:156-185). The
-slot rule is b153's fix: 26 of 35 lobby answerers never handed in a pass (KpqLobby.java:170-177).
+under a mechanics hold, and bots with fewer than `MIN_FREE_ETC_SLOTS` = 3 free etc slots (KpqLobby.java:156-175). The
+slot rule is b153's fix: 26 of 35 lobby answerers never handed in a pass (KpqLobby.java:170-176).
 
 **Every other row (off on live).** `ContentLobby` spawns `content.minPlayers()` fresh bots at the row's `entryNpc` on
 its `recruitMap` and calls the same `KpqStaging.start` (src/main/java/soloMapling/mechanics/ContentLobby.java:19-33,
@@ -199,7 +199,7 @@ Bots are excluded from ARIANT/ARIANT1/ARIANT2 (ExpeditionBots.java:411-414); the
 | Store | Key | What | File:line |
 |---|---|---|---|
 | `BotPartyQueue.queues` | `Character` | latest invite (inviter, partyId) | BotPartyQueue.java:29-51 |
-| `BotRecruitManager.ARMED` | bot id | inviter id, expiry, follower flag | BotRecruitManager.java:90-143 |
+| `BotRecruitManager.ARMED` | bot id | inviter id, expiry, follower flag | BotRecruitManager.java:44, :143 |
 | `LfgParty.trips` | char id | `Trip(plan, until, threadId, started[3])` | LfgParty.java:104 |
 | `ExpeditionHold.joined` | bot id | the expedition it joined | ExpeditionHold.java:20 |
 | `OPQSharedContext` | map identity | phase, stage-complete sets, assignments | OPQSharedContext.java:33-42 |
@@ -231,7 +231,7 @@ TEST: unknown (start-test.sh unreachable from this checkout).
 1. A bot's relation to a party/expedition is the real `Party`/`Expedition` object — no parallel bot-party registry. The
    only side tables (`ExpeditionHold`, `BotPartyQueue`) cache an identity the engine already owns.
 2. Every queued invite is answered. `BotPartyQueue` is last-wins, so a silent bot would wedge the player's live invite
-   (BotPartyQueue.java:41-44, BotRecruitManager.java:151-154).
+   (BotPartyQueue.java:40-45, BotRecruitManager.java:153-158).
 3. Follower capacity is reserved before the join, never after (BotRecruitManager.java:186-199).
 4. A real player always outranks a bot captain or recruiter (ExpeditionBots.java:183-205, LfgParty.java:153-160).
 5. A lobby start goes through `RealRunPool` first; a refused run gets no party, no NPC talk and no instance

@@ -24,8 +24,8 @@ A fourth, unrelated path lives in the same file family: `ScrollingBot` (`src/mai
 | `BotScrolling.stepNow(bot,appetite)` — one roll now (GM, `!qa sc-2`) | public API | `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:748` |
 | `BotMaker.townBatch(bot)` — crystal/scrap batch at a town stop | town step | `src/main/java/soloMapling/ArtificialPlayer/BotTypes/TrainingBot.java:1540`; `src/main/java/soloMapling/ArtificialPlayer/BotMakerSystem/BotMaker.java:218` |
 | `!botscroll [<name\|id> [now [careful\|normal\|gambler]]]` | GM command (level 4) | `src/main/java/client/command/commands/gm4/BotScrollCommand.java:28-58`, registered `src/main/java/client/command/CommandsExecutor.java:432` |
-| `!botwhy <name>` gear line | GM inspection (level 3) | `src/main/java/client/command/commands/gm3/BotWhyCommand.java:37-38` → `BotGearWhy.describe`; gated `BotWhyCommand.java:20-23` |
-| `!maker plan\|crystals\|scrap` | GM command | `src/main/java/client/command/commands/gm0/MakerCommand.java:38-63`, registered `CommandsExecutor.java:292` |
+| `!botwhy <name>` gear line | GM inspection (level 3) | `src/main/java/client/command/commands/gm3/BotWhyCommand.java:40-41` → `BotGearWhy.describe`; gated `src/main/java/client/command/commands/gm3/BotWhyCommand.java:21-24` |
+| `!maker plan\|crystals\|scrap` | GM command | `src/main/java/client/command/commands/gm0/MakerCommand.java:38-63`, registered `src/main/java/client/command/CommandsExecutor.java:292` |
 | `!botyield` scroll ledger | GM command | `src/main/java/client/command/commands/gm4/BotYieldCommand.java:33` → `ScrollLedger.report` |
 | `!qa run sc-2` / `gn-2 (sc-1)` | QA scenario | `src/main/java/soloMapling/qa/QaScenarios.java:750-768` (manual sc-1), `:772-860` (sc-2 bot-driven) |
 | `GameQaWorld.botScrollStep` | QA staging | `src/main/java/soloMapling/qa/GameQaWorld.java:1027` → `BotScrolling.stepNow` |
@@ -152,20 +152,20 @@ Maker mechanics go through the client's own service (`MakerService.makeLeftoverC
 | Switch | Default | Effect | Live? |
 |---|---|---|---|
 | `-Dslums.gear.optimizer` (`src/main/java/soloMapling/ArtificialPlayer/BotGearSystem/BotGear.java:69`) | `climb` | `pareto` = nutnnut DP for on-screen maps, climb + memo skip offscreen | **yes**, `pareto` (`docs/release/1.6.4.conf:271`) |
-| `-Dslums.gear.dexless` (`src/main/java/soloMapling/ArtificialPlayer/BotProgressionSystem/BotProgression.java:223`) | off | AP stops the secondary stat at the gear's requirement | **yes** (`conf:271`) |
-| `-Dslums.grind.gearFirst` (`src/main/java/soloMapling/ArtificialPlayer/BotGrindSystem/GearFirstAdvisor.java:41`) | off | gear-weighted map choice, gear-led override, farm goals | **yes** (`conf:271`) |
-| `-Dslums.scroll.ev` (`src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:233`) | off | `ScrollPlanner` EV pick instead of the appetite rules | **yes** (`conf:271`) |
+| `-Dslums.gear.dexless` (`src/main/java/soloMapling/ArtificialPlayer/BotProgressionSystem/BotProgression.java:223`) | off | AP stops the secondary stat at the gear's requirement | **yes** (`docs/release/1.6.4.conf:271`) |
+| `-Dslums.grind.gearFirst` (`src/main/java/soloMapling/ArtificialPlayer/BotGrindSystem/GearFirstAdvisor.java:41`) | off | gear-weighted map choice, gear-led override, farm goals | **yes** (`docs/release/1.6.4.conf:271`) |
+| `-Dslums.scroll.ev` (`src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:233`) | off | `ScrollPlanner` EV pick instead of the appetite rules | **yes** (`docs/release/1.6.4.conf:271`) |
 | `-Dslums.scroll.marketPrice` (`src/main/java/soloMapling/Economy/ScrollMarketPrice.java:76-79`) | follows `slums.scroll.ev` | learned scroll price from real sales (`pricesamples`), else the yaml price | **yes, implicitly** — `ev` is on and no explicit value is set |
-| `-Dslums.junk.sort` (`src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/JunkSort.java:42`) | off | town sale keeps scrolled pieces/reserve off the junk shelf | **yes** (`conf:271`) |
-| `-Dsolomapling.economy.maker.botBatch` (`src/main/java/soloMapling/ArtificialPlayer/BotMakerSystem/BotMaker.java:84` via `EconomyConfig.PROPERTY_PREFIX`, `src/main/java/soloMapling/Economy/EconomyConfig.java:30`) | `false` (`src/main/java/soloMapling/Economy/economy.yaml:158-163`) | the Maker crystal/scrap batch | **yes** (`conf:271`) |
-| `-Dslums.gear.bridge` (`src/main/java/soloMapling/crafting/NormalGearBridge.java:15`) | off | normal-equipment guide activation, read-only | **yes** (`conf:268-269,271`) |
+| `-Dslums.junk.sort` (`src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/JunkSort.java:42`) | off | town sale keeps scrolled pieces/reserve off the junk shelf | **yes** (`docs/release/1.6.4.conf:271`) |
+| `-Dsolomapling.economy.maker.botBatch` (`src/main/java/soloMapling/ArtificialPlayer/BotMakerSystem/BotMaker.java:84` via `EconomyConfig.PROPERTY_PREFIX`, `src/main/java/soloMapling/Economy/EconomyConfig.java:30`) | `false` (`src/main/java/soloMapling/Economy/economy.yaml:158-163`) | the Maker crystal/scrap batch | **yes** (`docs/release/1.6.4.conf:271`) |
+| `-Dslums.gear.bridge` (`src/main/java/soloMapling/crafting/NormalGearBridge.java:15`) | off | normal-equipment guide activation, read-only | **yes** (`docs/release/1.6.4.conf:268-271`) |
 | `-Dsolomapling.botScrolling` (`src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/ScrollBudget.java:61`) | `true` (off only if `"false"`) | the whole scroll loop | unset → **on** |
 | `-Dsolomapling.botScrollPerLevel` / `-Dsolomapling.botScrollRollsPerDay` (`src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/ScrollBudget.java:69,73`) | 15 000 / 20 | daily scroll mesos and roll count | unset → defaults |
 | `-Dslums.megaphone...` via `BotMegaphoneGate` | capped server-wide | scroll megaphones | cut off in code, not in these packages |
 | `economy.yaml` `scrolling.*` (`src/main/java/soloMapling/Economy/economy.yaml:113-120`) | careful 40%, gambler 10%, long-shot 10%, normal dark 3%, gambler dark 10%, `whiteOnLongShots: false`, `godliesPerDay: 5` | appetites and godly cap | file defaults |
 | `maker.*` (`src/main/java/soloMapling/Economy/economy.yaml:158-163`) | `botBatch: false`, per-bot 10, world 300 | Maker caps | overridden by the `-D` above |
 | `BotGear.ENABLED` (`src/main/java/soloMapling/ArtificialPlayer/BotGearSystem/BotGear.java:61`) | `true` | global off switch (code constant, not a flag) | on |
-| `STARFORCE_BOOST_PERCENTAGE` / `…2` (`src/main/java/config/ServerConfig.java:603-604`) | 0.2 / 0.2 | star-force craft stat share; **not read by any bot code** | `conf:214-217` sets `…2=0.2` (card b296) |
+| `STARFORCE_BOOST_PERCENTAGE` / `…2` (`src/main/java/config/ServerConfig.java:603-604`) | 0.2 / 0.2 | star-force craft stat share; **not read by any bot code** | `docs/release/1.6.4.conf:214-217` sets `…2=0.2` (card b296) |
 
 ## Invariants
 
@@ -179,7 +179,7 @@ Maker mechanics go through the client's own service (`MakerService.makeLeftoverC
 - A finished piece is never destroyed for lacking a valuation — it is kept and counted (`ScrollLedger.unknownValue`, b181 F-14, `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:571-582`).
 - Every bot money/roll decision goes through `ScrollBudget`; a failed purchase refunds both mesos and the budget unit (`src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:632-651`).
 - Maker caps count **operations**, not items, and a failed operation gives its world unit back (`src/main/java/soloMapling/ArtificialPlayer/BotMakerSystem/BotMaker.java:252-308`).
-- Maker never crafts an equip for a bot; the craft plan is read-only and moves nothing (`src/main/java/soloMapling/ArtificialPlayer/BotMakerSystem/MakerPlan.java:9-22`; only `MakerProcessor.java:126` crafts).
+- Maker never crafts an equip for a bot; the craft plan is read-only and moves nothing (`src/main/java/soloMapling/ArtificialPlayer/BotMakerSystem/MakerPlan.java:9-22`; only `src/main/java/client/processor/action/MakerProcessor.java:126` crafts).
 
 ## Origin
 
@@ -205,27 +205,27 @@ Unit tests (`src/test/java`):
 | Test | Covers | File |
 |---|---|---|
 | `BotGearTest` (15) | review/apply/wearableNow ordering | `src/test/java/soloMapling/ArtificialPlayer/BotGearSystem/BotGearTest.java` |
-| `BotGearPlannerTest` (10) | climb: pools, chaining, place, bag room | `.../BotGearSystem/BotGearPlannerTest.java` |
-| `BotGearOptimizerTest` (10) | Pareto DP, dominance, secondary target | `.../BotGearSystem/BotGearOptimizerTest.java` |
-| `BotGearSwitchTest` (6) | climb vs pareto, memo skip, per-call cost | `.../BotGearSystem/BotGearSwitchTest.java:111,125,147,186,247,275` |
-| `BotGearWearTest` (8) | named wear/takeOff, Guild Quest rock, full bag | `.../BotGearSystem/BotGearWearTest.java:80-180` |
-| `BotGearHoldingValueTest` (1) | holding value at the piece's own level | `.../BotGearSystem/BotGearHoldingValueTest.java:54` |
-| `GearUpgradesTest` (5) | offers, spares, defence-only gain | `.../BotGearSystem/GearUpgradesTest.java` |
-| `BotScrollingTest` (24) | the real roll path, curses, white scroll, budget, EV picks | `.../BotScrollSystem/BotScrollingTest.java:169-650` |
-| `ScrollRulesTest` (10) | plain-scroll filter, appetites, godly cap, megaphones | `.../BotScrollSystem/ScrollRulesTest.java:30-153` |
-| `ScrollPlannerTest` (21) | EV DP, boom without fallback, opportunity margin | `.../BotScrollSystem/ScrollPlannerTest.java:73-309` |
-| `ScrollBudgetTest` (3) | reserve, 25% share, daily reset | `.../BotScrollSystem/ScrollBudgetTest.java:30-50` |
-| `BotMakerTest` (13) | caps, fees, hands, plan, job masks | `.../BotMakerSystem/BotMakerTest.java:82-281` |
-| `BotMakerJunkTest` (1) | a piece above the bot's level is not junk | `.../BotMakerSystem/BotMakerJunkTest.java:101` |
-| `BotMakerFeeTest` (5) | disassembly/craft fees, emptied wallet | `.../BotMakerSystem/BotMakerFeeTest.java:197-252` |
-| `BotMakerPathTest` (2) | crystal through the Maker path, no skill no output | `.../BotMakerSystem/BotMakerPathTest.java:88,99` |
-| `GearFirstTest` (9) | planner choice + advisor weights + spent maps | `.../BotGrindSystem/GearFirstTest.java:33-135` |
+| `BotGearPlannerTest` (10) | climb: pools, chaining, place, bag room | `src/test/java/soloMapling/ArtificialPlayer/BotGearSystem/BotGearPlannerTest.java` |
+| `BotGearOptimizerTest` (10) | Pareto DP, dominance, secondary target | `src/test/java/soloMapling/ArtificialPlayer/BotGearSystem/BotGearOptimizerTest.java` |
+| `BotGearSwitchTest` (6) | climb vs pareto, memo skip, per-call cost | `src/test/java/soloMapling/ArtificialPlayer/BotGearSystem/BotGearSwitchTest.java:111,125,147,186,247,275` |
+| `BotGearWearTest` (8) | named wear/takeOff, Guild Quest rock, full bag | `src/test/java/soloMapling/ArtificialPlayer/BotGearSystem/BotGearWearTest.java:80-180` |
+| `BotGearHoldingValueTest` (1) | holding value at the piece's own level | `src/test/java/soloMapling/ArtificialPlayer/BotGearSystem/BotGearHoldingValueTest.java:54` |
+| `GearUpgradesTest` (5) | offers, spares, defence-only gain | `src/test/java/soloMapling/ArtificialPlayer/BotGearSystem/GearUpgradesTest.java` |
+| `BotScrollingTest` (24) | the real roll path, curses, white scroll, budget, EV picks | `src/test/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrollingTest.java:169-650` |
+| `ScrollRulesTest` (10) | plain-scroll filter, appetites, godly cap, megaphones | `src/test/java/soloMapling/ArtificialPlayer/BotScrollSystem/ScrollRulesTest.java:30-153` |
+| `ScrollPlannerTest` (21) | EV DP, boom without fallback, opportunity margin | `src/test/java/soloMapling/ArtificialPlayer/BotScrollSystem/ScrollPlannerTest.java:73-309` |
+| `ScrollBudgetTest` (3) | reserve, 25% share, daily reset | `src/test/java/soloMapling/ArtificialPlayer/BotScrollSystem/ScrollBudgetTest.java:30-50` |
+| `BotMakerTest` (13) | caps, fees, hands, plan, job masks | `src/test/java/soloMapling/ArtificialPlayer/BotMakerSystem/BotMakerTest.java:82-281` |
+| `BotMakerJunkTest` (1) | a piece above the bot's level is not junk | `src/test/java/soloMapling/ArtificialPlayer/BotMakerSystem/BotMakerJunkTest.java:101` |
+| `BotMakerFeeTest` (5) | disassembly/craft fees, emptied wallet | `src/test/java/soloMapling/ArtificialPlayer/BotMakerSystem/BotMakerFeeTest.java:197-252` |
+| `BotMakerPathTest` (2) | crystal through the Maker path, no skill no output | `src/test/java/soloMapling/ArtificialPlayer/BotMakerSystem/BotMakerPathTest.java:88,99` |
+| `GearFirstTest` (9) | planner choice + advisor weights + spent maps | `src/test/java/soloMapling/ArtificialPlayer/BotGrindSystem/GearFirstTest.java:33-135` |
 | `VegaAppliesFedScrollTest`, `VegaSpellScrollTest` | b290 fix: the fed scroll's own stats/roll apply at level 15+ | `src/test/java/net/server/channel/handlers/VegaAppliesFedScrollTest.java:58` |
 | `StarForceFailTest`, `StarForceBoomTest` | b293 fix: a fail takes the star back; a superior boom destroys | `src/test/java/scripting/npc/StarForceFailTest.java:76` |
 
 Auto-QA (`src/main/java/soloMapling/autoqa/AutoQaCatalog.java`): `t-gb-1` pareto gear (`:1440`), `t-gb-2` dexless AP (`:1444`), `t-gb-3` gear-first farm (`:1448`), `t-gb-4` junk sort sale (`:1453`), `t-gb-5` EV scrolling (`:1457`), `t-gb-6` AP variants (`:1462`), `t-mk-2` bot Maker batch (`:1561`), `t-ng-8` Nimble weapon core exchange (`:1593`), `t-ng-10` normal gear bridge (`:1596`), `t-sc-1` gambler scrolls a staged sword (`:667`), `t-sc-2` careful bot plays safe (`:671`). Probes: `src/main/java/soloMapling/autoqa/Probes162.java:588,706,811,924`, `src/main/java/soloMapling/autoqa/ProbesMaker.java:199`.
 
-QA scenarios: `gn-2`/`sc-1` manual GM scroll (`QaScenarios.java:750-768`); `sc-2` a bot next to the GM rolls its own one-handed sword for real with a kit of 60% ×4, 10% ×2, dark 70% ×1, white ×1, one roll every 6 s by its appetite (`QaScenarios.java:772-860`).
+QA scenarios: `gn-2`/`sc-1` manual GM scroll (`src/main/java/soloMapling/qa/QaScenarios.java:750-768`); `sc-2` a bot next to the GM rolls its own one-handed sword for real with a kit of 60% ×4, 10% ×2, dark 70% ×1, white ×1, one roll every 6 s by its appetite (`src/main/java/soloMapling/qa/QaScenarios.java:772-860`).
 
 **Not covered:** no test calls `ScrollingBot.generateExactScrollList` or asserts its fabricated outcomes (`src/main/java/soloMapling/ArtificialPlayer/BotTypes/ScrollingBot.java:113`); the only ScrollingBot-side coverage is `src/test/java/soloMapling/qa/QaScenarioStagingTest.java:163`. No test exercises `BotGear.afterRebirth` end-to-end at a real level-200→1 transition, no auto-QA check covers the Vega spell or Star Force (they are server-side, covered by unit tests only), and nothing tests `MakerPlan` against a real MySQL `makercreatedata` (the query is exercised with an empty/exception path).
 
@@ -257,7 +257,7 @@ NEW-FINDING: `src/main/java/soloMapling/ArtificialPlayer/BotGearSystem/BotGearPl
 
 ## State
 
-**Working.** Evidence: 7 gear test classes (55 `@Test`), 4 scroll test classes (58), 4 Maker classes (21), `GearFirstTest` (9), plus auto-QA `t-gb-1..6`, `t-mk-2`, `t-ng-8/10`, `t-sc-1/2` all registered and lane-only. All seven relevant switches are **ON in live** (`docs/release/1.6.4.conf:271`, owner note `:268-269` after a TEST auto-QA pass), which means the pareto optimizer, dexless AP, gear-first map choice, EV scroll planner, junk sort, Maker batch and the normal-gear bridge are the production configuration, not experiments.
+**Working.** Evidence: 7 gear test classes (55 `@Test`), 4 scroll test classes (58), 4 Maker classes (21), `GearFirstTest` (9), plus auto-QA `t-gb-1..6`, `t-mk-2`, `t-ng-8/10`, `t-sc-1/2` all registered and lane-only. All seven relevant switches are **ON in live** (`docs/release/1.6.4.conf:271`, owner note `docs/release/1.6.4.conf:268-269` after a TEST auto-QA pass), which means the pareto optimizer, dexless AP, gear-first map choice, EV scroll planner, junk sort, Maker batch and the normal-gear bridge are the production configuration, not experiments.
 
 Caveat: the legacy `ScrollingBot` sales path is **partial** — it advertises real items but its scrolling is a fabricated boolean replay (`src/main/java/soloMapling/ArtificialPlayer/BotTypes/ScrollingBot.java:113-160`), so anything a player reads off a legacy bot's "scrolled" item is cosmetic.
 

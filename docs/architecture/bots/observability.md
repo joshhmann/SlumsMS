@@ -107,6 +107,17 @@ map-scoped **and** some *watched* character stands on that map (those characters
 map line nobody watched is dropped, and a line with neither characters nor a map is kept as server-wide
 (QaEventFeed.java:228-252, drop at :238).
 
+**Card b276 — a bot's map-scoped `PLAN`/`ROUTE` lines never reach a GM's QA feed.** Three emitters write those lines
+with `QaLog.map(...)`: the planner's `PLAN <bot> -> <player> <move>`
+(src/main/java/soloMapling/ArtificialPlayer/BotConversation.java:1176-1183), the dispatcher's
+`ROUTE "<line>" -> <bot> [step]` (src/main/java/soloMapling/ArtificialPlayer/BotMessagingSystem/Dispatcher.java:303-308)
+and the candidate dump (src/main/java/soloMapling/ArtificialPlayer/BotMessagingSystem/RouteLog.java:67-84). `map()`
+reaches runs through the run's own map filter (QaRun.java:124-132) — so a `cv-*` run, which watches every map, gets them
+in `logs/qa/` — but a **sink** is handed them with `NO_CHARS` (QaLog.java:225-233), and `QaEventFeed.record` drops a
+character-less map line unless a *watched* character stands on that map (QaEventFeed.java:231-252). A GM polling the feed
+with `chars=<own cid>` is therefore never shown a bot's plan, which is exactly b276 (/root/work/STATUS-1.6.4.md:78).
+The mitigation today is `!botwhy` (per-bot, on demand) or a `cv-*` scenario log.
+
 Consumers long-poll `/qa/events` with `since/chars/topics/match/wait/limit`; loopback only, 429 above 4 pollers
 (QaEventFeed.java:284-306, 385-430). The auto-QA runner is
 `tools/qa-runner/qarunner.py:48` (`FEED_URL = "http://127.0.0.1:8198/qa/events"`) with its own secret file
@@ -280,7 +291,7 @@ at all; `LifeRuntime.reportIfDue` (the `bot-life.json` shape) is asserted only b
 
 ## Known issues
 
-- **b276** (S4, QA-tool defect, staging, scope freeze, closer Server Dev) — "QA feed: a bot's map-scoped PLAN/ROUTE lines never reach the GM's QA feed (not tagged with the watched character)"; see NEW-FINDING 1 for the mechanism. /root/work/STATUS-1.6.4.md:78
+- **b276** (S4, QA-tool defect, staging, scope freeze, closer Server Dev) — "QA feed: a bot's map-scoped PLAN/ROUTE lines never reach the GM's QA feed (not tagged with the watched character)"; mechanism walked through in section 3 above. /root/work/STATUS-1.6.4.md:78
 - **b284** (S3, QA-tool defect) — auto-QA at 10 lanes gives false failures because the scheduler's key declarations miss shared state; the same contention applies to any lane that reads the QA feed during another lane's scenario `[INFERENCE: b284 names the scheduler, not the feed]`. /root/work/STATUS-1.6.4.md:80
 - **b240** (S3) — regular bots say they're grinding while standing in town: the chat claim differs from the state a GM would read off `!botwhy`/`!botstatus` `[INFERENCE: no surface cross-checks the said words against the phase]`. /root/work/STATUS-1.6.4.md:59
 - **b241** (S4) — KPQ bonus stage keeps messaging after everyone leaves; the only observable trace of it is per-run QA output, not a persistent metric. /root/work/STATUS-1.6.4.md:60

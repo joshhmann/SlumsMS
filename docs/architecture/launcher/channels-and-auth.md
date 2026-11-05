@@ -13,7 +13,7 @@ and the `host:port` that folder's client joins.
 - Start-up (`tauri/app/src/launcher.rs:384`): `migrate` → `keep_builtin_key` → `refresh_channels` (`:494`) →
   `refresh_account` → a 10-minute loop (`AVAILABLE_INTERVAL`, `launcher.rs:32`).
 - Commands that re-probe: `save_access_key` (`launcher.rs:1213`, via `save_key` `:1194`), `set_channel` (`:1346`),
-  `reset_feed` (`:1185`), `answer_migration` (`:1381`).
+  `reset_feed` (`:1181`), `answer_migration` (`:1383`).
 - CLI flags (`Args`, `launcher.rs:38-52`): `--feed-url=`, `--site-url=` (loopback HTTP only, `:77`), `--data-dir=`,
   `--install-dir=`, `--no-self-update` (or `SLUMSMS_NO_SELF_UPDATE=1`, `:71`), `--self-test=`. None carries a key.
 - Config file `tauri/launcher.config.json` (built into the exe as `BUILTIN_CONFIG`, `launcher.rs:32`; a copy beside the
@@ -55,8 +55,8 @@ and the `host:port` that folder's client joins.
     `X-Slums-Pass` (`http.rs:18`) only while every hop stays on that origin: `trusted` starts as "has credentials"
     (`:126`), is cleared the moment `same_origin` fails (`:131-133`) and is never restored (`:139-146`). Redirects are
     followed by hand, at most five, and an HTTPS feed may not redirect to HTTP (`:128-129`, `:154-162`).
-11. **Fetch the release.** `load_release` reads the channel manifest with the same `FeedAccess` and clones it into
-    `Release.access` so per-file downloads reuse it (`release.rs:133-193`).
+11. **Fetch the release.** `load_release` reads the channel manifest with the same `FeedAccess` and stores it in
+    `Release.access` (`release.rs:194`) so per-file downloads reuse it (`release.rs:133-195`).
 12. **Self-update.** `try_self_update` (`launcher.rs:787-816`) targets `update_manifest_url(feed)` = `tauri/launcher.json`
     beside the channel manifest (`channels.rs:60-63`), passes the same two headers to the Tauri updater (`:792,794`), and
     refuses a downloaded build whose `download_url` is not on the feed's origin ("the update {} is not on the patch
@@ -68,6 +68,20 @@ and the `host:port` that folder's client joins.
     (`site.rs:351`, test `:454-462`).
 
 ## Data
+
+The channel table (base URL shapes come from `channel_feed`, `channels.rs:49-56`, applied to the Live feed the build
+ships in `tauri/launcher.config.json`; the key files are named, never quoted):
+
+| Channel | Feed base URL | Launcher-update URL | Basic user the launcher tries | Key source | Who may publish |
+| --- | --- | --- | --- | --- | --- |
+| Live | `https://slumspatch.asslorde.com/manifest.json` (unchanged) | `<feed>/tauri/launcher.json` | `slums`, then `slumsdev` | player's own key in `settings.accessKey`; the baked key only for the built-in origin (`config.rs:51-64`) | only the owner, after "GO"; hand-over build needs the friends key baked in (`AGENTS.md:13-16`) |
+| Test | `https://slumspatch.asslorde.com/launcher-test/manifest.json` | `.../launcher-test/tauri/launcher.json` | `slums`, then `slumsdev` | dev key (the same key, whose nginx user is `slumsdev`) | dev box, `/opt/slums-tools/launcher-tauri-publisher`, no owner gate (`RUNBOOK.md:116-124`) |
+| RC | `https://slumspatch.asslorde.com/launcher-rc/manifest.json` | `.../launcher-rc/tauri/launcher.json` | `slums`, then `slumsdev` | dev key | dev box, same publisher, `--base-url .../launcher-rc/ --out /srv/slums-patch/launcher-rc` |
+
+Key files, by path only: the exe's baked key lives in `tauri/launcher.config.json` (and, for a friends build, in the
+build's `resources/app.asar`); the dev box keeps its key at `/root/slums-patch-access-key.txt`; nginx reads
+`/etc/nginx/slums-patch.htpasswd` and `/etc/nginx/slums-patch-dev.htpasswd`. None of these is readable from this repo,
+and none is reproduced here.
 
 | Item | Where | Lifetime |
 | --- | --- | --- |
@@ -94,7 +108,7 @@ and the `host:port` that folder's client joins.
 | `settings.accessUser` | empty → `slums` | Basic user; `slumsdev` only after a probe proves it |
 | `config.feedUrl` / `config.accessKey` | shipped `launcher.config.json` | Live feed + baked key; repo copy has `accessKey: ""` |
 | `--site-url=` | none | loopback-only sign-in site for self-tests (`launcher.rs:77`) |
-| `--no-self-update` / `SLUMSMS_NO_SELF_UPDATE=1` | off | skips the launcher's own update (`launcher.rs:71,757`) |
+| `--no-self-update` / `SLUMSMS_NO_SELF_UPDATE=1` | off | skips the launcher's own update (`launcher.rs:72,761`) |
 
 Live set: `docs/release/1.6.4.conf:271` is the *server's* JVM switch line (`UNIT_EDITS`, `CHANNELS=5`,
 `CHANNEL_LOAD=125`) — the game's five world channels, unrelated to patch channels; it says nothing about this
@@ -165,8 +179,8 @@ ancient updater that does exist (`src/updater.mjs`, Electron) has one feed and n
 ## Known issues
 
 - b017 (`/root/work/STATUS-1.6.4.md:70`): Windows Defender flags a new launcher exe; process, not code.
-- o04 (`STATUS-1.6.4.md:130`): client and launcher builds should move from Silvia to tarkov2 "later".
-- b270 (`STATUS-1.6.4.md:75`): a Live client publish wrote `manifest.json` without `news[]` — publisher side,
+- o04 (`/root/work/STATUS-1.6.4.md:130`): client and launcher builds should move from Silvia to tarkov2 "later".
+- b270 (`/root/work/STATUS-1.6.4.md:75`): a Live client publish wrote `manifest.json` without `news[]` — publisher side,
   `publishing.md`.
 - `docs/tickets/106-launcher-download-pass.md`: per-account download pass, open at 1.6.1; rules "No secret inside the
   launcher exe" and "Live and Test passes are separate" are satisfied by `site.rs:25-30` + `account.rs:71-86`, but the
@@ -187,7 +201,7 @@ ancient updater that does exist (`src/updater.mjs`, Electron) has one feed and n
 ## State
 
 Working. Evidence: `probe_channels` with the two-user fallback is exercised by `channels.rs:302-313` and
-`feed.rs:306`; the origin-bound credential logic has dedicated redirect tests (`feed.rs:316,362`); the download pass
+`/root/work/launcher-165-server/tauri/core/tests/feed.rs:306`; the origin-bound credential logic has dedicated redirect tests (`/root/work/launcher-165-server/tauri/core/tests/feed.rs:316,362`); the download pass
 end-to-end path is live in 1.6.1+ (`RUNBOOK.md` records Live pass rule ON 2026-11-01 02:59:53 UTC and RC/Test 1.6.5
 published over 1.6.4 with "without a key, all three feeds and the RC exe answer 401"). `channels.rs`, `http.rs` and
 `site.rs` compile and are used by the shipped `launcher.rs`, not by a dead path.

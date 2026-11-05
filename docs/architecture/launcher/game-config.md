@@ -90,15 +90,15 @@ The 12 keys the launcher writes (default = what the launcher shows when the key 
 | Id | Section | Key | Default (`game_options.rs`) | Client reader |
 |---|---|---|---|---|
 | `discord` | `discord` | `enableactivitystatus` | on (`:70`) | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:611` |
-| `winkey` | `clienthax` | `enablewinkey` | on (`:72`) | `YourStuff.h:655` |
-| `nobulb` | `clienthax` | `nobulb` | on (`:74`) | `YourStuff.h:616` |
-| `customcolor` | `clienthax` | `customcolor` | on (`:76`) | `YourStuff.h:620` |
-| `attackwalk` | `clienthax` | `attackwalk` | off (`:78`) | `YourStuff.h:636-641` → `src/attackstop_patch.h:112` |
+| `winkey` | `clienthax` | `enablewinkey` | on (`:72`) | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:655` |
+| `nobulb` | `clienthax` | `nobulb` | on (`:74`) | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:616` |
+| `customcolor` | `clienthax` | `customcolor` | on (`:76`) | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:620` |
+| `attackwalk` | `clienthax` | `attackwalk` | off (`:78`) | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:636-641` → `src/attackstop_patch.h:112` |
 | `attackjump` | `clienthax` | `attackjump` | on (`:80`) | `attackstop_patch.h:113` |
 | `chargemove` | `clienthax` | `chargemove` | on (`:82`) | `attackstop_patch.h:114` |
 | `doubletapjump` | `clienthax` | `doubletapjump` | off (`:84`) | `src/bounce.cpp:231` (Win32 reader) |
-| `jumpshoot` | `clienthax` | `jumpshoot` | on (`:86`) | `YourStuff.h:643` |
-| `jumpmagic` | `clienthax` | `jumpmagic` | on (`:88`) | `YourStuff.h:649` |
+| `jumpshoot` | `clienthax` | `jumpshoot` | on (`:86`) | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:643` |
+| `jumpmagic` | `clienthax` | `jumpmagic` | on (`:88`) | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:649` |
 | `borderless` | `graphics` | `borderless` | off (`:90`) | `src/system.cpp:306` → `src/window_policy.h:26-31` |
 | `dpiaware` | `graphics` | `dpiaware` | off (`:92`) | `src/system.cpp:307` |
 
@@ -218,13 +218,13 @@ panel; and nothing verifies that a launched client actually connects to the serv
 | b270 | `/root/work/STATUS-1.6.4.md:75` | Launcher news `news[]` missing from a manifest; not `config.ini`. |
 | — | `docs/tickets/104-launcher-login.md:42` | Auto-login was proposed "in `config.ini` like the other client patches" — not implemented; nothing in the client reads a stored password. |
 
-`NEW-FINDING:` `README.md:58` and `:230` in the launcher repo still say a player-owned file is "installed once and
+`NEW-FINDING:` `/root/work/launcher-165-server/README.md:58` and `:230` in the launcher repo still say a player-owned file is "installed once and
 never overwritten"; since `da13b09` that is false for `[config] host`/`port` (`install.rs:566-570`). A publisher reading
 only the README would expect the old behaviour.
 
-`NEW-FINDING:` `README.md:251-264` lists 10 options and misses `borderless`/`dpiaware` (`game_options.rs:90-93`),
+`NEW-FINDING:` `/root/work/launcher-165-server/README.md:251-264` lists 10 options and misses `borderless`/`dpiaware` (`game_options.rs:90-93`),
 gives `doubletapjump` as "on" when the code fallback is `false` (`game_options.rs:84`) and calls it "Double-tap jump to
-Flash Jump" while the panel says Ninja Bounce (`:85`); `README.md:338` still says game-server editing "is not wired
+Flash Jump" while the panel says Ninja Bounce (`:85`); `/root/work/launcher-165-server/README.md:338` still says game-server editing "is not wired
 yet … `config.ini` is player-owned by default", which `da13b09` superseded.
 
 `NEW-FINDING:` the hand-edit branch drops the whole layer copy (`install.rs:569`), so a folder whose player once set
@@ -254,7 +254,7 @@ documented in `docs/architecture/client/config-ini.md`.
 - Can an install run while the game is running? `install.rs` has no `game_running` check (only
   `write_game_config` has one, `game_config.rs:147`), so the merge could rewrite `config.ini` under a live client; the
   busy flag in `launcher.rs` covers the launcher's own operations, not a hand-started game.
-- Should `[config] host`/`port` be exposed in Settings (the pending request at `README.md:334-338`)? With the merge in
+- Should `[config] host`/`port` be exposed in Settings (the pending request at `/root/work/launcher-165-server/README.md:334-338`)? With the merge in
   place the panel would have to write into the same layer/record protocol, not just the file.
 - TEST behaviour: unknown — `start-test.sh` was not read for this review, and no server-side switch influences this
   subsystem either way.
