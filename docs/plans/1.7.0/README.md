@@ -57,5 +57,5 @@ Strategy and corrections: [../1.7.0-stabilization.md](../1.7.0-stabilization.md)
 | 2 | **P1-A2 Ledger + HELP_FRIEND slice** | P1-A1 | (a) L1 tree test for HELP_FRIEND (one decision -> root -> TRAVEL, ASSIST; all terminal; one `LifeOutcomes`); (b) architecture test: no `finish` outside `action/`; (c) TEST auto-QA `bl-hf-ok` PASS with the attempt ids in evidence; (d) `bl-hf-town` PASS: 0 abstract EXP over 3 unobserved accrual ticks, REJECTED(TARGET_MAP_NO_MOBS), HELPER like unchanged, world-knowledge row with dependency keys; (e) 24 h TEST soak: zero RUNNING-past-deadline and zero duplicate terminals for HELP_FRIEND |
 | 3 | **P1-Q1 Client QA runner keeps batched events** | `v1.6.4` baseline (parallel to 1-2) | (a) `test_qarunner.py` case with two signals in one batch: both waits succeed, and an unrelated event survives for a later wait (fails on baseline, passes after); (b) one Windows-VM client run on the release client build that previously hit b286 completes with both signals recorded |
 
-The P0 safety batch (C, P0-1..P0-8) runs alongside from day one. It isn't on the critical path, but G1 blocks the
-release until every P0 item is closed.
+P0 safety work (C, P0-1..P0-8) runs in parallel with the bot and QA work from day one. Every P0 item is a mandatory
+release blocker (G1).

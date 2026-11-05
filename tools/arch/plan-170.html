@@ -60,14 +60,14 @@ td.id{font:500 12.5px var(--mono);white-space:nowrap}
   <p class="lede">The systems-first stabilization release. It makes the game engine, playerbots, owned alts, content, QA and supporting services reliable enough to build on. 1.7.0 adds no new features: it repairs, completes and proves what already exists. This page summarises the signed-off plan in <code>docs/plans/1.7.0/</code> on branch <code>plan-1.7.0</code>.</p>
 
   <div class="status">
-    <span class="pill s-ok">architecture signed off</span>
+    <span class="pill s-ok">architecture locked</span>
     <span class="pill s-part">waiting on 1.6.4 release</span>
     <span class="pill s-unk">1.6.5 folded in</span>
     <span class="pill s-unk">feature freeze</span>
   </div>
 
   <div class="verdict">
-    <b>Architecture ready.</b> Implementation starts once 1.6.4 is released and verified on live. That commit, tagged <code>v1.6.4</code>, becomes the baseline. Until then, 1.6.4 is the only active release.
+    <b>Architecture locked.</b> Approved by the owner on Nov 5 as the 1.7.0 baseline. Any material change needs evidence and owner approval. Implementation starts once 1.6.4 is released and verified on live. That commit, tagged <code>v1.6.4</code>, becomes the baseline. Until then, 1.6.4 is the only active release.
   </div>
 
   <nav class="toc" aria-label="Sections">
@@ -158,7 +158,7 @@ stateDiagram-v2
     <h3>Half-finished trades and purchases</h3>
     <ul>
       <li>Every transactional step writes a journal entry before it changes anything.</li>
-      <li>Cleanup is time-limited and reports done, pending or failed.</li>
+      <li>Cleanup never blocks the game loop: small slices per tick, database work off the tick, and a 2 s deadline spread across ticks. It reports done, pending or failed.</li>
       <li>A bot keeps its claims while the outcome is uncertain.</li>
       <li>Boot settles open entries before anyone logs in.</li>
     </ul>
