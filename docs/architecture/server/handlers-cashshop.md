@@ -23,12 +23,12 @@ packets.
 | `ENTER_CASHSHOP` | `0x28` (`src/main/java/net/opcodes/RecvOpcode.java:65`) | `src/main/java/net/PacketProcessor.java:189` | `src/main/java/net/server/channel/handlers/EnterCashShopHandler.java:39` |
 | `CASHSHOP_WINDOW_ACTION` | `0x3730` (`RecvOpcode.java:25`) | `PacketProcessor.java:190` | `src/main/java/net/server/channel/handlers/CashShopWindowHandler.java:42` |
 | `CASHSHOP_OPERATION` | `0xE5` (`RecvOpcode.java:205`) | `PacketProcessor.java:211` | `src/main/java/net/server/channel/handlers/CashOperationHandler.java:64` |
-| `CASHSHOP_SURPRISE` | `0xA1` (`RecvOpcode.java:169`) | `PacketProcessor.java:262` | `src/main/java/net/server/channel/handlers/CashShopSurpriseHandler.java:33` |
+| `CASHSHOP_SURPRISE` | `0xA1` (`RecvOpcode.java:169`) | `PacketProcessor.java:262` | `src/main/java/net/server/channel/handlers/CashShopSurpriseHandler.java:35` |
 | `CHECK_CASH` | `0xE4` (`RecvOpcode.java:204`) | `PacketProcessor.java:210` | `src/main/java/net/server/channel/handlers/TouchingCashShopHandler.java:34` |
 | `ENTER_MTS` | `0x9C` (`RecvOpcode.java:165`) | `PacketProcessor.java:188` | `src/main/java/net/server/channel/handlers/EnterMTSHandler.java:56` |
 | `MTS_OPERATION` | `0xFD` (`RecvOpcode.java:210`) | **not registered** — `PacketProcessor.java:227` is commented out | `src/main/java/net/server/channel/handlers/MTSHandler.java:58` (dead) |
 | `COUPON_CODE` | `0xE6` (`RecvOpcode.java:206`) | `PacketProcessor.java:212` | `src/main/java/net/server/channel/handlers/CouponCodeHandler.java:189` |
-| `USE_CASH_ITEM` | `0x4F` (`RecvOpcode.java:101`) | `PacketProcessor.java:164` | `src/main/java/net/server/channel/handlers/UseCashItemHandler.java:78` |
+| `USE_CASH_ITEM` | `0x4F` (`RecvOpcode.java:101`) | `PacketProcessor.java:164` | `src/main/java/net/server/channel/handlers/UseCashItemHandler.java:75` |
 
 | Server-side entry | File:line | Note |
 |---|---|---|
@@ -136,7 +136,7 @@ it only in the javadoc). The delivered items and the NX debit persist with the c
 9. Tail: `c.enableCSActions()` on every exit path, `log.warn("Unhandled action: {}, packet: {}", action, p)` (`:467`).
 
 This path exists in the tree because the window deliberately does **not** use it. The javadoc at
-`CashShopWindowHandler.java:19-37` states the reason: `0xE5` gates on `isOpened()`, faking `open(true)` would need the
+`CashShopWindowHandler.java:20-37` states the reason: `0xE5` gates on `isOpened()`, faking `open(true)` would need the
 map/server removal that the window exists to avoid, `Character.commitBuffCoupon`
 (`src/main/java/client/Character.java:8191-8193`) silently refuses rate-coupon buffs while the flag is set, and
 `saveCharToDB` would persist a stale `mapid` (`Character.java:9945-9948`). Purchases therefore deliver straight to
@@ -215,7 +215,7 @@ Only the two paths that touch the paid-item delivery contract:
   the player cannot re-enter the shop mid-roll, and applies the scroll with
   `ii.scrollEquipWithId(toScroll, uitem.getItemId(), false, itemId, player.isGM())` (`:627`) — the **fed** scroll id is
   what is applied, not a random one. `0x41`/`0x43` report success/boom, the scroll and the spell are removed, and a
-  3-second timer restores the flag (`:636`). Comment at `:622-623`: it used to throw, leaving the shop blocked and
+  3-second timer restores the flag (`:636-642`). Comment at `:624-626`: it used to throw, leaving the shop blocked and
   nothing used up, "so a boom was a free retry".
 
 Everything else in `UseCashItemHandler` is inventory-side and documented in
@@ -225,7 +225,7 @@ Everything else in `UseCashItemHandler` is inventory-side and documented in
 
 - `TouchingCashShopHandler` (`src/main/java/net/server/channel/handlers/TouchingCashShopHandler.java:34-36`) sends
   `PacketCreator.showCash(chr)` and does nothing else; it is byte-identical to the Cosmic version and carries no gates.
-- `CashShopSurpriseHandler` (`:33-48`): only acts `if (cs.isOpened())`, so it is **unreachable on the window path**.
+- `CashShopSurpriseHandler` (`:35-48`): only acts `if (cs.isOpened())` (`:38`), so it is **unreachable on the window path**.
   It calls `cs.openCashShopSurprise()` and replies `onCashGachaponOpenSuccess` or `onCashItemGachaponOpenFailed`.
   Unlike Cosmic it reads no packet fields (Cosmic read a `long cashId`); ours ignores the client's cash id.
   `CashShop.openCashShopSurprise` (`src/main/java/server/CashShop.java:560`) needs item `5222000` in the locker and
@@ -301,7 +301,7 @@ whether TEST runs the window or the NPC 9010004 fallback is unknown.
    action byte (`CashShopWindowHandler.java:53`), category bytes (`:104`), single buy int (`:121`), cart count and
    `count * 4` (`:145`).
 8. **A coupon code is claimed exactly once.** `UPDATE … WHERE code = ? AND retriever IS NULL` and a
-   `!= 1` row count means "someone else got it" (`CouponCodeHandler.java:149-158`).
+   `!= 1` row count means "someone else got it" (`CouponCodeHandler.java:149-157`).
 9. **An unhandled paid item is not consumed.** `UseCashItemHandler.java:375-378` returns before the
    `remove(...)` call.
 
@@ -310,7 +310,7 @@ whether TEST runs the window or the NPC 9010004 fallback is unknown.
 | File | Origin | Evidence |
 |---|---|---|
 | `CashShopWindowHandler.java` | **custom** | absent from `/root/workspace/cosmicms`; `git log --follow` bottoms out at `03d13cb21 2026-10-18 Establish deployable MapleRoot server baseline`, i.e. it was added inside the repack squashed baseline; `classifications.json` has no base-side entry |
-| `server/cashshop/*` (5 files) | **custom** | the whole directory is missing upstream (`git ls-tree 03d13cb21 src/main/java/server/cashshop/` already lists all five, so it too came in with the baseline squash) |
+| `server/cashshop/*` (7 files) | **custom** | the directory does not exist in `/root/workspace/cosmicms`. Four files came in with the repack squash — `git ls-tree 03d13cb21 src/main/java/server/cashshop/` lists `CashShopCartDelivery`, `CashShopCatalog`, `CashShopWindowPackets`, `CashShopWindowPurchase` — and three were added after it: `CashShopServices` (`b40e5c651 2026-10-20`), `CashShopPartnerRings` (`447672bbf 2026-10-22`), `CouponSchedule` (`fb0169ec8 2026-10-24`) |
 | `EnterCashShopHandler.java` | **modified** (heavy) | 68 changed lines vs `/root/workspace/cosmicms`; base is the full stage transition, ours is window-or-NPC; `classifications.json`: `"java-short/java-shrunk:…/EnterCashShopHandler.java"` → `DELIBERATE`, "SlumsMS cash shop window (see 1.4.0 cash shop work)" |
 | `CashOperationHandler.java` | **modified** | 29 changed lines; structure is Cosmic's, gates/constants differ |
 | `CouponCodeHandler.java` | **modified** | 22 changed lines; the `UPDATE … retriever IS NULL` claim is ours (`a4136a1c3 2026-10-27 "NX merchant: never leave a 50m buyer without their code; one redeem per code"`) |

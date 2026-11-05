@@ -207,7 +207,7 @@ older stamp key to fall back to. Switching happens at two other layers.
 |---|---|---|---|
 | `SLUMS_RELEASE_OVERRIDE` | unset | `cmake/BuildStamp.cmake:32-34` | replaces the release string (wire + title + resource) |
 | `SLUMS_BUILD_NUMBER_OVERRIDE` | unset | `cmake/BuildStamp.cmake:35-37` | replaces the build number; sticky until `-U` |
-| `MAPLEROOT_INTEGRATION` | `OFF` | `CMakeLists.txt:31-33` | not stamp-specific, but the standard build turns it on (`scripts/build.ps1:11`) |
+| `MAPLEROOT_INTEGRATION` | `OFF` (`CMakeLists.txt:6`) | `CMakeLists.txt:31-33` | not stamp-specific, but the standard build turns it on (`scripts/build.ps1:11`) |
 
 **Client, build-tree only (not on this branch):** `-DSLUMS_QA_MODULE=ON` would stamp `<release>-qa` and caps bit 31
 (commit `2f17894`, message + `docs/qa/client-scripts/README.md:63-64`); no file in the current tree mentions it, so it

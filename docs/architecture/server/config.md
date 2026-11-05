@@ -256,7 +256,10 @@ uses and compares values; WorldConfigsTest asserts every validate branch; Server
 registry), and the strictness mechanism is understood down to the yamlbeans default. It is not fully "working" because the
 strict-abort path itself has no test, the template fix is still only on `163-integration` and not in `release-1.6.4`
 (docs/tickets/273-config-template-gap.md:3-6), and live's own `config.yaml` is not readable from this host
-(.gitignore:7). No build or test run was performed for this review.
+(.gitignore:7). The release-side evidence is also inconsistent: 1.6.4's `SERVER_SET` drops the `OWNED_ALTS_ENABLED` master
+switch that 1.6.3's set (docs/release/1.6.4.conf:201-215 vs docs/release/1.6.3.conf:113), and the test meant to catch that
+reads the 1.6.3 file by hardcoded path (src/test/java/config/OwnedAltSwitchLineTest.java:44). No build or test run was
+performed for this review.
 
 ## Open questions
 
