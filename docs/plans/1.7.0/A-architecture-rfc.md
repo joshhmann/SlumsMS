@@ -269,7 +269,13 @@ No other activity migrates until both pass on TEST.
 
 ### 2.9 Compensation and settling (transactions)
 
-- `compensate` is **bounded**: at most 2 s of work on the actor's tick per call, and it returns one of:
+- `compensate` is **bounded and non-blocking** (owner constraint at lock, Nov 5). It never blocks the shared game
+  loop:
+  - each call does at most a small, fixed slice of in-memory work (target under 1 ms) on the actor's tick;
+  - any DB or journal I/O is handed to the existing off-tick executor and polled on later ticks;
+  - the 2 s is the settle *deadline* across ticks, not a time the tick may spend.
+
+  It returns one of:
   - `DONE`: the effect is certain, either committed or rolled back;
   - `PENDING(journalId)`: not finished yet;
   - `FAILED(evidence)`: it can't decide.

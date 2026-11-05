@@ -1,6 +1,6 @@
 # F. 1.7.0 Architecture Decision Record
 
-Date: 2026-11-05. Status: **accepted** (owner adopted the systems-first plan; this record closes the open design
+Date: 2026-11-05. Status: **accepted and LOCKED by the owner** (material deviations need evidence and owner approval) (owner adopted the systems-first plan; this record closes the open design
 questions). Context: `docs/plans/1.7.0-stabilization.md` and Codex's two reviews.
 
 ## Decisions
@@ -27,6 +27,7 @@ questions). Context: `docs/plans/1.7.0-stabilization.md` and Codex's two reviews
 | D18 | Game-content manifest authenticity and rollback protection are **open** (P1-L2) until signed and verified | only the launcher's self-update is signed; content is hash-checked only (`manifest.rs:154-339`) | treating self-update signing as content trust |
 | D19 | `-Dslums.action.authority` switch; legacy adapter keeps unmigrated activities on today's behaviour, with learning ignoring legacy failures | migrate one family at a time without a big-bang | migrate all activities at once |
 | D20 | No 1.7.0 code merges before 1.6.4 is released and verified; baseline is the `v1.6.4` tag | owner, Nov 5: 1.6.4 is the priority | starting in parallel on release-1.6.4 |
+| D22 | Compensation is non-blocking: small in-memory slices per tick, I/O off-tick, 2 s is a cross-tick deadline (owner, at lock) | the shared game loop must never stall for settlement | spending up to 2 s on the tick |
 | D21 | G2 must show coverage: share of attempts and bot-hours on migrated adapters, and legacy families' failure rates vs baseline; a worse legacy family blocks unless owner-excepted and listed | closes the loophole between the 99.9% rate and the legacy adapter | excluding legacy silently |
 
 ## Remaining risks

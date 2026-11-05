@@ -1,6 +1,7 @@
 # SlumsMS 1.7.0: final architecture and execution plan
 
-Signed off for planning on Nov 5 2026. **No 1.7.0 implementation starts until 1.6.4 is released and verified on
+**LOCKED Nov 5 2026 (owner):** the authoritative 1.7.0 baseline. Ordinary engineering details may be resolved in
+implementation; any material deviation is documented with evidence and brought back for approval. **No 1.7.0 implementation starts until 1.6.4 is released and verified on
 live.** The released commit becomes the baseline, tagged `v1.6.4`.
 
 | Doc | What it is |
