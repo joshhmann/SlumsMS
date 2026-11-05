@@ -61,6 +61,17 @@ class OwnedAltServiceTest {
         assertThrows(IllegalStateException.class, () -> s.summon(owner, "Alt2"));
         assertEquals(1, db.loads.get());
     }
+    // 1.6.4 @bonds: an alt that is out (summoned, or logged in on its own) is still the owner's alt.
+    @Test void ownedListsAltsThatAreOutWhileListOnlyListsFreeOnes() {
+        Memory db = new Memory(); db.add(2); db.add(3); db.add(4);
+        db.candidates.add(new OwnedAltService.Candidate(5, 8, 1, "Other"));
+        OwnedAltService s = new OwnedAltService(db, () -> true);
+        Character owner = owner(1);
+        s.summon(owner, "Alt2");
+        db.online.add(3);
+        assertEquals(List.of("Alt4"), s.list(owner).stream().map(OwnedAltService.Candidate::name).toList());
+        assertEquals(List.of("Alt2", "Alt3", "Alt4"), s.owned(owner).stream().map(OwnedAltService.Candidate::name).toList());
+    }
     @Test void disabledByDefaultAndSharedFiveSlotLimit() {
         Memory db = new Memory(); db.add(2); db.add(3);
         Character owner = owner(1);
