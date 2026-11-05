@@ -683,7 +683,7 @@ off or there is too little history to judge. Runbook: `docs/qa/social-test-runbo
   no decision yet. Persistence across a restart is the runbook's job, not this check's.
 - **t-sa-1 (social acts):** at least 3 kinds of act must have landed (`KIND.ok`) between bots with no real player
   involved, errors must stay at or under 5% of the acts that landed, `SocialBudget` must refuse at most half of the
-  attempts, the turn limit must bite (at least one `denied turn-limit` in 200+ allowed acts) but not dominate, and no
+  attempts, the turn limit must refuse a scripted A/B ping-pong on two fake ids (`SocialBudget.turnLimitBites`, synthetic: pair cooldowns stop organic pairs before six turns; the organic count is an info line) and must not dominate (turn-limit refusals at most half of the allowed acts), and no
   single kind may be refused more than it lands with 10+ attempts. SKIPs when `-Dslums.socialacts=false` or under 20
   attempts have been made.
 - **t-pi-1 (the Henesys pilot):** registered. The probe `socialPilot` reads `SocialPilot.stats()` and

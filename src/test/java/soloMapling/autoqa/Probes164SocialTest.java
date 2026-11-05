@@ -233,10 +233,19 @@ class Probes164SocialTest {
     void socialActsFailsABudgetThatRefusesMostActsOrACapThatNeverBites() {
         assertTrue(Probes164Social.socialActsProblem(goodActs(), budgetCounters(20, 40, 3))
                 .startsWith("the budget refused 40 of 60 act(s) (cap 50%)"));
-        assertEquals("no pair hit the turn limit in 300 allowed act(s): the cap is not being applied",
-                Probes164Social.socialActsProblem(goodActs(), budgetCounters(300, 20, 0)));
+        // organic traffic never proves the cap (pair cooldowns stop pairs first): zero organic turn-limit refusals is fine
+        assertNull(Probes164Social.socialActsProblem(goodActs(), budgetCounters(300, 20, 0)));
         assertTrue(Probes164Social.socialActsProblem(goodActs(), budgetCounters(20, 20, 15))
                 .contains("pairs are stuck in a capped exchange"));
+    }
+
+    @Test
+    void theSyntheticTurnLimitProofFailsWhenThePingPongIsNotRefused() {
+        assertNull(Probes164Social.turnLimitProblem(true));
+        assertTrue(Probes164Social.turnLimitProblem(false).contains("cap is not being applied"));
+        soloMapling.ArtificialPlayer.BotSocialSystem.SocialBudget.resetForTest();
+        assertTrue(Probes164Social.turnLimitProof.test(System.currentTimeMillis()),
+                "the real budget must refuse the scripted ping-pong");
     }
 
     @Test

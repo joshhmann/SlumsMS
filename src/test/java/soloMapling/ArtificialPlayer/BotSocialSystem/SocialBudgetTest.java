@@ -330,4 +330,14 @@ class SocialBudgetTest {
             System.clearProperty("slums.socialbudget.greetCooldownS");
         }
     }
+
+    @Test
+    void theSyntheticTurnProofRefusesPastTheLimitAndTouchesNoRealCounter() {
+        Map<String, Long> before = SocialBudget.counters();
+        assertTrue(SocialBudget.turnLimitBites(1_000_000L));
+        assertTrue(SocialBudget.turnLimitBites(2_000_000L), "repeatable: it leaves no chain behind");
+        assertEquals(before, SocialBudget.counters());
+        System.setProperty(SocialBudget.SWITCH, "false");
+        assertFalse(SocialBudget.turnLimitBites(1_000_000L), "off: nothing to prove");
+    }
 }
