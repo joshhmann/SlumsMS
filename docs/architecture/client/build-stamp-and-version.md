@@ -6,15 +6,15 @@ Every `slums.dll` carries a numeric build and a release string, both derived fro
 configure time, and reports them to the login server as CP `0x3738 CLIENT_BUILD_STAMP` immediately before every
 `CP_CheckPassword` (`src/buildstamp_proto.h:3-5`, `src/bypass.cpp:435`). The server compares that build with
 `MIN_CLIENT_BUILD` and refuses older clients at login with an update popup
-(`src/main/java/net/server/handlers/login/ClientVersionGate.java:18-27`). The same two values are printed for humans in
-three places — window title, login-screen corner, PE version resource — so a screenshot identifies the client someone
-runs (`src/buildshow_text.h:2-5`, `src/slums.rc.in:17-25`).
+(`src/main/java/net/server/handlers/login/ClientVersionGate.java:18-27`). The same two values are printed for humans
+in three places — window title, login-screen corner, PE version resource — so a screenshot identifies the client
+someone runs (`src/buildshow_text.h:2-5`, `src/slums.rc.in:17-25`).
 
-The stamp is the wire contract that lets the server ship **behaviour-changing** client patches: 4-byte HP/MP from build
-10600 (`src/main/java/constants/game/GameConstants.java:27-34`), custom NPC templates from 10610
+The stamp is the wire contract that lets the server ship **behaviour-changing** client patches: 4-byte HP/MP from
+build 10600 (`src/main/java/constants/game/GameConstants.java:27-34`), custom NPC templates from 10610
 (`src/main/java/server/life/CustomNpcGate.java:17`), the damage rank from 10690
-(`src/main/java/config/ServerConfig.java:53`), the 1.6.4 map guards from 10740
-(`docs/release/1.6.4.conf:279-284`). It is a *soft* version check: the old v83 handshake version is untouched.
+(`src/main/java/config/ServerConfig.java:53`), the 1.6.4 map guards from 10740 (`docs/release/1.6.4.conf:279-284`). It
+is a *soft* version check: the old v83 handshake version is untouched.
 
 ## Entry points
 
@@ -24,7 +24,7 @@ The stamp is the wire contract that lets the server ship **behaviour-changing** 
 | client build | `cmake/BuildStamp.cmake:14` | `file(READ .../VERSION)` — the only input |
 | client build | `src/CMakeLists.txt:33` | `target_compile_definitions(injector PRIVATE SLUMS_BUILD_NUMBER=... "SLUMS_RELEASE=\"...\"")` |
 | client build | `src/CMakeLists.txt:34-35` | `file(GENERATE .../slums-build.txt "release=...\nbuild=...")` |
-| client build | `src/CMakeLists.txt:41-42` | `configure_file(slums.rc.in -> slums.rc)` + `target_sources` (version resource) |
+| client build | `src/CMakeLists.txt:41-42` | `configure_file(src/slums.rc.in -> slums.rc)` + `target_sources` (version resource) |
 | client runtime | `src/bypass.cpp:475` | `ATTACH_HOOK(CLogin::SendCheckPasswordPacket, ..._hook)` installs the sender |
 | client runtime | `src/bypass.cpp:421` | `CLogin::SendCheckPasswordPacket_hook` — sends the stamp, then the password |
 | client runtime | `src/bypass.cpp:399` | `ClientDataCaps()` — probes `Npc/*.img` to fill caps bit 0 |
@@ -88,20 +88,23 @@ Numbered end to end, configure → wire → refusal.
     `ClientStampCarry.remember` (`src/main/java/client/Client.java:1184`) and `.restore`
     (`src/main/java/net/server/channel/handlers/PlayerLoggedinHandler.java:147`,
     `src/main/java/net/server/coordinator/session/ClientStampCarry.java:24-43`).
-11. **Gate on a verified password** (`LoginPasswordHandler.java:74`): runs only for loginok ∈ {0, 7, 23, -23, -10}
-    (`ClientVersionGate.java:76-78`) — never on a wrong password, never before the "already logged in" kick, never
-    in the `AUTOMATIC_REGISTER` branch without a GM level (`LoginPasswordHandler.java:79` passes `accountId -> 0`).
-12. **Verdict** (`ClientVersionGate.java:99-123`): QA-cap check first (`:102-108`), then
-    `MIN_CLIENT_BUILD <= 0 || build >= MIN_CLIENT_BUILD` → allow (`:110-112`), then the optional GM bypass read from
-    the database (`:113-116`, `accountGmLevel` at `:126-140`, `SELECT MAX(gm) FROM characters WHERE accountid = ?`,
-    because `Client.getGMLevel()` is still 0 at this point, `:90-94`). Refusal logs
-    `Client version gate: refused '<account>' from <addr>: client build N (no stamp) < minimum M` (`:118-119`) and
-    sends two packets: `PacketCreator.serverNotice(1, message)` (`:120`) and `getLoginFailed(1)` (`:121`).
+11. **Gate on a verified password** (`src/main/java/net/server/handlers/login/LoginPasswordHandler.java:74`): runs
+    only for loginok ∈ {0, 7, 23, -23, -10} (`src/main/java/net/server/handlers/login/ClientVersionGate.java:76-78`) —
+    never on a wrong password, never before the "already logged in" kick, never in the `AUTOMATIC_REGISTER` branch
+    without a GM level (`src/main/java/net/server/handlers/login/LoginPasswordHandler.java:79` passes the constant
+    `accountId -> 0` lambda).
+12. **Verdict** (`src/main/java/net/server/handlers/login/ClientVersionGate.java:99-123`): QA-cap check first
+    (`:102-108`), then `MIN_CLIENT_BUILD <= 0 || build >= MIN_CLIENT_BUILD` → allow (`:110-112`), then the optional GM
+    bypass read from the database (`:113-116`, `accountGmLevel` at `:126-140`, `SELECT MAX(gm) FROM characters WHERE
+    accountid = ?`, because `Client.getGMLevel()` is still 0 at this point, `:90-94`). Refusal logs `Client version
+    gate: refused '<account>' from <addr>: client build N (no stamp) < minimum M` (`:118-119`) and sends two packets:
+    `PacketCreator.serverNotice(1, message)` (`:120`) and `getLoginFailed(1)` (`:121`).
 13. **What the player sees.** Reason 1 is chosen because `CLogin::OnCheckPasswordResult` (0x5F9891) shows no dialog
     for it — the only text is our notice popup, and the login box becomes usable again
-    (`ClientVersionGate.java:23-27`, `:31-32`). Text = `CLIENT_UPDATE_MESSAGE`, default
-    `Your game is out of date: open the SlumsMS launcher to update.` (`ServerConfig.java:62`); a blank/absent message
-    falls back to the same literal (`ClientVersionGate.java:67-70`).
+    (`src/main/java/net/server/handlers/login/ClientVersionGate.java:23-27`, `:31-32`). Text = `CLIENT_UPDATE_MESSAGE`,
+    default `Your game is out of date: open the SlumsMS launcher to update.`
+    (`src/main/java/config/ServerConfig.java:62`); a blank/absent message falls back to the same literal
+    (`src/main/java/net/server/handlers/login/ClientVersionGate.java:67-70`).
 14. **Release hook** (`tools/release/set-min-client-build`): `MIN_CLIENT_BUILD: N` under `server:` in the live
     `config.yaml`, run while the server is stopped, after the client is published (`:7-12`). It must appear exactly
     once (`:26-28`), keeps the old indent and CRLF (`:13-14`), refuses to lower without `--allow-lower` (`:34`),
@@ -117,17 +120,18 @@ Numbered end to end, configure → wire → refusal.
 ### A client with no stamp
 
 A pre-1.4.2 `slums.dll` (1.4.1 and older) never sends CP `0x3738` (`src/buildstamp_proto.h:11-12`). The server's
-fields stay at their initial values — build 0, release `""`, format 0 (`Client.java:127-131`) — so:
+fields stay at their initial values — build 0, release `""`, format 0 (`src/main/java/client/Client.java:127-131`) —
+so:
 
 | Gate | With no stamp | Source |
 |---|---|---|
-| `MIN_CLIENT_BUILD` | refused whenever it is > 0; log says `client build 0 (no stamp) < minimum M` | `ClientVersionGate.java:110`, `:118-119` |
-| GM bypass | applies if `MIN_CLIENT_BUILD_GM_BYPASS` and the account's max `characters.gm` > 0 | `ClientVersionGate.java:52`, `:113-116` |
-| QA cap | not refused (caps 0) | `ClientVersionGate.java:81-83` |
-| custom NPCs | allowed only if build ≥ `CUSTOM_NPC_MIN_BUILD` (format-1 fallback) | `CustomNpcGate.java:60-65` |
-| damage rank | allowed only if build ≥ `DAMAGE_RANK_MIN_BUILD` | `DamageRank.java:63-68` |
-| UI tip line | allowed only if build ≥ 10600 | `GuideMenu.java:34`, `:160` |
-| `@bug` client log upload | never asked (needs format ≥ 2 and caps bit 1) | `BugClientLogs.java:67-69` |
+| `MIN_CLIENT_BUILD` | refused whenever it is > 0; log says `client build 0 (no stamp) < minimum M` | `src/main/java/net/server/handlers/login/ClientVersionGate.java:110`, `:118-119` |
+| GM bypass | applies if `MIN_CLIENT_BUILD_GM_BYPASS` and the account's max `characters.gm` > 0 | `src/main/java/net/server/handlers/login/ClientVersionGate.java:52`, `:113-116` |
+| QA cap | not refused (caps 0) | `src/main/java/net/server/handlers/login/ClientVersionGate.java:81-83` |
+| custom NPCs | allowed only if build ≥ `CUSTOM_NPC_MIN_BUILD` (format-1 fallback) | `src/main/java/server/life/CustomNpcGate.java:60-65` |
+| damage rank | allowed only if build ≥ `DAMAGE_RANK_MIN_BUILD` | `src/main/java/server/life/DamageRank.java:63-68` |
+| UI tip line | allowed only if build ≥ 10600 | `src/main/java/soloMapling/menus/GuideMenu.java:34`, `:160` |
+| `@bug` client log upload | never asked (needs format ≥ 2 and caps bit 1) | `src/main/java/server/reports/BugClientLogs.java:67-69` |
 
 So the answer is: build 0, and on any server that has a gate set, the login is refused with the update popup. The one
 exemption written into the code is the GM bypass.
@@ -138,8 +142,8 @@ exemption written into the code is the GM bypass.
 
 | Offset | Size | Field | Client writer | Server reader |
 |---|---|---|---|---|
-| 0 | 2 | opcode `0x3738` | `src/buildstamp_proto.h:23` | `RecvOpcode.java:31` |
-| 2 | 2 | format (1 or 2) | `:34` (`kBuildStampFormat` = 2) | `ClientBuildStampHandler.java:42-45` |
+| 0 | 2 | opcode `0x3738` | `src/buildstamp_proto.h:23` | `src/main/java/net/opcodes/RecvOpcode.java:31` |
+| 2 | 2 | format (1 or 2) | `:34` (`kBuildStampFormat` = 2) | `src/main/java/net/server/handlers/login/ClientBuildStampHandler.java:42-45` |
 | 4 | 4 | build (`int`) | `:35` | `:46-49` |
 | 8 | 2 + n | release length + ASCII release (≤ 40) | `:36` | `:50-59` |
 | 8 + 2 + n | 4 | caps (`int`, format 2 only) | `:37` | `:61-66` |
@@ -147,19 +151,19 @@ exemption written into the code is the GM bypass.
 Golden bytes (both repos assert the same literal): format 2, build 10402, `"1.4.2"`, caps 1 →
 `0200a22800000500312e342e3201000000` (`tests/buildstamp_proto_test.cpp:35`,
 `src/test/java/net/server/handlers/login/ClientVersionGateTest.java:99`). Format 1 (no caps) →
-`0100a22800000500312e342e32` (`ClientVersionGateTest.java:76`).
+`0100a22800000500312e342e32` (`src/test/java/net/server/handlers/login/ClientVersionGateTest.java:76`).
 
 **Caps bits.**
 
 | Bit | Name | Meaning | Set by | Read by |
 |---|---|---|---|---|
-| 0 | `kCapCustomNpcData` / `CAP_CUSTOM_NPC_DATA` | all 16 `Npc/*.img` resolve, so custom NPC spawns are safe | `src/buildstamp_proto.h:25`, probed in `src/bypass.cpp:399-419` | `CustomNpcGate.java:23`, `:60-65` |
-| 1 | `CAPS_LOG_UPLOAD` | client will answer LP `0x373A` with CP `0x373B` after `@bug` | **no producer in this branch** (see Known issues) | `BugClientLogs.java:40`, `:67-69` |
-| 31 | `CAP_QA_BUILD` | a `SLUMS_QA_MODULE` QA build, must not reach live | not in this branch (`2f17894`, only on `client-170-*`/`client-162-*`) | `ClientVersionGate.java:37`, `:81-83` |
+| 0 | `kCapCustomNpcData` / `CAP_CUSTOM_NPC_DATA` | all 16 `Npc/*.img` resolve, so custom NPC spawns are safe | `src/buildstamp_proto.h:25`, probed in `src/bypass.cpp:399-419` | `src/main/java/server/life/CustomNpcGate.java:23`, `:60-65` |
+| 1 | `CAPS_LOG_UPLOAD` | client will answer LP `0x373A` with CP `0x373B` after `@bug` | **no producer in this branch** (see Known issues) | `src/main/java/server/reports/BugClientLogs.java:40`, `:67-69` |
+| 31 | `CAP_QA_BUILD` | a `SLUMS_QA_MODULE` QA build, must not reach live | not in this branch (`2f17894`, only on `client-170-*`/`client-162-*`) | `src/main/java/net/server/handlers/login/ClientVersionGate.java:37`, `:81-83` |
 
 **Custom NPC ids the caps bit stands for** (`src/buildstamp_proto.h:46-47`): `9990000` (Slums-chan) plus `2985..2999`
 (15 Lazy Penguins) — 16 entries, asserted in `tests/buildstamp_proto_test.cpp:50-51`; mirrored server-side as the
-config default `CUSTOM_NPC_IDS = "9990000,2985-2999"` (`ServerConfig.java:70`) parsed by
+config default `CUSTOM_NPC_IDS = "9990000,2985-2999"` (`src/main/java/config/ServerConfig.java:70`) parsed by
 `CustomNpcGate.isCustom`.
 
 **Build artifacts.** `build/Release/slums-build.txt` = `release=<VERSION text>\nbuild=<n>\n`
@@ -183,7 +187,7 @@ being staged.
 | 1.6.0.2 | 10601 | override, VERSION stayed `1.6.0` | `docs/release/1.6.0.3.conf:4`; `docs/research-121-crash-report.md:139` |
 | 1.6.1 rc8 / rc9 | 10680 / 10690 | overrides, VERSION still `1.6.0` | `docs/release/1.6.1.conf:259` |
 | 1.6.1 rc11 / rc12 | 10700 / 10710 | overrides; rc11 was the shipped 1.6.1 client | `docs/release/1.6.1.conf:258-263`; `docs/release/1.6.1-notes.md:68` |
-| 1.6.2 rc1..rc5 | 10720 | `VERSION 1.6.2` under the **new** formula, no override (b205) | `35ff96f`; `docs/release/1.6.2.conf:274` |
+| 1.6.2 rc1..rc5 | 10720 | `VERSION 1.6.2` under the **new** formula, no override (b205) | `35ff96f`; `README.md:29-30` ("1.6.2 -> 10720; 1.6.2-rc1 is also 10720"); `docs/release/1.6.2.conf:274` |
 | 1.6.2 rc6 (= shipped) | 10721 | `-DSLUMS_BUILD_NUMBER_OVERRIDE=10721` by owner call | `docs/release/1.6.2-deploy-steps.md:121-124`; `docs/release/1.6.2.conf:281` |
 | 1.6.3 | (no new client) | gate stayed at 10721 — "No new client is planned: MIN_CLIENT_BUILD stays 10721" | `docs/release/1.6.3.conf:8-9`, `:165` |
 | 1.6.4 rc1/rc2/rc3 | 10740 | `VERSION 1.6.4-rc*` under the new formula | `9b5dcda`; `docs/release/1.6.4.conf:284`; `docs/release/1.6.4-playbook.md:17` |
@@ -198,8 +202,8 @@ Formula change, one line: until 1.6.0 the build was `major*10000 + minor*100 + p
 
 No `config.ini` key governs the stamp. `config.example.ini` has only the sections `[general]`, `[discord]`,
 `[clienthax]`, `[weather]`, `[graphics]`, `[config]` (`config.example.ini:1,4,7,60,68,84`) and none of its keys are
-read by `buildstamp_proto.h`, `bypass.cpp:399-451` or `buildshow.cpp`. Nothing falls back to a legacy key: there is no
-older stamp key to fall back to. Switching happens at two other layers.
+read by `src/buildstamp_proto.h`, `src/bypass.cpp:399-451` or `src/buildshow.cpp`. Nothing falls back to a legacy key:
+there is no older stamp key to fall back to. Switching happens at two other layers.
 
 **Client, CMake cache:**
 
@@ -217,17 +221,18 @@ cannot be switched on here.
 
 | Key | Code default | Read at | Effect |
 |---|---|---|---|
-| `MIN_CLIENT_BUILD` | `0` (gate off) | `ServerConfig.java:59-61`; used `ClientVersionGate.java:48-49`, `:110` | the minimum build |
-| `CLIENT_UPDATE_MESSAGE` | `"Your game is out of date: open the SlumsMS launcher to update."` | `ServerConfig.java:62`; used `ClientVersionGate.java:67-70`, `:120` | popup text; blank → the default literal |
-| `MIN_CLIENT_BUILD_GM_BYPASS` | `false` | `ServerConfig.java:63-64`; used `ClientVersionGate.java:52`, `:113` | GM accounts (max `characters.gm` > 0) may log in below the minimum |
-| `CUSTOM_NPC_MIN_BUILD` | `10610` | `ServerConfig.java:71`; used `CustomNpcGate.java:60-65` | fallback for format-1/absent stamps |
-| `DAMAGE_RANK_MIN_BUILD` | `10690` | `ServerConfig.java:53`; used `DamageRank.java:63-68` | who receives LP `0x3739` |
-| `DAMAGE_RANK_MIN_MOB_HP` | `5000000` | `ServerConfig.java:54` | not stamp-related, listed because it shares the build comment |
+| `MIN_CLIENT_BUILD` | `0` (gate off) | `src/main/java/config/ServerConfig.java:59-61`; used `src/main/java/net/server/handlers/login/ClientVersionGate.java:48-49`, `:110` | the minimum build |
+| `CLIENT_UPDATE_MESSAGE` | `"Your game is out of date: open the SlumsMS launcher to update."` | `src/main/java/config/ServerConfig.java:62`; used `src/main/java/net/server/handlers/login/ClientVersionGate.java:67-70`, `:120` | popup text; blank → the default literal |
+| `MIN_CLIENT_BUILD_GM_BYPASS` | `false` | `src/main/java/config/ServerConfig.java:63-64`; used `src/main/java/net/server/handlers/login/ClientVersionGate.java:52`, `:113` | GM accounts (max `characters.gm` > 0) may log in below the minimum |
+| `CUSTOM_NPC_MIN_BUILD` | `10610` | `src/main/java/config/ServerConfig.java:71`; used `src/main/java/server/life/CustomNpcGate.java:60-65` | fallback for format-1/absent stamps |
+| `DAMAGE_RANK_MIN_BUILD` | `10690` | `src/main/java/config/ServerConfig.java:53`; used `src/main/java/server/life/DamageRank.java:63-68` | who receives LP `0x3739` |
+| `DAMAGE_RANK_MIN_MOB_HP` | `5000000` | `src/main/java/config/ServerConfig.java:54` | not stamp-related, listed because it shares the build comment |
 
 `config.example.yaml:82-86` mirrors the first five with the same values.
 
 **Server, system property:** `-Dslums.client.allowQa=true` — `ClientVersionGate.ALLOW_QA`
-(`ClientVersionGate.java:38-39`), read in `:96` via `Boolean.getBoolean`; off by default; TEST/RC only.
+(`src/main/java/net/server/handlers/login/ClientVersionGate.java:38-39`), read in `:96` via `Boolean.getBoolean`; off
+by default; TEST/RC only.
 
 **Release conf:** `MIN_CLIENT_BUILD=<n>` in `docs/release/<ver>.conf`, applied through
 `tools/release/gen-deploy:19,86` → `deploy.body.sh:123,243` → `tools/release/set-min-client-build`.
@@ -238,22 +243,25 @@ cannot be switched on here.
    formula only grows with `VERSION` and the override room (10721..10729) is below the next release's number
    (`cmake/BuildStamp.cmake:6-9`).
 2. **Release is 1..40 chars of `[0-9A-Za-z._+-]`.** Checked at configure (`cmake/BuildStamp.cmake:42-48`) and
-   re-checked at parse (`ClientBuildStampHandler.java:17`, `:56-58`); `tests/buildstamp_proto_test.cpp:54` asserts the
-   built value fits.
+   re-checked at parse (`src/main/java/net/server/handlers/login/ClientBuildStampHandler.java:17`, `:56-58`);
+   `tests/buildstamp_proto_test.cpp:54` asserts the built value fits.
 3. **The stamp goes out before the password on the same connection, always.** One `SendPacket` pair inside one hook,
    with the stamp first (`src/bypass.cpp:433-450`); a repeat attempt is suppressed by `m_bRequestSent` (`:422`).
    The server relies on this: it has no other source for the build.
 4. **A malformed stamp never overwrites a good one and never fails the login by itself.**
    `ClientBuildStampHandler.parse` returns `null` on any inconsistency and `handlePacket` then does nothing
-   (`ClientBuildStampHandler.java:25-30`); the gate sees build 0 and applies the ordinary rule.
-5. **Format 1 ⇒ caps 0.** `Client.setClientStamp` clears caps when the format is < 2 (`Client.java:1289`), and the
-   gate/`CustomNpcGate` fall back to a build comparison rather than trusting caps (`CustomNpcGate.java:60-65`).
+   (`src/main/java/net/server/handlers/login/ClientBuildStampHandler.java:25-30`); the gate sees build 0 and applies the
+   ordinary rule.
+5. **Format 1 ⇒ caps 0.** `Client.setClientStamp` clears caps when the format is < 2
+   (`src/main/java/client/Client.java:1289`), and the gate/`CustomNpcGate` fall back to a build comparison rather than
+   trusting caps (`src/main/java/server/life/CustomNpcGate.java:60-65`).
 6. **The gate only runs on a verified password and before side effects.** `passwordVerified` (`:76-78`) plus the
-   placement at `LoginPasswordHandler.java:74-78` (before the loginok-7 kick) and `:79-83` (before
-   `AUTOMATIC_REGISTER` inserts). `VersionGateOrderTest` pins the order by making any DB access an error.
+   placement at `src/main/java/net/server/handlers/login/LoginPasswordHandler.java:74-78` (before the loginok-7 kick) and
+   `:79-83` (before `AUTOMATIC_REGISTER` inserts). `VersionGateOrderTest` pins the order by making any DB access an
+   error.
 7. **A refusal is two packets, popup then silent failure.** `serverNotice(1, ...)` + `getLoginFailed(1)`
-   (`ClientVersionGate.java:105-106`, `:120-121`); reason 1 is the only one the v83 client renders without its own
-   dialog (`:23-27`).
+   (`src/main/java/net/server/handlers/login/ClientVersionGate.java:105-106`, `:120-121`); reason 1 is the only one the
+   v83 client renders without its own dialog (`:23-27`).
 8. **`MIN_CLIENT_BUILD` never decreases in the automated path.** `set-min-client-build:34` refuses without
    `--allow-lower`; rollback restores the old value with the old jar
    (`tools/release/templates/rollback.body.sh:132`).
@@ -303,10 +311,12 @@ Stamp validation reaches it only through the configure `FATAL_ERROR`s (`cmake/Bu
 **Auto-QA:** `t-vg-1` "An old client is told to update" (`src/main/java/soloMapling/autoqa/AutoQaCatalog.java:777-778`
 → `GameAutoQaWorld.clientGate` `:478-481`). It evaluates `ClientVersionGate.verdictFor` against the server's real
 `MIN_CLIENT_BUILD`: PASS requires build N ALLOWED, N+1 ALLOWED, N-1 `REFUSED: ...`, and FAILs outright when the gate
-is off (`GameAutoQaWorld.java:483-495`).
+is off (`src/main/java/soloMapling/autoqa/GameAutoQaWorld.java:483-495`).
 
-**Release-tool tests:** `tools/release/test_stage_client_lib.py:6-16` (the `release=`/`build=` parser: exact bytes `:7-8`, CRLF/blank/unknown lines `:10-11`, a missing, negative or garbage `build=` `:13-16`); `tools/qa-scripts/test_qascript.py:222-225` asserts the literal
-`CAP_QA_BUILD = 0x80000000` still exists in the gate source.
+**Release-tool tests:** `tools/release/test_stage_client_lib.py:6-16` (the `release=`/`build=` parser: exact bytes
+`:7-8`, CRLF/blank/unknown lines `:10-11`, a missing, negative or garbage `build=` `:13-16`);
+`tools/qa-scripts/test_qascript.py:222-225` asserts the literal `CAP_QA_BUILD = 0x80000000` still exists in the gate
+source.
 
 **Not covered, and what a real client must confirm by hand:**
 
@@ -337,27 +347,27 @@ is off (`GameAutoQaWorld.java:483-495`).
 | card b274 | Boss portals never send a portal-enter. No stamp interaction found; listed for the lane | `/root/work/STATUS-1.6.4.md:76` |
 | card L15, card e14 | Client-side fixes / in-game exchange window: not stamp work, no version dependency found in this subsystem | `/root/work/STATUS-1.6.4.md:106`, `:124` |
 | NEW-FINDING | Client README says the stamp is "format 1" while the code sends format 2. `README.md:24` reads `CP 0x3738 (format 1, int build, string release)`, but `src/buildstamp_proto.h:24` sets `kBuildStampFormat = 2` and caps are always written (`src/bypass.cpp:435`). A reader trusting the README will look for a 3-field packet that no current client sends | `README.md:24` vs `src/buildstamp_proto.h:24` |
-| NEW-FINDING | The server's own release README repeats both stale facts: the shape `short format=1, int build, string release` (`:45-46`) and the pre-b205 formula `major*10000 + minor*100 + patch` (`:47`). A release engineer reading it would compute 10730 for 1.6.4 instead of 10740 | `tools/release/README.md:45-47` vs `cmake/BuildStamp.cmake:25` |
+| NEW-FINDING | The server's own release README repeats both stale facts: the shape `short format=1, int build, string release` (`:45-46`) and the pre-b205 formula `major*10000 + minor*100 + patch` (`:47`). A release engineer reading it would compute 10604 for 1.6.4 (old formula) instead of 10740, i.e. twenty builds below every candidate since 1.6.1 | `tools/release/README.md:45-47` vs `cmake/BuildStamp.cmake:25` |
 | NEW-FINDING | Stale formula comment inside the wire header: "build is monotonic (VERSION major*10000 + minor*100 + patch ...)" — the code has used `(minor+1)*100 + patch*10` since b205, so the comment describes numbers nobody has built since 1.6.1 | `src/buildstamp_proto.h:11` vs `cmake/BuildStamp.cmake:25` |
-| NEW-FINDING | Caps bit 1 (`CAPS_LOG_UPLOAD`) has no producer on this branch: the server asks a "supporting" client for logs after `@bug` (`BugClientLogs.java:40`, `:67-69`; `BugLogUploadHandler.java:14-16`) but no client file sets that bit, and `git log -S kCapLogUpload / -S 0x373B` over the client repo's `src/` finds nothing. The feature is server-side only, silently inactive | `src/main/java/server/reports/BugClientLogs.java:67-69`; no counterpart in `src/buildstamp_proto.h:25-26` |
-| NEW-FINDING | Caps bit 31 (`CAP_QA_BUILD`) is likewise absent from this branch: the gate refuses a build nothing produces. It lives only on `client-170-qa-module`/`client-162-*` (`2f17894`, not an ancestor of `client-164-rc3`), while `docs/qa/client-scripts/README.md:63-64` and `tools/qa-scripts/test_qascript.py:222-225` treat it as present | `git merge-base --is-ancestor 2f17894 HEAD` → false; `ClientVersionGate.java:37` |
-| NEW-FINDING | Nothing cross-checks the release conf's `MIN_CLIENT_BUILD` against the client actually staged. `stage-client:91-93` prints the stamp and only warns when `release`'s `major.minor.patch` differs from the version being staged; a conf/gate mismatch (e.g. 1.6.4.conf's 10740 vs a client built without the override at 10730) is caught only by a human reading two files. `stage_client_lib.py` parses `build=` and nothing consumes it for the gate | `tools/release/stage-client:91-93`; `docs/release/1.6.4.conf:284` |
+| NEW-FINDING | Caps bit 1 (`CAPS_LOG_UPLOAD`) has no producer on this branch: the server asks a "supporting" client for logs after `@bug` (`src/main/java/server/reports/BugClientLogs.java:40`, `:67-69`; `src/main/java/net/server/channel/handlers/BugLogUploadHandler.java:14-16`) but no client file sets that bit, and `git log -S kCapLogUpload / -S 0x373B` over the client repo's `src/` finds nothing. The feature is server-side only, silently inactive | `src/main/java/server/reports/BugClientLogs.java:67-69`; no counterpart in `src/buildstamp_proto.h:25-26` |
+| NEW-FINDING | Caps bit 31 (`CAP_QA_BUILD`) is likewise absent from this branch: the gate refuses a build nothing produces. It lives only on `client-170-qa-module`/`client-162-*` (`2f17894`, not an ancestor of `client-164-rc3`), while `docs/qa/client-scripts/README.md:63-64` and `tools/qa-scripts/test_qascript.py:222-225` treat it as present | `git merge-base --is-ancestor 2f17894 HEAD` → false; `src/main/java/net/server/handlers/login/ClientVersionGate.java:37` |
+| NEW-FINDING | Nothing cross-checks the release conf's `MIN_CLIENT_BUILD` against the client actually staged. `stage-client:91-93` prints the stamp and only warns when `release`'s `major.minor.patch` differs from the version being staged; a conf/gate mismatch (e.g. `MIN_CLIENT_BUILD=10740` with a client actually built from `VERSION 1.6.3`, which stamps 10730) surfaces only as the `warn` at `:93`, never as a failure, so the deploy goes through and every 1.6.4 player is refused; it is caught only by a human reading two files. `stage_client_lib.py` parses `build=` and nothing consumes it for the gate | `tools/release/stage-client:91-93`; `docs/release/1.6.4.conf:284` |
 | NEW-FINDING | An override-stamped build is not recoverable from git: tags `v1.6.0.2` and `v1.6.1-rc1..rc9` all carry `VERSION` = `1.6.0`, so the shipped numbers 10601/10680/10690/10700/10710 exist only in `slums-build.txt`, the release docs and PE resources. Rebuilding any such tag today produces 10600 with the old formula (and would produce a different number under the current formula) | `git show v1.6.1-rc9:VERSION` → `1.6.0`; `docs/release/1.6.1.conf:258-259`; `docs/release/1.6.0.3.conf:4` |
-| NEW-FINDING | `slums.rc.in:18` still says "based on Kaentake" in `FileDescription` and `:25` splits the copyright, while `docs/PROVENANCE.md` records a MapleRoot Full Repack baseline plus Kaentake — the resource names one upstream of two | `src/slums.rc.in:18`, `:25`; `docs/PROVENANCE.md` |
+| NEW-FINDING | `src/slums.rc.in:18` still says "based on Kaentake" in `FileDescription` and `:25` splits the copyright, while `docs/PROVENANCE.md` records a MapleRoot Full Repack baseline plus Kaentake — the resource names one upstream of two | `src/slums.rc.in:18`, `:25`; `docs/PROVENANCE.md` |
 
 ## State
 
 **working.** The chain is exercised end to end in production releases: `VERSION` → configure guards → compile
 definitions → packet → gate → popup, with both sides pinned to the same golden bytes
-(`tests/buildstamp_proto_test.cpp:35` = `ClientVersionGateTest.java:99`) and a live gate at 10740 for 1.6.4
-(`docs/release/1.6.4.conf:284`). Client numbers were confirmed shipped at 10600 (1.6.0), 10700 (1.6.1), 10721 (1.6.2)
-and 10740 (1.6.4 RC) by the release docs cited in the history table.
+(`tests/buildstamp_proto_test.cpp:35` = `src/test/java/net/server/handlers/login/ClientVersionGateTest.java:99`) and a
+live gate at 10740 for 1.6.4 (`docs/release/1.6.4.conf:284`). Client numbers were confirmed shipped at 10600 (1.6.0),
+10700 (1.6.1), 10721 (1.6.2) and 10740 (1.6.4 RC) by the release docs cited in the history table.
 
 Partial corners, stated plainly:
 
 - **QA build switch (caps bit 31): partial / not on this branch.** Server side implemented and tested
-  (`ClientVersionGate.java:37-41`, `QaBuildGateTest`), client side exists only on other branches, so the feature is
-  compiled-but-unreachable here.
+(`src/main/java/net/server/handlers/login/ClientVersionGate.java:37-41`, `QaBuildGateTest`), client side exists only
+on other branches, so the feature is compiled-but-unreachable here.
 - **Log-upload cap (bit 1): partial / server only.** `BugClientLogs` will never ask this client for logs.
 - **The docs of the wire shape: stale in three places** (`README.md:24`, `tools/release/README.md:45-47`,
   `src/buildstamp_proto.h:11`), while the code and both test suites agree on format 2.
@@ -371,12 +381,14 @@ Partial corners, stated plainly:
    this repo.
 2. Should a 1.6.4 hotfix use the 10741..10749 override room, or is the room reserved for 1.6.2 only as
    `cmake/BuildStamp.cmake:9` says ("1.6.2 hotfix -> 10721..10729")? Nothing states the rule for later minor lines.
-3. Is the format-1 path meant to stay forever? The server still accepts it (`ClientBuildStampHandler.java:15`, `:43`)
-   and `CustomNpcGate`/`DamageRank` keep build fallbacks for it, but no gate lower than 10600 has been honoured since
-   1.6.0, so the fallback is unreachable on live. Whether it should be removed is a policy call, not visible in code.
-4. `MIN_CLIENT_BUILD_GM_BYPASS` reads the account's max `characters.gm` (`ClientVersionGate.java:126-140`) although
-   the account-level GM flag lives on `accounts.gm` in most v83 schemas; that the characters table is authoritative
-   here is taken from the comment at `:125` and not verified against the schema in this repo.
+3. Is the format-1 path meant to stay forever? The server still accepts it
+   (`src/main/java/net/server/handlers/login/ClientBuildStampHandler.java:15`, `:43`) and `CustomNpcGate`/`DamageRank`
+   keep build fallbacks for it, but no gate lower than 10600 has been honoured since 1.6.0, so the fallback is
+   unreachable on live. Whether it should be removed is a policy call, not visible in code.
+4. `MIN_CLIENT_BUILD_GM_BYPASS` reads the account's max `characters.gm`
+   (`src/main/java/net/server/handlers/login/ClientVersionGate.java:126-140`) although the account-level GM flag lives
+   on `accounts.gm` in most v83 schemas; that the characters table is authoritative here is taken from the comment at
+   `:125` and not verified against the schema in this repo.
 5. The 1.6.4 conf header says "No new client: MIN_CLIENT_BUILD stays 10721" (`docs/release/1.6.4.conf:10`) while line
    284 sets 10740 after the owner's 2026-11-05 decision (`:279-283`). The line wins; whether the header is meant to be
    corrected before the go/no-go is the owner's call.

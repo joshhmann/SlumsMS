@@ -89,6 +89,8 @@ Wire packets (all built in src/main/java/tools/PacketCreator.java; decoded by th
 | `FAMILY_NOTIFY_LOGIN_OR_LOGOUT` (0x66) | `sendFamilyLoginNotice` :6490 | boolean, name |
 | `FAMILY_SUMMON_REQUEST` (0x68) | `sendFamilySummonRequest` :6483 | summoner name, family name |
 
+`FAMILY_SET_PRIVILEGE` (0x67) is declared (src/main/java/net/opcodes/SendOpcode.java:139) but never written by any builder — the client's perk list is only ever read (`FAMILY_PRIVILEGE_LIST`), and perks are consumed through `USE_FAMILY` (0x97).
+
 ## Switches
 
 | Switch | Kind | Default | Live / TEST |
@@ -116,7 +118,7 @@ The flag gates the whole subsystem: handlers answer "The family system is coming
 - **The generation cap is enforced from both directions** — inviter side src/main/java/net/server/channel/handlers/FamilyAddHandler.java:71, accept side src/main/java/net/server/channel/handlers/AcceptFamilyHandler.java:105.
 - **Reputation bought entitlements are one-shot per day:** the popularity/usage check is `isEntitlementUsed` (src/main/java/client/FamilyEntry.java:603) and the daily wipe is `resetEntitlementUsages` (:615) plus the `family_entitlement` DELETE (src/main/java/net/server/task/FamilyDailyResetTask.java:44).
 - **Family buffs never stack and never exceed 2×.** `FamilyBuffs.grant` keeps the higher rate and only extends on a tie, clamped by `MAX_RATE = 2.0` (src/main/java/client/FamilyBuffs.java:38, :122-141). `load` applies no clamp of its own (:77-87), so a hand-edited `family_buffs` row above 2.0 would be served as written.
-- **Buffs survive a restart but not a missing migration:** `DbStore.loadAll` deletes expired rows and warns "migration 053 missing?" when the table is absent (src/main/java/client/FamilyBuffs.java:243-263).
+- **Saved buffs need migration 053.** `DbStore.loadAll` first deletes rows whose EXP and drop have both ended, then reads the rest; when the table is absent it logs "Could not read the saved Family buffs (migration 053 missing?); none restored" and the boot continues with no buffs (src/main/java/client/FamilyBuffs.java:243-263).
 - **Travel never lands a character on a map it cannot enter:** `travelAllowed` (src/main/java/net/server/channel/handlers/FamilyUseHandler.java:163-169) and the `FamilyTravel` TTL pair with the arrival in `Character.newClient` (src/main/java/client/Character.java:1033) mean a failed channel change simply never lands.
 - **A refused cross-channel spend is refunded in full** — reputation back plus the entitlement row deleted (src/main/java/net/server/channel/handlers/FamilyUseHandler.java:197-205; also used for a refused summon, src/main/java/net/server/channel/handlers/FamilySummonResponseHandler.java:57).
 

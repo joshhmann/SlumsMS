@@ -37,8 +37,10 @@ flowchart TB
 
 1. **Start.** The launcher writes `config.ini`, starts the client and injects `slums.dll` before the client reaches the
    login screen (`exe-and-starter.md`).
-2. **Patch.** The DLL verifies the exe (sha256 and image base), then applies its patch tables in a fixed order; the
-   verify pass runs last and fails loudly if a site does not match (`injector-and-hooks.md`, `hpmp.md`).
+2. **Patch.** The DLL applies its patch tables at fixed image-base addresses in a fixed order — nothing checks the
+   exe's sha256 at runtime (it appears only in source comments) — and then a verify pass aborts the process
+   (`ExitProcess(ERROR_DLL_INIT_FAILED)`) if a required hook group reported a failure (`src/mapleroot.cpp:23-36`);
+   see `injector-and-hooks.md`, `hpmp.md`.
 3. **Handshake.** `buildstamp_proto.h` sends the build number in CP `0x3738` before the password packet; the server's
    `ClientVersionGate` refuses builds below `MIN_CLIENT_BUILD` (`build-stamp-and-version.md`).
 4. **Play.** Resolution/D3D9 hosting, HUD meters, overlays and layout fixes run from their hooks; every optional

@@ -92,12 +92,15 @@ What those hooks do:
 
 ### 4. Second-stage gate — `AttachClientHooks`
 
-`SetUnhandledExceptionFilter_hook` (`src/system.cpp:26-36`) checks `_ReturnAddress() == 0x00796FDD` (`:28`), i.e. it is
-being called from `ZExceptionHandler`'s constructor, which runs after the dynamic initializers for
-`ZAllocEx<T>::_s_alloc` have populated the game's allocator globals. Only then does it call `AttachClientHooks()`
-(`:29`). This ordering is deliberate: the ZAllocEx addresses the DLL pins (`src/injector.cpp:7-10`,
-`0x00BF0B00`/`0x00BF0A90`/`0x00BF0BA8`) are the game's allocator vtable slots and must exist before any ZTL object is
-constructed by a hook.
+`SetUnhandledExceptionFilter_hook` (`src/system.cpp:26-36`) checks `_ReturnAddress() == 0x00796FDD` (`:28`) — the call
+site inside `ZExceptionHandler`'s constructor, which the source comment dates "after dynamic initializers for
+`ZAllocEx<T>::_s_alloc`" (`src/system.cpp:27`). Only then does it call `AttachClientHooks()` (`:29`). The reason is the
+allocator binding: `ZALLOCEX` (`src/ztl/ztl.h:17-18`) stores a fixed pointer
+(`ZAllocEx<T>::_s_pAlloc`, declared `src/ztl/zalloc.h:115`) at the game's allocator instances
+`0x00BF0B00`/`0x00BF0A90`/`0x00BF0BA8` (`src/injector.cpp:7-10`), and every `new`/`delete` in the DLL goes through
+`s_Alloc` → `_s_pAlloc->Alloc` (`src/ztl/zalloc.h:160-163`). Patching before those instances are live would route the
+DLL's own allocations into an uninitialised allocator. `[INFERENCE]` this last sentence is the design intent read from
+the code; no comment states it in those words.
 
 `AttachClientHooks` is guarded by a `static bool initialized` (`src/hook.h:130-132`), so a repeated trigger is a no-op.
 
