@@ -22,7 +22,7 @@ database: the game server remains the only place a password is checked (`tools/s
 | Sign-in dialog (two tabs: Username / New account) | `tauri/ui/index.html:155-173`, logic `tauri/ui/account.mjs:32-129` |
 | Startup ask + 10-minute re-check | `tauri/app/src/launcher.rs:393` (bounded 10 s) and `:398-405` (`AVAILABLE_INTERVAL`, `:32`) |
 | `!qa` step `account` / `account-store` | `tauri/app/src/launcher.rs:1026-1030` |
-| Dev CLI `site-me`, `site-signin`, `site-signup`, `site-signout` | `tauri/core/examples/cli.rs:78-112` |
+| Dev CLI `site-me`, `site-signin`, `site-signup`, `site-out` | `tauri/core/examples/cli.rs:82-114` |
 | Site `POST /api/login/password`, `POST /api/login/signup` | `tools/site/login_service.py:571` |
 | Site `GET /api/login/me`, `POST /api/login/logout`, `POST /api/login/download-pass` | `login_service.py:552,566,573` |
 | Game `POST /signup`, `POST /verify` on loopback | `src/main/java/soloMapling/site/auth/SiteAuthApi.java:241-243`; started from `src/main/java/net/server/Server.java:1043` |
@@ -85,14 +85,16 @@ launcher dev build. Details in `## Switches`.
 Same path with three differences: body is `{"code","user","pass"}` (`site.rs:170-172`), the site cleans the code
 (strip spaces and dashes, uppercase, `login_service.py:385-386`), rejects anything outside 4..32 with
 `403 BAD_CODE`, then calls `/signup`. The game's `SiteAccounts.signup` (`:167-219`) normalises the code
-(`InviteCodes.normalize`, `InviteCodes.java:141-157`), requires an OPEN invite row, rejects taken names, applies the
+(`InviteCodes.normalize`, `InviteCodes.java:141-155`), requires an OPEN invite row, rejects taken names, applies the
 per-IP sign-up cooldown (`AUTO_REGISTER_IP_COOLDOWN_MINUTES`), hashes with `AccountPasswords.hashForNewAccount`, and
-creates account + code-use + inviter link in one transaction (`AuthStore.java:285-340`) — the conditional `UPDATE`
+creates account + code-use + inviter link in one transaction (`AuthStore.java:285-342`) — the conditional `UPDATE`
 takes the row lock, so two sign-ups with one code cannot both win. The site then issues a session exactly as in
 step 10, so sign-up ends signed in.
 
-Codes come from `!invite` (GM 3) or `@invite` (level 30+, 2 per rolling 7 days); `InviteCodes.display` shows
-`ABCDE-FGHJK` and the database stores 10 characters (`database/migrations/036-invite-codes.sql:16-31`).
+Codes come from `!invite` (GM 3, registered at `CommandsExecutor.java:242`) or `@invite` (a level-30+ character,
+`PLAYER_CODES_PER_WINDOW = 2` per rolling `PLAYER_WINDOW_MS = 7 days`, `InviteCodes.java:105-107`);
+`InviteCodes.display` shows `ABCDE-FGHJK` (`InviteCodes.java:158-160`) and the database stores 10 characters
+(`database/migrations/036-invite-codes.sql:16-32`).
 
 ### C. Sign-out
 
@@ -107,8 +109,8 @@ stops working, and clears the cookie.
 |---|---|
 | Launcher → site | `{user,pass}` or `{code,user,pass}` as JSON + `X-Slums: 1`; afterwards only `Cookie: slums_session=<token>` |
 | Site → game (`127.0.0.1`) | `{user,pass,ipHash}` or `{code,user,pass,ipHash}` + `X-Slums-Auth: <secret>` — the only hop that sees the password |
-| Launcher → patch server | `Authorization: Basic …` (access key, unrelated) and `X-Slums-Pass` (the download pass), only on the feed's own origin (`tauri/core/src/http.rs:18,62-95,138-146`) |
-| Launcher → game client | nothing. `config.ini` gets only `[config] host`/`port` (`tauri/core/src/game_config.rs:112-120`); the token never reaches the game |
+| Launcher → patch server | `Authorization: Basic …` (access key, unrelated) and `X-Slums-Pass` (the download pass), only on the feed's own origin (`tauri/core/src/http.rs:18,65-72,127-146`) |
+| Launcher → game client | nothing. `config.ini` gets only `[config] host`/`port` (`tauri/core/src/game_config.rs:112-123`); the token never reaches the game |
 
 ## Data
 
@@ -117,18 +119,19 @@ stops working, and clears the cookie.
   written to `*.bin.tmp` and renamed, mode `0600` on unix. On Windows the bytes are DPAPI-sealed with entropy
   `b"SlumsMS Launcher website session"` (`:363-364`, DPAPI call `:376-397`); elsewhere they are plaintext (`:401-408`, asserted by a test).
   Load requires the sealed origin to equal the current site's origin and the token to still be valid (`:351-357`).
-- **`settings.json`** holds feed/key/channel/folders only (`tauri/core/src/settings.rs:33-64`) — no password, no token.
+- **`settings.json`** holds the feed URL, the access key(s), the channel, folders and pending game options
+  (`tauri/core/src/settings.rs:34-60`) — no password, no token.
 - **Site, on disk:** session key `/etc/slums-login/key` (≥32 bytes, `login_service.py:811-816`), pass key
   `/etc/slums-login/pass-key` (must differ from the session key, `:823-831`), `revoked.txt`,
   `revoked-sessions.txt`, `revoked-before.txt` (all under `/var/lib/slums-login`, `:125-131`). No database.
 - **Game server, in the database:** `accounts` (inserted by `AuthStore.java:132`), `invite_codes`
   (`036-invite-codes.sql:16-31`: `used_ip_hash`, never a raw IP), `password_resets` (`037-password-resets.sql:19-34`).
 - **In memory only:** the download pass (`launcher.rs:111`, `site.rs:211-221`), the IP limiter windows
-  (`SiteAccounts.java:88-100`), the site's sliding-window limiters (`login_service.py:471-485`).
+  (`SiteAccounts.java:92-96`), the site's sliding-window limiters (`login_service.py:471-485`).
 
 ### Where a password or token touches disk or logs
 
-- Password: lives in the JS form value, then in `Credentials` (wiped by `Drop`, `account.rs:29-34`), then in the
+- Password: lives in the JS form value, then in `Credentials` (wiped by `Drop`, `account.rs:30-34`), then in the
   outbound JSON body. `site::wipe` overwrites the bytes with volatile writes (`site.rs:123-129`). The launcher wipes
   right after the call returns (`account.rs:180`). **Never written to `settings.json` or the token file.**
 - `launcher.log`: appends `"{iso} {message}"`, rotates at 1 MiB (`launcher.rs:265-276`). Account messages are
@@ -137,6 +140,9 @@ stops working, and clears the cookie.
   no token, no pass value.
 - Site stderr: only `"{method} {path}"` (`login_service.py:519`), `"invite {action} by account {id}"` (`:729`, never
   the code), exchange approvals by account id (`:758-760`). The key/secret/salt are read by path and never printed.
+- Game server log: a sign-up prints `"Site sign-up: account '<name>' (id N) with invite <ABCDE-FGHJK> from ipHash
+  <hash>"` (`SiteAccounts.java:212-213`) — the account name, the invite code and the hashed IP, never the password.
+  Lockouts print only a count (`:282-283`); a sign-in failure prints a stack trace (`:263`).
 - Site → game hop is plain HTTP over loopback and **carries the plaintext password** (`login_service.py:410-414`).
   That is inside one host; the launcher→site hop is HTTPS on live and plain HTTP on TEST (no Caddy, no TLS there).
 - The token exists on disk only in the `.bin` file above, and on the wire only as the `slums_session` cookie to the
@@ -179,7 +185,7 @@ calls them)") and in `docs/architecture/server/site-and-dashboard.md:131-133`.
 ## Invariants
 
 1. **The launcher never persists a password.** Enforced by wiping in `site::wipe` (`site.rs:123-129`), `Drop` on
-   `Credentials` (`account.rs:29-34`), and the UI clearing the field before it validates or sends
+   `Credentials` (`account.rs:30-34`), and the UI clearing the field before it validates or sends
    (`/root/work/launcher-165-server/tauri/ui/account.mjs:41,121,125`). A test asserts a lone `type="password"` input and `autocomplete="off"`
    (`test/tauri-account.test.mjs:39`).
 2. **A session goes only to the site that issued it.** `site_url` (`site.rs:34-45`) allow-lists HTTPS, loopback and
@@ -190,7 +196,7 @@ calls them)") and in `docs/architecture/server/site-and-dashboard.md:131-133`.
    `401` before routing (`:204-207`); the site reads the secret file per call and prints it nowhere; the inspect
    client refuses redirects so the header cannot be replayed (`login_service.py:427-430`).
 4. **The web tier never touches the game DB.** It only calls the loopback API (`login_service.py:389-425`); the
-   account row is written by `AuthStore.createAccountWithInvite` inside the game server (`AuthStore.java:285-340`).
+   account row is written by `AuthStore.createAccountWithInvite` inside the game server (`AuthStore.java:285-342`).
 5. **An invite is single-use under concurrency.** `CONSUME` is a conditional UPDATE on `used_at = 0 AND revoked_at = 0
    AND expiry` (`AuthStore.java:121-122`) whose row lock serialises competing sign-ups; the loser gets `CODE_GONE`.
 6. **Revocation wins within one poll.** `Sessions.check` consults `revoked.txt`, ended sids and the reset mark on
@@ -198,7 +204,7 @@ calls them)") and in `docs/architecture/server/site-and-dashboard.md:131-133`.
    `/api/login/me`.
 7. **Sign-in answers are generic.** Wrong password, unknown user and a banned account all produce
    `401 "Wrong username or password."` (`SiteAccounts.java:245-246,269-272`); the account id never leaves the game.
-8. **No credential in `config.ini`.** Only `[config] host` and `port` are merged (`game_config.rs:112-120`).
+8. **No credential in `config.ini`.** Only `[config] host` and `port` are merged (`game_config.rs:112-123`).
 
 ## Origin
 

@@ -14,8 +14,7 @@ inside the live folder, so the checks also gate the two unattended timers (`tool
 | Entry | What starts it | Where |
 |---|---|---|
 | `python3 tools/site/build.py` | full public build to `dist/site` + `dist/slums-site.tar.gz` | tools/site/build.py:232, :251-257 |
-| `--private` | adds `street/`, `market/`, `admin/` | tools/site/build.py:64, :251 |
-| `--world` | adds `world/` from the server's site export | tools/site/build.py:65, :244 |
+| `--private` / `--world` | adds `street/`, `market/`, `admin/` / adds `world/` from the server's export | tools/site/build.py:64-65, :244, :251 |
 | `--section <name> --out <dir>` | one-section rebuild inside an existing build | tools/site/build.py:252-255 → :178 |
 | `slums-site-market.timer` / `slums-site-world.timer` | every 2 min, under one `flock`: `--private --world --section market\|world` | tools/site/slums-site-market.timer:10, slums-site-market.service:14, slums-site-world.service:12 |
 | `python3 tools/site/check.py [dir]` | stand-alone check of an existing folder | tools/site/check.py:295-301 |
@@ -30,40 +29,50 @@ inside the live folder, so the checks also gate the two unattended timers (`tool
    `market.NX_DESK` (`:247-250`), and picks the defaults `dist/site-private` / `dist/site` (`:251`).
 2. **Staging folder.** `build()` (`:148`) deletes any old tarball first (`:154-155`), then builds into
    `<out>.new-<pid>` (`:156-158`) — never into the published folder (audit W2, `:149-151`).
-3. **Assets.** `copy_assets()` (`:88-96`) copies `docs/site/assets` wholesale, writes the one generated file
-   `assets/build.json` carrying `{"site": <version>}`, copies `docs/site/secret/` only for a private build, and always
-   copies `docs/site/robots.txt`.
-4. **Version stamp.** `site_version()` (`:72-85`) reads `DEPLOYED_COMMIT` at the repo root (the build box has no git),
-   else `git rev-parse --short HEAD`, else `None`.
-5. **Releases.** `notes.releases()` (`tools/site/sections/notes.py:173-179`) parses every `docs/site/releases/*.md`,
+3. **Assets and stamp.** `copy_assets()` (`:88-96`) copies `docs/site/assets` wholesale, writes the one generated file
+   `assets/build.json` carrying `{"site": site_version()}`, copies `docs/site/secret/` only for a private build, and
+   always copies `docs/site/robots.txt`. `site_version()` (`:72-85`) reads `DEPLOYED_COMMIT` at the repo root (the
+   build box has no git), else `git rev-parse --short HEAD`, else `None`.
+4. **Releases.** `notes.releases()` (`tools/site/sections/notes.py:173-179`) parses every `docs/site/releases/*.md`,
    refuses an empty directory, and sorts newest-first; pages are written by `notes.build()` (`:182-207`).
-6. **Context.** `set_context()` (`tools/site/build.py:99-107`) fills `common.BUILT` with the optional sections that
+5. **Context.** `set_context()` (`tools/site/build.py:99-107`) fills `common.BUILT` with the optional sections that
    this build has, sets the megaphone rail to the three newest releases, and prepends market rail lines when the market
    is being built.
-7. **Sections.** `build_section()` (`:110-131`) dispatches to one module per section — `notes.build`, `guide.build`,
+6. **Sections.** `build_section()` (`:110-131`) dispatches to one module per section — `notes.build`, `guide.build`,
    `database.build`, `market.build`, `admin.build`, `world.build`, and `pages.build_home` plus the four small pages —
-   and raises `SystemExit(f"unknown section {name!r}")` for anything else (`:131`).
-8. **Fallback ordering.** `sections_for()` (`:144-145`) is always `notes, guide, pages`, then `world` only with
-   `--world`, then `database, market, admin` only with `--private`.
-9. **Clean URLs.** `common.clean_links()` (`tools/site/common.py:180-191`) rewrites every relative `.html` link so
+   and raises `SystemExit(f"unknown section {name!r}")` for anything else (`:131`). `sections_for()` (`:144-145`) is
+   always `notes, guide, pages`, then `world` only with `--world`, then `database, market, admin` only with `--private`.
+7. **Clean URLs.** `common.clean_links()` (`tools/site/common.py:180-191`) rewrites every relative `.html` link so
    pages say `market/exchange`, not `market/exchange.html` (`common.py:167-170`); nginx serves `x.html` for `x`
    (`tools/site/slums-login.nginx.conf:87`).
-10. **Check.** `finish()` (`:134-141`) runs `check.check_all()`; each problem is printed as `FAIL <problem>` on stderr
-    and the build raises `SystemExit("site check failed with N problem(s): the published site was left as it was,
-    nothing was packed")`.
-11. **Swap.** Only on success: `out` → `<out>.old-<pid>`, `<out>.new-<pid>` → `out`, stale folder removed (`:169-172`).
-12. **Pack.** `make_tar()` (`:215-229`) writes `slums-site/…` with `uid=gid=0`, `uname=gname="root"`, modes `0755`
+8. **Check.** `finish()` (`:134-141`) runs `check.check_all()`; each problem is printed as `FAIL <problem>` on stderr
+   and the build raises `SystemExit("site check failed with N problem(s): the published site was left as it was,
+   nothing was packed")`.
+9. **Swap.** Only on success: `out` → `<out>.old-<pid>`, `<out>.new-<pid>` → `out`, stale folder removed (`:169-172`).
+10. **Pack.** `make_tar()` (`:215-229`) writes `slums-site/…` with `uid=gid=0`, `uname=gname="root"`, modes `0755`
     dirs / `0644` files, and sorted directory and file order.
-13. **One section.** `rebuild_section()` (`:178-212`) needs an existing `index.html` (`:180-181`), builds into
+11. **One section.** `rebuild_section()` (`:178-212`) needs an existing `index.html` (`:180-181`), builds into
     `out/.stage-<folder>` (`:194-197`), swaps the folder in with two renames (`:199-203`), then runs the same check
     limited to that folder (`:205-206`); a failing check removes the new folder and restores `.old-<folder>`
     (`:207-211`). `pages` has no folder, so it is built in place (`:187-191`).
-14. **Stand-alone check.** `check_all()` (`tools/site/check.py:285-292`) is `check_forbidden + check_links +
+12. **Stand-alone check.** `check_all()` (`tools/site/check.py:285-292`) is `check_forbidden + check_links +
     check_noindex`, plus `check_top` for a private build, or `check_private` for a public one; a one-section rebuild
     passes `only` and gets neither of the last two.
-15. **Preview.** `Handler.do_GET` (`tools/site/preview.py:60-71`) answers `/api/login/me`, refuses every other `/api/`
+13. **Preview.** `Handler.do_GET` (`tools/site/preview.py:60-71`) answers `/api/login/me`, refuses every other `/api/`
     with 503, gates `/street/ /market/ /secret/` behind the `slums_session=preview` cookie, and otherwise serves files
     through `SimpleHTTPRequestHandler` (`:131`).
+
+### What `check.py` refuses
+
+| Check | Refuses | Because | Where |
+|---|---|---|---|
+| `check_forbidden` | 30 literals: LAN addresses, the test ports `:8489 :7585 :3309 :8485`, `/opt/ /srv/ /root/ /etc/`, "access key", "htpasswd", the patch site's name and host, QA tooling ("AutoQa", "!qa", "owner check"), and the base game's names plus `v83` | a private build must not leak infrastructure or the commercial game's branding | check.py:22-31, scanning :132-159 |
+| `check_forbidden` patterns | 5 regexes: `.164`, "on/host/port 164", "164 box", any email, any IPv4 | the server host may appear only as game data ("Lv. 164", item 1640001) | check.py:34-42, :154-158 |
+| `WORD_OK` / `ALLOW` / `GAME_TEXT` | three narrow exceptions: the word "password" in 14 sign-in and dashboard files, one literal on one patch-notes page, and two quest names | without them the check would ban the site's own wording | check.py:45-48, :51-84, :139-147 |
+| `check_links` | external URLs, root-relative links, links leaving the folder, broken links, missing `#fragment` | the site must work at any mount point and load nothing from elsewhere | check.py:189-229 |
+| `check_private` / `check_top` | a `street/ database/ market/ secret/ admin/` folder or link in a public build (`check_private`) / an unknown top-level folder in a private build (`check_top`) | the guarded sections need the sign-in, and a stray dump must never be published | check.py:233-264 |
+| `check_noindex` | a missing `robots.txt` without `Disallow: /`, or any page without the `noindex` tag in its first 4096 bytes | friends-only site | check.py:267-282 |
+| `check_all` | runs the above in the order forbidden → links → noindex → (top \| private) | a private build gets `check_top` instead of `check_private`; a one-section rebuild gets neither | check.py:285-292 |
 
 ## Data
 
@@ -72,21 +81,20 @@ inside the live folder, so the checks also gate the two unattended timers (`tool
 | Home, 404, sign-in, join, forgot, report | `pages.build_home/…` (`sections/pages.py:22,44,50,56,62`) | `index.html`, `404.html`, `login/`, `join/`, `forgot/`, `report/` |
 | News and patch notes | `notes.build` (`sections/notes.py:182-207`) | `patch-notes/index.html`, `patch-notes/<version>/index.html` |
 | Guides (restyled wiki) | `guide.build` (`sections/guide.py:96-136`) | `guide/<page>.html` |
-| Slums Street | `database.build` (`sections/database.py:674`) | `street/` + `street/search-index.json` (`:650`) |
+| Slums Street | `database.build` (`sections/database.py:674`) + `copy_icons` (`:653-671`) from `cache/site-icons/` | `street/`, `street/search-index.json` (`:650`), `street/icons/<kind>/<id>.png`, `street/icons/<kind>/t/<id>.webp` |
 | Market | `market.build` (`sections/market.py:1092`) | `market/` + `market/search-index.json` (`:558`), `summary.json`, `untradeable.json` |
 | World | `world.build` (`sections/world.py:754`) | `world/` + `online.json`, `hot.json` (`:742`), `traders.json` (`:751`) |
 | Admin shell | `admin.build` (`sections/admin.py:213-239`) | `admin/index.html`, `app.html`, `bots.html`, `invites.html`, `reports.html` |
-| Icons and thumbs | `copy_icons` (`sections/database.py:653-671`) from `cache/site-icons/` | `street/icons/<kind>/<id>.png`, `street/icons/<kind>/t/<id>.webp` |
 | Site stamp | `copy_assets` (`tools/site/build.py:91-92`) | `assets/build.json` = `{"site": "4e3cdcc96"}` locally |
 | Tarball | `make_tar` (`:215-229`) | `slums-site/index.html`, 219 entries for a public build |
 
-Measured at HEAD `4e3cdcc96`: a public build is 219 files (16 guide pages, 10 releases, 21 `assets/` entries); a
-`--private --world` build is 31,911 files / 230 MB (`street/` 31,481, `assets/` 185, `market/` 135, `secret/` 50,
-`world/` 17, `admin/` 9), with `street/icons/items` 4,971 — the number `docs/site/DEPLOY.md:124-127` says to verify
-before publishing. Inputs that must exist first: `docs/site/releases/*.md` (else `notes.py:176-177` stops),
-`docs/wiki/index.html` for the guide (`sections/guide.py`), `data/site/hiddenstreet/*.json` via `dbdata.load()`
-(`sections/dbdata.py:184-192`), `cache/site-icons/manifest.json` (`sections/database.py:101-105`), and the market and
-World exports, which are refused rather than half-read (`sections/market.py:48-55`, `sections/world.py:50-55`).
+Measured at HEAD `4e3cdcc96`: a public build is 219 files (16 guide pages, 10 releases); a `--private --world` build is
+31,911 files / 230 MB (`street/` 31,481, `assets/` 185, `market/` 135, `secret/` 50, `world/` 17, `admin/` 9), with
+`street/icons/items` 4,971 — the count `docs/site/DEPLOY.md:124-127` says to verify before publishing. Inputs that must
+exist first: `docs/site/releases/*.md` (`notes.py:176-177` stops without them), `docs/wiki/index.html`
+(`sections/guide.py:100-101`), `data/site/hiddenstreet/*.json` (`sections/dbdata.py:184-192`),
+`cache/site-icons/manifest.json` (`sections/database.py:101-105`), and the market and World exports, refused rather than
+half-read (`sections/market.py:48-55`, `sections/world.py:50-55`).
 
 ## Switches
 
@@ -94,9 +102,7 @@ World exports, which are refused rather than half-read (`sections/market.py:48-5
 |---|---|---|---|
 | `--out` | output folder | `dist/site`, `dist/site-private` with `--private` | tools/site/build.py:251 |
 | `--tar` / `--no-tar` | write the `.tar.gz` or not | on; `dist/slums-site[-private].tar.gz` | tools/site/build.py:256-257 |
-| `--private` | Slums Street, market, admin | off | tools/site/build.py:64 |
-| `--world` | World section | off | tools/site/build.py:65 |
-| `--section` | rebuild one section in place | off | tools/site/build.py:252-255 |
+| `--private` / `--world` / `--section` | build the guarded sections, the World pages, or rebuild one section in place | all off | tools/site/build.py:64-65, :252-255 |
 | `--hs-data` / `SLUMS_HS_DATA` | Slums Street data folder | `data/site/hiddenstreet` | tools/site/sections/dbdata.py:21 |
 | `--market-data` / `SLUMS_MARKET_DATA` | market export folder | `cache/market-sample` | tools/site/sections/market.py:29 |
 | `--site-data` / `SLUMS_SITE_DATA` | World export folder | `cache/site-sample` | tools/site/sections/world.py:31 |
@@ -110,13 +116,12 @@ World exports, which are refused rather than half-read (`sections/market.py:48-5
 
 | Rule | Why the code relies on it | Enforced at |
 |---|---|---|
-| Player-written text is escaped before it reaches HTML | `layout()` splices `body` in unescaped, so every section must escape | `tools/site/common.py:109-111`; `esc(s, quote=True)` first in `inline()` (`:149-151`); `world.text()` (`sections/world.py:237-241`); `market.seller()` (`sections/market.py:220`) |
-| Escaping is tested, not assumed | a megaphone is the one string an outsider writes into a page | `tools/site/test_site.py:1105-1110`, `:469` |
+| Player-written text is escaped before it reaches HTML | `layout()` splices `body` in unescaped, so every section must escape; a megaphone is the one string an outsider writes into a page | `tools/site/common.py:109-111`; `esc(s, quote=True)` first in `inline()` (`:149-151`); `world.text()` (`sections/world.py:237-241`); `market.seller()` (`sections/market.py:220`); tested `tools/site/test_site.py:1105-1110`, `:469` |
 | Game-written text can never fail a rebuild | one player name must not leave every page stale | `check.scrub()` (`tools/site/check.py:90-108`), called by `world.load` (`sections/world.py:58`) |
 | No absolute local path in output | pages must not leak `/root/…` or `/srv/…` | `FORBIDDEN` `/opt/ /srv/ /root/ /etc/` (`check.py:22-31`) + root-relative link refusal (`check.py:210`); measured zero in a 31,911-file private build |
 | No external request of any kind | the site "loads nothing from elsewhere" | `check.py:205-208` |
-| Deterministic output for the same inputs | section rebuilds must reproduce identical bytes | tested `tools/site/test_site.py:270-278`; two builds at HEAD hash-identical (219/219 files); the tarball is not — `make_tar` copies each file's mtime, so 35 entries and 2 gzip-header bytes drift (`tools/site/build.py:218-222`) |
-| The published folder is never written until the check passes | a visitor must never see a half-built site | `tools/site/build.py:156-172`, `:192-211`; `tools/site/test_build_safety.py:31-45` |
+| Deterministic output for the same inputs | section rebuilds must reproduce identical bytes | tested `tools/site/test_site.py:270-278`; two builds at HEAD hash-identical (219/219 files); the tarball is not — `make_tar` keeps each file's mtime (`tools/site/build.py:218-222`), so two builds gave 35 differing entry mtimes plus the gzip header mtime |
+| A full build never touches the published folder until the check passes | a visitor must never see a half-built site | `tools/site/build.py:156-172`; `tools/site/test_build_safety.py:31-45`. The `--section` folder path stages too (`:192-211`), but the `pages` branch writes in place (`:187-191`, see Known issues) |
 | Private sections never reach a public build | `/street/`, `/market/` are sign-in guarded | `check_private` (`check.py:236-248`); ordering at `check.py:285-292`; `tools/site/test_site.py:258-262` |
 | Search engines stay out | friends-only site | `robots.txt` + `noindex` in the first 4096 bytes (`check.py:270-282`); `tools/site/test_site.py:76-81` |
 | Every clean URL resolves | links say `money`, files are `money.html` | `check_links` resolves `target + ".html"` (`check.py:212-217`) and nginx mirrors it (`slums-login.nginx.conf:87`) |
@@ -135,10 +140,9 @@ MapleRoot server baseline"), and every tool below arrived after it on branch `si
 | `tools/site/site_sample.py` | `c5e619de7` 2026-10-26 "Site: World pages …, Database renamed Slums Street" |
 | `tools/site/test_build_safety.py` | `f2b2abe9d` 2026-10-30 "Site build: never wipe the site before a good build, refuse broken exports (audit W2, W4, W5)" |
 
-The 164-host pattern was narrowed on `6eb0ba895` 2026-10-25 ("Site check: catch the 164 host only as an address or
-machine name"); the audit fixes landed on `96bee8e1e` and, for the exchange and `/street/` move, `fddf475fc`
-2026-11-05. `--section` and the timers are the 1.6.x addition; the whole framework decision is
-`docs/site/FRAMEWORK.md:1-5`.
+The 164-host pattern was narrowed on `6eb0ba895` 2026-10-25; the audit fixes landed on `96bee8e1e`, and the
+exchange plus the `/street/` move on `fddf475fc` 2026-11-05. The framework decision itself (pages stay generated,
+Alpine for the live parts, Flask for the services) is `docs/site/FRAMEWORK.md:1-5`.
 
 ## Tests and QA
 
@@ -169,28 +173,25 @@ indirectly through note icon tokens (`test_site.py:332-341`); nothing asserts th
 - **NEW-FINDING:** `rebuild_section("pages", …)` writes into the live folder before checking and does not roll back
   (`tools/site/build.py:187-191`). Measured: after injecting `<a href="nowhere">`, the check failed and the published
   `index.html` kept the broken link.
-- **NEW-FINDING:** the preview cannot serve clean URLs. `/guide/money.html` returns 200 but `/guide/money` returns 404,
-  because `SimpleHTTPRequestHandler` (`tools/site/preview.py:131`) does not emulate nginx's
-  `try_files $uri $uri.html $uri/ =404` (`tools/site/slums-login.nginx.conf:87`); all 12 clean links on `guide/` are
+- **NEW-FINDING:** the preview cannot serve clean URLs: `/guide/money.html` is 200, `/guide/money` is 404, because
+  `SimpleHTTPRequestHandler` (`tools/site/preview.py:131`) does not emulate nginx's
+  `try_files $uri $uri.html $uri/ =404` (`tools/site/slums-login.nginx.conf:87`) — all 12 clean links on `guide/` are
   dead in preview.
 - **NEW-FINDING:** `check_links` reads only `href`/`src` (`tools/site/check.py:162-196`), so `srcset`, `<style>` `url()`
-  in HTML, and a web manifest can point at a missing file and still pass; `tools/site/common.py:100` is the first
-  place that would need it.
-- **NEW-FINDING:** doc drift — `build.py:179` and the comment at `:192-193` still say "every 15 minutes", while both
-  timers run every 2 minutes (`tools/site/slums-site-market.timer:10`).
-- **NEW-FINDING:** `check_noindex` opens `robots.txt` without closing it (`tools/site/check.py:275`), a
-  `ResourceWarning` in the suite.
-- **NEW-FINDING:** `tools/site/test_site.py:1272-1273` calls `unittest.main()` in the middle of the file, so
-  `ScrubTest` (`:1276`) and `AvatarTest` (`:1288`) only run under `discover` (82 tests) and are silently skipped by
-  `python3 test_site.py` (80 tests) — measured both ways at HEAD.
+  in HTML and a web manifest can point at a missing file and still pass (`tools/site/common.py:100` would need it).
+- **NEW-FINDING:** doc drift — `build.py:179` and the comment at `:192-193` say "every 15 minutes"; both timers run
+  every 2 minutes (`tools/site/slums-site-market.timer:10`).
+- **NEW-FINDING:** `check_noindex` leaves `robots.txt` unclosed (`tools/site/check.py:275`) — a `ResourceWarning` in
+  the suite — and `tools/site/test_site.py:1272-1273` calls `unittest.main()` mid-file, so `ScrubTest` (`:1276`) and
+  `AvatarTest` (`:1288`) run under `discover` (82 tests) but not under `python3 test_site.py` (80 tests).
 
 ## State
 
-**working.** Evidence: at HEAD `4e3cdcc96` a public build and a `--private --world` build both end in
-"check passed" (31,911 files, 105.7 s); two builds of the same input are byte-identical across 219 files; 293 unit
-tests pass; the failed-build and failed-section paths are covered by `tools/site/test_build_safety.py:31-65` and
-`tools/site/test_site.py:282-301`. The one live-relevant soft spot is that the preview is a convenience harness, not a
-faithful copy of nginx (see Known issues), so "it looked fine in preview" is not evidence a clean URL works.
+**working.** At HEAD `4e3cdcc96` a public build and a `--private --world` build both end in "check passed"
+(31,911 files, 105.7 s); two builds of the same input are byte-identical across 219 files; 293 unit tests pass; the
+failed-build and failed-section paths are covered (`tools/site/test_build_safety.py:31-65`,
+`tools/site/test_site.py:282-301`). Soft spot: the preview is a convenience harness, not a copy of nginx (Known
+issues), so "it looked fine in preview" is not evidence a clean URL works.
 
 ## Open questions
 

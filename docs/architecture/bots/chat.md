@@ -125,7 +125,7 @@ the same code path produces a bank line and the bot still answers.
 
 | Priority (whose line) | Local slots free | Route when the cloud is not first | Cloud possible? |
 | --- | --- | --- | --- |
-| `PLAYER` (`Priority.java:8`) | 0 free or local EWMA > `BOT_LLM_LOCAL_SLOW_MS` (2500) | LOCAL if a slot frees up | yes — overflow (`ChatRouter.java:162`), or always in `PLAYERS`/`ALL` mode (`:131-138`) |
+| `PLAYER` (`Priority` enum `Priority.java:8-14`) | 0 free or local EWMA > `BOT_LLM_LOCAL_SLOW_MS` (2500) | LOCAL if a slot frees up | yes — overflow (`ChatRouter.java:162`), or always in `PLAYERS`/`ALL` mode (`:131-138`) |
 | `PARTNER` (buddy/party talk) | ≥1 | LOCAL (`:163`) | only in `ALL` mode below 80 % of the budget |
 | `THREAD` (bot-to-bot thread) | == max | LOCAL, `THREAD_MAX_TOKENS` 140 (`:46`, `:164`) | only in `ALL` mode below 80 % |
 | `AMBIENT` (legacy `complete`, on-sight roast) | == max **and** no player line for 10 s (`AMBIENT_QUIET_MS` `:42`) | LOCAL | never (`ChatRouter.complete` `:326-330`) |
@@ -371,15 +371,22 @@ NEW-FINDING: `src/main/java/soloMapling/ArtificialPlayer/BotChatActions.java:125
 is gated on a hardcoded set of five map ids; a `PARTY` ask on any other map takes the immediate accept/decline path even
 when `LifeRuntime` would have wanted to answer.
 
-NEW-FINDING: `src/main/java/soloMapling/ArtificialPlayer/BotBrainSystem/ChatDecide.java:53-54` — answers are cached for
-30 minutes with only a cache-hit counter (`:250`, `ChatStats.decideCacheHit`); an identical short line ("sure", "where")
-repeated by a different player in a different situation reuses the earlier intent/flag, and nothing in the stats
-distinguishes that from a fresh decision.
+NEW-FINDING: `src/main/java/soloMapling/ArtificialPlayer/BotBrainSystem/ChatDecide.java:416-421` — the decision cache key is
+`normalise(line)` + the last ≤5 earlier lines + the question names, so a pair's first line (no earlier context) is cached
+globally for 30 min (`:53-54`): the same "sure" or "u there" asked to two different bots, on two different maps, reuses
+one intent/con answer, and `ChatStats.decideCacheHit` (`:250`) counts it as a hit rather than as a possibly wrong one.
 
-NEW-FINDING: `src/main/java/soloMapling/ArtificialPlayer/BotConversation.java:1574-1583` — `typingDelay` is applied
-before delivery while the brain call already consumed up to `BOT_LLM_TIMEOUT_MS` (7000) plus a decide call (up to 600);
-the two delays add, which is why check waits had to be raised to 75 s (`AutoQaCatalog.java:70-71`) and why t-cv-7 timed
-out at 12 s on 10-28. The timeout budget and the human-timing budget are not accounted against each other.
+NEW-FINDING: `src/main/java/soloMapling/ArtificialPlayer/BotConversation.java:1574` — `typingDelay(...)` is defined but has
+no caller anywhere in `src/main/java` (`grep -rn "typingDelay"` finds only the declaration); the live path uses
+`HumanTiming.typingMs` (`BotConvo/HumanTiming.java:53`). Dead code that still documents itself as the delay rule is a trap
+for the next reader of this area.
+
+NEW-FINDING: `src/main/java/soloMapling/ArtificialPlayer/BotConvo/HumanTiming.java:84-87` — the "late" plan picks
+`late = 15_000 + rng.nextInt(45_001)`, i.e. up to exactly 60 000 ms, while the auto-QA reply wait is
+`SAID_CAP_S = 60` s (`src/main/java/soloMapling/autoqa/AutoQaCatalog.java:74`). The 4 % `lateChance` tail therefore ends
+at the same instant the check gives up, so the slowest legitimate replies can never be observed — the comment at
+`AutoQaCatalog.java:69-73` records exactly this ("~3% of replies late (up to ~55 s; t-cv-7 timed out at 12 s on 10-28)"),
+and the wait was raised from 12 s to 60 s rather than the tail being capped below it.
 
 ## State
 
@@ -388,7 +395,7 @@ unit-tested (`BotBrainSystem` 15 + `BotConvo` 59 test classes, `AutoQaCatalog.ja
 "working": the model still gainsays its own state in production (b099, b101, b240 marked *shipped, waiting for proof* in
 `/root/work/STATUS-1.6.4.md:55-59`), and the planner — the mechanism that was supposed to fix exactly that — only went
 on for live on 2026-11-05 (`docs/release/1.6.4.conf:267`) after being frozen off for the 11-02 run (`:252`), with its
-proof being a single TEST pass of `t-pl-1`/`t-cv-1`. Evidence of the gaps: `AutoQaCatalog.java:70-71` (chat timeouts),
+proof being a single TEST pass of `t-pl-1`/`t-cv-1`. Evidence of the gaps: `AutoQaCatalog.java:69-74` (chat waits, b222),
 `/root/work/STATUS-1.6.4.md:78-83` (QA-feed and 10-lane false failures).
 
 ## Open questions

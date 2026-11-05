@@ -130,12 +130,16 @@ independent ways in:
    `Math.max(1, −1)` coercion turns a mobless town's sentinel into mob level 1
    (`TrainingBot.java:1083-1086`; sentinel `-1` from `src/main/java/soloMapling/ArtificialPlayer/BotGrindSystem/MapMobIndex.java:43`, `:52-54`).
 2. The steer / event / tip / walk-back / quest branches use the same `chr.getMapId() == target ? GRIND : GO_TRAIN`
-   ternary; four of the five validate the target's mob level first (`:1944`, `:1960`, `:1974`, and the event branch
-   `:1926` via `BotMapGates`), but the party/steer branch's `partyTargetMapId()` accepts a bot couple's or guild
-   leader's map **without** a `MapMobIndex` check on the party member's map when the party has no real player
-   (`:1917-1923`, `:2638-2660` — only the couple/guild fallbacks at `:2646-2652` end in a mob check,
-   `src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotCouples.java:846-847`,
-   `src/main/java/soloMapling/ArtificialPlayer/BotGuildSystem/BotGuilds.java:936-938`).
+   ternary and every one of them **does** validate the target before it can be taken: tip/walk-back/quest via
+   `MapMobIndex.level(...) >= 0 && BotMapGates.mayEnter(...)` (`:1943`, `:1958`, `:1973`), the event branch via
+   `BotMapGates` + `BotMapCap.admit` (`:1927-1928`), the staging hold via `BotMapGates` + `BotMapCap.admit`
+   (`stagedMap` `:1886-1891`), and the party map via `MapMobIndex.level(memberMap) >= 0` (`partyTargetMapId`
+   `:2650-2657`) or, for a bot-only party, via the couple/guild helpers that end in the same check
+   (`src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotCouples.java:846-847`,
+   `src/main/java/soloMapling/ArtificialPlayer/BotGuildSystem/BotGuilds.java:937-938`). The party map is the one
+   target that reaches `enterPhase` **without** a `BotMapCap.admit` (`steer` `:1866-1872` returns it unchecked;
+   `partyTargetMapId` has no cap call) — so it can overfill a map, but it cannot put a bot in GRIND on a mobless one.
+   That leaves the `HELP_FRIEND` path above as the *only* mob-check-free way into GRIND, which is what b240 needs.
 3. Once in `GRIND` on a mobless map nothing evicts it: the only unconditional eviction is
    `leaveEventMapIfOver` for an **event** map that went mobless (`TrainingBot.java:1176-1180`); the watchdog needs an
    observed map *and* fails to find a reachable mob before bailing (`:2218`, `:2239`, `:2253`), so an unobserved town
@@ -215,7 +219,8 @@ e.g. `src/main/java/soloMapling/ArtificialPlayer/BotAffinitySystem/RudeStreak.ja
 ## Invariants
 
 1. Bots are `Character`s with a shared headless client; `getClient().getPlayer()` is `null`, so every grind read goes
-   through the `Character` (`TrainingBot.java:2626`, `GrindLoot.java:53`). Bot ids start at 1,000,000,000, and packets
+   through the `Character` (`GrindStrategy.java:12-22` — the whole strategy interface is `Character`-only,
+   `GrindLoot.java:53`). Bot ids start at 1,000,000,000, and packets
    sent to a bot go nowhere.
 2. **All claim mutations happen under `GrindBrain.claimLock`**, and a select re-checks `claimActive` under it
    (`GrindBrain.java:34-42`, `CampStrategy.java:232-235`). `BotSpotClaims` has no TTL, so a ghost claim would repel
@@ -322,11 +327,11 @@ Own findings:
   rate (`OffscreenSupplies.java:87-90`) and `accrueAbstractExp`'s `KILLS_PER_MIN × mobLevel` fallback
   (`TrainingBot.java:2862`, `:115`), a bot in a town "grinds" free abstract EXP at ~0.5 exp/s plus map-budget loot
   (`:2165`) with no supply cost. That is very likely the *reported* b240, not just its wording.
-- `NEW-FINDING:` `TrainingBot.java:1917-1923` — the party/steer branch never consults `BotMapCap` (only the staging
-  hold does, `:1887`) and `partyTargetMapId()` returns a bot couple's/guild leader's map without a mob check when the
-  party has no real player (`:2638-2660`), so a party can stack unbounded on one map instance while every other pick
-  path is capped. The comment at `:1915-1916` says this is deliberate ("deliberately skip the capacity/crowd
-  weighting") — worth confirming it is still wanted with 3k bots.
+- `NEW-FINDING:` `TrainingBot.java:1917-1923` + `:1866-1872` — the party map reaches `enterPhase` without any
+  `BotMapCap.admit` call: `steer` returns `partyMap` unchecked, and `partyTargetMapId` (`:2638-2658`) has no cap call,
+  so a party (couple/guild/bot-only, or a real player's map) can stack unbounded on one map instance while every other
+  pick path is capped. The comment at `:1914-1916` says the skip is deliberate ("Both deliberately skip the
+  capacity/crowd weighting") — worth confirming it is still wanted with 3k bots.
 - `NEW-FINDING:` `TrainingMapChooser.java:134`, `:155`, `:187` vs `:340` — three different comparisons against the
   same map capacity (`<`, `<=`, `<=`) while `weightedPick` hard-zeroes at `n >= cap`. A map at exactly capacity is
   admissible by the accept path but unreachable by the weighted draw, so the two halves disagree about what "full"
@@ -354,7 +359,7 @@ Evidence:
   with its own claim/travel/fight loop (`CampStrategy.java:101-110`, `RoamStrategy.java:55`, `StackStrategy.java:72`,
   `PatrolStrategy.java:60`).
 - Looting runs on every path (at-feet, instant, sweep, pet) and is unit-tested at the filter layer
-  (`LootPickerTest.java:67-105`) and exercised live by auto-QA `t-pt-1` (`AutoQaCatalog.java:726`).
+  (`LootPickerTest.java:67-101`) and exercised live by auto-QA `t-pt-1` (`AutoQaCatalog.java:726`).
 - 18 test files' worth of assertions pass on the pure decision layers (path, chooser, gear-first, finder, regions,
   travel, caps, budget); the IO/orchestration classes (`CampStrategy`, `RoamStrategy`, `StackStrategy`, `GrindBrain`,
   `GrindLoot`, `TrainingBot`'s phase machine) are covered only by QA checks and source-text scans.
@@ -363,8 +368,9 @@ Evidence:
 
 ## Open questions
 
-1. Is the party/steer bypass of `BotMapCap` (`TrainingBot.java:1917-1923`) still intended at 3k bots, or is it a
-   leftover from before the cap existed (`BotMapCap` landed 2026-10-23, the steer comment is undated)?
+1. Is the party/steer bypass of `BotMapCap` (`steer` `TrainingBot.java:1866-1872`, `partyTargetMapId` `:2638-2658`)
+   still intended at 3k bots, or is it a leftover from before the cap existed (`BotMapCap` landed 2026-10-23, and the
+   skip is documented only as "deliberately skip the capacity/crowd weighting", `:1914-1916`)?
 2. Should a mobless target ever be able to enter `GRIND` — i.e. should the `Math.max(1, MapMobIndex.level(...))`
    coercion be replaced by a mob check in every ternary, or should `doGrind` refuse to start on a mobless map
    (`TrainingBot.java:2106-2134`)?
