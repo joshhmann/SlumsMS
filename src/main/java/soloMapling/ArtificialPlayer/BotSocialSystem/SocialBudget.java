@@ -358,6 +358,51 @@ public final class SocialBudget {
         return out;
     }
 
+    // ── synthetic proof ──
+
+    /**
+     * Auto-QA t-sa-1: does the turn limit refuse? Scripts A/B/A/B... on two fake ids (the lowest ints, which no
+     * character has) and one fake map, through the real {@link #judge} and {@link #turn} under the limits in force
+     * but with the rate windows opened wide, so only the turn rule can refuse. It reads and writes nothing else: no
+     * pair cooldown, rate window, verdict counter or recorded count moves, and the fake chain is removed at the end.
+     * True when the first {@code maxTurns} alternating acts are allowed and the next one is refused as TURN_LIMIT.
+     */
+    public static boolean turnLimitBites(long now) {
+        if (!enabled()) {
+            return false;
+        }
+        Limits l = limits();
+        Limits wide = new Limits(l.defaultCooldownMs(), l.pairCooldownMs(), Integer.MAX_VALUE, Integer.MAX_VALUE,
+                Integer.MAX_VALUE, l.maxTurns(), l.turnWindowMs(), Integer.MAX_VALUE, l.backoffBaseMs(),
+                l.backoffMaxMs(), l.failResetMs());
+        final int a = Integer.MIN_VALUE + 1, b = Integer.MIN_VALUE + 2;
+        final long map = Long.MIN_VALUE;
+        long pair = pair(a, b);
+        synchronized (LOCK) {
+            Chain saved = chains.remove(pair);
+            try {
+                for (int i = 0; i < wide.maxTurns(); i++) {
+                    int actor = i % 2 == 0 ? a : b;
+                    int target = i % 2 == 0 ? b : a;
+                    long t = now + i * 1_000L;
+                    if (!judge(wide, actor, target, map, "qa-turn-proof", t).allowed()) {
+                        return false;
+                    }
+                    turn(wide, pair, actor, t);
+                }
+                int actor = wide.maxTurns() % 2 == 0 ? a : b;
+                int target = actor == a ? b : a;
+                return judge(wide, actor, target, map, "qa-turn-proof", now + wide.maxTurns() * 1_000L).reason()
+                        == Reason.TURN_LIMIT;
+            } finally {
+                chains.remove(pair);
+                if (saved != null) {
+                    chains.put(pair, saved);
+                }
+            }
+        }
+    }
+
     // ── test seams ──
 
     /** Test seam: fixed limits (null: back to the defaults and properties). Pair with {@link #resetForTest()}. */

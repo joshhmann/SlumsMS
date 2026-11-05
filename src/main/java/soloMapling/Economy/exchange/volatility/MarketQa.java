@@ -243,11 +243,11 @@ public final class MarketQa {
                 }
             }
         }
-        if (holders.isEmpty()) {
-            return List.of("SKIP no online trader holds a Chaos or White Scroll yet: a trader finds them by hunting at "
-                    + "the real drop chance (one global row each, 1200 per million, about 2.2 per trader-hour), so run "
-                    + "this again later (" + online + " traders online)");
+        if (online == 0) {
+            return List.of("SKIP no trader is online (" + roster.traders().size() + " traders)");
         }
+        String noHolder = holders.isEmpty() ? "no online trader holds a Chaos or White Scroll yet (a trader finds them "
+                + "by hunting at the real drop chance, about 2.2 per trader-hour)" : null;
         // a trader holding both scrolls offers the one it holds most of (heldItem): judge each trader once, on that
         // pick, which must be a scroll it really holds with no other held scroll outnumbering it
         List<Cand> picks = new ArrayList<>();
@@ -280,60 +280,133 @@ public final class MarketQa {
         // archetype that never sells a held scroll (MOMENTUM waits for a trend) or a trader inside its order cooldown
         // (the other checks and the traders' own turns order too) is passed over for the next holder.
         boolean judged = false;
-        int cooling = 0, sellers = 0;
+        int cooling = 0;
         for (Cand c : picks) {
-            Ticker tk = c.k;
-            TraderBrain.Place sell = firstSell(ex, c.t, c.w, tk, now);
+            TraderBrain.Place sell = firstSell(ex, c.t, c.w, c.k, now);
             if (sell == null) {
                 continue;
             }
-            sellers++;
-            long have0 = c.w.have(tk.asset()), meso0 = c.w.have(Asset.MESO);
-            Exchange.Response r = ex.placeBot(new Exchange.Place("qa-xc5-" + c.t.id() + "-" + now, c.w.account(),
-                    c.w.character(), Side.SELL, sell.price(), sell.qty(), tk.id()), c.w);
-            if ("COOLDOWN".equals(r.code())) {
+            String st = judgeSell(ex, c.t, c.w, c.k, sell, now, out, bad);
+            if ("COOLDOWN".equals(st)) {
                 cooling++;
-                out.add("trader " + c.t.id() + " is inside the order cooldown: trying the next holder");
                 continue;
             }
             judged = true;
-            if (!r.ok()) {
-                out.add("the sell of " + sell.qty() + " " + tk.id() + " at " + sell.price() + " was refused: "
-                        + r.code() + " " + r.message());
-                bad.add("the trader's " + tk.id() + " sell was refused: " + r.code());
-            } else {
-                long id = ((Number) r.data().get("orderId")).longValue();
-                boolean onBook = ex.openBotOrders(c.w.account(), tk.id()).stream().anyMatch(o -> o.id() == id);
-                long held = have0 - c.w.have(tk.asset());
-                boolean inBand = sell.price() >= tk.minPrice() && sell.price() <= tk.maxPrice();
-                Exchange.Response can = ex.cancelBot("qa-xc5-cancel-" + id, c.w, id);
-                long back = c.w.have(tk.asset());
-                out.add("sold " + sell.qty() + " " + tk.id() + " at " + sell.price() + " (order " + id
-                        + (onBook ? ", on the book" : ", NOT on the book") + (inBand ? "" : ", OUTSIDE the band "
-                        + tk.minPrice() + ".." + tk.maxPrice()) + "), " + held + " escrowed from its own holdings; "
-                        + "cancel " + can.code() + ", " + tk.id() + " " + have0 + " -> " + back + ", mesos "
-                        + meso0 + " -> " + c.w.have(Asset.MESO));
-                if (!onBook || held != sell.qty() || !inBand || !can.ok() || back != have0) {
-                    bad.add("the trader's " + tk.id() + " order did not post, hold, price in band and cancel cleanly");
-                }
-            }
             break;
         }
-        if (!judged && bad.isEmpty() && !picks.isEmpty()) {
-            // every holder picked its scroll, but no order could be judged: say why and wait for a better moment
-            out.add(0, cooling > 0
-                    ? "SKIP all " + cooling + " scroll holder(s) that would sell were inside the order cooldown; run "
-                    + "this again"
-                    : "SKIP the " + picks.size() + " online scroll holder(s) picked their scroll but none of their "
-                    + "archetypes sells it on a flat market (first: trader " + picks.get(0).t.id() + ", "
-                    + picks.get(0).t.archetype() + "); run this again when another archetype holds one");
-            return out;
+        // organic first, staging as the fallback (owner 2026-11-04): nothing organic could be judged, so one online
+        // trader whose archetype sells a held scroll is handed ONE scroll for the check, through the wallet's own
+        // give/take (the path t-xc-4's mesos top-up uses; the order itself still goes through the exchange), and the
+        // scroll is taken back at the end whatever happened.
+        if (!judged && bad.isEmpty()) {
+            if (noHolder != null) {
+                out.add(noHolder + ": staging a scroll");
+            } else {
+                out.add("no organic holder could be judged (" + picks.size() + " holder(s)"
+                        + (cooling > 0 ? ", " + cooling + " in the order cooldown" : ", none whose archetype sells it")
+                        + "): staging a scroll");
+            }
+            int coolStaged = 0;
+            staging:
+            for (MarketTraders.Trader t : roster.traders()) {
+                LiveWallet w = roster.walletOf(t);
+                if (w == null || !Boolean.TRUE.equals(w.locked(w::usable))) {
+                    continue;
+                }
+                for (Ticker k : scrolls) {
+                    String st = stageOne(ex, t, w, k, scrolls, now, out, bad);
+                    if ("COOLDOWN".equals(st)) {
+                        coolStaged++;
+                        continue staging;
+                    }
+                    if ("DONE".equals(st)) {
+                        judged = true;
+                        break staging;
+                    }
+                }
+            }
+            if (!judged && bad.isEmpty()) {
+                out.add(0, coolStaged > 0
+                        ? "SKIP every trader whose archetype sells a scroll was inside the order cooldown; run this again"
+                        : "SKIP no online trader's archetype sells a scroll on a flat market (" + online
+                        + " online); run this again");
+                return out;
+            }
         }
         if (!judged && bad.isEmpty()) {
             bad.add("no trader could be judged");
         }
         out.add(0, bad.isEmpty() ? "PASS a scroll holder lists its scroll" : "FAIL " + String.join("; ", bad));
         return out;
+    }
+
+    /** Hands the trader 1 scroll, runs the sell if its archetype makes one, takes the scroll back. Null/COOLDOWN/DONE. */
+    private static String stageOne(Exchange ex, MarketTraders.Trader t, LiveWallet w, Ticker k, List<Ticker> scrolls,
+                                   long now, List<String> out, List<String> bad) {
+        long before = w.have(k.asset());
+        if (!Boolean.TRUE.equals(w.locked(() -> w.give(k.asset(), 1)))) {
+            return null;
+        }
+        String result = null;
+        try {
+            if (w.have(k.asset()) != before + 1 || MarketTraders.heldItem(scrolls, w) != k) {
+                return null;
+            }
+            TraderBrain.Place sell = firstSell(ex, t, w, k, now);
+            if (sell == null) {
+                return null;
+            }
+            out.add("staged 1 " + k.id() + " in trader " + t.id() + " (" + t.archetype() + ") for the check (taken back "
+                    + "at the end)");
+            result = judgeSell(ex, t, w, k, sell, now, out, bad);
+            return result;
+        } finally {
+            boolean took = false;
+            try {
+                took = Boolean.TRUE.equals(w.locked(() -> w.take(k.asset(), 1) && w.saveNow()));
+            } catch (RuntimeException e) {
+                // reported below
+            }
+            if (!took) {
+                bad.add("the staged " + k.id() + " could not be taken back from trader " + t.id());
+                out.add("could not take back the staged " + k.id() + " (trader at " + w.have(k.asset()) + ")");
+            } else {
+                out.add("took back the staged " + k.id() + " (trader at " + w.have(k.asset()) + ")");
+            }
+        }
+    }
+
+    /** Places the sell through the exchange and judges post, hold, band and cancel. "COOLDOWN" or "DONE". */
+    private static String judgeSell(Exchange ex, MarketTraders.Trader t, LiveWallet w, Ticker tk,
+                                    TraderBrain.Place sell, long now, List<String> out, List<String> bad) {
+        long have0 = w.have(tk.asset()), meso0 = w.have(Asset.MESO);
+        Exchange.Response r = ex.placeBot(new Exchange.Place("qa-xc5-" + t.id() + "-" + now, w.account(),
+                w.character(), Side.SELL, sell.price(), sell.qty(), tk.id()), w);
+        if ("COOLDOWN".equals(r.code())) {
+            out.add("trader " + t.id() + " is inside the order cooldown: trying the next one");
+            return "COOLDOWN";
+        }
+        if (!r.ok()) {
+            out.add("the sell of " + sell.qty() + " " + tk.id() + " at " + sell.price() + " was refused: "
+                    + r.code() + " " + r.message());
+            bad.add("the trader's " + tk.id() + " sell was refused: " + r.code());
+            return "DONE";
+        }
+        long id = ((Number) r.data().get("orderId")).longValue();
+        boolean onBook = ex.openBotOrders(w.account(), tk.id()).stream().anyMatch(o -> o.id() == id);
+        long held = have0 - w.have(tk.asset());
+        boolean inBand = sell.price() >= tk.minPrice() && sell.price() <= tk.maxPrice();
+        Exchange.Response can = ex.cancelBot("qa-xc5-cancel-" + id, w, id);
+        long back = w.have(tk.asset());
+        out.add("sold " + sell.qty() + " " + tk.id() + " at " + sell.price() + " (order " + id
+                + (onBook ? ", on the book" : ", NOT on the book") + (inBand ? "" : ", OUTSIDE the band "
+                + tk.minPrice() + ".." + tk.maxPrice()) + "), " + held + " escrowed from its own holdings; "
+                + "cancel " + can.code() + ", " + tk.id() + " " + have0 + " -> " + back + ", mesos "
+                + meso0 + " -> " + w.have(Asset.MESO));
+        if (!onBook || held != sell.qty() || !inBand || !can.ok() || back != have0) {
+            bad.add("the trader's " + tk.id() + " order did not post, hold, price in band and cancel cleanly");
+        }
+        return "DONE";
     }
 
     /** The first SELL a trader's own decision makes for a scroll it holds over a handful of seeds, or null. */

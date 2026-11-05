@@ -268,8 +268,11 @@ final class Probes164Social {
     static final double SA_DENIED_SHARE = 0.5;
     /** Share of landed acts that may end in an error. */
     static final double SA_ERROR_SHARE = 0.05;
-    /** Allowed acts before "the turn cap never bit" counts as a failure. */
-    static final long SA_TURN_CAP_PROOF = 200;
+    /**
+     * The turn-limit proof is synthetic (owner 2026-11-04): pair cooldowns stop real pairs before six alternating
+     * turns, so organic traffic cannot show the cap biting. A scripted A/B ping-pong on fake ids asks the real rule.
+     */
+    static java.util.function.LongPredicate turnLimitProof = SocialBudget::turnLimitBites;
     /** Share of one kind's attempts that may be refused by a precondition. */
     static final double SA_REFUSED_SHARE = 0.5;
 
@@ -280,6 +283,12 @@ final class Probes164Social {
             return "only " + attempts + " social act(s) have been attempted (need " + SA_MIN_ATTEMPTS + ")";
         }
         return null;
+    }
+
+    /** What is wrong with the synthetic turn-limit proof, or null when the scripted ping-pong was refused. */
+    static String turnLimitProblem(boolean bites) {
+        return bites ? null : "the turn limit did not refuse a scripted A/B ping-pong past the allowed turns on two"
+                + " fake ids: the cap is not being applied";
     }
 
     /** What is wrong with the act and budget counters, or null when nothing is. */
@@ -320,9 +329,6 @@ final class Probes164Social {
                     + (int) (SA_DENIED_SHARE * 100) + "%)";
         }
         long turns = budget.getOrDefault("denied turn-limit", 0L);
-        if (allowed >= SA_TURN_CAP_PROOF && turns == 0) {
-            return "no pair hit the turn limit in " + allowed + " allowed act(s): the cap is not being applied";
-        }
         if (turns > allowed / 2) {
             return turns + " turn-limit refusal(s) against " + allowed + " allowed act(s): pairs are stuck in a"
                     + " capped exchange";
@@ -350,6 +356,8 @@ final class Probes164Social {
         if (skip != null) return List.of("SKIP " + skip);
         String problem = socialActsProblem(acts, budget);
         if (problem != null) return List.of("FAIL " + problem);
+        String proof = turnLimitProblem(turnLimitProof.test(System.currentTimeMillis()));
+        if (proof != null) return List.of("FAIL " + proof);
         List<String> out = new ArrayList<>();
         StringBuilder kinds = new StringBuilder();
         long ok = 0;
@@ -375,6 +383,9 @@ final class Probes164Social {
             if (e.getKey().endsWith(".error")) errors += e.getValue();
         }
         out.add("errors " + errors + " of " + ok + " landed act(s)");
+        out.add("turn limit: synthetic A/B ping-pong on fake ids was refused after the allowed turns (proved); "
+                + "organically " + budget.getOrDefault("denied turn-limit", 0L) + " refusal(s) of " + allowed
+                + " allowed act(s) (info only: pair cooldowns normally stop pairs first)");
         return out;
     }
 

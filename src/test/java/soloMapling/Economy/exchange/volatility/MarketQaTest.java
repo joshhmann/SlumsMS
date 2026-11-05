@@ -160,4 +160,43 @@ class MarketQaTest {
         List<String> r = MarketQa.scrollCheck(ex, roster, now.get());
         assertTrue(r.get(0).startsWith("SKIP"), String.join("\n", r));
     }
+
+    @Test
+    void whenNoHolderIsOnlineTheCheckStagesAScrollInASellerAndTakesItBack() {
+        FakeBotWallet w = trader(A, 5_000_000);
+        List<String> r = MarketQa.scrollCheck(ex, roster, now.get());
+        assertTrue(r.get(0).startsWith("PASS"), String.join("\n", r));
+        assertTrue(r.stream().anyMatch(l -> l.contains("staged 1")), String.join("\n", r));
+        assertEquals(0L, w.have(Asset.CHAOS) + w.have(Asset.WS));
+        assertEquals(5_000_000L, w.mesos);
+        assertTrue(ex.openBotOrders(A, "CHAOS").isEmpty());
+    }
+
+    @Test
+    void stagingSkipsTradersWhoseArchetypeNeverSellsAndUsesOneWhoDoes() {
+        FakeBotWallet holder = new FakeBotWallet(A, 5_000_000).with(Asset.CHAOS, 3);
+        wallets.put(A, holder);
+        traders.add(new MarketTraders.Trader(A, TraderBrain.Archetype.VALUE, A));
+        FakeBotWallet maker = new FakeBotWallet(B, 5_000_000);
+        wallets.put(B, maker);
+        traders.add(new MarketTraders.Trader(B, TraderBrain.Archetype.MAKER, B));
+        List<String> r = MarketQa.scrollCheck(ex, roster, now.get());
+        assertTrue(r.get(0).startsWith("PASS"), String.join("\n", r));
+        assertEquals(3L, holder.have(Asset.CHAOS));
+        assertEquals(0L, maker.have(Asset.CHAOS) + maker.have(Asset.WS));
+    }
+
+    @Test
+    void aRefusedOrFailedStagedScrollIsStillTakenBack() {
+        FakeBotWallet w = trader(A, 0); // no mesos for the fee: the order may be refused, the scroll must not leak
+        w.saveFails = false;
+        MarketQa.scrollCheck(ex, roster, now.get());
+        assertEquals(0L, w.have(Asset.CHAOS) + w.have(Asset.WS));
+    }
+
+    @Test
+    void noTraderOnlineStillSkips() {
+        List<String> r = MarketQa.scrollCheck(ex, roster, now.get());
+        assertTrue(r.get(0).startsWith("SKIP"), String.join("\n", r));
+    }
 }

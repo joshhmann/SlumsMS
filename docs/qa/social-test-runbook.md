@@ -137,7 +137,7 @@ tools/ops/autoqa-run smoke          # starts the run without logging in
 |---|---|---|
 | `t-ms-1` | all three modes populated, switches in both directions, swap refusals ≤ 5%, no bot above 3 switches an hour | `slums.modeswitch` off, under 8 bots have been through a decision, or fewer than 240 decisions (8 bots × 30 min) |
 | `t-sm-1` | minds in range (mood in `[-1,1]`, no NaN), at least 2 of 5 loaded minds moved off their seed | `slums.socialacts` off, the social layer has made no decision yet, or fewer than 5 online bots have a loaded mind |
-| `t-sa-1` | three kinds of act landed, errors ≤ 5%, budget refuses ≤ 50%, the turn limit bites but does not dominate | `slums.socialacts` off, or under 20 attempts |
+| `t-sa-1` | three kinds of act landed, errors ≤ 5%, budget refuses ≤ 50%, the turn limit refuses a scripted A/B ping-pong on fake ids (synthetic proof; organic turn-limit count is an info line, and FAILs only when over half of allowed acts) | `slums.socialacts` off, or under 20 attempts |
 
 Three checks, not four: the Henesys pilot check (`t-pi-1`, probe `socialPilot`, already written and unit-tested) is
 **not in the catalogue yet**. It could only SKIP until the `SocialPilot` class exists, and a release run FAILs on
