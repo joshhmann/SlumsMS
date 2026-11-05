@@ -48,7 +48,7 @@ flowchart TB
    both ends (`report-service.md`, `privacy-rules.md`).
 6. **Exchange desk.** A trade request is a file: the site writes it, the server picks it up and writes the response
    (`exchange-desk.md`).
-7. **Board.** Posts and replies under moderation and identity rules (`board.md`).
+7. **Board.** Structured WTB/WTS posts under moderation and identity rules; there are no replies (`board.md`).
 
 ## Subsystems
 

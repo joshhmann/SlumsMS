@@ -172,9 +172,10 @@ Not covered: an e-mail through a *renamed* key; a private key inside `prices/*.j
   only `listings`, `sales`, `nx-rate`, `economy-public` (`:153`), so a private key inside `prices/YYYY-MM-DD.json` is never
   refused even though `load()` reads it (`:77-79`) — and that file carries `player_share`/`player_count`
   (`PriceRollup.java:69-70`), a per-item real-player share on a public file, against the spirit of `market.py:1-13`.
-- NEW-FINDING: the board API returns outbox text unfiltered (`tools/site/market_service.py:374-386`; no `check.scrub` in
-  that service), so a banned word or e-mail in a title reaches the browser — safe HTML via `textContent`
-  (`docs/site/assets/market.js:3`), invisible to the build check.
+- CHECKED, NOT A HOLE: the board API returns outbox fields unfiltered (`tools/site/market_service.py:374-392`; no
+  `check.scrub` in that service), but a board row carries no free text — `add_post` accepts only `kind`, `itemId`,
+  `qty`, `price` and a character name from the session (`tools/site/market_service.py:434-453`), so there is nothing to
+  scrub, and rendering is `textContent` (`docs/site/assets/market.js:3`).
 - NEW-FINDING: `docs/design/track-d-plan.md:216-226` promises "sales delayed at least 1 h" and a plan-derived privacy
   lint; only hour-truncation exists (`MarketSales.java:20-23`), and no `MIN_SAMPLES`/`FLOOR`/`TRADER_MIN` lint.
 
