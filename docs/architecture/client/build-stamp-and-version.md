@@ -171,7 +171,7 @@ config default `CUSTOM_NPC_IDS = "9990000,2985-2999"` (`src/main/java/config/Ser
 
 **Build artifacts.** `build/Release/slums-build.txt` = `release=<VERSION text>\nbuild=<n>\n`
 (`src/CMakeLists.txt:34-35`); the release tooling parses it with `tools/release/stage_client_lib.py:16-24`
-(`release`, and `build` only when it matches `[0-9]{1,9}`), then `stage-client:91-93` prints
+(`release`, and `build` only when it matches `[0-9]{1,9}`), then `tools/release/stage-client:91-93` prints
 `client build stamp: release <r>, build <b>` and warns when `release`'s `major.minor.patch` differs from the version
 being staged.
 
@@ -186,11 +186,11 @@ being staged.
 |---|---|---|---|
 | 1.4.2 | 10402 | first stamped client, old formula `major*10000+minor*100+patch` | `src/buildstamp_proto.h` golden `tests/buildstamp_proto_test.cpp:35`; commit `66026a3` |
 | 1.5.0 | 10500 | same formula | commit `94bf3b0` ("VERSION 1.5.0 (build 10500)") |
-| 1.6.0 | 10600 | same formula; the 4-byte HP/MP requirement | `docs/release/1.6.0.conf:54`; `README.md:29-31` |
+| 1.6.0 | 10600 | same formula; the 4-byte HP/MP requirement | `docs/release/1.6.0.conf:54`; `/root/work/client/src-164-data/README.md:29-31` |
 | 1.6.0.2 | 10601 | override, VERSION stayed `1.6.0` | `docs/release/1.6.0.3.conf:4`; `docs/research-121-crash-report.md:139` |
 | 1.6.1 rc8 / rc9 | 10680 / 10690 | overrides, VERSION still `1.6.0` | `docs/release/1.6.1.conf:259` |
 | 1.6.1 rc11 / rc12 | 10700 / 10710 | overrides; rc11 was the shipped 1.6.1 client | `docs/release/1.6.1.conf:258-263`; `docs/release/1.6.1-notes.md:68` |
-| 1.6.2 rc1..rc5 | 10720 | `VERSION 1.6.2` under the **new** formula, no override (b205) | `35ff96f`; `README.md:29-30` ("1.6.2 -> 10720; 1.6.2-rc1 is also 10720"); `docs/release/1.6.2.conf:274` |
+| 1.6.2 rc1..rc5 | 10720 | `VERSION 1.6.2` under the **new** formula, no override (b205) | `35ff96f`; `/root/work/client/src-164-data/README.md:29-30` ("1.6.2 -> 10720; 1.6.2-rc1 is also 10720"); `docs/release/1.6.2.conf:274` |
 | 1.6.2 rc6 (= shipped) | 10721 | `-DSLUMS_BUILD_NUMBER_OVERRIDE=10721` by owner call | `docs/release/1.6.2-deploy-steps.md:121-124`; `docs/release/1.6.2.conf:281` |
 | 1.6.3 | (no new client) | gate stayed at 10721 — "No new client is planned: MIN_CLIENT_BUILD stays 10721" | `docs/release/1.6.3.conf:8-9`, `:165` |
 | 1.6.4 rc1/rc2/rc3 | 10740 | `VERSION 1.6.4-rc*` under the new formula | `9b5dcda`; `docs/release/1.6.4.conf:284`; `docs/release/1.6.4-playbook.md:17` |
@@ -238,7 +238,8 @@ cannot be switched on here.
 by default; TEST/RC only.
 
 **Release conf:** `MIN_CLIENT_BUILD=<n>` in `docs/release/<ver>.conf`, applied through
-`tools/release/gen-deploy:19,86` → `deploy.body.sh:123,243` → `tools/release/set-min-client-build`.
+`tools/release/gen-deploy:19`, `:86` → `tools/release/templates/deploy.body.sh:123` (dry run), `:243` (real) →
+`tools/release/set-min-client-build:7-40`.
 
 ## Invariants
 
@@ -265,13 +266,13 @@ by default; TEST/RC only.
 7. **A refusal is two packets, popup then silent failure.** `serverNotice(1, ...)` + `getLoginFailed(1)`
    (`src/main/java/net/server/handlers/login/ClientVersionGate.java:105-106`, `:120-121`); reason 1 is the only one the
    v83 client renders without its own dialog (`:23-27`).
-8. **`MIN_CLIENT_BUILD` never decreases in the automated path.** `set-min-client-build:34` refuses without
+8. **`MIN_CLIENT_BUILD` never decreases in the automated path.** `tools/release/set-min-client-build:34` refuses without
    `--allow-lower`; rollback restores the old value with the old jar
    (`tools/release/templates/rollback.body.sh:132`).
 9. **The stamp fits a PE resource.** `src/CMakeLists.txt:38-40` aborts when the build exceeds 65535, because
    `VERSIONINFO` fields are 16-bit.
 10. **Overrides are visible.** Every build writes `slums-build.txt` next to `slums.dll` (`src/CMakeLists.txt:34-35`),
-    so an override-stamped build is identifiable after the fact; the release tool prints it (`stage-client:91-93`).
+    so an override-stamped build is identifiable after the fact; the release tool prints it (`tools/release/stage-client:91-93`).
 
 ## Origin
 
@@ -349,12 +350,12 @@ source.
 | card b270 | Launcher news manifest written without `news[]`. Adjacent: the launcher reads `slums-build.txt` as the client version, so a broken publish also breaks the version shown | `/root/work/STATUS-1.6.4.md:75`; `tools/ops/client-mcp-win/src/driver.py:525-528` |
 | card b274 | Boss portals never send a portal-enter. No stamp interaction found; listed for the lane | `/root/work/STATUS-1.6.4.md:76` |
 | card L15, card e14 | Client-side fixes / in-game exchange window: not stamp work, no version dependency found in this subsystem | `/root/work/STATUS-1.6.4.md:106`, `:124` |
-| NEW-FINDING | Client README says the stamp is "format 1" while the code sends format 2. `README.md:24` reads `CP 0x3738 (format 1, int build, string release)`, but `src/buildstamp_proto.h:24` sets `kBuildStampFormat = 2` and caps are always written (`src/bypass.cpp:435`). A reader trusting the README will look for a 3-field packet that no current client sends | `README.md:24` vs `src/buildstamp_proto.h:24` |
+| NEW-FINDING | Client README says the stamp is "format 1" while the code sends format 2. `/root/work/client/src-164-data/README.md:24` reads `CP 0x3738 (format 1, int build, string release)`, but `src/buildstamp_proto.h:24` sets `kBuildStampFormat = 2` and caps are always written (`src/bypass.cpp:435`). A reader trusting the README will look for a 3-field packet that no current client sends | `/root/work/client/src-164-data/README.md:24` vs `src/buildstamp_proto.h:24` |
 | NEW-FINDING | The server's own release README repeats both stale facts: the shape `short format=1, int build, string release` (`:45-46`) and the pre-b205 formula `major*10000 + minor*100 + patch` (`:47`). A release engineer reading it would compute 10604 for 1.6.4 (old formula) instead of 10740, i.e. twenty builds below every candidate since 1.6.1 | `tools/release/README.md:45-47` vs `cmake/BuildStamp.cmake:25` |
 | NEW-FINDING | Stale formula comment inside the wire header: "build is monotonic (VERSION major*10000 + minor*100 + patch ...)" — the code has used `(minor+1)*100 + patch*10` since b205, so the comment describes numbers nobody has built since 1.6.1 | `src/buildstamp_proto.h:11` vs `cmake/BuildStamp.cmake:25` |
 | NEW-FINDING | Caps bit 1 (`CAPS_LOG_UPLOAD`) has no producer on this branch: the server asks a "supporting" client for logs after `@bug` (`src/main/java/server/reports/BugClientLogs.java:40`, `:67-69`; `src/main/java/net/server/channel/handlers/BugLogUploadHandler.java:14-16`) but no client file sets that bit, and `git log -S kCapLogUpload / -S 0x373B` over the client repo's `src/` finds nothing. The feature is server-side only, silently inactive | `src/main/java/server/reports/BugClientLogs.java:67-69`; no counterpart in `src/buildstamp_proto.h:25-26` |
 | NEW-FINDING | Caps bit 31 (`CAP_QA_BUILD`) is likewise absent from this branch: the gate refuses a build nothing produces. It lives only on `client-170-qa-module`/`client-162-*` (`2f17894`, not an ancestor of `client-164-rc3`), while `docs/qa/client-scripts/README.md:63-64` and `tools/qa-scripts/test_qascript.py:222-225` treat it as present | `git merge-base --is-ancestor 2f17894 HEAD` → false; `src/main/java/net/server/handlers/login/ClientVersionGate.java:37` |
-| NEW-FINDING | Nothing cross-checks the release conf's `MIN_CLIENT_BUILD` against the client actually staged. `stage-client:91-93` prints the stamp and only warns when `release`'s `major.minor.patch` differs from the version being staged; a conf/gate mismatch (e.g. `MIN_CLIENT_BUILD=10740` with a client actually built from `VERSION 1.6.3`, which stamps 10730) surfaces only as the `warn` at `:93`, never as a failure, so the deploy goes through and every 1.6.4 player is refused; it is caught only by a human reading two files. `stage_client_lib.py` parses `build=` and nothing consumes it for the gate | `tools/release/stage-client:91-93`; `docs/release/1.6.4.conf:284` |
+| NEW-FINDING | Nothing cross-checks the release conf's `MIN_CLIENT_BUILD` against the client actually staged. `tools/release/stage-client:91-93` prints the stamp and only warns when `release`'s `major.minor.patch` differs from the version being staged; a conf/gate mismatch (e.g. `MIN_CLIENT_BUILD=10740` with a client actually built from `VERSION 1.6.3`, which stamps 10730) surfaces only as the `warn` at `:93`, never as a failure, so the deploy goes through and every 1.6.4 player is refused; it is caught only by a human reading two files. `stage_client_lib.py` parses `build=` and nothing consumes it for the gate | `tools/release/stage-client:91-93`; `docs/release/1.6.4.conf:284` |
 | NEW-FINDING | An override-stamped build is not recoverable from git: tags `v1.6.0.2` and `v1.6.1-rc1..rc9` all carry `VERSION` = `1.6.0`, so the shipped numbers 10601/10680/10690/10700/10710 exist only in `slums-build.txt`, the release docs and PE resources. Rebuilding any such tag today produces 10600 with the old formula (and would produce a different number under the current formula) | `git show v1.6.1-rc9:VERSION` → `1.6.0`; `docs/release/1.6.1.conf:258-259`; `docs/release/1.6.0.3.conf:4` |
 | NEW-FINDING | `src/slums.rc.in:18` still says "based on Kaentake" in `FileDescription` and `:25` splits the copyright, while `docs/PROVENANCE.md` records a MapleRoot Full Repack baseline plus Kaentake — the resource names one upstream of two | `src/slums.rc.in:18`, `:25`; `docs/PROVENANCE.md` |
 
@@ -371,7 +372,7 @@ Partial corners, stated plainly:
 - **QA build switch (caps bit 31): partial / not on this branch.** Server side implemented and tested
 (`src/main/java/net/server/handlers/login/ClientVersionGate.java:37-41`, `src/test/java/net/server/handlers/login/QaBuildGateTest.java:43-66`), but no client on this branch can set the bit, so the gate refuses a value nothing produces. Unreachable here, not broken.
 - **Log-upload cap (bit 1): partial / server only.** `BugClientLogs` will never ask this client for logs.
-- **The docs of the wire shape: stale in three places** (`README.md:24`, `tools/release/README.md:45-47`,
+- **The docs of the wire shape: stale in three places** (`/root/work/client/src-164-data/README.md:24`, `tools/release/README.md:45-47`,
   `src/buildstamp_proto.h:11`), while the code and both test suites agree on format 2.
 - **Verification by hand is still required for the send order and the caps probe** — no automated test covers
   `src/bypass.cpp:399-451`.

@@ -11,7 +11,7 @@ Seven client-side feature groups that change what the player sees or can drag, a
 | uilayout | Move the stock status bar, quick slot and their button rows; first-run tour (`src/uilayout.cpp:1-12`, `src/uitour.cpp`). |
 | invresize | Drag the item inventory from 4x6 to 4-16 cols x 3-14 rows (`src/invresize.cpp:1-20`). |
 | bounce | Double-tap jump and server-driven bounce-blocked maps (`src/bounce.cpp`, `src/bounce_rules.h`). |
-| weather | Server clock/sky → map tint, injected clouds/rain/snow, puddles, drifts, splashes, foliage sway (`src/weather.cpp:8-48`). |
+| weather | Server clock/sky → map tint, injected clouds/rain/snow, puddles, drifts, splashes, foliage sway (`src/weather.cpp:18-50`). |
 | mobdamage | Stop low defence from *adding* mob touch damage (`src/mobdamage.cpp`). |
 
 Related addon windows that ride the same overlay/dispatcher plumbing are documented under `How it works` → *Attached windows*.
@@ -38,7 +38,7 @@ Runtime entry points outside the install list:
 
 - `AttachD3D9Host` (`src/d3d9host.cpp:296-314`) creates the ImGui context, then `Overlay_Setup` (`src/d3d9host.cpp:153`) and `UiTour_Setup(g_bSettingsWindow && ReadIniBool("clienthax","uitour",true))` (`src/d3d9host.cpp:303`). `DrawOverlay` (`src/d3d9host.cpp:160`) is called from the `EndScene` detour (`src/d3d9host.cpp:185`); the gate is `if (!g_bVisible && !(g_bSettingsWindow && (Overlay_HasHud() || !Overlay_IsFrozen() || UiTour_Wants()))) return;` (`src/d3d9host.cpp:163`).
 - `D3D9Host_HandleMessage` (`src/d3d9host.cpp:269`): Ctrl+F10 toggles the settings window (:273), Ctrl+F11 calls `Overlay_ToggleFreeze` (:277), Esc closes the window (:282-284) and otherwise reaches `UiTour_HandleEscape` (:286).
-- Main-thread ticks from `CWvsApp::CallUpdate_hook` (`src/bypass.cpp:243-269`): `UiLayout_Tick()` (:245), weather frames gated on `Weather::IsFieldActive()` / `HasFallingSky()` (:248-258), `CashShopWnd_Tick()` (:263), `SetItem_Tick()` (:266), `MonsterBook_Tick()` (:269).
+- Main-thread ticks from `CWvsApp::CallUpdate_hook` (`src/bypass.cpp:248-273`): `UiLayout_Tick()` (:250), `Weather_Tick()` + the ground modules gated on `Weather::IsFieldActive()` / `HasFallingSky()` (:252-260), `CashShopWnd_Tick()` (:263), `SetItem_Tick()` (:266), `MonsterBook_Tick()` (:269), `InvResize_Tick()` (:272), `WeaponTint_Tick()` (:275).
 - Inbound packets are routed by `src/packetdispatcher.cpp`: cash shop 0x3731 (:36-38), check-in 0x3733 (:43-45), set item 0x3727 (:50-52), monster book 0x3735 (:57-60), boss damage rank 0x3739 (:65), weapon tint 0x372F (:73-76), bounce zones 0x3737 (:81-83), weather 0x373D and lamp preview 0x373F (:88-92).
 
 ## How it works
@@ -135,7 +135,7 @@ Runtime entry points outside the install list:
 | `src/weathercanvas.cpp/.h` | Shear/squash projection used by the sway | none | partial — pixel path behind a compile-time kill switch |
 | `src/lamps.cpp` | Lamps light up as the map darkens | `[clienthax] mapobjguard` (unrelated but same file) | working |
 
-1. Protocol: LP 0x373D, 26 bytes after the opcode — `minuteOfDay(2) msPerGameMinute(4) sky(1) flags(1) skyElapsedSec(4) tint r/g/b(3) rainbowSecsLeft(2)` with optional `palette(1) skyElapsedMs(4) skyToken(4)` (`src/weather.h:6-30`). `Weather_HandleWorldState` (`src/weather.cpp:588`) is receive-thread safe: `SetWorldState` (:455-520) only writes shadow state, clamping minute to 0..1439, `msPerGameMinute` to ≥100 ("a runaway clock is worse than a slow one"), `uSky >= SKY_COUNT` to clear, all-zero tint as "not sent" (black would multiply the map away). Flags: `FLAG_SNAP 0x01`, `FLAG_FROZEN 0x02` (GM froze the clock — stop the local copy), `FLAG_BARESKY 0x04` (`src/weather.h:109-118`).
+1. Protocol: LP 0x373D, 26 bytes after the opcode — `minuteOfDay(2) msPerGameMinute(4) sky(1) flags(1) skyElapsedSec(4) tint r/g/b(3) rainbowSecsLeft(2)` with optional `palette(1) skyElapsedMs(4) skyToken(4)` (`src/weather.h:15-30`). `Weather_HandleWorldState` (`src/weather.cpp:588`) is receive-thread safe: `SetWorldState` (:450-520) only writes shadow state, clamping minute to 0..1439, `msPerGameMinute` to ≥100 ("a runaway clock is worse than a slow one"), `uSky >= SKY_COUNT` to clear, all-zero tint as "not sent" (black would multiply the map away). Flags: `FLAG_SNAP 0x01`, `FLAG_FROZEN 0x02` (GM froze the clock — stop the local copy), `FLAG_BARESKY 0x04` (`src/weather.h:109-118`).
 2. `SKY_CLEAR..SKY_SANDSTORM` (9 values) **is** the wire enumeration, owned by `server/src/main/java/server/weather/WeatherProfile.java`; `PaletteId` (27 ids) is `WeatherPalette.java`'s order. `kProfiles[]` is `#include "weather_profiles.inc"` with `static_assert(_countof(kProfiles) == Weather::SKY_COUNT)` and name anchors on rows 0/2/4/7/8, so inserting a sky mid-table is a compile error (`src/weather.cpp:55-73`).
 3. Sky → visuals: `Update_hook` (:2149) runs a tint pass that eases `boost`/tint with `NIGHT_CATCHUP_STEP` so a GM weather change fades rather than snaps; `WeatherFx::TickLightning` runs **before** the colour pass because lightning is folded into `Weather_EffectiveNight()` (:939) — deliberately not `Weather::NightLevel()`, since a storm at noon is dark. The colour is re-asserted every frame as `IWzGr2DLayer::color = Argb(1.0f, EffectiveNight)` because per-tile animators overwrite it otherwise; the gate is `if (!bNeutral || !g_bNeutral || bChasing || Lamps_HasLights())` (:2256), with `Lamps_HasLights` in it because `Lamps_Update` is the only driver of the photocell ramp — without it a daytime storm followed by clear left six of Henesys' nine lamps stuck at full brightness.
 4. Per-map correctness instead of a map list: `FieldHasSky(CMapLoadable*)` (:861) reads the field's own property; `WeatherOwnsObjectColor(bank, group, category)` (`src/weather_object_policy.h`) declines signboards, `market`, `potal0/1` and `back` so animated emissive door glows keep the engine's colour, and strips a leading `ClassicFM_`.
@@ -143,7 +143,7 @@ Runtime entry points outside the install list:
 6. Sway (`src/weathersway.cpp`): the sprite is sheared in pixels and switched between 11 frames (odd, so a true upright exists; 7 for sprites over `SWAY_BIG_PIXELS`), all padded to one size, one layer per frame toggling `visible` — never `RemoveCanvas`/`InsertCanvas` on an engine-owned layer. `BuildFrames` (:651) hides the original only after every replacement exists; frames are cached by WZ-path hash. `SwayKindEnabled` (:876-884) reads `sway`/`ropesway` once per process and logs the pair; `sway=false` leaves everything as drawn, `ropesway=false` leaves ropes/ladders alone while plants still bend.
 7. Physics footing is present but dead: `WeatherMove_Frame` writes the engine's own friction table (`friction` indexes 15/16 of `CPhysicalSpace2D`, singleton `0x00BEBFA0`, accessor `0x00A45D42`), every write absolute from a captured stock value, never scaled in place (`src/weathermove.cpp:7-30`, `:152-168`, `WeatherMove_Frame` :194, `WeatherMove_Restore` :268). `src/CMakeLists.txt:102-103` compiles **`weathermove_disabled.cpp`** instead, whose whole body is `void WeatherMove_Frame() {}` / `void WeatherMove_Restore() {}` under the comment "Visual-only weather: never write the game physics table." Walk-speed scaling was removed from this design entirely and is now a real `-10 SPEED` server buff (`server/src/main/java/server/weather/WeatherDebuff.java`), which also shows in the stat window; both would slow a blizzard twice.
 8. `weathercanvas`: `#define WEATHER_PIXEL_PATH_ENABLED 0` (`src/weathercanvas.cpp:37-40`); `WeatherCanvas_HasPixelPath` (:199-215) documents why — enabling the raw-pixel shear activates a branch that had never executed, and its first in-game test hung on Leafre; two `CanvasLock` unbalanced-unlock defects were fixed afterwards but "that is a hypothesis, not a verified result, and a hang is not an acceptable thing to ship on a hypothesis". `WeatherCanvas_Project` with `bWantPixels=false` uses `CopyEx` and gives identical geometry, which is what ships.
-9. Teardown: `Weather_Shutdown` (:2297) calls `ReleaseField` (:1981) plus every module's `ReleaseResources`, empties the vectors and logs `WEATHER_RESOURCES_RELEASED`; `RestoreBack` re-arms on every `LoadMap` because resolution/zoom rebuilds do not pass through `LoadMap` (`src/weather.cpp:8-48`).
+9. Teardown: `Weather_Shutdown` (:2297) calls `ReleaseField` (:1981) plus every module's `ReleaseResources`, empties the vectors and logs `WEATHER_RESOURCES_RELEASED`; `RestoreBack` re-arms on every `LoadMap` because resolution/zoom rebuilds do not pass through `LoadMap` (`src/weather.cpp:18-50`).
 
 ### mobdamage
 
@@ -182,7 +182,7 @@ Wire contract (client side → server side):
 
 | Feature | Opcode | Sizes / notes |
 |---|---|---|
-| Weather | LP 0x373D | 26 bytes after opcode (`src/weather.h:6-30`); `server/.../SendOpcode.java:25` |
+| Weather | LP 0x373D | 26 bytes after opcode (`src/weather.h:15-30`); `server/.../SendOpcode.java:25` |
 | Lamp preview | LP 0x373F | `src/packetdispatcher.cpp:88-92`; `SendOpcode.java:26` |
 | Bounce zones | LP 0x3737 | v1 = 9 + n*8 + m*8 bytes; v2 = 1 + 1 + 4*12 (`src/bounce_rules.h:132-201`) |
 | Boss damage rank | LP 0x3739 | `src/packetdispatcher.cpp:65` → `HudMeters_HandleDamageRank` |
@@ -217,12 +217,12 @@ Non-ini switches: the damage-number toggle is the registry value `damage_short` 
 
 ## Invariants
 
-- **Verify bytes before patching.** Every patch site classifies its stock bytes first and refuses on anything else: `AttachUiLayoutMod` (`src/uilayout.cpp:469`), `AttachMobDamageMod` (`src/mobdamage.cpp:42`), `AttachBounceMod` (`src/bounce.cpp:230`), invresize `TargetsMatch` (`src/invresize.cpp:675`). A mismatch is a log line, never a crash.
+- **Verify bytes before patching.** Every patch site classifies its stock bytes first and refuses on anything else: `AttachUiLayoutMod` (`src/uilayout.cpp:469`), `AttachMobDamageMod` (`src/mobdamage.cpp:42`), `AttachBounceMod` (`src/bounce.cpp:230`), invresize `TargetsMatch` (`src/invresize.cpp:537`, :675). A mismatch is a log line, never a crash.
 - **No new opcode detour.** Every addon window routes through `packetdispatcher.cpp`; only the dispatcher owns the receive path (`src/cashshopwnd.cpp:33`, `src/coloringprism.cpp` head).
-- **Receive thread writes nothing shared but shadow state.** `SetWorldState` (`src/weather.cpp:455`), `CashShopWnd_HandleSync` (`src/cashshopwnd.cpp:3399` → `g_bWantOpen`) and `WeatherSound_SetWanted` (`src/weathersound.cpp:133`) only record; the main thread applies.
+- **Receive thread writes nothing shared but shadow state.** `SetWorldState` (`src/weather.cpp:450`), `CashShopWnd_HandleSync` (`src/cashshopwnd.cpp:3399` → `g_bWantOpen`) and `WeatherSound_SetWanted` (`src/weathersound.cpp:133`) only record; the main thread applies.
 - **World coordinates for ground sprites.** `CreateAnimLayer` with no origin and no overlay is the only correct placement for splash/accum/puddle (`src/weatherfx.h`).
 - **Absolute physics writes.** `WeatherMove_Frame` derives every value from a captured stock value; scaling in place would compound each frame (`src/weathermove.cpp:152-168`).
-- **Engine layer colours are re-asserted every frame**, because per-tile animators overwrite `IWzGr2DLayer::color` (`src/weather.cpp:8-48`).
+- **Engine layer colours are re-asserted every frame**, because per-tile animators overwrite `IWzGr2DLayer::color` (`src/weather.cpp:18-50`).
 - **Never `RemoveCanvas`/`InsertCanvas` on an engine-owned layer** — sway toggles `visible` between pre-built frames (`src/weathersway.cpp` head).
 - **Capacity is static-asserted.** `kMaxCells 120` must fit the Draw imm8 and the scroll-bias imm8 (`src/invresize_patch.h:108-111`); `_countof(kProfiles) == SKY_COUNT` with name anchors (`src/weather.cpp:58-73`).
 - **Positions are fractions**, `kFrac = 10000`, always clamped back on screen (`src/overlay_policy.h:20-30`, `:44-49`; `src/uilayout_policy.h:31-91`).

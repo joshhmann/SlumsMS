@@ -77,10 +77,13 @@ runtime by the ini. Historical note: the HP/MP patch is unconditional in the cur
 
 ## Invariants
 
-- Patch sites are addressed by VA and must be byte-verified against the stock exe before use
-  (`src/patch_common.h`, `src/checked_hook.h`); image base is `0x400000` and the exe sha256 is pinned per patch table.
-- The DLL must never trust a hook that failed to install; the verify mode is run as the last step and reports the
-  table (`src/hook.h:147-148`, `:303`).
+- Patch sites are addressed by VA with image base `0x400000`. **Only the HP/MP sites are byte-verified** against the
+  stock bytes before patching (`/root/work/client/src-164-data/src/hpmp.cpp:57-70`); every other table goes through
+  `PatchMemory` blind (`/root/work/client/src-164-data/src/patch_common.h:12-26`). The exe sha256 appears only in
+  source comments — nothing checks it at runtime.
+- The DLL must never trust a hook that failed to install: after each group `VerifyKaentakeHooks` reads the failure
+  counter and aborts the process (`/root/work/client/src-164-data/src/mapleroot.cpp:30-35`, `:23-36`,
+  `/root/work/client/src-164-data/src/hook.h:137-205`).
 - Incoming values that the client would store in a 2-byte field are only widened where the patch table widens the
   decoder — anything else must be clamped (`hpmp.md`, "checksum 0 means raw int").
 
