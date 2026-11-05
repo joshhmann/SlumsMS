@@ -1,0 +1,169 @@
+#!/usr/bin/env python3
+# Fast per-feature health check from the server's stats snapshot (live.json, refreshed every 30 s). Seconds, not an hour.
+#
+#   tools/ops/feature-health [--file <live.json>] [--host mapletest] [--only <feature,...>] [--json] [--live-readonly]
+#
+# Reads the snapshot (default: ssh mapletest cat /srv/slums-dashboard-test/data/live.json = TEST), checks every row of
+# tools/ops/feature-health.tsv and prints one line per feature group, worst first, then
+#   feature-health: N OK, N SILENT, N FAILING, N SLOW (uptime Xh)
+# Exit 0 when nothing is FAILING, 1 otherwise, 2 on a usage or read error. It is read-only: it queues nothing, deploys
+# nothing, restarts nothing. A host of 192.168.0.164 or "live" is refused unless --live-readonly is passed.
+#
+# It does NOT replace auto-QA (tools/ops/autoqa-run) for client-visible or rare paths: it only says whether a feature is
+# alive and healthy in the aggregate counters.
+#
+# TSV: feature <TAB> path <TAB> rule <TAB> note. Path is /-separated (keys may hold dots, spaces, colons):
+#   social/acts/counters/INVITE.failed: nothing to invite them to
+# Rule: [prefixes] expr. Prefixes (any order): optional (a missing path is fine), silent: (a broken limit reads SILENT),
+#   slow: (broken limit reads SLOW), flag: (broken limit reads SLOW, a warning). Default broken limit = FAILING.
+# expr: ">= N" "<= N" "> N" "< N" "== v" "!= v" on the value at `path`, or the function forms (paths use /, no commas):
+#   fail_rate(<okPath>, <failPath>) <= 0.1   failures/(ok+failures); no ok and no failures = SILENT; a missing path counts 0
+#   per_hour(<path>) >= N                    value / (health/uptimeS / 3600); 0 or missing = SILENT
+#   ratio(<aPath>, <bPath>) >= 0.9           a/b
+# `path` column is "-" when the expr carries the paths. Lines starting with # are comments.
+import argparse, json, os, re, subprocess, sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_HOST = "mapletest"
+DATA = "/srv/slums-dashboard-test/data/live.json"
+RANK = {"FAILING": 0, "SLOW": 1, "SILENT": 2, "OK": 3}
+MIN_N = 5  # fail_rate below this many events is "not enough data", reported OK
+
+def is_live(host):
+    return host.strip().lower() in ("live", "192.168.0.164") or host.strip().endswith("@192.168.0.164")
+
+def get(doc, path):
+    """Returns (found, value). Path is /-separated; a leading / is allowed."""
+    cur = doc
+    for k in [p for p in path.strip().split("/") if p != ""]:
+        if isinstance(cur, dict) and k in cur:
+            cur = cur[k]
+        elif isinstance(cur, list) and k.isdigit() and int(k) < len(cur):
+            cur = cur[int(k)]
+        else:
+            return False, None
+    return True, cur
+
+def num(v):
+    if isinstance(v, bool): return None
+    try: return float(v)
+    except (TypeError, ValueError): return None
+
+def norm(v):
+    return str(v).strip().lower() if isinstance(v, bool) else str(v).strip().lower()
+
+def cmp(op, a, b):
+    return {">=": a >= b, "<=": a <= b, ">": a > b, "<": a < b, "==": a == b, "!=": a != b}[op]
+
+def load_rules(path):
+    rows = []
+    for n, line in enumerate(open(path, encoding="utf-8"), 1):
+        if not line.strip() or line.lstrip().startswith("#"): continue
+        c = line.rstrip("\n").split("\t")
+        if len(c) < 3: raise SystemExit("%s:%d: need feature, path, rule" % (path, n))
+        rows.append((c[0].strip(), c[1].strip(), c[2].strip(), c[3].strip() if len(c) > 3 else "", n))
+    return rows
+
+def check(doc, path, rule, uptime_s):
+    """Returns (status, detail)."""
+    pre = set()
+    while True:
+        m = re.match(r"(optional|silent:|slow:|flag:)\s+", rule)
+        if not m: break
+        pre.add(m.group(1).rstrip(":")); rule = rule[m.end():]
+    bad = "SLOW" if ("slow" in pre or "flag" in pre) else "SILENT" if "silent" in pre else "FAILING"
+    opt = "optional" in pre
+    fm = re.match(r"(fail_rate|per_hour|ratio)\((.*?)\)\s*(>=|<=|>|<|==|!=)\s*(\S+)$", rule)
+    if fm:
+        fn, args, op, lim = fm.group(1), [a.strip() for a in fm.group(2).split(",")], fm.group(3), float(fm.group(4))
+        vals = [get(doc, a) for a in args]
+        if fn == "fail_rate":
+            (fo, vo), (ff, vf) = vals
+            if not fo and not ff:
+                return ("OK", "absent (optional)") if opt else ("SILENT", "no data at %s" % args[0])
+            ok, fl = (num(vo) or 0.0) if fo else 0.0, (num(vf) or 0.0) if ff else 0.0
+            if ok + fl == 0: return ("OK", "no events (optional)") if opt else ("SILENT", "no events")
+            if ok + fl < MIN_N: return "OK", "n=%d too few to judge" % (ok + fl)
+            r = fl / (ok + fl); d = "fail rate %.2f (%d/%d)" % (r, fl, ok + fl)
+        elif fn == "per_hour":
+            f, v = vals[0]
+            if not f: return ("OK", "absent (optional)") if opt else ("SILENT", "missing " + args[0])
+            if not uptime_s: return "SILENT", "no uptime"
+            r = (num(v) or 0.0) / (uptime_s / 3600.0); d = "%.1f/h" % r
+            if r == 0 and op in (">=", ">"): return ("OK", d + " (optional)") if opt else ("SILENT", d)
+        else:
+            (fa, va), (fb, vb) = vals
+            if not (fa and fb and num(va) is not None and num(vb)): return ("OK", "absent (optional)") if opt else ("SILENT", "missing/zero input")
+            r = num(va) / num(vb); d = "ratio %.2f (%g/%g)" % (r, num(va), num(vb))
+        return ("OK", d) if cmp(op, r, lim) else (bad, "%s, limit %s %g" % (d, op, lim))
+    m = re.match(r"(>=|<=|>|<|==|!=)\s*(.+)$", rule)
+    if not m: return "FAILING", "unparseable rule: " + rule
+    op, lim = m.group(1), m.group(2).strip()
+    f, v = get(doc, path)
+    if not f or v is None:
+        return ("OK", "absent (optional)") if opt else ("SILENT", "missing")
+    a, b = num(v), num(lim)
+    if op in ("==", "!=") and (a is None or b is None):
+        res = cmp(op, norm(v), lim.lower())
+    elif a is None or b is None:
+        return "FAILING", "not a number: %r" % (v,)
+    else:
+        res = cmp(op, a, b)
+    d = str(round(v, 3) if isinstance(v, float) else v)
+    return ("OK", d) if res else (bad, "%s, limit %s %s" % (d, op, lim))
+
+def label(r):
+    if r["path"] != "-": return r["path"].split("/")[-1]
+    return re.sub(r"[^(,\s]*/", "", re.sub(r"^((optional|silent:|slow:|flag:)\s+)*", "", r["rule"]))
+
+def run(doc, rows, only=None):
+    up = get(doc, "health/uptimeS")[1]
+    up = num(up) or 0.0
+    groups = {}
+    for feat, path, rule, note, n in rows:
+        if only and feat not in only: continue
+        st, d = check(doc, path, rule, up)
+        groups.setdefault(feat, []).append({"status": st, "path": path, "rule": rule, "detail": d, "note": note})
+    out = []
+    for feat, rs in groups.items():
+        worst = min(rs, key=lambda r: RANK[r["status"]])["status"]
+        out.append({"feature": feat, "status": worst, "rows": rs})
+    out.sort(key=lambda g: (RANK[g["status"]], g["feature"]))
+    return out, up
+
+def fetch(host):
+    r = subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", host, "cat", DATA], capture_output=True, text=True, timeout=30)
+    if r.returncode != 0: raise SystemExit("feature-health: ssh %s failed: %s" % (host, r.stderr.strip()[:200]))
+    return json.loads(r.stdout)
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(prog="feature-health")
+    ap.add_argument("--file"); ap.add_argument("--host", default=DEFAULT_HOST)
+    ap.add_argument("--only"); ap.add_argument("--json", action="store_true")
+    ap.add_argument("--live-readonly", action="store_true")
+    ap.add_argument("--rules", default=os.path.join(HERE, "feature-health.tsv"))
+    a = ap.parse_args(argv)
+    if not a.file and is_live(a.host) and not a.live_readonly:
+        print("feature-health: refusing to read live (%s) without --live-readonly" % a.host, file=sys.stderr); return 2
+    try:
+        doc = json.load(open(a.file)) if a.file else fetch(a.host)
+    except (OSError, ValueError, subprocess.SubprocessError) as e:
+        print("feature-health: cannot read snapshot: %s" % e, file=sys.stderr); return 2
+    only = set(a.only.split(",")) if a.only else None
+    groups, up = run(doc, load_rules(a.rules), only)
+    cnt = {s: sum(1 for g in groups if g["status"] == s) for s in RANK}
+    summary = "feature-health: %d OK, %d SILENT, %d FAILING, %d SLOW (uptime %.1fh)" % (cnt["OK"], cnt["SILENT"], cnt["FAILING"], cnt["SLOW"], up / 3600)
+    if a.json:
+        print(json.dumps({"summary": summary, "uptimeS": up, "counts": cnt, "features": groups}, indent=1))
+    else:
+        if up < 3600: print("warning: uptime %.0f min < 1 h, rates are noisy" % (up / 60))
+        for g in groups:
+            bad = [r for r in g["rows"] if r["status"] != "OK"]
+            shown = bad or g["rows"][:1]
+            txt = "; ".join("%s: %s%s" % (label(r), r["detail"], " [%s]" % r["note"] if r["note"] and r["status"] != "OK" else "") for r in shown)
+            print("%-8s %-18s %s" % (g["status"], g["feature"], txt))
+        print(summary)
+    return 1 if cnt["FAILING"] else 0
+
+if __name__ == "__main__":
+    sys.exit(main())
