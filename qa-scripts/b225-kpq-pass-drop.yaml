@@ -1,0 +1,53 @@
+# b225 (y40, KPQ): a pass a bot handed to the party leader never showed on the ground or in the leader's Etc tab,
+# because the drop packet named the bot as dropper through a mob object id the v83 client throws away (205acddac):
+# BotHoldings.payOut/payOutItem now pass playerDrop=true. Staged with !qa run mx-5 (the GM leads a party of two owned
+# alts and one bot into the live KPQ instance), so this script never clicks, never names a bot and never waits on chat:
+# the client logs in, films the stage-1 clear and sends !qa stop.
+id: b225-kpq-pass-drop
+title: A KPQ bot's hand-in pass shows on the ground for the party leader
+covers: [b225]
+status: draft
+server: test
+needs: [gm, mechanics, owned_alt]
+notes: "mx-5 warps the GM to the KPQ recruit map 103000000, makes the party with the two owned alts (AutoQaAlt, AutoQaAltB) and one bot, presses Lakelis' button and brings the party into the instance; stage 1 is 103000800. It needs the mechanics switch (-Dslums.mechanics=true), owned alts enabled and the GM at level 21+. A pass is handed to the leader when a member's hand-in is due, so the three bursts cover the first 30 s inside; a pass lies on the ground until it is picked up, so a 2 fps burst catches it. No log line names a dropped pass: the frames and the Etc tab settle it."
+clients:
+  me:
+    account: {vault: aq-gm-1}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  # mx-5 stages the alts, the party and the entry server-side; every wait below is keyed by the caller's char id
+  - {id: prestop, do: gm, line: "!qa stop", note: "a card that failed before its cleanup leaves its scenario running; the next !qa run is refused"}
+  - {id: stopped, do: sleep, ms: 2000, reason: "let the stop land before the next GM command"}
+  - {id: scene, do: gm, line: "!qa run mx-5"}
+  - {id: recruit, do: wait, armed_at: scene, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 103000000 ", char: me}, timeout_ms: 60000}
+  - {id: inside, do: wait, armed_at: scene, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 103000800 ", char: me}, timeout_ms: 90000}
+  - {id: clear-watch-1, do: sleep, ms: 5000, reason: "give the bots time to clear and hand their passes in"}
+  - {id: clear-watch-2, do: sleep, ms: 5000, reason: "let the dropped passes land and stay on screen"}
+  - {id: cleanup, do: gm, line: "!qa stop"}
+captures:
+  - {id: clear-0s, burst: {fps: 2, ms: 5000, at: {signal: inside}}}
+  - {id: clear-5s, burst: {fps: 2, ms: 5000, at: {step: clear-watch-1}}}
+  - {id: clear-10s, burst: {fps: 2, ms: 5000, at: {step: clear-watch-2}}}
+  - {id: after-stop, burst: {fps: 1, ms: 3000, at: {step: cleanup}}}
+expect:
+  reviewer:
+    - see: "White pass items lying on the ground of stage 1, near where the bots and alts cleared the monsters (the drop the leader is handed)"
+      in: [clear-0s, clear-5s, clear-10s]
+    - see: "The pass sprite when it is picked up or already in your Etc tab: the same visible item, not an invisible or a missing drop"
+      in: [clear-5s, clear-10s, after-stop]
+  checks:
+    - {check: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 103000800 ", char: me, min: 1}
+    - {check: client_alive}
+  judgment: "No log line names a dropped pass (the fix is in the drop packet), so the frames and the Etc tab decide it: a visible pass on the ground or in the inventory is the pass; nothing at all over the first 15 s of the clear is the bug."

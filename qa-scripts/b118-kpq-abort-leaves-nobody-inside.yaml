@@ -1,0 +1,54 @@
+# b118 (y40, KPQ): a player's KPQ party aborts and the @botme alts it brought stay inside the instance until the PQ's
+# 30-minute end (3fb15bb9e/dfab843c1: MechanicsRuns.closeInstance sends an owned alt whose owner is no longer inside
+# out to the exit map instead of leaving it in a stage). This script aborts a live run with the GM still inside and
+# films where everybody ends up: the GM is sent to the exit map and the stages are left empty.
+id: b118-kpq-abort-leaves-nobody-inside
+title: Aborting a KPQ run leaves no alt alone inside the instance
+covers: [b118]
+status: draft
+server: test
+needs: [gm, mechanics, owned_alt]
+notes: "mx-5 stages the GM plus two owned alts and one bot into the live KPQ instance (stage 1 = 103000800), then !qa stop aborts the run with the GM still inside. mx-5's own run owns the instance it started, so the end takes the whole party out (MechanicsRuns.shouldEndInstance: ownsInstance and not cleared) - the narrow b118 case (a player stays in an instance the run did NOT start, so only the stray alts are sent out) is NOT reachable from mx-5 and is listed as a staging gap in REPORT.md. What this proves on a client: after the abort nobody is left standing in a stage and no alt keeps talking in the run's chat."
+clients:
+  me:
+    account: {vault: aq-gm-1}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  - {id: prestop, do: gm, line: "!qa stop", note: "a card that failed before its cleanup leaves its scenario running; the next !qa run is refused"}
+  - {id: stopped, do: sleep, ms: 2000, reason: "let the stop land before the next GM command"}
+  - {id: scene, do: gm, line: "!qa run mx-5"}
+  - {id: inside, do: wait, armed_at: scene, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 103000800 ", char: me}, timeout_ms: 90000}
+  - {id: settle, do: sleep, ms: 5000, reason: "let the stage run a few seconds before the abort"}
+  # the abort happens with the GM inside: the fix's whole point is that nobody is left in the stage afterwards
+  - {id: abort, do: gm, line: "!qa stop"}
+  - {id: exit-map, do: wait, armed_at: abort, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 10300089\\d ", char: me}, timeout_ms: 90000}
+  - {id: quiet, do: sleep, ms: 4000, reason: "check the chat stays quiet once the run is over"}
+  - {id: cleanup, do: gm, line: "!qa stop"}
+captures:
+  - {id: before-abort, burst: {fps: 2, ms: 5000, at: {signal: inside}}}
+  - {id: abort-moment, burst: {fps: 3, ms: 5000, at: {step: abort}}}
+  - {id: exit-arrival, burst: {fps: 2, ms: 5000, at: {signal: exit-map}}}
+  - {id: after, burst: {fps: 1, ms: 5000, delay_ms: 2000, at: {step: quiet}}}
+expect:
+  reviewer:
+    - see: "After !qa stop you are on the KPQ exit map (103000890/103000891), and no alt (AutoQaAlt, AutoQaAltB) is left behind in the stage"
+      in: [abort-moment, exit-arrival]
+    - see: "The run's chat goes quiet: no further per-mob line from inside the stage after the abort"
+      in: [exit-arrival, after]
+  checks:
+    - {check: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 103000800 ", char: me, min: 1}
+    - {check: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 10300089\\d ", char: me, min: 1}
+    - {check: client_alive}
+  judgment: "The frames settle what is left in the stage and whether the chat stops; the server's own note that a stray alt was sent out goes to the run log, not to the feed."

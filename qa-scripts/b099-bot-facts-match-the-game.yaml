@@ -1,0 +1,56 @@
+# b099 (y43, chat with regulars): bots made up game facts (places, mobs) and stayed wrong when corrected. The fix
+# grounds the reply: a line that names a place or a mob that is not real where the bot is gets rejected and replaced
+# (GROUNDING REJECT ... place:/mob:/location:), and the planner picks the move (PLAN train_spot). cv-13 is the
+# scenario built for it: the GM is warped to Henesys and a friend bot is staged next to him.
+id: b099-bot-facts-match-the-game
+title: A bot's answer about where to train is a real spot and it adapts when corrected
+covers: [b099]
+status: draft
+server: test
+needs: [gm]
+notes: "1.6.3: the PLAN/ROUTE lines are not on the QA feed for the GM (b276, 1.6.4), so their waits and checks are left out; judge on SAID + frames (Coordinator, 19:02 UTC 2026-11-01). cv-13 needs -Dsolomapling.convo.planner=true on the server (off by default; the scenario refuses without it and the run then times out on the warp wait - that is a lead on the staging, not on this card), warps the GM to Henesys (100000000, a town) and stages one friend bot next to him. Every reply logs PLAN <bot> -> <player> <move> on CONVO before the words: 'where should i train' plans train_spot and the line must name a spot from the bot's own list for the player's level. The second line challenges it: the bot must not simply repeat the same spot as if nothing was said."
+clients:
+  me:
+    account: {vault: aq-gm-1}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  # cv-13 warps the GM to Henesys and stages a friend bot beside him
+  - {id: prestop, do: gm, line: "!qa stop", note: "a card that failed before its cleanup leaves its scenario running; the next !qa run is refused"}
+  - {id: stopped, do: sleep, ms: 2000, reason: "let the stop land before the next GM command"}
+  - {id: hop, do: gm, line: "!warp 100000100", note: "cv-13 warps the GM to Henesys; from Henesys itself that logs no MAP_CHANGE"}
+  - {id: hopped, do: sleep, ms: 4000, reason: "let the market load before the scenario warps back"}
+  - {id: scene, do: gm, line: "!qa run cv-13"}
+  - {id: in-town, do: wait, armed_at: scene, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 100000000 ", char: me}, timeout_ms: 60000}
+  - {id: staged, do: sleep, ms: 3000, reason: "the friend bot is spawned beside the GM by the scenario"}
+  - {id: ask, do: chat, text: "where should i train"}
+  - {id: answered, do: wait, armed_at: ask, signal: {type: server_line, topic: CONVO, regex: "^SAID ", char: me}, timeout_ms: 90000}
+  # the correction: a bot that invents a spot has to change its story, not repeat it
+  - {id: correct, do: chat, text: "that place has no mobs my level"}
+  - {id: corrected, do: wait, armed_at: correct, signal: {type: server_line, topic: CONVO, regex: "^SAID ", char: me}, timeout_ms: 90000}
+  - {id: cleanup, do: gm, line: "!qa stop"}
+captures:
+  - {id: ask-chat, burst: {fps: 2, ms: 5000, at: {step: ask}}}
+  - {id: answer, burst: {fps: 3, ms: 5000, at: {signal: answered}}}
+  - {id: correction, burst: {fps: 3, ms: 5000, at: {signal: corrected}}}
+expect:
+  reviewer:
+    - see: "The bot's answer to 'where should i train': one named place or mob a v83 player knows (a map name, a mob name), nothing invented and nothing it cannot be at while standing in Henesys"
+      in: [ask-chat, answer]
+    - see: "The answer to 'that place has no mobs my level': a new line that takes the correction (another spot, a question, an admission), not the same spot repeated"
+      in: [correction]
+  checks:
+    - {check: server_line, topic: CONVO, regex: "^SAID ", char: me, min: 2}
+    - {check: client_alive}
+  judgment: "Whether the named place exists and whether the second answer is the same story are judgements on the chat text: the frames plus the two PLAN/SAID lines settle it."

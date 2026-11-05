@@ -1,0 +1,53 @@
+# b248 (y43, chat with regulars): bots greeted a known player with the same few lines. 08d0ab644 adds RepeatGuard:
+# one greeting per player per 10 minutes (a second hello is answered as small talk, not repeated), and no two bots on
+# one map may say the same line within 15 minutes. cv-1 stages one friend bot next to the GM - the bot a regular meets
+# every day - so two 'hey's in a row are exactly the card.
+id: b248-regreet-varies
+title: A second hello to the same bot gets a different answer
+covers: [b248]
+status: draft
+server: test
+needs: [gm]
+notes: "cv-1 stages one friend bot beside the GM; two 'hey's four seconds apart are the whole scene, and both answers must be readable in the frames. The guard logs nothing for a normal re-greet it answers as small talk - only a dropped duplicate of another bot's line reaches CONVO as 'REPEAT GUARD map <mapId> dropped a line another bot said: ...' - so the two SAID lines plus the frames are the proof and the REPEAT GUARD check is the negative one (no second bot's line was silently swallowed in this window). Staged bots only answer a nameless line when the attention routing picks them; with one staged bot and an empty town corner that is the same bot, and the frames show whose name is on each line."
+clients:
+  me:
+    account: {vault: aq-gm-1}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  - {id: prestop, do: gm, line: "!qa stop", note: "a card that failed before its cleanup leaves its scenario running; the next !qa run is refused"}
+  - {id: stopped, do: sleep, ms: 2000, reason: "let the stop land before the next GM command"}
+  - {id: scene, do: gm, line: "!qa run cv-1"}
+  - {id: staged, do: sleep, ms: 3000, reason: "the friend bot is spawned beside the GM by the scenario"}
+  - {id: hello-1, do: chat, text: "hey"}
+  - {id: said-1, do: wait, armed_at: hello-1, signal: {type: server_line, topic: CONVO, regex: "^SAID ", char: me}, timeout_ms: 90000}
+  - {id: pause, do: sleep, ms: 4000, reason: "let the first greeting finish before saying hello again"}
+  - {id: hello-2, do: chat, text: "hey again"}
+  - {id: said-2, do: wait, armed_at: hello-2, signal: {type: server_line, topic: CONVO, regex: "^SAID ", char: me}, timeout_ms: 90000}
+  - {id: cleanup, do: gm, line: "!qa stop"}
+captures:
+  - {id: first-hello, burst: {fps: 2, ms: 5000, at: {step: hello-1}}}
+  - {id: first-answer, burst: {fps: 3, ms: 5000, at: {signal: said-1}}}
+  - {id: second-answer, burst: {fps: 3, ms: 5000, at: {signal: said-2}}}
+expect:
+  reviewer:
+    - see: "Your two lines 'hey' and 'hey again', and the bot's answer to each in the chat with its name on the front"
+      in: [first-hello, second-answer]
+    - see: "The two answers differ: the second is small talk or a follow-up ('oh hey again', 'back already?', a question), not the same greeting line word for word"
+      in: [first-answer, second-answer]
+  checks:
+    - {check: server_line, topic: CONVO, regex: "^SAID ", char: me, min: 2}
+    - {check: server_line, topic: CONVO, regex: "^REPEAT GUARD map ", char: me, max: 0}
+    - {check: client_alive}
+  judgment: "Whether the second answer repeats the first is a judgement on the chat text; the two SAID lines prove both replies came through the same guard that now holds greetings to one per 10 minutes."

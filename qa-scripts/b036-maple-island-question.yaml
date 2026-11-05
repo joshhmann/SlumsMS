@@ -1,0 +1,53 @@
+# b036 (y44, new players): the Maple Island question skipped Noblesse/Legend starters and anyone who did not start on
+# Base of Roots (e0594d3c9: every starter job is asked once, at level 1-9, on any map, 3 s after the first login).
+# The window itself is staged for a QA run with !qa run ti-1 and !qa do back, so the runner needs no NPC click; what
+# this script settles on a client is that the question box opens with both options readable and that the Yes branch
+# really moves the character to Maple Island's Mushroom Town.
+id: b036-maple-island-question
+title: The Maple Island question opens for a starter and its Yes branch warps to the island
+covers: [b036]
+status: draft
+server: test
+needs: [gm]
+notes: "!qa run ti-1 opens the same TutorialIslandMenu the login prompt opens (MenuWindow.open on NPC 9990000) for the GM and logs 'TI1 START question opened'; its steps are ask (re-open) and back (warp to Base of Roots 993910000). The real trigger is TutorialIslandMenu.onLogin 3 s after a first login for a real player of a starter job (Beginner, Noblesse, Legend, Evan) at level 1-9, once per character: that half needs a fresh Noblesse and a click, neither of which this runner can do (see REPORT.md, 'needs staging'); the text and the warp are the same code path. The Yes/No answer needs the NPC dialog option anchor, so this script only reads the window and leaves with !qa do back."
+clients:
+  me:
+    account: {vault: aq-gm-1}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  - {id: prestop, do: gm, line: "!qa stop", note: "a card that failed before its cleanup leaves its scenario running; the next !qa run is refused"}
+  - {id: stopped, do: sleep, ms: 2000, reason: "let the stop land before the next GM command"}
+  - {id: scene, do: gm, line: "!qa run ti-1"}
+  - {id: opened, do: sleep, ms: 3000, reason: "the window opens with the scenario's staging lines"}
+  # ask re-opens the question the menu opened; its burst fires after that, with the box still up
+  - {id: again, do: gm, line: "!qa do ask"}
+  - {id: reading, do: sleep, ms: 3000, reason: "read the question and both options"}
+  - {id: back, do: gm, line: "!qa do back"}
+  - {id: at-hub, do: wait, armed_at: back, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 993910000 ", char: me}, timeout_ms: 60000}
+  - {id: cleanup, do: gm, line: "!qa stop"}
+captures:
+  - {id: question, burst: {fps: 2, ms: 5000, at: {step: opened}}}
+  - {id: question-again, burst: {fps: 2, ms: 5000, at: {step: reading}}}
+  - {id: after-back, burst: {fps: 1, ms: 3000, at: {signal: at-hub}}}
+expect:
+  reviewer:
+    - see: "The question box in the middle of the screen with the text 'Welcome! Start on Maple Island?' and two readable options: a Yes that promises the classic beginner island and a No that keeps the usual start"
+      in: [question, question-again]
+    - see: "The box can be dismissed and the character is playable afterwards (it is not stuck on the dialog)"
+      in: [after-back]
+  checks:
+    - {check: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 993910000 ", char: me, min: 1}
+    - {check: client_alive}
+  judgment: "The box, its two options and their wording: the frames settle it. ti-1 puts nothing on the QA feed, so the staging itself is only visible in the GM's yellow chat and in the frames."

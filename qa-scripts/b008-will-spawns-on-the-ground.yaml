@@ -1,0 +1,49 @@
+# b008 (y42, GM tools): !spawn 8880302 (Will) did not spawn - the mob was created but stood with no foothold, so the
+# client got a mob that never settled (34c3bfe4e: the spawn sets the foothold it landed on). The command itself prints
+# nothing on success, so the client look is the boss standing on the ground in front of the GM.
+id: b008-will-spawns-on-the-ground
+title: "!spawn 8880302 puts Will on the ground in front of the GM"
+covers: [b008]
+status: draft
+server: test
+needs: [gm]
+notes: "!spawn <mobid> [qty] is a gm3 command and says nothing when it works (SpawnCommand); it places the mob on the ground below the GM, on the GM's own map and channel. 8880302 is Will (LifeFactory overrides its HP to 95e9). The MOB_CONTROL feed line ('Will (<objectId>) controller <name>') is the machine proof that a Will object really exists on the map and is controlled by the client; Will hits hard, so the burst starts on the spawn step (a few seconds at 2 fps) - the GM needs no godmode to see the spawn."
+clients:
+  me:
+    account: {vault: aq-gm-1}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  # a map the mob can stand on: flat ground below the GM
+  - {id: warp, do: gm, line: "!warp 104040000"}
+  - {id: on-map, do: wait, armed_at: warp, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 104040000 ", char: me}, timeout_ms: 60000}
+  - {id: settle, do: sleep, ms: 2000, reason: "let the field load before spawning under the GM"}
+  - {id: spawn, do: gm, line: "!spawn 8880302"}
+  - {id: controlled, do: wait, armed_at: spawn, signal: {type: server_line, topic: MOB_CONTROL, regex: "^Will \\(\\d+\\) controller ", char: me}, timeout_ms: 60000}
+  - {id: look, do: sleep, ms: 4000, reason: "keep the boss in frame long enough to judge it"}
+  - {id: cleanup, do: gm, line: "!killall"}
+captures:
+  - {id: boss-appears, burst: {fps: 2, ms: 5000, at: {step: spawn}}}
+  - {id: boss-standing, burst: {fps: 2, ms: 5000, at: {signal: controlled}}}
+  - {id: after, burst: {fps: 1, ms: 3000, at: {step: look}}}
+expect:
+  reviewer:
+    - see: "Will, the huge boss, standing ON the ground a little below your character - not missing, not sunk into the floor and not floating with its legs cut off"
+      in: [boss-appears, boss-standing]
+    - see: "The boss stays put and plays its idle/attack, so the map really has it (an empty map is the bug)"
+      in: [boss-standing, after]
+  checks:
+    - {check: server_line, topic: MOB_CONTROL, regex: "^Will \\(\\d+\\) controller ", char: me, min: 1}
+    - {check: client_alive}
+  judgment: "Standing on the ground or not: the frames settle it. There is no success message from !spawn, so a FAIL of the MOB_CONTROL check means no Will object reached the map at all."

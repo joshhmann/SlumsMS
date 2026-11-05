@@ -1,0 +1,55 @@
+# b100 (y43, chat with regulars): bots greeted strangers as if they had met and invented shared details. cv-8 is the
+# scene for it: one neutral bot that has never talked to the player asks the map a question, and the player answers
+# without a name. The fix is in the reply grounding and the memory: the answer must follow up on the bot's own
+# question and must not claim a shared past, a false fact about the player or a made-up detail.
+id: b100-stranger-not-known
+title: A bot that never met you does not invent a shared past
+covers: [b100]
+status: draft
+server: test
+needs: [gm]
+notes: "1.6.3: the PLAN/ROUTE lines are not on the QA feed for the GM (b276, 1.6.4), so their waits and checks are left out; judge on SAID + frames (Coordinator, 19:02 UTC 2026-11-01). cv-8 stages one neutral bot next to the GM and makes it ask the map a question (the exact prompt is on the GM's yellow chat); ROUTE logs which bot took the nameless answer and which of its lines it answers, PROMPT the whole prompt, SAID the reply. The answer must come within 60 s and must be a follow-up. The two chats are deliberately plain so nothing else on the map can be mistaken for them; every check filters on char: me, so another lane's bots in Henesys cannot satisfy them."
+clients:
+  me:
+    account: {vault: aq-gm-1}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  # a town, so the staged bot is among regulars rather than among mobs
+  - {id: prestop, do: gm, line: "!qa stop", note: "a card that failed before its cleanup leaves its scenario running; the next !qa run is refused"}
+  - {id: stopped, do: sleep, ms: 2000, reason: "let the stop land before the next GM command"}
+  - {id: hop, do: gm, line: "!warp 100000100", note: "the GM is usually saved in Henesys; a warp to the map it is on logs no MAP_CHANGE"}
+  - {id: hopped, do: sleep, ms: 4000, reason: "let the market load before warping back"}
+  - {id: warp, do: gm, line: "!warp 100000000"}
+  - {id: on-map, do: wait, armed_at: warp, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 100000000 ", char: me}, timeout_ms: 60000}
+  - {id: scene, do: gm, line: "!qa run cv-8"}
+  - {id: asked, do: sleep, ms: 4000, reason: "the staged bot asks the map its question after the stage"}
+  # no name: that is the whole point of cv-8, the attention routing picks the bot
+  - {id: answer, do: chat, text: "im from the east, just came here"}
+  - {id: replied, do: wait, armed_at: answer, signal: {type: server_line, topic: CONVO, regex: "^SAID ", char: me}, timeout_ms: 90000}
+  - {id: cleanup, do: gm, line: "!qa stop"}
+captures:
+  - {id: question, burst: {fps: 1, ms: 5000, at: {step: asked}}}
+  - {id: my-answer, burst: {fps: 2, ms: 5000, at: {step: answer}}}
+  - {id: their-reply, burst: {fps: 3, ms: 5000, at: {signal: replied}}}
+expect:
+  reviewer:
+    - see: "The staged bot's question in the chat (its own words, a first-meeting question), then your answer 'im from the east, just came here' in map chat"
+      in: [question, my-answer]
+    - see: "The bot's reply: a follow-up on its own question that treats you as new - no 'long time no see', no invented shared history, no made-up claim about your level, guild or gear"
+      in: [their-reply]
+  checks:
+    - {check: server_line, topic: CONVO, regex: "^SAID ", char: me, min: 1}
+    - {check: client_alive}
+  judgment: "Whether the reply invents a past is a judgement on the text: the frames show it and the ROUTE line names the bot that took the line and the question it answers."

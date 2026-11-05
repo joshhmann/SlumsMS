@@ -1,0 +1,52 @@
+# b090 (y45, boss portals): a player under three rebirths got 'complete the quest first' at a boss portal, though the
+# real block was the rebirth count (f45127e34: each block has its own message, the owner-approved 'You need 3
+# rebirths' first, the quest message only when the quest is what blocks). Every boss entrance script refuses the same
+# way: scripts/portal/WillEnter.js and its four siblings print exactly "You need 3 rebirths" and do not warp.
+# This script walks onto Will's portal on 450007230 and presses UP.
+id: b090-boss-portal-rebirths-message
+title: Under three rebirths a boss portal says 'You need 3 rebirths'
+covers: [b090]
+status: draft
+server: test
+needs: [gm]
+notes: "scripts/portal/{Will,Lucid,Magnus,Verus,Darknell}Enter.js all say 'You need 3 rebirths' (no full stop) as a server notice when player.getReborns() < 3, and return false so the portal does not move the player. Will's portal is map 450007230 portal pt01 at (1385, 245): !tp 1385 245 stands the GM on the ground under it, and UP at a portal with a script is CHANGE_MAP_SPECIAL, which runs it (GMs are not skipped). The message is a playerMessage, so it never reaches the QA feed: the chat box in the burst is the proof, and the second check proves the player did NOT warp. The QA character must have fewer than three rebirths: with three or more the portal is a real entrance and the script becomes an entry test, which the no-other-map check reports as a staging failure."
+clients:
+  me:
+    account: {vault: aq-gm-1}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  - {id: warp, do: gm, line: "!warp 450007230"}
+  - {id: on-map, do: wait, armed_at: warp, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 450007230 ", char: me}, timeout_ms: 60000}
+  # the portal's own spot: !tp drops the GM on the ground below that point
+  - {id: stand, do: gm, line: "!tp 1385 245"}
+  - {id: settled, do: sleep, ms: 2000, reason: "let the character land on the ground under the portal"}
+  - {id: up, do: key, key: UP, hold_ms: 250}
+  - {id: read, do: sleep, ms: 3000, reason: "read the notice line the portal just printed"}
+  - {id: cleanup, do: gm, line: "!warp 993910000"}
+captures:
+  - {id: notice, burst: {fps: 5, ms: 4000, at: {step: up}}}
+  - {id: notice-late, burst: {fps: 2, ms: 4000, at: {step: read}}}
+  - {id: after, burst: {fps: 1, ms: 3000, at: {step: cleanup}}}
+expect:
+  reviewer:
+    - see: "A server notice line in the chat box saying 'You need 3 rebirths' - not a quest message and not silence"
+      in: [notice, notice-late]
+    - see: "The character is still standing on 450007230 in front of the portal: the notice did not warp him anywhere"
+      in: [notice-late, after]
+  checks:
+    - {check: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 450007230 ", char: me, min: 1}
+    - {check: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> (?!450007230 )", char: me, max: 0, span: {from: stand, to: read}}
+    - {check: client_alive}
+  judgment: "The notice text and the fact that the character stayed: the frames settle both. The 'no other map' check is the machine half - any second MAP line (other than back to 450007230) means the portal moved a character it should have refused."

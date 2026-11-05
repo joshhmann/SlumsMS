@@ -1,0 +1,55 @@
+# b240 (y43, chat with regulars): regular bots said they were grinding while standing in a town. 23fe8f08f: a stated
+# activity is rewritten for the map it is on (BotStateOfMind.claimedActivity: 'grinding' becomes 'hanging out in town'
+# when the map has no monsters) and an activity line that contradicts the map is dropped like a failed say-do guard.
+# cv-13 stages the bot in Henesys, a town with no monsters: its answers must never claim grinding there.
+id: b240-no-grinding-in-town
+title: A bot standing in Henesys never claims to be grinding
+covers: [b240]
+status: draft
+server: test
+needs: [gm]
+notes: "cv-13 needs -Dsolomapling.convo.planner=true on the server (off by default; without it the run times out on the warp wait - a staging lead, not this card) and warps the GM to Henesys, a town with no monsters. 'hey' plans a hello that names the town or what it is doing, 'what r u doing' plans activity. The machine check is the negative one: no line the bot says to the GM in this window may contain 'grind' - the frames are there to read the actual wording and to catch a hunting-ground claim hidden in other words."
+clients:
+  me:
+    account: {vault: aq-gm-1}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  - {id: prestop, do: gm, line: "!qa stop", note: "a card that failed before its cleanup leaves its scenario running; the next !qa run is refused"}
+  - {id: stopped, do: sleep, ms: 2000, reason: "let the stop land before the next GM command"}
+  - {id: scene, do: gm, line: "!qa run cv-13"}
+  - {id: in-town, do: wait, armed_at: scene, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 100000000 ", char: me}, timeout_ms: 60000}
+  - {id: staged, do: sleep, ms: 3000, reason: "the friend bot is spawned beside the GM by the scenario"}
+  - {id: greet, do: chat, text: "hey"}
+  - {id: greeted, do: wait, armed_at: greet, signal: {type: server_line, topic: CONVO, regex: "^SAID ", char: me}, timeout_ms: 90000}
+  - {id: pause, do: sleep, ms: 3000, reason: "read the hello before asking what it is doing"}
+  - {id: ask, do: chat, text: "what r u doing"}
+  - {id: answered, do: wait, armed_at: ask, signal: {type: server_line, topic: CONVO, regex: "^PLAN \\S+ -> \\S+ activity", char: me}, timeout_ms: 90000}
+  - {id: said, do: wait, armed_at: ask, signal: {type: server_line, topic: CONVO, regex: "^SAID ", char: me}, timeout_ms: 90000}
+  - {id: cleanup, do: gm, line: "!qa stop"}
+captures:
+  - {id: greet-chat, burst: {fps: 2, ms: 5000, at: {step: greet}}}
+  - {id: hello, burst: {fps: 3, ms: 5000, at: {signal: greeted}}}
+  - {id: activity, burst: {fps: 3, ms: 5000, at: {signal: said}}}
+expect:
+  reviewer:
+    - see: "The bot's hello in Henesys: a greeting that names the town or something it is doing in it, and no claim about grinding or training"
+      in: [greet-chat, hello]
+    - see: "The answer to 'what r u doing': town activity (hanging out, waiting for someone, talking to people), not a hunting ground it is not standing in"
+      in: [activity]
+  checks:
+    - {check: server_line, topic: CONVO, regex: "^SAID ", char: me, min: 2}
+    - {check: server_line, topic: CONVO, regex: "(?i)\\bgrind\\w*", char: me, max: 0}
+    - {check: client_alive}
+  judgment: "The negative check is the machine half: any 'grind' in what the bot says to you in this window is the bug returning. The reviewer still reads the frames, because 'training' or 'hunting' worded around the rewrite would pass it and still be wrong in a town."
