@@ -254,11 +254,13 @@ but no `LEVEL_WINDOW` member exists anywhere in `BotQuests` — grep finds only 
 dropped completed id can never be re-picked ("picks only look at quests whose start level is within LEVEL_WINDOW") does
 not describe the code that runs; the level rule is the Quest.wz `lvmin/lvmax` check at BotQuests.java:320.
 
-NEW-FINDING: the daily quest cap counts quests that paid nothing. `recordRefused` and `recordOffscreen` both call
-`log.complete(false, ...)` (BotQuests.java:586, :599) and `complete` unconditionally does `rollDay`+`doneToday++`
-(src/main/java/soloMapling/ArtificialPlayer/BotQuestSystem/BotQuestLog.java:217-218), so `perDay()` is spent on modelled
-and reward-less turn-ins; a bot whose rewards the yield caps refuse three times (BotQuests.java:497) burns its whole day
-on quests that gave it nothing, and `doneToday` is also what gates the next pick (BotQuests.java:279).
+NEW-FINDING: a refused turn-in burns a slot of the daily cap. `recordRefused` calls `log.complete(false, ...)`
+(BotQuests.java:599) and `complete` unconditionally does `rollDay`+`doneToday++`
+(src/main/java/soloMapling/ArtificialPlayer/BotQuestSystem/BotQuestLog.java:217-218), while `doneToday() >= perDay()`
+(default 6, BotQuests.java:99-100) is what stops the next pick (BotQuests.java:279). Two paths reach it — the NPC
+refusing the completion (BotQuests.java:492) and more than `MAX_DEFERRALS` deferred turn-ins (:497) — so a bot whose
+rewards the yield caps refuse six times has no quests left for the day despite completing none. `recordOffscreen`
+(:586) also counts, which is by design: modelled quests are the bot's own bookkeeping.
 
 ## State
 

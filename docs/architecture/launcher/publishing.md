@@ -16,7 +16,7 @@ invisible to players. This page covers the two pipelines and their gates; the ho
 | `tools/release/stage-client <v> --build-dir 'Z:\...\Release'` | workstation → build desktop → host | builds the staging tree (client flow step 1) |
 | `tools/release/publish-client <v> --source DIR [--release V --news F --no-packs] [--dry-run]` | workstation → host | hash-diff, client layer, release manifest (`publish-client:5-27`); `--restore-manifest FILE` puts a saved one back (`:42-66`) |
 | `tools/release/publish-launcher <build dir> [--version X.Y.Z] [--dry-run]` | workstation → host | launcher channel (`tools/release/publish-launcher:14-35`) |
-| `tools/release/release <v>` | workstation → host | step 3 runs `publish-client --no-announce` between stop-backup and apply-start (`tools/release/release:171-181`) |
+| `tools/release/release <v>` | workstation → host | step 3 runs `publish-client --no-announce` between stop-backup and apply-start (`tools/release/release:170-182`) |
 | `node tools/publish.mjs --layer/--release/--launcher/--packs/--tauri-launcher` | host | the publisher itself (`publish.mjs:555-655`); its two pre-checks (`publish_checks.py:127-147`) are fed on stdin as `python3 -I - news FILE` / `same-layer SRC PUB LAYER VER` |
 
 No opcode or scheduler starts any of this: it is release-time tooling. The one runtime consumer is
@@ -27,7 +27,7 @@ No opcode or scheduler starts any of this: it is release-time tooling. The one r
 **Client flow — staging tree to the file nginx serves.**
 
 1. `stage-client` copies the published layer `$PATCH_DIR/layers/client/$FROM_LAYER/files` and overlays only `slums.dll`,
-   `slums-build.txt`, `Custom.wz` and any `--data` image (`stage-client:96-129`). Each is hashed on the build desktop
+   `slums-build.txt`, `Custom.wz` and any `--data` image (`stage-client:96-132`). Each is hashed on the build desktop
    (`:54-57`), re-hashed after `scp` (`:79-92`), and lands via `cp -a --no-preserve=links -T` once the paths match
    (`:116-117`); old files are unlinked first (`:120`), never written through. Provenance sits beside the tree,
    `client-<v>.STAGED.txt` (`:44`), because every file *inside* it is published.

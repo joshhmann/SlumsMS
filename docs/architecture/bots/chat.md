@@ -246,7 +246,7 @@ bot, 400 recent, 30 s dedupe, `SayDo.java:50-53`).
 | `solomapling.convo.router` | true (`:18`) | on | off ⇒ `LOCAL` only (`ChatRouter.java:147`) |
 | `solomapling.convo.forceBank` | false (`ConvoSwitches.java:23`) | off | every line scripted, no LLM call at all (`ChatRouter.java:145-148`) |
 | `solomapling.convo.{contract,sense,card,persona,styler,timing,bank,threads,quality,stateOfMind,grounding}` | true (`:18`) | on | individual layers; `stateOfMind=false` drops the snapshot (`StateOfMind.promptOn` `StateOfMind.java:48`), `grounding=false` the checker (`checkOn` `:53`) |
-| `solomapling.convo.intentMin` / `toneMin` / `conMin` | 0.4 / 0.8 / 0.4 (`ConvoSense.java:25-26`) | on | decide-confidence thresholds |
+| `solomapling.convo.intentMin` / `toneMin` | 0.4 / 0.8 (`ConvoSense.java:385`, doc `:25-26`) | on | decide-confidence thresholds in `ConvoSense`; its con threshold is `solomapling.chat.conMin` (`:386`) |
 | `solomapling.chat.decide` / `decideTimeoutMs` / `decidePerSecond` | true when URL set / 400 / 8 (`ChatDecide.java:32-34`) | on | classifier client |
 | `solomapling.chat.intentMin` / `conMin` | 0.4 / 0.4 (`ChatTriage.java:353-358`, `threshold` `:379`) | on | triage thresholds |
 | `solomapling.chat.replyTemperatureMax` | 0.7 (`OpenAICompatibleBrain.java:279-282`) | on | temperature cap for replies |
