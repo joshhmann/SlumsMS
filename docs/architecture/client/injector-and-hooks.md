@@ -237,7 +237,9 @@ All `config.ini` keys that govern this subsystem. "Reader" is the code that cons
 | `[clienthax] moveattack` | (absent from the example; `value_or(true)`) | `src/attackstop_patch.h:109-116` | **legacy fallback** for `attackjump`/`chargemove` only |
 | `[clienthax] jumpshoot` | `true` (companion default) | `mapleroot/ijl15/YourStuff.h:643` | E9 at `0x009539FA` |
 | `[clienthax] jumpmagic` | `true` (companion default) | `mapleroot/ijl15/YourStuff.h:649` | E9 at `0x009559E5` |
-| `[clienthax] enablewinkey` | `true` (companion default) | `mapleroot/ijl15/YourStuff.h` end of `doini` | replaces the unconditional `EnableWinKey` patch in integration builds |
+| `[clienthax] nobulb` | `true` (`config.example.ini:11`) | `mapleroot/ijl15/YourStuff.h:616-618` | removes the quest bulb |
+| `[clienthax] customcolor` | `true` (`config.example.ini:12`) | `mapleroot/ijl15/YourStuff.h:620-624` | orange stat/skill string case |
+| `[clienthax] enablewinkey` | `true` (companion default) | `mapleroot/ijl15/YourStuff.h:655` | replaces the unconditional `EnableWinKey` patch in integration builds |
 
 Only `host`/`port`, `[graphics]` and `jumpkeydown` are read by `src/`; the rest of the companion's keys
 (`nobulb`, `customcolor`, `jumpshoot`, `jumpmagic`, `enablewinkey`, chair/skill opacity, …) are read by the companion's
@@ -290,7 +292,7 @@ Fallback rules worth naming:
 - `mobattackfix`, `mapobjguard`, `lowdefensepenalty`, `invresize`, weather keys, `d3d9host`/`adapterfallback` are read
   by their own modules, outside this document's scope.
 
-There is **no ini key** for anything in the next section.
+The table above is authoritative for ini keys; every write whose Switch column reads "—" has no runtime off-switch at all.
 
 ## Invariants
 
@@ -376,9 +378,9 @@ There is no automated check anywhere that the exe being patched is the exe the a
 - **Unconditional patches — no off-switch at all.** `src/bypass.cpp:481-484` writes `ShowStartUpWndModal`
   (`0x009F18C9`), `ShowAdBalloon` (`0x00422C7E`), `SendHSLog` (`0x009F191B`) and
   `ZExceptionHandler::UnhandledExceptionFilter` (`0x00797074 ← 0xEB`) with no ini key; `EnableWinKey`
-  (`0x009FEC62`) is unconditional only in builds without the companion (`src/bypass.cpp:478-480`). None of these four
+  (`0x009FEC62`) is unconditional only in builds without the companion (`src/bypass.cpp:478-480`). None of these four is
   byte-verified first, unlike the addon tables. If a site ever differs (different exe build, another injector), the
-  client silently writes four bytes into whatever is there.
+  client silently writes into whatever is there.
 - **`NEW-FINDING:` no runtime exe verification exists.** `grep` for `sha256`/`ImageBase` across `src/` hits comments
   only (`src/createblock_patch.h:29`, `src/hpmp_patch.h:30`, `src/mapobj_guard.h:33`, `src/meleerange_patch.h:24`,
   `src/mobattackfix_patch.h:56`, and others). Every patch trusts base `0x400000` and fixed offsets. This contradicts
@@ -412,17 +414,26 @@ There is no automated check anywhere that the exe being patched is the exe the a
 
 ## State
 
-**working** for the hook infrastructure, with one partial area.
+**working** for the hook infrastructure; **partial** for the unverified unconditional writes.
 
-- Evidence of use: the ordered table is complete and self-checking in integration builds
-  (`src/hook.h:129-304` plus `VerifyKaentakeHooks` at `src/mapleroot.cpp:30-35`); the 1.6.4-rc3 tree builds through
-  `scripts/build.ps1` with that table; `docs/evidence/movement-keys-acceptance-20261018.json` records
-  `status: "passed for isolated tested scope"`, 7 items, 5 native tests, 9 binary anchors verified, with
-  `remaining_scope: "Broader key combinations/accessibility layouts and long-session testing not established"`.
-- **partial**: `AttachClientBypass`'s four byte patches and the `CreateWindowEx`/`WSP` hooks are unconditional, blind,
-  and unverified — compiled and switchable-free by construction, but a change to the exe build would corrupt them
-  silently. That is the risk this document names.
-- **partial**: `VMTHook` is compiled but unused; `src/midair_patch.h`'s header comment is stale.
+- **working** — the ordered table is complete, each group is verified in integration builds (`src/hook.h:129-304` with
+  `VerifyKaentakeHooks`, `src/mapleroot.cpp:30-35`), `HpMp_Verify()` closes it (`src/hook.h:303`), and the module list
+  tracks every addon that exists in the tree today (`src/hook.h:135-302` vs `src/CMakeLists.txt:1-30, 56-122`).
+- **working, scoped** — the only per-feature evidence file for a hook applied here is
+  `docs/evidence/movement-keys-acceptance-20261018.json`: `status: "passed for isolated tested scope"`, 7 confirmed
+  items (draggable direction actions, WASD + arrows, chat typing, relog persistence, SHOP typing with weather, FM
+  rain/night/snow portal flicker, clean exit with resource cleanup and exit code zero), `native_tests: 5`,
+  `binary_anchors_verified: 9`, `remaining_scope: "Broader key combinations/accessibility layouts and long-session
+  testing not established"`, and `server_updated: false`, `live_deployed: false` — it is a dev-machine acceptance, not a
+  production run.
+- **partial** — `src/bypass.cpp:481-484` plus the `CreateWindowEx`/`WSP` hooks are unconditional, blind and unverified:
+  they compile and run on every build, and nothing detects a site that no longer holds the expected instruction.
+- **partial** — `VMTHook` is compiled but has no caller (`src/hook.cpp:102-107`); `src/midair_patch.h:1-10` still
+  describes the keydown gate as an unpatched scaffold; `MAPLEROOT_CRASH_REPORT` is off in the shipped configuration
+  (`scripts/build.ps1:11` does not pass it), so the `UnhandledExceptionFilter` wrap at `src/system.cpp:31-34` is not in
+  the build the launcher produces.
+- `[INFERENCE]` The build claims above are read from `scripts/build.ps1` and the CMake wiring; no build was run in this
+  review, so the compiled result of the 1.6.4-rc3 tree is taken from the tree's own VERSION/README, not observed.
 
 ## Open questions
 

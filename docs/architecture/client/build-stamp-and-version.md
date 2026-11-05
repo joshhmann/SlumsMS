@@ -270,7 +270,7 @@ cannot be switched on here.
 | build formula `(minor+1)*100 + patch*10` | **custom**, b205 | `35ff96f` 2026-10-30 "Plain 1.6.2 builds stamp 1.6.2 / 10720 without override flags (b205)" |
 | format 2 + caps bit 0 | **custom** (ticket: custom NPC imgs, 2026-10-28) | `10a386e` 2026-10-28 in `src/buildstamp_proto.h` |
 | `src/buildshow.cpp`, `src/buildshow_text.h`, `src/slums.rc.in` | **custom** | `9a1ebea` 2026-10-25 "Show the release and build in the title, on the login screen and in slums.dll"; later `08630a6`, `fde27d3` |
-| server `ClientBuildStampHandler`, `ClientVersionGate`, `tools/release/set-min-client-build`, `ClientVersionGateTest` | **custom** | `82d4831b4` 2026-10-21 "Refuse logins from outdated clients (MIN_CLIENT_BUILD)" — all four files appear only in that commit (`git log --follow`) |
+| server `ClientBuildStampHandler`, `ClientVersionGate`, `tools/release/set-min-client-build`, `ClientVersionGateTest` | **custom** | all four are created by `82d4831b4` 2026-10-21 "Refuse logins from outdated clients (MIN_CLIENT_BUILD)" (each file's `git log --follow` ends there); later edits: `4af751a64` (handler, test), `5a14d2abc` (set-min-client-build), `d5103db2f` / `bfe9c4a6d` / `045756de5` (gate) |
 | format-2 server support | **custom** | `4af751a64` 2026-10-28 "Gate custom NPCs by client data; accept build stamp format 2 with caps" |
 | QA-cap refusal (bit 31, `-Dslums.client.allowQa`) | **custom**, ticket 166/170 | `045756de5` 2026-10-30 "Refuse the QA client build at login unless the server allows it (TEST/RC only)" |
 | base client, hooks, addresses | **base** (Kaentake / MapleRoot Full Repack) | `docs/PROVENANCE.md` (baseline MapleRoot Full Repack + joshhmann/kaentake at `2a43a01e`); the hook macro and `MEMBER_HOOK` style at `src/bypass.cpp:395` are the upstream pattern, the stamp inside it is ours |
@@ -296,17 +296,16 @@ Stamp validation reaches it only through the configure `FATAL_ERROR`s (`cmake/Bu
 
 | Test class | Methods | Covers |
 |---|---|---|
-| `src/test/java/net/server/handlers/login/ClientVersionGateTest.java` | `offByDefault` `:34`, `aClientBelowTheMinimumOrWithoutAStampIsRefused` `:42`, `gmBypassOnlyWhenEnabled` `:51`, `blankMessageFallsBackToTheDefault` `:58`, `stampParses` `:65`, `goldenBytesFromTheClient` `:74`, `malformedOrUnknownStampsAreIgnored` `:82`, `formatTwoCarriesCaps` `:96`, `formatOneStillParsesWithNoCaps` `:110` | default gate off; build 0 and build N-1 refused; GM bypass; message fallback; the same golden bytes as the client test (`:76`, `:99`, `:106`); unknown format 3, format 2 without caps, negative build, 41-char release, 3-byte packet, truncated packet, newline in the release |
-| `src/test/java/net/server/handlers/login/VersionGateOrderTest.java` | `anOutdatedClientIsRefusedBeforeTheLiveSessionIsKicked` `:104`, `autoRegisterDoesNotCreateAnAccountForAnOutdatedClient` `:114`, `onlyAVerifiedPasswordReachesTheGate` `:125`, `gmBypassUsesTheAccountsRealGmLevel` `:137` | ordering: 2 packets + session closed + no `finishLogin`; no account row; loginok set membership; bypass reads the DB level |
-| `src/test/java/net/server/handlers/login/QaBuildGateTest.java` | `theBitIsThirtyOneAndTheSwitchName` `:42`, `aQaBuildIsRefusedByDefaultEvenWithTheBuildGateOffAndForAGm` `:49`, `testAndRcAcceptItWithTheSwitch` `:58`, `anOrdinaryClientIsUnaffected` `:65` | bit 31 refusal regardless of `MIN_CLIENT_BUILD`/GM; the `allowQa` switch; normal caps pass |
+| `src/test/java/net/server/handlers/login/ClientVersionGateTest.java` | `offByDefault` `:35`, `aClientBelowTheMinimumOrWithoutAStampIsRefused` `:43`, `gmBypassOnlyWhenEnabled` `:52`, `blankMessageFallsBackToTheDefault` `:59`, `stampParses` `:66`, `goldenBytesFromTheClient` `:75`, `malformedOrUnknownStampsAreIgnored` `:83`, `formatTwoCarriesCaps` `:97`, `formatOneStillParsesWithNoCaps` `:111` | default gate off; build 0 and build N-1 refused; GM bypass; message fallback; the same golden bytes as the client test (`:76`, `:99`, `:106`); unknown format 3, format 2 without caps, negative build, 41-char release, 3-byte packet, truncated packet, newline in the release |
+| `src/test/java/net/server/handlers/login/VersionGateOrderTest.java` | `anOutdatedClientIsRefusedBeforeTheLiveSessionIsKicked` `:105`, `autoRegisterDoesNotCreateAnAccountForAnOutdatedClient` `:115`, `onlyAVerifiedPasswordReachesTheGate` `:126`, `gmBypassUsesTheAccountsRealGmLevel` `:138`, `gmLevelIsReadOnlyWhenNeeded` `:148`, `accountGmLevelIsTheHighestCharacterLevel` `:157` | ordering: 2 packets + session closed + no `finishLogin`; no account row; loginok set membership; bypass reads the DB level |
+| `src/test/java/net/server/handlers/login/QaBuildGateTest.java` | `theBitIsThirtyOneAndTheSwitchName` `:43`, `aQaBuildIsRefusedByDefaultEvenWithTheBuildGateOffAndForAGm` `:50`, `testAndRcAcceptItWithTheSwitch` `:59`, `anOrdinaryClientIsUnaffected` `:66` | bit 31 refusal regardless of `MIN_CLIENT_BUILD`/GM; the `allowQa` switch; normal caps pass |
 
 **Auto-QA:** `t-vg-1` "An old client is told to update" (`src/main/java/soloMapling/autoqa/AutoQaCatalog.java:777-778`
 → `GameAutoQaWorld.clientGate` `:478-481`). It evaluates `ClientVersionGate.verdictFor` against the server's real
 `MIN_CLIENT_BUILD`: PASS requires build N ALLOWED, N+1 ALLOWED, N-1 `REFUSED: ...`, and FAILs outright when the gate
 is off (`GameAutoQaWorld.java:483-495`).
 
-**Release-tool tests:** `tools/release/test_stage_client_lib.py:7-16` (the `release=`/`build=` parser, CRLF and
-unknown lines, a missing/negative/garbage build); `tools/qa-scripts/test_qascript.py:222-225` asserts the literal
+**Release-tool tests:** `tools/release/test_stage_client_lib.py:6-16` (the `release=`/`build=` parser: exact bytes `:7-8`, CRLF/blank/unknown lines `:10-11`, a missing, negative or garbage `build=` `:13-16`); `tools/qa-scripts/test_qascript.py:222-225` asserts the literal
 `CAP_QA_BUILD = 0x80000000` still exists in the gate source.
 
 **Not covered, and what a real client must confirm by hand:**
@@ -338,7 +337,7 @@ unknown lines, a missing/negative/garbage build); `tools/qa-scripts/test_qascrip
 | card b274 | Boss portals never send a portal-enter. No stamp interaction found; listed for the lane | `/root/work/STATUS-1.6.4.md:76` |
 | card L15, card e14 | Client-side fixes / in-game exchange window: not stamp work, no version dependency found in this subsystem | `/root/work/STATUS-1.6.4.md:106`, `:124` |
 | NEW-FINDING | Client README says the stamp is "format 1" while the code sends format 2. `README.md:24` reads `CP 0x3738 (format 1, int build, string release)`, but `src/buildstamp_proto.h:24` sets `kBuildStampFormat = 2` and caps are always written (`src/bypass.cpp:435`). A reader trusting the README will look for a 3-field packet that no current client sends | `README.md:24` vs `src/buildstamp_proto.h:24` |
-| NEW-FINDING | The server's own release README repeats the stale shape: `short format=1, int build, string release` | `tools/release/README.md:47-48` |
+| NEW-FINDING | The server's own release README repeats both stale facts: the shape `short format=1, int build, string release` (`:45-46`) and the pre-b205 formula `major*10000 + minor*100 + patch` (`:47`). A release engineer reading it would compute 10730 for 1.6.4 instead of 10740 | `tools/release/README.md:45-47` vs `cmake/BuildStamp.cmake:25` |
 | NEW-FINDING | Stale formula comment inside the wire header: "build is monotonic (VERSION major*10000 + minor*100 + patch ...)" — the code has used `(minor+1)*100 + patch*10` since b205, so the comment describes numbers nobody has built since 1.6.1 | `src/buildstamp_proto.h:11` vs `cmake/BuildStamp.cmake:25` |
 | NEW-FINDING | Caps bit 1 (`CAPS_LOG_UPLOAD`) has no producer on this branch: the server asks a "supporting" client for logs after `@bug` (`BugClientLogs.java:40`, `:67-69`; `BugLogUploadHandler.java:14-16`) but no client file sets that bit, and `git log -S kCapLogUpload / -S 0x373B` over the client repo's `src/` finds nothing. The feature is server-side only, silently inactive | `src/main/java/server/reports/BugClientLogs.java:67-69`; no counterpart in `src/buildstamp_proto.h:25-26` |
 | NEW-FINDING | Caps bit 31 (`CAP_QA_BUILD`) is likewise absent from this branch: the gate refuses a build nothing produces. It lives only on `client-170-qa-module`/`client-162-*` (`2f17894`, not an ancestor of `client-164-rc3`), while `docs/qa/client-scripts/README.md:63-64` and `tools/qa-scripts/test_qascript.py:222-225` treat it as present | `git merge-base --is-ancestor 2f17894 HEAD` → false; `ClientVersionGate.java:37` |
@@ -360,7 +359,7 @@ Partial corners, stated plainly:
   (`ClientVersionGate.java:37-41`, `QaBuildGateTest`), client side exists only on other branches, so the feature is
   compiled-but-unreachable here.
 - **Log-upload cap (bit 1): partial / server only.** `BugClientLogs` will never ask this client for logs.
-- **The docs of the wire shape: stale in three places** (`README.md:24`, `tools/release/README.md:47-48`,
+- **The docs of the wire shape: stale in three places** (`README.md:24`, `tools/release/README.md:45-47`,
   `src/buildstamp_proto.h:11`), while the code and both test suites agree on format 2.
 - **Verification by hand is still required for the send order and the caps probe** — no automated test covers
   `src/bypass.cpp:399-451`.

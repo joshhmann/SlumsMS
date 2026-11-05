@@ -42,11 +42,12 @@ packets.
 
 1. `EnterCashShopHandler.handlePacket` returns immediately when there is no player
    (`src/main/java/net/server/channel/handlers/EnterCashShopHandler.java:40`).
-2. `if (Boolean.getBoolean("cashshop.window.enabled"))` (`:41`) selects the window path — on live this is on
-   (see Switches).
+2. `if (Boolean.getBoolean("cashshop.window.enabled"))` (`:41`) selects the window path — on live this is on by
+   inference, `deploy/slumsms.service.example:11` (the live unit itself is not readable from this checkout).
 3. It sends `PacketCreator.enableActions()` **before** validating (`:42`), so a refused player still gets input back.
 4. Refusal gate: `!isAlive() || getTrade() != null || getHiredMerchant() != null` (`:43`). Nothing else is checked —
-   no `cannotEnterCashShop`, no event check, no MiniDungeon check, no `isOpened` check.
+   no `cannotEnterCashShop` (`src/main/java/client/Character.java:1002-1004`, the GM's per-character block),
+   no event check, no MiniDungeon check, no `isOpened` check (base had all four: `/root/workspace/cosmicms/src/main/java/net/server/channel/handlers/EnterCashShopHandler.java:41-56`).
 5. `c.sendPacket(server.cashshop.CashShopWindowPackets.open(chr))` (`:44`) — the `RESP_OPEN` frame carrying the three
    balances (`src/main/java/server/cashshop/CashShopWindowPackets.java:79`).
 6. `CashShopWindowHandler.sendCatalog(c, chr)` (`:45`) sends the category index and a cash refresh
@@ -104,7 +105,7 @@ at `CashShopWindowPackets.java:14-18`, and that file is *not* in this repo.
 
 Result codes are `CashShopWindowPackets.java:47-63`: `BUY_OK=0`, `BUY_NO_NX=1`, `BUY_UNKNOWN_ITEM=2`,
 `BUY_INVENTORY_FULL=3`, `BUY_NOT_ON_SALE=4`, `BUY_BUSY=5`, `BUY_BAD_CART=6`, `BUY_LEVEL_TOO_LOW=7`,
-`BUY_LIMIT_REACHED=8`, `BUY_PARTNER_REFUSED=9`; `BUY_CANNOT_WARE = BUY_LEVEL_TOO_LOW` (alias). Codes 7 and 8 have no
+`BUY_LIMIT_REACHED=8`, `BUY_PARTNER_REFUSED=9`; `BUY_CANNOT_WEAR = BUY_LEVEL_TOO_LOW` (alias). Codes 7 and 8 have no
 `kBuyMsg` text in the DLL and fall back to "Purchase failed." — the server compensates with its own popup.
 
 Nothing on this path calls `saveCharToDB` (`CashShopWindowPurchase.java:61`; `CashShopWindowHandler.java:28` mentions
@@ -263,7 +264,7 @@ Wire formats (all `SendOpcode.CASHSHOP_WINDOW_SYNC` = `0x3731`, `src/main/java/n
 
 | Switch | Type | Default | Read at | Live |
 |---|---|---|---|---|
-| `cashshop.window.enabled` | `-D` | absent in code; **true on live** | `EnterCashShopHandler.java:41`, `CashShopWindowHandler.java:44`, `Server.java:1036` | on — `deploy/slumsms.service.example:11` passes `-Dcashshop.window.enabled=true`, `README.md:23`, `release/baseline.json:8` |
+| `cashshop.window.enabled` | `-D` | absent in code; **live: inferred true** | `EnterCashShopHandler.java:41`, `CashShopWindowHandler.java:44`, `Server.java:1036` | on — `deploy/slumsms.service.example:11` passes `-Dcashshop.window.enabled=true`, `README.md:23`, `release/baseline.json:8` |
 | `cashshop-path` | `-D` | `cashshop` (repo-relative) | `CashShopCatalog.java:92` | not in `docs/release/1.6.4.conf`; TEST `start-test.sh` unreachable → unknown |
 | `CASHSHOP_CATALOG` | shell var in `docs/release/1.6.4.conf:293` | empty | deployment script only | empty; `:291` notes `cashshop/catalog.tsv` unchanged since 1.6.2 |
 | `USE_SUPPLY_RATE_COUPONS` | `config.yaml` | `true` in `config.example.yaml:205` | `CashOperationHandler.java:91`, `CashShopServices.isListed` | unknown (live `config.yaml` not printable); toggled at runtime by `src/main/java/client/command/commands/gm6/SupplyRateCouponCommand.java:40-41` |
