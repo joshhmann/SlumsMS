@@ -72,6 +72,10 @@ KEYS = {**{chr(c): (c, False) for c in range(ord('A'), ord('Z') + 1)},
 # The only key combinations: each opens a SlumsMS window, nothing that closes or leaves the game.
 COMBOS = {'CTRL+F10': (0x11, 0x79),   # the in-game settings window (slums.dll D3D9 host)
           'CTRL+F11': (0x11, 0x7A)}   # freeze / unfreeze the slums.dll HUD
+# The first chat line after a client start loses its first key, so command() sends this line first to absorb it.
+# Never a toggle: !unhide casts GM Hide, which toggles, and priming with it before login's own !unhide hid the GM
+# again (bots ignore hidden players: cv-13, 2026-11-01). !dispose only clears NPC/quest dialog state.
+CHAT_PRIMER = '!dispose'
 LOGIN_SETTLE = 2.0   # the field keeps loading (check-in window, UI) after it first matches; "!unhide" lost its "!"
 
 
@@ -239,6 +243,7 @@ class Driver:
         from focus import Handoff
         self.focus = Handoff(root)
         self.qa = None   # QaPipe to a SLUMS_QA_MODULE client, set by start_client when the client has one
+        self.chat_primed = True   # False after start_client: the first chat line after a login loses its first key
         self.qa_last = None
 
     def local_config(self):
@@ -292,7 +297,8 @@ class Driver:
 
     def display_guard(self):
         display = self.backend.primary_display()
-        if display['virtual']:
+        # VM-only opt-in (owner OK 2026-10-30): the test VM's primary is a virtual display and the client runs there.
+        if display['virtual'] and not (self.root / 'allow-virtual-display').exists():
             raise Refusal('Primary display is Parsec/virtual. Make the real monitor primary before starting the client.')
         return display
 
@@ -510,6 +516,8 @@ class Driver:
                 raise Refusal('Missing screen template: ' + screen)
         self.sensitive_screen = True
         self.client.start()
+        self.chat_primed = False
+        self.unhidden = False   # GM Hide is on again after a client start
         self.wait('login', 60)
         self.qa = QaPipe.connect(self.client.pids(), timeout=5) if self.qa_build() else None
         return {'state': self.state, 'pids': self.client.pids(), 'qa_pipe': bool(self.qa)}
@@ -578,21 +586,7 @@ class Driver:
         if screen == 'gender':
             self.click('gender_confirm')
         self.wait('world')
-        if self.qa:
-            # QA build: click Bera only once the world list is handled and drawn, and click again when the client
-            # shows no sign of the click (no channels.ready): the old fixed timing left an empty channel panel.
-            if self.qa.wait('worldselect.ready', 30) is None:
-                raise Refusal('The QA client never reported the world list (worldselect.ready).')
-            for attempt in range(3):
-                self.qa.drain()
-                self.click('bera')
-                if self.qa.wait('channels.ready', 4) is not None:
-                    break
-            else:
-                shot = self.save_shot('no-channels-ready', include_image=False)
-                raise Refusal('Three clicks on Bera drew no channel panel (no channels.ready); screenshot: ' + shot['path'])
-        else:
-            self.click('bera')
+        self.click_bera()
         self.wait('channel')
         self.click('channel_' + str(channel))
         self.click('channel_confirm')
@@ -670,6 +664,41 @@ class Driver:
             raise Refusal('Create secrets/' + vault + '.txt: account on line 1, password on line 2, PIC on line 3.')
         return Secrets(path).load()
 
+    def click_bera(self):
+        if self.qa:
+            # QA build: click Bera only once the world list is handled and drawn, and click again when the client
+            # shows no sign of the click (no channels.ready): the old fixed timing left an empty channel panel.
+            if self.qa.wait('worldselect.ready', 30) is None:
+                raise Refusal('The QA client never reported the world list (worldselect.ready).')
+            for attempt in range(3):
+                self.qa.drain()
+                self.click('bera')
+                if self.qa.wait('channels.ready', 4) is not None:
+                    break
+            else:
+                shot = self.save_shot('no-channels-ready', include_image=False)
+                raise Refusal('Three clicks on Bera drew no channel panel (no channels.ready); screenshot: ' + shot['path'])
+        else:
+            # Release build (no pipe): the click is often lost the same way (b249), so click again while the channel
+            # screen does not show; the caller's wait('channel') then reports a real failure with its screenshot.
+            for attempt in range(3):
+                self.click('bera')
+                if self.channel_shows(6):
+                    break
+
+    def channel_shows(self, timeout):
+        until = time.monotonic() + timeout
+        while time.monotonic() < until:
+            self.guard()
+            try:
+                if self.matches('channel'):
+                    return True
+            except self.backend.Blocked as exc:
+                if 'found 0' not in str(exc):
+                    raise
+            time.sleep(0.25)
+        return False
+
     def login_credentials(self, vault):
         """Types one vault account and its password at the login screen and presses Enter (ticket 170).
 
@@ -732,6 +761,20 @@ class Driver:
         return {'slot': slot, 'character': point}
 
     def command(self, line):
+        if not self.chat_primed:
+            # The first chat line after a login loses its first key even with the Backspace below (the "!" of !warp
+            # went out as plain chat in the first scripted b140 run, 2026-10-31 09:25 UTC). login() always sent
+            # !unhide first, which absorbed it; the scripted login (select_* steps) doesn't, so do the same here.
+            self.chat_primed = True
+            # Exactly one !unhide per login: login() sends its own right after this primer; a scripted login
+            # (select_* steps) sends none, so the primer is that one !unhide there (it toggles GM Hide: never twice).
+            if line != '!unhide' and not getattr(self, 'unhidden', False):
+                self.command('!unhide')
+            else:
+                self.command(CHAT_PRIMER)
+            time.sleep(CHAT_SETTLE)
+        if line == '!unhide':
+            self.unhidden = True
         self.endpoint()
         if not line or len(line) > 160 or any(ord(ch) < 32 for ch in line):
             raise Refusal('Chat line must be 1–160 printable characters, with no newlines.')
@@ -741,6 +784,16 @@ class Driver:
         self.secrets.load()
         if any(value in line for value in self.secrets.values):
             raise Refusal('Chat line contains protected account data.')
+        if self.matches('chat_open'):
+            # An open, EMPTY chat box takes Shift+1 / Shift+2 as chat-type hotkeys, so "!warp" typed into it lost its
+            # "!" (2026-10-31: after login and after a mouse click). Close it and open it fresh, as the old
+            # cmd.sh did; Enter on an empty box closes it without sending anything.
+            self.sender.key(13)
+            deadline = time.monotonic() + 3
+            while self.matches('chat_open'):
+                if time.monotonic() >= deadline:
+                    raise Refusal('Chat entry is open and did not close; line not sent.')
+                time.sleep(0.1)
         if not self.matches('chat_open'):
             self.sender.key(13)
             self.wait('chat_open', 5)

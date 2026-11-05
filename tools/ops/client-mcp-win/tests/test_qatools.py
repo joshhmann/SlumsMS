@@ -112,6 +112,65 @@ class NewToolsTest(unittest.TestCase):
         clicks = [event[1] for event in self.d.sender.events if event[0] == 'click']
         self.assertEqual(['bera', 'channel_3', 'channel_confirm', 'first_character', 'character_confirm'], clicks)
 
+    def test_a_lost_click_on_bera_is_repeated_on_a_release_build(self):
+        # b249: a release build has no QA pipe; the first click on Bera is often lost and the channel list never shows.
+        self.d.qa = None
+        answers = iter([False, True])
+        self.d.channel_shows = lambda timeout: next(answers)
+        self.d.click_bera()
+        clicks = [event[1] for event in self.d.sender.events if event[0] == 'click']
+        self.assertEqual(['bera', 'bera'], clicks)
+
+    def test_bera_is_clicked_three_times_at_most_on_a_release_build(self):
+        self.d.qa = None
+        self.d.channel_shows = lambda timeout: False
+        self.d.click_bera()
+        clicks = [event[1] for event in self.d.sender.events if event[0] == 'click']
+        self.assertEqual(['bera'] * 3, clicks)
+
+    def test_the_chat_primer_never_toggles_gm_hide(self):
+        # !unhide casts GM Hide, which toggles: the primer used to send it before login's own !unhide, so the GM
+        # ended up hidden again and bots ignored it (cv-13, 2026-11-01).
+        self.assertNotIn('hide', self.driver.CHAT_PRIMER)
+        sent = []
+        d = self.d
+        d.chat_primed = False
+        real = self.driver.Driver.command
+        def fake(line, _real=real):
+            sent.append(line)
+            if line == self.driver.CHAT_PRIMER or d.chat_primed is False:
+                return _real(d, line) if line != self.driver.CHAT_PRIMER else None
+        d.command = fake
+        d.endpoint = lambda: (_ for _ in ()).throw(RuntimeError('stop'))
+        try:
+            real(d, '!unhide')
+        except RuntimeError:
+            pass
+        self.assertEqual([self.driver.CHAT_PRIMER], sent)
+        self.assertTrue(d.chat_primed)
+
+    def test_a_scripted_login_still_unhides_exactly_once(self):
+        # Scripted runs log in through select_*; nothing else sends !unhide there, so the primer must (once), or the
+        # GM stays hidden and bots ignore its chat (b066/b100/b102 on TEST .111, 2026-11-01 18:15-18:25 UTC).
+        d = self.d
+        d.chat_primed = False
+        d.unhidden = False
+        sent = []
+        real = self.driver.Driver.command
+        def fake(line):
+            sent.append(line)
+            if line in ('!unhide', self.driver.CHAT_PRIMER):
+                if line == '!unhide':
+                    d.unhidden = True
+                return None
+        d.command = fake
+        d.endpoint = lambda: (_ for _ in ()).throw(RuntimeError('stop'))
+        try:
+            real(d, '!qa run cv-8')
+        except RuntimeError:
+            pass
+        self.assertEqual(['!unhide'], sent)
+
     def test_only_the_calibrated_character_slot_is_offered(self):
         with self.assertRaises(self.driver.Refusal) as caught:
             self.d.select_character(4)

@@ -129,8 +129,8 @@ class OrchestratorTest(unittest.TestCase):
         self.assertEqual("hurt", heal["armed_at"])
         # bursts: one on the hurt step, one on the heal signal
         labels = [b[3] for b in worker.bursts]
-        self.assertEqual(["b140-bot-heal-column-20261031T031205Z-column-early",
-                          "b140-bot-heal-column-20261031T031205Z-column-on-line"], labels)
+        # Short worker labels (stamp-index-capture, <= 40 chars); the old <run id>-<capture> was 50+ and refused.
+        self.assertEqual(["20261031T031205Z-0-column-early", "20261031T031205Z-1-column-on-line"], labels)
         self.assertEqual("PASS", m["checks"][0]["result"])
         on_disk = json.loads((run.folder / "manifest.json").read_text())
         self.assertEqual(m["run_id"], on_disk["run_id"])
@@ -333,3 +333,19 @@ class WrapperTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BurstLabelTest(unittest.TestCase):
+    """The worker takes burst labels of 1-40 [A-Za-z0-9_-]; long script ids broke every burst (b008, 2026-11-01)."""
+
+    def test_a_long_script_id_still_gives_a_valid_unique_label(self):
+        import re
+        ok = re.compile(r'^[A-Za-z0-9_-]{1,40}$')
+        run_id = "b008-will-spawns-on-the-ground-20261101T174418Z"
+        labels = [qarunner.burst_label(run_id, i, cap) for i, cap in
+                  enumerate(["boss-appears", "boss-standing", "after", "a-very-long-capture-id-that-goes-on-and-on"])]
+        for label in labels:
+            self.assertRegex(label, ok)
+        self.assertEqual(len(labels), len(set(labels)))
+        self.assertIn("20261101T174418Z", labels[0])
+

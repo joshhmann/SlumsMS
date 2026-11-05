@@ -1,6 +1,6 @@
 """The 187 orchestrator for auto-QA client scripts (ticket 166/170, Server Dev half of the split runner).
 
-It reads and validates a script, arms the QA event feed on TEST, sends the steps one at a time to the Silvia worker
+It reads and validates a script, arms the QA event feed on TEST, sends the steps one at a time to the QA box's worker (tarkov2 by default, Silvia with CLIENT_MCP_TARGET=silvia)
 (client-mcp run_script, Client lane), waits on client signals the worker relays and on server lines from the feed,
 triggers bursts, then writes the run folder's manifest.json and the feed lines it saw (run-folder.md).
 
@@ -73,6 +73,16 @@ def test_ssh(remote, host=None):
         argv += ["-o", "IdentitiesOnly=yes", "-i", os.path.expanduser(testhost.TEST_KEY)]
     return argv + ["root@" + name, remote]
 
+
+
+def burst_label(run_id, index, cap_id):
+    """The worker's burst label: 1-40 of [A-Za-z0-9_-] (qapipe.LABEL). `<run id>-<capture id>` passed 40 with a long
+    script id and every burst was refused (b008, 2026-11-01), so the label is the run's UTC stamp, the capture's index
+    and as much of its id as fits. The run folder still maps it back to the capture id (burst_caps)."""
+    stamp = run_id.rsplit("-", 1)[-1]
+    head = "%s-%d-" % (stamp, index)
+    tail = re.sub(r"[^A-Za-z0-9_-]", "_", cap_id)[:40 - len(head)]
+    return (head + tail).rstrip("-_") or head.rstrip("-")
 
 class RunFailed(Exception):
     """A step or wait failed: the run is FAIL (a wait timed out) unless `error` says the runner broke."""
@@ -219,7 +229,7 @@ class WorkerTransport:
     program here, against the same files, instead of over ssh.
     """
 
-    def __init__(self, target="silvia", runner=subprocess.run, wait=120, queue_wait=3600, wrap=True,
+    def __init__(self, target="vm", runner=subprocess.run, wait=120, queue_wait=3600, wrap=True,
                  root=None, python=PYTHON, clock=time.time):
         if target not in WORKER_TARGETS:
             raise RunFailed("unknown worker target %r: use %s" % (target, " or ".join(WORKER_TARGETS)), "error")
@@ -329,13 +339,18 @@ class SilviaWorker:
     wrong account (worker recovery logs in with secrets/account.txt, not the script's vault).
     """
 
-    SIGNALS = ("worldselect.ready", "channels.ready", "charselect.ready", "field.ready")
+    # The QA build's signals (client src/qamodule_policy.h). Since client-170-qa-signals (2026-10-31): field.ready
+    # carries map_id, chat.received carries kind + text, window.open/closed carry the window's name.
+    SIGNALS = ("worldselect.ready", "channels.ready", "charselect.ready", "field.ready", "chat.received",
+               "window.open", "window.closed")
+    FILTERS = {"field.ready": ("map_id",), "chat.received": ("regex", "kind"), "window.open": ("window",),
+               "window.closed": ("window",)}
     # field.ready already carries no map id (the QA module sends the name only), so "the map I asked for loaded"
     # cannot be waited on until the client says which map it is: client work, ticket 166.
     NO_PAYLOAD = {"field.ready"}
     KEY_STEPS = {"key": ("key", "hold_ms"), "move": ("dir", "ms")}
 
-    def __init__(self, transport=None, sleep=time.sleep, clock=time.time, target="silvia"):
+    def __init__(self, transport=None, sleep=time.sleep, clock=time.time, target="vm"):
         self.transport = transport or WorkerTransport(target)
         self.sleep, self.clock = sleep, clock
         self.cursor = {}     # alias -> position in the pipe's event log
@@ -355,10 +370,14 @@ class SilviaWorker:
         text = "\n".join(answer.get("text") or []).strip()
         if answer.get("isError"):
             raise RunFailed(text or (name + " was refused"), "refused")
-        try:
-            return json.loads(text)
-        except ValueError:
-            raise RunFailed("%s answered with something other than JSON: %s" % (name, text[:200]), "error")
+        # A reply can carry several text parts; status adds a "worker: {...}" line after its JSON. The first part
+        # that parses as JSON is the tool's answer.
+        for part in [text] + list(answer.get("text") or []):
+            try:
+                return json.loads(part.strip())
+            except ValueError:
+                continue
+        raise RunFailed("%s answered with something other than JSON: %s" % (name, text[:200]), "error")
 
     def events(self, alias):
         """The pipe's events since the last call for this alias; also the position for the next one."""
@@ -376,10 +395,24 @@ class SilviaWorker:
         step at once instead of burning its timeout and calling the silence a failure of the game."""
         if name not in self.SIGNALS:
             return "client signal %s not available in this client build" % name
-        if extra.get("map_id") is not None:
-            return "client signal %s not available in this client build (it sends no %s)" % (
-                name, "map id" if name == "field.ready" else "payload")
+        unsupported = [key for key, value in extra.items()
+                       if value is not None and key not in self.FILTERS.get(name, ())]
+        if unsupported:
+            return "client signal %s not available in this client build with %s" % (name, ", ".join(sorted(unsupported)))
         return None
+
+    @staticmethod
+    def matches(event, extra):
+        """The event fits the step's filters: map_id equal, window equal, kind equal, regex searched in the text."""
+        for key, want in extra.items():
+            if want is None:
+                continue
+            if key == "regex":
+                if not re.search(want, str(event.get("text") or "")):
+                    return False
+            elif str(event.get(key)) != str(want):
+                return False
+        return True
 
     def login(self, alias, client):
         """Starts a fresh QA client (a running one is stopped first: a client left over from before this run could be
@@ -448,7 +481,7 @@ class SilviaWorker:
         deadline = self.clock() + timeout_s
         while True:
             got = self.events(alias)
-            hit = next((event for event in got if event.get("ev") == name), None)
+            hit = next((event for event in got if event.get("ev") == name and self.matches(event, extra)), None)
             if hit:
                 return {"name": name, "detail": self.payload(hit), "utc": hit.get("utc") or iso(utc_now()),
                         "text": self.text_of(hit)}
@@ -466,7 +499,7 @@ class SilviaWorker:
     @staticmethod
     def payload(event):
         """The fields of a pipe event that say what happened, for the manifest (the client sends the name only)."""
-        keys = ("release", "build", "frames", "label", "pid", "error")
+        keys = ("release", "build", "frames", "label", "pid", "error", "map_id", "window", "kind")
         return " ".join("%s=%s" % (key, event[key]) for key in keys if key in event)[:120]
 
     @staticmethod
@@ -502,8 +535,12 @@ class SilviaWorker:
         return self.json_tool("qa_burst", {"fps": fps, "ms": ms, "label": label})
 
     def capture(self, alias, kind, cap_id, spec, start):
-        """chat_log / packet_trace / samples: the QA build records none of them; never report one as recorded."""
-        raise RunFailed("a %s capture is not available in this client build (it records no chat log, packet trace or "
+        """chat_log comes from the pipe's chat.received events (client-170-qa-signals), written to
+        client/<alias>/chat.log at the pull; nothing to start or stop. packet_trace / samples: the QA build records
+        neither; never report one as recorded."""
+        if kind == "chat_log":
+            return
+        raise RunFailed("a %s capture is not available in this client build (it records no packet trace or "
                         "samples)" % kind, "refused")
 
     def pull(self, dest, labels=None):
@@ -523,6 +560,11 @@ class SilviaWorker:
             with (client / "pipe.log").open("w", encoding="utf-8") as out:
                 for event in events:
                     out.write(json.dumps(event) + "\n")
+            with (client / "chat.log").open("w", encoding="utf-8") as out:
+                for event in events:
+                    if event.get("ev") == "chat.received":
+                        out.write("%s\tkind=%s\t%s\n" % (event.get("utc", ""), event.get("kind", ""),
+                                                          event.get("text", "")))
             logs = self.json_tool("read_logs", {"lines": 200})
             (client / "client.log").write_text("\n\n".join("%s:\n%s" % (name, text)
                                                            for name, text in logs.items()), encoding="utf-8")
@@ -662,7 +704,7 @@ class Run:
         if body.get("delay_ms"):
             self.sleep(body["delay_ms"] / 1000)
         alias = cap.get("client") or next(iter(self.doc["clients"]))
-        label = "%s-%s" % (self.run_id, cap["id"])
+        label = burst_label(self.run_id, len(self.burst_caps), cap["id"])
         self.burst_caps[label] = cap["id"]
         self.worker.burst(alias, body["fps"], body["ms"], label)
         self.manifest["captures"].append({"id": cap["id"], "kind": kind, "client": alias,
@@ -943,7 +985,7 @@ def main(argv):
         for w in warnings:
             print("warn: " + w)
         return 0
-    run = Run(script, SshFeed(), SilviaWorker(target=os.environ.get("CLIENT_MCP_TARGET", "silvia")),
+    run = Run(script, SshFeed(), SilviaWorker(target=os.environ.get("CLIENT_MCP_TARGET", "vm")),
               commit=read_deployed_commit())
     manifest = run.run()
     print("%s %s -> %s" % (manifest["result"], run.run_id, run.folder))
