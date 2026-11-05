@@ -167,7 +167,7 @@ The four doc-level facts worth carrying:
   `BOT_REBIRTH_PER_DAY=2`, `DAMAGE_RANK_ENABLED=true`, `DAMAGE_RANK_MIN_BUILD=10640`, `OWNED_ALTS_SUMMON_ENABLED=true`, the
   four `COMPANION_*_ENABLED=true`, `OWNED_ALTS_INVITE_SUMMON_ENABLED=true`, `STARFORCE_BOOST_PERCENTAGE2=0.2`. Note what is
   **absent**: `OWNED_ALTS_ENABLED`, the master switch, is not in 1.6.4's `SERVER_SET` (docs/release/1.6.4.conf:201-215) even
-  though 1.6.3's set it (`OWNED_ALTS_ENABLED=true`, docs/release/1.6.3.conf:113) — with the master at its `false` default
+  though 1.6.3's set it (`OWNED_ALTS_ENABLED=true`, docs/release/1.6.3.conf:113) — with the master at its `false` default **RESOLVED Nov 5 (Claude check):** 1.6.4.conf now sets `OWNED_ALTS_ENABLED=true` in SERVER_SET (5011fc88c), and live `config.yaml` already had it `true`, so `@botme` was never dead on live.
   (src/main/java/config/ServerConfig.java:103) the six summon/companion switches below it do nothing, which is exactly the
   1.6.3 regression the `ownedAltSwitchesLine` javadoc records ("left OWNED_ALTS_ENABLED at its false default, so @botme was
   not available", src/main/java/config/ServerConfig.java:122-125). Separately,

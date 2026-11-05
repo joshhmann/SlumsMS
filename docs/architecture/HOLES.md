@@ -4,6 +4,13 @@ Read at 2026-11-05 against branch `164-archreview` (from `origin/release-1.6.4`,
 never by running a server. Each entry names the subsystem file that carries the evidence; the file, not this page, is
 the citation of record.
 
+> **Checked by Claude, Nov 5 2026.** Everything below is a code-read lead until checked. Verified in code: broken #1
+> (guild expel NPE, `GuildOperationHandler.java:232`), #2 (party leader NPE, `World.java:1055`), #3 (incubator compares
+> an index to an item id, `UseCashItemHandler.java:771`), #6 (boot `System.exit(0)`, `Server.java:1004`). The release gate
+> weakness (ops/safety-guards) was verified and fixed in 1.6.4 (b323, 5011fc88c). CORRECTED: "`@botme` is dead on live"
+> is wrong: live `config.yaml` has `OWNED_ALTS_ENABLED: true`, and the 1.6.4 conf now states it too. The rest are leads
+> for 1.6.5 (book card n16).
+
 State words, used exactly as the subsystem files use them:
 
 | State | Means |
@@ -66,7 +73,7 @@ Paths that are reachable today and do the wrong thing.
 | server/persistence | `saveCharToDB` returns void and logs failures only; cooldowns/pets save on their own connections outside the character transaction; `!saveall` always says success | `server/persistence.md` |
 | server/mechanics | no live evidence: nothing 1.6.4-shaped has run on TEST; boss/Chaos Zakum wait on the owner's click-through | `server/mechanics.md` |
 | server/economy | ticket 270 catalog is on TEST but the ticket header still says "not merged"; `economy.yaml` miss falls back to code defaults with an info line only | `server/economy.md` |
-| server/companions | `OWNED_ALTS_ENABLED` is absent from 1.6.4's SERVER_SET while the code default is false, so `@botme` is dead on live; the conf contradicts itself on marriage EXP | `server/companions.md`, `server/config.md` |
+| server/companions | `OWNED_ALTS_ENABLED` is absent from 1.6.4's SERVER_SET while the code default is false, so `@botme` is dead on live; the conf contradicts itself on marriage EXP | `server/companions.md`, `server/config.md` **RESOLVED Nov 5 (Claude check):** 1.6.4.conf now sets `OWNED_ALTS_ENABLED=true` in SERVER_SET (5011fc88c), and live `config.yaml` already had it `true`, so `@botme` was never dead on live. |
 | server/families | `family_character.lastresettime` is filtered on but never written; pedigree reads one channel only; buff clamp on the write path only | `server/families.md` |
 | server/qa-and-autoqa | multi-lane runs still produce b284-class false failures; an infrastructure skip is reported as a normal skip | `server/qa-and-autoqa.md` |
 | server/site-and-dashboard | `SiteMobKills.restore`/`flush` share the single site-export executor with `world.json`; per-map export skips existing files | `server/site-and-dashboard.md` |
@@ -266,7 +273,7 @@ instruction — these are leads for Server Dev to verify.
 
 **companions.md** (3)
 
-- `src/main/java/config/ServerConfig.java:103` — OWNED_ALTS_ENABLED (config.yaml) false absent from SERVER_SET — see NEW-FINDING 1 the master switch; gates @botme entirely (requireEnabled, src/main/java/soloMapling/companions/OwnedAltService.java:144-146) and the bot-friend …
+- `src/main/java/config/ServerConfig.java:103` — OWNED_ALTS_ENABLED (config.yaml) false absent from SERVER_SET — see NEW-FINDING 1 the master switch; gates @botme entirely (requireEnabled, src/main/java/soloMapling/companions/OwnedAltService.java:144-146) and the bot-friend … **RESOLVED Nov 5 (Claude check):** 1.6.4.conf now sets `OWNED_ALTS_ENABLED=true` in SERVER_SET (5011fc88c), and live `config.yaml` already had it `true`, so `@botme` was never dead on live.
 - `docs/release/1.6.4.conf:201-214` — (SERVER_SET) no longer sets OWNED_ALTS_ENABLED, while the six companion switches beside it are true. The 1.6.3 conf did set it (docs/release/1.6.3.conf:113; docs/release/1.6.0.conf:34), and ServerConfig.ownedAltSwitchesLine's …
 - `src/main/java/soloMapling/companions/OwnedAltWedding.java:21` — still says "No bonus of any kind", which stopped being true when stage 3 added MarriageExpBonus (same release), and docs/release/1.6.4.conf:253-256 still says marry/expbonus are "NOT in UNIT_EDITS" while line 271's UNIT_EDITS …
 
@@ -543,8 +550,8 @@ instruction — these are leads for Server Dev to verify.
 
 **owned-alts.md** (6)
 
-- `src/main/java/config/ServerConfig.java:103` — OWNED_ALTS_ENABLED (config.yaml) false not in SERVER_SET (docs/release/1.6.4.conf:207-214); set by live config.yaml (docs/release/1.6.0.conf:34) — see NEW-FINDING
-- `docs/release/1.6.4.conf:207-214` — turns on all six companion switches but does not set OWNED_ALTS_ENABLED, whose code default is false (src/main/java/config/ServerConfig.java:103).
+- `src/main/java/config/ServerConfig.java:103` — OWNED_ALTS_ENABLED (config.yaml) false not in SERVER_SET (docs/release/1.6.4.conf:207-214); set by live config.yaml (docs/release/1.6.0.conf:34) — see NEW-FINDING **RESOLVED Nov 5 (Claude check):** 1.6.4.conf now sets `OWNED_ALTS_ENABLED=true` in SERVER_SET (5011fc88c), and live `config.yaml` already had it `true`, so `@botme` was never dead on live.
+- `docs/release/1.6.4.conf:207-214` — turns on all six companion switches but does not set OWNED_ALTS_ENABLED, whose code default is false (src/main/java/config/ServerConfig.java:103). **RESOLVED Nov 5 (Claude check):** 1.6.4.conf now sets `OWNED_ALTS_ENABLED=true` in SERVER_SET (5011fc88c), and live `config.yaml` already had it `true`, so `@botme` was never dead on live.
 - `docs/release/1.6.4.conf:253-255` — states -Dslums.ownedalts.marry and -Dslums.marriage.expbonus are "NOT in UNIT_EDITS", but docs/release/1.6.4.conf:271's UNIT_EDITS list contains both at tokens 172 and 173, and the owner note at:268 says both are ON.
 - `src/main/java/soloMapling/companions/OwnedAltWedding.java:21` — (class comment) and:70-73 describe the marriage as fee-only with "no bonus of any kind", but stage 3 in the same release added MarriageExpBonus (+5 % altbot spouse, src/main/java/soloMapling/companions/MarriageExpBonus.java:14,39-41).
 - `src/main/java/soloMapling/companions/OwnedAltGate.java:117-123` — treats last == 0 (no player action ever recorded) as not idle, so a client that never sends a recorded action keeps its alts fighting indefinitely; the idle gate is only reachable after the first action.

@@ -138,7 +138,7 @@ Chat commands reach this only through the shared parser: `BotCommandParser` verb
 
 | Switch | Default | Live 1.6.4 (`docs/release/1.6.4.conf`) |
 |---|---|---|
-| `OWNED_ALTS_ENABLED` (config.yaml) | `false` (`src/main/java/config/ServerConfig.java:103`) | **not in `SERVER_SET`** (`docs/release/1.6.4.conf:207-214`); set by live `config.yaml` (`docs/release/1.6.0.conf:34`) — see NEW-FINDING |
+| `OWNED_ALTS_ENABLED` (config.yaml) | `false` (`src/main/java/config/ServerConfig.java:103`) | **not in `SERVER_SET`** (`docs/release/1.6.4.conf:207-214`); set by live `config.yaml` (`docs/release/1.6.0.conf:34`) — see NEW-FINDING **RESOLVED Nov 5 (Claude check):** 1.6.4.conf now sets `OWNED_ALTS_ENABLED=true` in SERVER_SET (5011fc88c), and live `config.yaml` already had it `true`, so `@botme` was never dead on live. |
 | `OWNED_ALTS_SUMMON_ENABLED` | `true` (`src/main/java/config/ServerConfig.java:107`) | `true` (`docs/release/1.6.4.conf:208`) |
 | `COMPANION_ORDERS_ENABLED` | `false` (`:111`) | `true` (`:209`) |
 | `COMPANION_TRADES_ENABLED` | `false` (`:113`) | `true` (`:210`) |
@@ -216,7 +216,7 @@ Not covered: no test drives `tickAll` end-to-end against a live server; no test 
 | L08 (open) | Alt can marry via a proxy marriage; spouse EXP bonus — ticket 189 lane, awaiting review + TEST checklist. |
 | e02 (later) | Alts answering their owner's own family/guild invites is built behind `-Dslums.ownedalts.acceptownerinvite` (`src/main/java/soloMapling/companions/OwnedAltInvite.java:60`), not in the release line. |
 
-NEW-FINDING: `docs/release/1.6.4.conf:207-214` turns on all six companion switches but **does not set `OWNED_ALTS_ENABLED`**, whose code default is `false` (`src/main/java/config/ServerConfig.java:103`). `@botme` is gated by `requireEnabled`, so a freshly written 1.6.4 config would leave summoning dead and `t-oa-1` would SKIP itself — the exact failure `ownedAltSwitchesLine` was added to make visible (`src/main/java/config/ServerConfig.java:121-134`). Live only works today because `config.yaml` carries it from 1.6.0.
+NEW-FINDING: `docs/release/1.6.4.conf:207-214` turns on all six companion switches but **does not set `OWNED_ALTS_ENABLED`**, whose code default is `false` (`src/main/java/config/ServerConfig.java:103`). `@botme` is gated by `requireEnabled`, so a freshly written 1.6.4 config would leave summoning dead and `t-oa-1` would SKIP itself — the exact failure `ownedAltSwitchesLine` was added to make visible (`src/main/java/config/ServerConfig.java:121-134`). Live only works today because `config.yaml` carries it from 1.6.0. **RESOLVED Nov 5 (Claude check):** 1.6.4.conf now sets `OWNED_ALTS_ENABLED=true` in SERVER_SET (5011fc88c), and live `config.yaml` already had it `true`, so `@botme` was never dead on live.
 
 NEW-FINDING: `docs/release/1.6.4.conf:253-255` states `-Dslums.ownedalts.marry` and `-Dslums.marriage.expbonus` are "NOT in UNIT_EDITS", but `docs/release/1.6.4.conf:271`'s `UNIT_EDITS` list contains both at tokens 172 and 173, and the owner note at `:268` says both are ON. Two of the three statements must be wrong; a release engineer reading only `:253-255` would stage the wrong unit.
 

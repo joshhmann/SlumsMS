@@ -88,7 +88,7 @@ Alts hold no bot-roster row, no popularity/affinity record, and are excluded fro
 
 | Switch | Default | Live (1.6.4) | Meaning |
 |---|---|---|---|
-| `OWNED_ALTS_ENABLED` (config.yaml) | false (src/main/java/config/ServerConfig.java:103) | **absent from SERVER_SET** — see NEW-FINDING 1 | the master switch; gates `@botme` entirely (`requireEnabled`, src/main/java/soloMapling/companions/OwnedAltService.java:144-146) and the bot-friend capacity |
+| `OWNED_ALTS_ENABLED` (config.yaml) | false (src/main/java/config/ServerConfig.java:103) | **absent from SERVER_SET** — see NEW-FINDING 1 | the master switch; gates `@botme` entirely (`requireEnabled`, src/main/java/soloMapling/companions/OwnedAltService.java:144-146) and the bot-friend capacity **RESOLVED Nov 5 (Claude check):** 1.6.4.conf now sets `OWNED_ALTS_ENABLED=true` in SERVER_SET (5011fc88c), and live `config.yaml` already had it `true`, so `@botme` was never dead on live. |
 | `OWNED_ALTS_SUMMON_ENABLED` | true (src/main/java/config/ServerConfig.java:107) | `true` (docs/release/1.6.4.conf:208) | `@botme` summoning; off = "Alts are resting", `@dismiss` still works |
 | `COMPANION_ORDERS_ENABLED` | false (src/main/java/config/ServerConfig.java:111) | `true` (docs/release/1.6.4.conf:209) | `@alts` movement/formation orders |
 | `COMPANION_TRADES_ENABLED` | false (src/main/java/config/ServerConfig.java:113) | `true` (docs/release/1.6.4.conf:210) | trades by category with the owner |
@@ -156,7 +156,7 @@ Not covered: no test drives the 200 ms tick end-to-end against a live server; no
 | L08 (open) | Alt marriage + marriage EXP bonus: built, awaiting review and the TEST checklist (/root/work/STATUS-1.6.4.md:99; docs/tickets/189-alt-marriage-1-6-4.md:3). |
 | P13 (PQ-UNFINISHED-REPORT) | Zakum arms need a real player's alt to prove the party path (/root/work/PQ-UNFINISHED-REPORT.md:652). |
 
-NEW-FINDING: `docs/release/1.6.4.conf:201-214` (SERVER_SET) no longer sets `OWNED_ALTS_ENABLED`, while the six companion switches beside it are `true`. The 1.6.3 conf did set it (docs/release/1.6.3.conf:113; docs/release/1.6.0.conf:34), and `ServerConfig.ownedAltSwitchesLine`'s own comment records that leaving it at the false default made `@botme` unavailable and self-skipped `t-oa-1` (src/main/java/config/ServerConfig.java:121-125). A fresh 1.6.4 config write therefore leaves the master off; the only signal is the boot log line.
+NEW-FINDING: `docs/release/1.6.4.conf:201-214` (SERVER_SET) no longer sets `OWNED_ALTS_ENABLED`, while the six companion switches beside it are `true`. The 1.6.3 conf did set it (docs/release/1.6.3.conf:113; docs/release/1.6.0.conf:34), and `ServerConfig.ownedAltSwitchesLine`'s own comment records that leaving it at the false default made `@botme` unavailable and self-skipped `t-oa-1` (src/main/java/config/ServerConfig.java:121-125). A fresh 1.6.4 config write therefore leaves the master off; the only signal is the boot log line. **RESOLVED Nov 5 (Claude check):** 1.6.4.conf now sets `OWNED_ALTS_ENABLED=true` in SERVER_SET (5011fc88c), and live `config.yaml` already had it `true`, so `@botme` was never dead on live.
 
 NEW-FINDING: `src/main/java/soloMapling/companions/OwnedAltWedding.java:21` still says "No bonus of any kind", which stopped being true when stage 3 added `MarriageExpBonus` (same release), and `docs/release/1.6.4.conf:253-256` still says marry/expbonus are "NOT in UNIT_EDITS" while line 271's `UNIT_EDITS` carries both.
 
