@@ -33,7 +33,7 @@ the same code path produces a bank line and the bot still answers.
 | Ambient chatter (canned packs) | `BotChatterSystem/BotChatter.maybeStartChatter` (`BotChatter.java:76`) from `BotTypes/SocialBot.java:202` and `BotTypes/TownWandererBot.java:154`; forced by GM `!env chatter fire` (`client/command/commands/gm4/EnvironmentCommand.java:293`) | two-bot exchange, no player involved |
 | Cluster conversations | `ConversationManager.getInstance().start()` at `EnvironmentManager.java:146` | 2-4 line bot-only scenes near players |
 | GM `!brain status` / `!brain ask <line>` | `src/main/java/client/command/commands/gm4/BrainCommand.java:13-18` | endpoint, model, free slots, answered/fell-back |
-| GM `!decideshadow status|disagree` | `client/command/commands/gm3/DecideShadowCommand.java:22,55,67` | shadow-model comparison report |
+| GM `!decideshadow status` / `disagree` | `client/command/commands/gm3/DecideShadowCommand.java:22,55,67` | shadow-model comparison report |
 | GM `!qa run cv-N` | `client/command/commands/gm3/QaCommand.java:15-18` → `src/main/java/soloMapling/qa/ConvoScenarios.java` | staged conversation scenarios |
 | Auto-QA | `t-cv-1…t-cv-12`, `t-pl-1`, `t-cq-1` in `src/main/java/soloMapling/autoqa/AutoQaCatalog.java:437-561`; `t-bb-2` `:185` | nightly chat assertions |
 | Dashboard | `src/main/java/soloMapling/dashboard/DashboardExporter.java:174` `ChatStats.snapshot()` | live counters |
@@ -131,6 +131,21 @@ the same code path produces a bank line and the bot still answers.
 | `AMBIENT` (legacy `complete`, on-sight roast) | == max **and** no player line for 10 s (`AMBIENT_QUIET_MS` `:42`) | LOCAL | never (`ChatRouter.complete` `:326-330`) |
 | forced off | — | `BANK` when `-Dsolomapling.convo.forceBank=true` (`route` `:143-145`) | no |
 
+### Budget limits (`CloudBudget`) and content limits (`ContentGuard`)
+
+| Limit | Value | What happens at it | File:line |
+| --- | --- | --- | --- |
+| Daily cloud spend | `BOT_LLM_CLOUD_DAILY_BUDGET_USD` (1.0 default, 2.0 live) | `canSpend` false ⇒ the cloud is not even in `cloudFirst`; every call goes local. `dailyUsd <= 0` disables the cloud entirely | `CloudBudget.java:83`, `:92` |
+| Worst-case reservation | `budget.cost((chars+1)/2+16, maxOut)` at the reply's max tokens | `reserve` false ⇒ `BANK` for this line, nothing spent | `ChatRouter.java:179-182`, `CloudBudget.java:92-99` |
+| Real settlement | provider `usage` tokens × price/Mtok, cache hits at the cached price | charged in full even when it exceeds the reservation (rc6 note) | `CloudBudget.java:100-107`, `:116-127` |
+| Low-priority share | 80 % of the day (`LOW_PRIORITY_BUDGET_SHARE`) | `ALL` mode stops sending `PARTNER`/`THREAD`/`AMBIENT` to the cloud at 80 %; `PLAYER` may use the last 20 % | `ChatRouter.java:44`, `:131-138` |
+| Day boundary | server local day (`ZoneId.systemDefault`), persisted to `data/convo/cloud-budget.json` | spend resets at midnight; a restart keeps the day's total | `CloudBudget.java:69`, `:207-232`, `BotBrains.java:55-60` |
+| Local concurrency | `BOT_LLM_MAX_CONCURRENT` (2), fair semaphore; cloud hardcoded 4 | no free slot before the deadline ⇒ empty answer ⇒ BANK | `OpenAICompatibleBrain.java:80`, `:224`, `BotBrains.java:80` |
+| Per-player rate | `BOT_LLM_PLAYER_MIN_INTERVAL_MS` (1500) | `fail("rate limited")` ⇒ empty ⇒ BANK (`complete` `:90-97`, `reply` `:113-119`) | `OpenAICompatibleBrain.java:62` |
+| Draft shape | one line, ≤160 raw chars, ≤70 sent, no markdown/emoji/thinking block | `voiceProblem` ⇒ `fail` ⇒ empty ⇒ BANK | `ReplyCleaner.java:14`, `:43`, `:49`, `:85` |
+| Voice | assistant phrasing, AI talk, brand, real-world/era anachronism | `ContentGuard.aiTalk` then `ContentGuard.problem` ("explicit", "slur", "off-limits insult") | `ReplyCleaner.java:49-84`, `ContentGuard.java:46`, `:79` |
+| Emotes/flirt | a line with >1 emoji is refused; `ContentGuard.flirty` feeds the romance flag, never blocks chat | `flirty` only steers tone | `ReplyCleaner.java:49-84`, `ContentGuard.java:92` |
+
 ### Intent → responder → tier → code
 
 | Intent / kind (`ChatTriage`) | Responder (game decision) | Tier / budget it consumes | File:line |
@@ -190,7 +205,7 @@ canned corpus is `BotDialoguePack/*.yaml` (28 packs, 14 059 lines; e.g. `Convers
 | `data/autoqa/saydo/<day>.jsonl` | `SayDo` (`SayDo.java:696-698`) | every claim and whether the bot backed it |
 | `data/autoqa/decide-shadow/<day>.jsonl` | `DecideShadow` (`:529-531`) | shadow classifier answers |
 | `src/main/java/soloMapling/ArtificialPlayer/BotConvo/chatbank.bin` | source resource (`ChatBank.java:42`, `:171`) | the line bank the fallbacks pick from |
-| `src/test/resources/chat/*.tsv|json` | tests | labelled lines, holdouts, decide answers |
+| `src/test/resources/chat/*.tsv` / `*.json` | tests | labelled lines, holdouts, decide answers |
 
 In-memory: `ChatStats` counters (`ChatStats.java:26` `Tier {LLM, SCRIPTED, EMOTE, IGNORED, FLAGGED}`, per-endpoint
 `Endpoint` `:108`, cloud and decide counters `:200-246`), one `Session` per (bot, player) of at most 8 turns
@@ -229,8 +244,8 @@ bot, 400 recent, 30 s dedupe, `SayDo.java:50-53`).
 | `solomapling.convo.planner` | false (`ConvoSwitches.java:32`) | **true** (`docs/release/1.6.4.conf:267,271`) | m02: plan the move before wording |
 | `solomapling.convo.planner` in 1.6.2 | false | off in the 1.6.2 freeze (`:252`) | |
 | `solomapling.convo.router` | true (`:18`) | on | off ⇒ `LOCAL` only (`ChatRouter.java:147`) |
-| `solomapling.convo.forceBank` | false (`:23`) | off | §all LLM calls off, every line scripted |
-| `solomapling.convo.{contract,sense,card,persona,styler,timing,bank,threads,quality,stateOfMind,grounding}` | true (`:18`) | on | individual layers; `stateOfMind=false` drops the snapshot, `grounding=false` the checker (`StateOfMind.java:34-35`) |
+| `solomapling.convo.forceBank` | false (`ConvoSwitches.java:23`) | off | every line scripted, no LLM call at all (`ChatRouter.java:145-148`) |
+| `solomapling.convo.{contract,sense,card,persona,styler,timing,bank,threads,quality,stateOfMind,grounding}` | true (`:18`) | on | individual layers; `stateOfMind=false` drops the snapshot (`StateOfMind.promptOn` `StateOfMind.java:48`), `grounding=false` the checker (`checkOn` `:53`) |
 | `solomapling.convo.intentMin` / `toneMin` / `conMin` | 0.4 / 0.8 / 0.4 (`ConvoSense.java:25-26`) | on | decide-confidence thresholds |
 | `solomapling.chat.decide` / `decideTimeoutMs` / `decidePerSecond` | true when URL set / 400 / 8 (`ChatDecide.java:32-34`) | on | classifier client |
 | `solomapling.chat.intentMin` / `conMin` | 0.4 / 0.4 (`ChatTriage.java:353-358`, `threshold` `:379`) | on | triage thresholds |
@@ -344,12 +359,12 @@ endpoint from CI.
 | b101 | Bots' answers contradict their own state — where they are, what is there (`:56`) |
 | b240 | "Regular bots say they're grinding while standing in town" (`:59`) — planner path 1.6.2 + 163-m02words |
 | b276 | QA feed misses map-scoped PLAN/ROUTE lines — QA-tool defect, not product (`:78`) |
-| b284 | 10-lane auto-QA produces false chat failures that pass serially (`:80`) |
-| b285 | Alt upgrade handover refused unless owner present — a broken 1.6.2 promise (`:81`) |
-| b287 | t-xc-5 scroll trader never lists Chaos/White Scroll — economy lane, adjacent (`:83`) |
+| b284 | Auto-QA at 10 lanes gives false failures: 8 of the 22:00 run's FAILs pass when rerun serially (`:80`) — the chat checks are among them |
+| b285 | Ticket 178: an alt can offer an upgrade for a sibling alt, but the trade command refuses it unless the owner is present (`:81`) — bot trade, reached through the same `BotChatActions.trade` path |
+| b287 | t-xc-5: a PANIC-style scroll trader holding a Chaos/White Scroll never lists it (`:83`) — bot economy lane, only adjacent to chat |
 
-NEW-FINDING: `src/main/java/soloMapling/ArtificialPlayer/BotBrainSystem/OpenAICompatibleBrain.java:63` — `lastCallByPlayer`
-is a plain `ConcurrentHashMap` that is only ever written (`:90-97`); on a server with 3,000 bots and an unbounded roster
+NEW-FINDING: `src/main/java/soloMapling/ArtificialPlayer/BotBrainSystem/OpenAICompatibleBrain.java:62` — `lastCallByPlayer`
+is a plain `ConcurrentHashMap` that is only ever read and written (`:90-97`, `:113-119`), never evicted; on a server with 3,000 bots and an unbounded roster
 of player ids it grows without eviction (small, but it is a leak by construction).
 
 NEW-FINDING: `src/main/java/soloMapling/ArtificialPlayer/BotChatActions.java:125-131` — the life-runtime party deferral

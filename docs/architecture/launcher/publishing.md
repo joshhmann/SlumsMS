@@ -112,9 +112,9 @@ No opcode or scheduler starts any of this: it is release-time tooling. The one r
   `.STAGED.txt` note. No DB, no migration: a publish only changes what the launcher downloads next. The server-side gate
   is written separately by `set-min-client-build`, rewriting the single `MIN_CLIENT_BUILD:` line under `server:`, keeping
   CRLF/indent, refusing a decrease without `--allow-lower`, treating an identical value as a no-op
-  (`set-min-client-build:27-35,41-53`). The 1.6.4 draft proposes `10740` (`docs/release/1.6.4.conf:284`) while its header
-  says live carries `10721` (`:10`); the field is `public int MIN_CLIENT_BUILD = 0`
-  (`src/main/java/config/ServerConfig.java:61`), 0 meaning off.
+  (`set-min-client-build:27-35,41-53`). The 1.6.4 draft proposes `10740` (`docs/release/1.6.4.conf:284`, planned at
+  `docs/release/1.6.4-playbook.md:28`) while that conf's header says live carries `10721` (`:10`); the field is
+  `public int MIN_CLIENT_BUILD = 0` (`src/main/java/config/ServerConfig.java:61`), 0 meaning off.
 
 ## Switches
 
@@ -209,8 +209,9 @@ publishing scenario, so no `!qa` run can see the patch feed.
 
 ## Known issues
 
-- **b052** (S4, Ops) — layer published before the news list was checked, then no retry. The row is stale: the fix is in
-  this tree at `publish-client:82-94`, and `publish_checks.py` exists only from `fb8286344`, the commit the card names.
+- **b052** (S4, Ops) — layer published before the news list was checked, then no retry. The row reads "pushed, not
+  merged" but is stale: `fb8286344`, the commit it names, is an ancestor of this branch (`git merge-base --is-ancestor
+  fb8286344 HEAD`), the fix is at `publish-client:82-94`, and `publish_checks.py` exists only from that commit.
 - **b270** (S3, Client) — a Live publish wrote `manifest.json` without `news[]`, so `slumsms-news@live` failed; cause is
   `--news` not being passed (`docs/release/RUNBOOK.md:49` now passes it). Deferred to 1.6.3, still open.
 - NEW-FINDING: `publish-client:149-150` mirrors `/launcher-test/manifest.json` only when `layers` there is a symlink and
@@ -237,8 +238,8 @@ not read — code and repo-doc evidence only.
 
 - Which `PATCH_DIR` a 1.6.4 RC/Test publish uses is recorded nowhere I could read (`publish-client:108-114` only tests
   whether the path equals the live one). TEST: unknown.
-- Is the Electron `--launcher` channel still used? `docs/release/RUNBOOK.md:56` publishes Tauri first "then the Electron
-  hand-over", and no `launcher.json` sits at the root, so the Electron flow may be dead weight kept for the hand-over.
-- `docs/architecture/launcher/README.md:73-74` states the endpoint invariant without naming the enforcing line; it is
-  `verify-client.py:141-148`. `docs/architecture/ops/README.md:26,44,57,76` plans the ops sibling
-  `client-and-launcher-publishing.md`; this page stops at the two pipelines so the two do not drift.
+- Is the Electron `--launcher` channel still used? `docs/release/RUNBOOK.md:54` says launchers ship "Tauri first, then the
+  Electron hand-over", and no `launcher.json` sits at the root, so the Electron flow may be dead weight kept for that
+  hand-over.
+- `docs/architecture/ops/README.md:26,44,57,76` plans an ops sibling `client-and-launcher-publishing.md` (host, nginx,
+  feed layout); this page stops at the two pipelines so the two do not drift.

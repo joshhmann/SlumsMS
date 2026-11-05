@@ -65,7 +65,7 @@ writes game files — that is `install-and-packs.md`.
 | per-layer `sha256` (from the top manifest) | the exact bytes of that layer's manifest JSON | `release.rs:156-158` for downloads, `release.rs:95-97` for the cache |
 | pack index `sha256` (from the top manifest) | the pack *index* JSON | `install.rs:615-616` |
 | per-file `sha256` + `size` | every individual game file | `install.rs:339-341`, `install.rs:411` |
-| `PackSource.sha256` for a pack archive | only the file name/index binding — the downloaded pack bytes themselves are **not** hashed | validated as 64-hex at parse (`packs.rs:82`), never compared to the archive |
+| `PackSource.sha256` for a pack archive | only the file name/index binding — the downloaded pack bytes themselves are **not** hashed | validated as 64-hex at parse (`packs.rs:84`), never compared to the archive |
 | layer-cache file | re-hashed on read | `release.rs:95-97` |
 
 So verification is layered: manifest → layer manifest → (per file) → optionally pack index → per file again. A pack
@@ -176,7 +176,7 @@ except through `MIN_CLIENT_BUILD`.
    (`manifest.rs:16-24`, `:293-313`), re-checked after merge (`manifest.rs:427`).
 5. **Nothing may write into `.slumsms-launcher/` or a staging directory**: `managed_path` rejects those first
    components (`manifest.rs:66-73`), so a manifest cannot overwrite the bookkeeping that validates it.
-6. **The access key never leaves the feed's origin** (`http.rs:133-135`; tests `feed.rs:293`, `:316`, `:362`).
+6. **The access key never leaves the feed's origin** (`http.rs:133-135`; tests `tauri/core/tests/feed.rs:293`, `:316`, `:362`).
 7. **`load_release` never mutates the game folder.** Every write is to `.slumsms-launcher/` (`release.rs:100-124`).
 8. **Malformed optional metadata degrades, it never blocks.** `minClientBuild` (`manifest.rs:347-348`), `news`
    (`manifest.rs:209-232`), `state.json` (`release.rs:298-300`) and `installed.json`
@@ -258,14 +258,14 @@ launches); the Rust `build_number` against a real 1.6.2+ `slums-build.txt` (see 
   minimum, `play_plan` (`tauri/core/src/play.rs:17-21`) returns `Verify`, Play launches, and the login gate refuses —
   the launcher reports "Client process started." (`launcher.rs:746`). Worth an owner decision: fail before launch.
 - **NEW-FINDING: `PackSource.sha256` is parsed and validated as a digest but never compared** to the downloaded pack
-  archive (`packs.rs:22-29`, `packs.rs:82`; install trusts per-entry hashes, `install.rs:411`). Harmless today, but the
+  archive (`packs.rs:22-29`, `packs.rs:84`; install trusts per-entry hashes, `install.rs:411`). Harmless today, but the
   field advertises a guarantee the code does not provide.
 - `tauri/docs/checkpoint.md:102` still claims 85 tests (57 unit + 26 feed + 2 swap); the crate now has 87 unit and 34
   feed tests. `checkpoint.md:3` also names the branch `launcher-tauri`, while the repo is on `launcher-165-server`.
-- `b017` (S3 Launcher, `STATUS-1.6.4.md:70`) — a new launcher exe can be flagged by Defender; process, not code.
-- `b270` (S3 Client, `STATUS-1.6.4.md:75`) — a Live publish wrote `manifest.json` without `news[]` and the
+- `b017` (S3 Launcher, `/root/work/STATUS-1.6.4.md:70`) — a new launcher exe can be flagged by Defender; process, not code.
+- `b270` (S3 Client, `/root/work/STATUS-1.6.4.md:75`) — a Live publish wrote `manifest.json` without `news[]` and the
   `slumsms-news@live` check failed; that is the `news` optional field on the release manifest.
-- `o04` (`STATUS-1.6.4.md:130`) — client and launcher builds should move off Silvia to tarkov2; operational only.
+- `o04` (`/root/work/STATUS-1.6.4.md:130`) — client and launcher builds should move off Silvia to tarkov2; operational only.
 - `docs/tickets/106-launcher-download-pass.md` (FEATURE 1.6.1) — access-key pass at download time; the code half is in
   place (`http.rs:14-18`) and is covered by `channels-and-auth.md`.
 
@@ -275,7 +275,7 @@ launches); the Rust `build_number` against a real 1.6.2+ `slums-build.txt` (see 
 recorded clean first install of 306 files in 1.7 s with every file SHA-256-verified (`tauri/docs/checkpoint.md:18`);
 schema 1, schema 2, redirected feeds, tampered layers, unsafe paths and 401 are all exercised by
 `tauri/core/tests/feed.rs:194-398`; the on-disk formats are deliberately identical to the Electron launcher's
-(`release.rs:1-4`), so a migrated install keeps its fast verify (`feed.rs:91`).
+(`release.rs:1-4`), so a migrated install keeps its fast verify (`tauri/core/tests/feed.rs:91`).
 
 **Partial** for the client-build story: the metadata is read and displayed correctly, but the *decision* it feeds is
 advisory only (Known issues, NEW-FINDINGs 1-2).

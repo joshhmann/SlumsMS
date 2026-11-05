@@ -23,7 +23,7 @@ database: the game server remains the only place a password is checked (`tools/s
 | Startup ask + 10-minute re-check | `tauri/app/src/launcher.rs:393` (bounded 10 s) and `:398-405` (`AVAILABLE_INTERVAL`, `:32`) |
 | `!qa` step `account` / `account-store` | `tauri/app/src/launcher.rs:1026-1030` |
 | Dev CLI `site-me`, `site-signin`, `site-signup`, `site-signout` | `tauri/core/examples/cli.rs:78-112` |
-| Site `POST /api/login/password`, `POST /api/login/signup` | `tools/site/login_service.py:571-572` |
+| Site `POST /api/login/password`, `POST /api/login/signup` | `tools/site/login_service.py:571` |
 | Site `GET /api/login/me`, `POST /api/login/logout`, `POST /api/login/download-pass` | `login_service.py:552,566,573` |
 | Game `POST /signup`, `POST /verify` on loopback | `src/main/java/soloMapling/site/auth/SiteAuthApi.java:216,238-241`; started from `src/main/java/net/server/Server.java:1043` |
 | GM/player commands that make codes: `!invite`, `!invite list`, `!invite revoke`; `@invite` for players | `src/main/java/client/command/commands/gm3/InviteCommand.java:23-60` |
@@ -51,8 +51,8 @@ launcher dev build. Details in `## Switches`.
 5. Site `json_body()` (`login_service.py:583-595`) requires `X-Slums: 1`, rejects a mismatched browser `Origin`,
    and accepts only a JSON object of 1..1024 bytes. Then `account_sign_in("password")` (`:597`): per-IP limiter →
    `429 RATE_LIMITED`; `sign_in_broken(user,pw)` shape check (`:363-369`) → `400 {error, rule}`; then
-   `auth.call("/verify", {"user","pass"}, ip)` (`:611`).
-6. `GameAuth.call` (`login_service.py:407-425`) re-reads the secret and IP salt **by path on every call**, adds
+   `auth.call("/verify", {"user","pass"}, ip)` (`:613`).
+6. `GameAuth.call` (`login_service.py:408-425`) re-reads the secret and IP salt **by path on every call**, adds
    `ipHash = HMAC-SHA256(salt, ip)[:32]`, and POSTs to `SLUMS_LOGIN_AUTH_URL/verify` with
    `X-Slums-Auth: <secret>` (8 s timeout). No URL set, no secret, or no salt → `None`.
 7. Game `SiteAuthApi.handle` (`SiteAuthApi.java:204`) compares the secret in constant time (`authorized`,
@@ -64,7 +64,7 @@ launcher dev build. Details in `## Switches`.
    (`:250-260`). Success → `store.profile(id)` for `gmLevel` + character list.
 9. Answer `200 {ok, account_id, account, gm, gm_level, characters}` (`SiteAuthApi.java:359-372`), or
    `{ok:false, error, rule?}`.
-10. Site `signed_in()` (`login_service.py:625-631`) mints the session (`Sessions.issue`, `:143-160`: payload keys
+10. Site `signed_in()` (`login_service.py:625-631`) mints the session (`Sessions.issue`, `:139-153`: payload keys
     `a`,`n`,`c`,`iat`,`exp`,`sid`, optional `cs`,`g`,`gl`; `b64(json)+"."+b64(HMAC-SHA256)`), and answers
     `200 {"ok":true,"account":…,"character":…}` plus `Set-Cookie: slums_session=<token>; Max-Age=2592000;
     Path=/; HttpOnly; SameSite=Lax[; Secure]` (`make_handler` flags, `:507-512`).
@@ -137,7 +137,7 @@ stops working, and clears the cookie.
   no token, no pass value.
 - Site stderr: only `"{method} {path}"` (`login_service.py:519`), `"invite {action} by account {id}"` (`:729`, never
   the code), exchange approvals by account id (`:758-760`). The key/secret/salt are read by path and never printed.
-- Site → game hop is plain HTTP over loopback and **carries the plaintext password** (`login_service.py:414-418`).
+- Site → game hop is plain HTTP over loopback and **carries the plaintext password** (`login_service.py:410-414`).
   That is inside one host; the launcher→site hop is HTTPS on live and plain HTTP on TEST (no Caddy, no TLS there).
 - The token exists on disk only in the `.bin` file above, and on the wire only as the `slums_session` cookie to the
   site's own origin. `DownloadPass` Debug prints only the expiry (`site.rs:217-221`, asserted at `:480`).
@@ -194,7 +194,7 @@ calls them)") and in `docs/architecture/server/site-and-dashboard.md:131-133`.
 5. **An invite is single-use under concurrency.** `CONSUME` is a conditional UPDATE on `used_at = 0 AND revoked_at = 0
    AND expiry` (`AuthStore.java:121-122`) whose row lock serialises competing sign-ups; the loser gets `CODE_GONE`.
 6. **Revocation wins within one poll.** `Sessions.check` consults `revoked.txt`, ended sids and the reset mark on
-   every request (`login_service.py:172-185`); the launcher notices within `AVAILABLE_INTERVAL` (10 min) via
+   every request (`login_service.py:170-189`); the launcher notices within `AVAILABLE_INTERVAL` (10 min) via
    `/api/login/me`.
 7. **Sign-in answers are generic.** Wrong password, unknown user and a banned account all produce
    `401 "Wrong username or password."` (`SiteAccounts.java:245-246,269-272`); the account id never leaves the game.

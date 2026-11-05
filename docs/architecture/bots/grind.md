@@ -231,7 +231,7 @@ e.g. `src/main/java/soloMapling/ArtificialPlayer/BotAffinitySystem/RudeStreak.ja
    (`src/main/java/soloMapling/ArtificialPlayer/BotGrindSystem/LootPicker.java:31-35`), and at-feet pickup never
    moves the bot (`GrindLoot.java:59-81`).
 7. Abstract loot is drawn from a shared per-map budget, never minted, and a reward the bot cannot hold is forfeited
-   (`TrainingBot.java:2810-2812`, `:2828-2830`).
+   (`TrainingBot.java:2810-2833`).
 8. A KO'd, paused, quiesced, or mid-rebirth/mid-errand bot does nothing in GRIND
    (`TrainingBot.java:228-231`, `:262-266`, `:589-614`), and a quiesce cancels the shared ticker (`:219`).
 
@@ -309,7 +309,7 @@ From `/root/work/STATUS-1.6.4.md`:
 | b240 | S3 | "Regular bots say they're grinding while standing in town" (`/root/work/STATUS-1.6.4.md:59`, refs `23fe8f08f` planner path + `3aba87f15` town-greet). Dialogue is gated (`ConvoLines.java:114-122`, `BotThreads.java:1067-1075`); the GRIND phase itself is not — see the three entry paths under `## How it works`. |
 | b276 | S4 | A bot's map-scoped PLAN/ROUTE lines never reach the GM QA feed (`/root/work/STATUS-1.6.4.md:78`). Same class as the grind's `debugChat("GRIND on map …")` / `spotLabel()` output; triaged as a QA-tool defect. |
 | b284 | S3 | Auto-QA at 10 lanes reports false failures (`/root/work/STATUS-1.6.4.md:80`) — the grind-adjacent lanes (`t-cb-*`, `t-sp-1`, `t-gb-3`) are inside that blast radius. |
-| b287 | S4 | `t-xc-5`: a PANIC-style scroll trader holding a Chaos/White Scroll never lists it (`/root/work/STATUS-1.6.4.md:83`) — the offscreen scroll finds that feed it are called from the grind's abstract loot (`TrainingBot.java:2824`). |
+| b287 | S4 | `t-xc-5`: a PANIC-style scroll trader holding a Chaos/White Scroll never lists it (`/root/work/STATUS-1.6.4.md:83`) — the offscreen scroll finds that feed it are called from the grind's abstract loot (`TrainingBot.java:2821`). |
 | b225 / b232 / b241 | S3/S4 | Party/PQ cards (`/root/work/STATUS-1.6.4.md:57-60`); they intersect grind only through the party steer that pre-empts map choice (`TrainingBot.java:1917-1923`). |
 
 Own findings:
