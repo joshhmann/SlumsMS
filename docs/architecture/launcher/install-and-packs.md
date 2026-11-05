@@ -23,9 +23,9 @@ that make the next check cheap (`.slumsms-launcher/state.json`, `installed.json`
    (install.rs:674-680), then runs `inspect` (install.rs:681-684 → install.rs:83-206) over every manifest file, resolving
    `destination` first (install.rs:104):
    - absent → pending (install.rs:107);
-   - **player-owned path** (`release.player_owned`, default `config.ini`): keep the player's copy and mark it verified when
-     `state.json` already records the same manifest hash (install.rs:112-116); otherwise, for `config.ini` only, remember
-     the recorded server and make it pending so the channel's server can be merged (install.rs:118-121);
+   - **player-owned** (`release.player_owned`, default `config.ini`): keep the player's copy and mark it verified when
+     `state.json` records the same manifest hash (install.rs:112-116); else, for `config.ini`, remember the recorded
+     server and make it pending so the channel's server can be merged (install.rs:118-121);
    - **size differs** from the manifest → pending (install.rs:122-124);
    - **Fast mode** and `state.json` size+mtime match → trust the recorded hash (install.rs:126-131);
    - otherwise queue for hashing (install.rs:133).
@@ -33,8 +33,8 @@ that make the next check cheap (`.slumsms-launcher/state.json`, `installed.json`
    Queued files are SHA-256'd by 4 scoped threads (install.rs:147-180); `digest` returns `None` if a file changed
    mid-read (fsutil.rs:198-219). `kept_bytes = manifest total − pending bytes` (install.rs:202) is what a resume counts.
 2. **Short-circuit when nothing is pending**: write `state.json`, the layer cache and `installed.json`, return
-   (install.rs:690-695). `inspect_release` does the same for a bare Check (install.rs:221-239, "the state is only a
-   cache" at install.rs:228).
+   (install.rs:690-695); `inspect_release` does the same for a bare Check (install.rs:221-239, "the state is only a
+   cache" at install.rs:226).
 3. **Free-space check** before a byte is fetched: `needed = pending + min(pending, 512 MiB)` (install.rs:696-700,
    `ensure_disk_space` install.rs:641-655); failure carries `DISK_FULL` (install.rs:651). `remove_stale_stages` then
    deletes `.mapleroot-stage-*` older than one hour (install.rs:657-671; `STALE_STAGE` install.rs:32) and this run's
@@ -44,28 +44,27 @@ that make the next check cheap (`.slumsms-launcher/state.json`, `installed.json`
    validated (`load_pack_sources`, install.rs:609-631): the bytes must hash to the SHA-256 pinned in the top manifest
    (install.rs:615-616), and `validate_pack_index` re-checks schema, layer/version, the layer manifest SHA-256, unique
    URLs, non-repeated file indexes and each pack's declared size (packs.rs:47-87). An unusable index is downgraded to a
-   note — "Packs for {layer} are unavailable (…); downloading its files one by one." (install.rs:627) — except
-   access-key errors and cancellation, which propagate (install.rs:626).
+   note — "Packs for {layer} are unavailable (…); downloading its files one by one." (install.rs:630) — except
+   access-key errors and cancellation, which propagate (install.rs:629).
 5. **Plan.** `plan_packs` (packs.rs:145-209) prices a span as `end − start + 128 KiB` per request
    (`DEFAULT_REQUEST_COST`, packs.rs:11) against one request per file, keeps only packs with a positive saving, merges
    entries whose gap is under one request (packs.rs:128-143) and keys content by `sha256:size` so an identical file
    served by two layers is fetched once (packs.rs:89-91, packs.rs:148).
-6. **Download packs**, 4 at a time (`for_each_concurrent(options.pack_concurrency)`, install.rs:755-759). Each span is an
-   HTTP `Range: bytes=<pos>-<end-1>` request (install.rs:429) validated by `range_start` (install.rs:346-374). Bytes
+6. **Download packs**, 4 at a time (`for_each_concurrent(options.pack_concurrency)`, install.rs:755-759). Each span is
+   an HTTP `Range: bytes=<pos>-<end-1>` request (install.rs:435) validated by `range_start` (install.rs:346-374). Bytes
    stream into per-file temporaries in the stage dir, hashed as they arrive; a file completes when its SHA-256 matches
-   (install.rs:411), then `on_file` installs it — duplicates are `fs::copy`'d from that same temporary (install.rs:774-779).
-   A dropped connection resumes at the exact byte; the retry budget of 8 refills to 1 whenever an attempt moved at least
-   1 MiB (install.rs:484-489). A damaged pack is abandoned and what it owed moves to the per-file list ("A pack could not
-   be used (…); downloading its files one by one.", install.rs:799-810). The gate at install.rs:795 aborts the install
-   only for cancellation, non-permanent errors, a missing access key or a local error other than the SHA-256 mismatch, so
-   a pack member failing its hash (install.rs:410-412) counts as a damaged pack and is re-fetched individually.
+   (install.rs:411), then `on_file` installs it — duplicates are `fs::copy`'d from that same temporary
+   (install.rs:774-779). A dropped connection resumes at the exact byte; the retry budget of 8 refills to 1 whenever an
+   attempt moved at least 1 MiB (install.rs:484-489). A damaged pack is abandoned and what it owed moves to the per-file
+   list ("A pack could not be used (…); downloading its files one by one.", install.rs:799-810); the gate at
+   install.rs:795 aborts the install only for cancellation, non-permanent errors, a missing access key or a local error
+   other than the SHA-256 mismatch, so a member failing its hash (install.rs:410-412) counts as a damaged pack.
 7. **Download the rest per file**, `options.concurrency` at a time (install.rs:822-827), each into its own stage
-   temporary with the same stall detection and backoff. `download` (install.rs:319-343) has three verdicts: an oversized
+   temporary with the same stall detection and backoff. `download` (install.rs:320-343) has three verdicts: an oversized
    body is permanent "Download exceeds declared size" (install.rs:326-328), a short body is transient "Download ended
-   early" (install.rs:335-337), and a full-size body with the wrong SHA-256 is permanent "Downloaded file failed
-   size/SHA-256 verification" (install.rs:338-340). A discarded attempt removes its temporary and subtracts its received
-   bytes from the progress counter (install.rs:843-845); permanent and local errors end that file's attempt at once
-   (install.rs:846-848).
+   early" (install.rs:335-337), a full-size body with the wrong SHA-256 is permanent "Downloaded file failed size/SHA-256
+   verification" (install.rs:338-340). A discarded attempt removes its temporary and subtracts its received bytes from
+   the progress counter (install.rs:843-845); permanent and local errors end that file's attempt at once (install.rs:846-848).
 8. **Commit.** Only now are replacements applied: every file that existed before was deferred (install.rs:583-585) and is
    renamed into place here, with the comment "No existing file is replaced until every download has passed verification."
    (install.rs:875-881). `commit_locked` (install.rs:557-578) is the only writer: it resolves the target, merges the
@@ -89,27 +88,25 @@ that make the next check cheap (`.slumsms-launcher/state.json`, `installed.json`
 
 ## Data
 
-- `state.json` — per-managed-file `{size, mtimeMs, sha256, server}` (release.rs:279-289), read at release.rs:298, written
-  by `write_install_state` (release.rs:319) after an install and checkpointed every 5 s during downloads
-  (`STATE_CHECKPOINT` install.rs:34; checkpoint at install.rs:589-592). A cache: losing it costs a re-hash only
-  (install.rs:228).
+- `state.json` — per-managed-file `{size, mtimeMs, sha256, server}` (release.rs:279-289), read at release.rs:298,
+  written by `write_install_state` (release.rs:319) after an install and checkpointed every 5 s during downloads
+  (`STATE_CHECKPOINT` install.rs:34; checkpoint install.rs:589-592). A cache: losing it costs a re-hash only (install.rs:226).
 - `installed.json` — the record Play trusts; written only by a clean install/verify (`record_installed`,
-  release.rs:421-433), read at Play (launcher.rs:700). The layer cache beside it keys layer manifest bodies by SHA-256 so
+  release.rs:421-433), read at Play (launcher.rs:700). The layer cache beside it keys manifest bodies by SHA-256 so
   unchanged layers are not re-fetched (release.rs:85-97).
 - Pack index — `layers/<name>/<version>/packs/index.json`,
-  `{schemaVersion:1, layer, version, manifestSha256, packs:[{url,size,sha256,files:[index…]}]}`; a pack is the
-  concatenated bytes of those manifest files, so each offset is the sum of the sizes before it (packs.rs:47-87,
-  README.md:134).
+  `{schemaVersion:1, layer, version, manifestSha256, packs:[{url,size,sha256,files:[index…]}]}`; a pack concatenates
+  those manifest files, so each offset is the sum of the sizes before it (packs.rs:47-87, README.md:134).
 - Nothing about an install lives outside the game folder except the launcher's own settings (download concurrency,
   install dir) in its app-data config (config.rs:14).
 
 ## Switches
 
-- `downloadConcurrency` — launcher config `launcher.config.json`, integer 1..32, default 12 (`DEFAULT_CONCURRENCY`,
-  install.rs:26; validated at config.rs:100-105; default at config.rs:149). Per-file pool only.
+- `downloadConcurrency` — `launcher.config.json`, integer 1..32, default 12 (`DEFAULT_CONCURRENCY`, install.rs:26;
+  validated at config.rs:100-105; default at config.rs:149). Per-file pool only.
 - `InstallOptions.packs` — code-level, default `true` (install.rs:257-266); nothing in config or UI sets it, so live
   launchers always try packs. Pack parallelism (4, install.rs:29), retries (4 file / 8 pack), stall timeout (60 s,
-  install.rs:28) and `STATE_CHECKPOINT` are likewise not user-visible.
+  install.rs:28) and `STATE_CHECKPOINT` are likewise invisible to players.
 - Publishing side: `publish.mjs --packs NAME@VERSION [--pack-size MiB]` (1..4096, publish.mjs:605-621) builds `packs/`;
   `--no-packs` is valid only with `--release` (publish.mjs:626) and is forwarded by `tools/release/publish-client:73-75,
   :123`.
@@ -121,7 +118,7 @@ that make the next check cheap (`.slumsms-launcher/state.json`, `installed.json`
 
 - **Writes stay inside the game folder** — every path goes through `destination` (fsutil.rs:161-182) after
   `installation_root` (fsutil.rs:125-153); both refuse symlinks and Windows case aliases (`check_spelling`,
-  `directory_child`, fsutil.rs:73-118). Manifest paths are pre-validated to be relative, alias-free and outside
+  `directory_child`, fsutil.rs:73-118). Manifest paths are pre-validated as relative, alias-free and outside
   `.slumsms-launcher`/`.mapleroot-stage-*` (manifest.rs:49-73).
 - **A file only lands after its hash matches** — per-file size and SHA-256 streamed and compared (install.rs:337-340),
   per pack member an entry SHA-256 before `on_file` (install.rs:410-412).
@@ -161,15 +158,14 @@ in `/root/work/launcher-165-server`:
 
 Rust (`cargo test -p slums-core`, `tauri/core/tests/feed.rs`, harness in `tauri/core/tests/support/mod.rs`):
 
-- Install/verify: `first_install_layers_override_and_record_installed` (:53),
-  `only_layers_whose_version_changed_are_downloaded` (:74),
-  `fast_verify_trusts_size_and_mtime_and_repair_hashes_everything` (:91),
-  `player_owned_config_installs_once_survives_updates_and_repair` (:121),
-  `config_ini_takes_its_server_from_the_channel_and_keeps_the_players_options` (:136),
-  `installed_record_is_written_only_by_a_clean_install_or_verify` (:423).
-- Refusals: `per_file_downloads_retry_transient_failures_and_stop_on_404` (:227),
-  `a_corrupt_payload_never_replaces_an_existing_file` (:255), `hosted_layers_with_unsafe_or_reserved_paths_are_refused`
-  (:210), `a_tampered_layer_manifest_is_refused` (:219).
+- Install/verify (:53, :74, :91, :121, :136, :423): `first_install_layers_override_and_record_installed`,
+  `only_layers_whose_version_changed_are_downloaded`, `fast_verify_trusts_size_and_mtime_and_repair_hashes_everything`,
+  `player_owned_config_installs_once_survives_updates_and_repair`,
+  `config_ini_takes_its_server_from_the_channel_and_keeps_the_players_options`,
+  `installed_record_is_written_only_by_a_clean_install_or_verify`.
+- Refusals (:227, :255, :210, :219): `per_file_downloads_retry_transient_failures_and_stop_on_404`,
+  `a_corrupt_payload_never_replaces_an_existing_file`, `hosted_layers_with_unsafe_or_reserved_paths_are_refused`,
+  `a_tampered_layer_manifest_is_refused`.
 - Packs (:462-604): duplicate and zero-byte files (:462), resume at the exact byte after a cut (:476), stall-timeout
   resume (:489), server without Range support (:500), damaged pack falls back per file (:510), interrupted first install
   (:542), disk-space refusal before any request (:564), small update stays per-file while shadowed base content comes
@@ -213,10 +209,10 @@ through a redirect/CDN, and the live patch host itself.
 
 ## State
 
-**Partial.** The installer is complete and covered: 20+ behaviour tests drive first install, update, repair, resume,
-cancellation, pack fallback and disk-space refusal against a local server that reproduces the publisher's layout
-(`tauri/core/tests/support/mod.rs:53`, packed layers at `:232`), and the publisher re-validates its own index
-(publish.mjs:326). What is missing is the operational half: every live publish passes `--no-packs`
+**Partial.** The installer is complete and covered: 34 tests in `tauri/core/tests/feed.rs` drive first install, update,
+repair, resume, cancellation, pack fallback and disk-space refusal against a local server that reproduces the
+publisher's layout (`tauri/core/tests/support/mod.rs:53`, packed layers at `:232`), and the publisher re-validates its
+own index (publish.mjs:326). What is missing is the operational half: every live publish passes `--no-packs`
 (`docs/release/README.md:18-23`, `docs/release/RUNBOOK.md:33`, `docs/release/1.6.3-deploy-steps.md:92`) and no `--packs`
 invocation exists anywhere in `docs/release/` or `tools/release/`, so Live serves loose files and the pack path has never
 run against the real host. No Windows run over a folder with a locked or running client is recorded either; the launcher

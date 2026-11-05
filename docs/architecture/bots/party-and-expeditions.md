@@ -112,7 +112,7 @@ and drop, take back after 20 s if the leader stands more than 100 px from the dr
 
 ### 5. OPQ bots (scripted, dev harness)
 
-`OPQBot` is a 20-state machine (src/main/java/soloMapling/ArtificialPlayer/BotTypes/OPQ/OPQBot.java:146-164) driven by
+`OPQBot` is a 20-state machine (src/main/java/soloMapling/ArtificialPlayer/BotTypes/OPQ/OPQBot.java:144-165) driven by
 `updateState` (OPQBot.java:186-215), with the map as the authority: `detectPhaseFromMap` re-homes the bot whenever the
 server teleported it somewhere unexpected (OPQBot.java:1008). The lobby phase `handleRecruitment` accepts any pending
 invite through `BotPartyLogic.checkPartyQueue`, then advertises at a per-lobby rate
@@ -311,8 +311,10 @@ index is keyed by map *instance* but comments say "cleared on reset"; `resetForN
 process that runs many OPQ instances accumulates one entry per dead instance until a reset is called.
 
 NEW-FINDING: src/main/java/soloMapling/ArtificialPlayer/BotPartySystem/ExpeditionBots.java:127 — `follows` converts a
-`TrainingBot` to a `FollowerBot` (`trainer.order(Verb.FOLLOW, …)` at :535) as a side effect of the *eligibility check*,
-so asking "may this bot join" mutates the bot's type even when the later `quota`/`busy` branches refuse it.
+`TrainingBot` to a `FollowerBot` (`trainer.order(Verb.FOLLOW, …)` at :535) as a side effect of the *eligibility check*.
+The order of the guards is `skip` → `quotaFull` → `quota.hasEntry` → `busy` → `follows` (:119-129), so the quota/busy
+refusals happen first; the residual case is `order()` not taking effect (`follows` returns false after mutating), which
+leaves the bot demoted to a follower in the same pass that reports "busy".
 
 ## State
 

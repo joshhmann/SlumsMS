@@ -60,7 +60,7 @@ the same code path produces a bank line and the bot still answers.
    (`:574-576`; `ConvoSense.read` `:302`/`:362`) → `ChatTriage.rules` for kind/intent/con
    (`BotBrainSystem/ChatTriage.java:331`), and only when kind is `TALK` and a slot is still open does it ask the decide
    model (`ChatTriage.classify` `:342`, `askNow` `:350`) and merge with the confidence thresholds
-   `solomapling.chat.intentMin` / `conMin` (0.4, `:376-384`). `ChatScope.scan` (`BotBrainSystem/ChatScope.java:56/:64`)
+   `solomapling.chat.intentMin` / `conMin` (0.4, `:353-358`, defaults read at `:379`). `ChatScope.scan` (`BotBrainSystem/ChatScope.java:56/:64`)
    keeps quoted, reported, negated, narrated and warning text out of the intent; `ContentGuard.flirty` feeds the romance
    flag.
 6. **Side systems read the same line first.** `BotStateOfMind.offer`, `haggling`, `RudeStreak.onLine`,
@@ -80,7 +80,7 @@ the same code path produces a bank line and the bot still answers.
    (`BotConvo/ConvoActions.java:105`, gated by `ConvoSwitches.on("contract")`).
 10. **Plan the move (m02).** When `ConvoSwitches.planner()` is on and the outcome is plain talk or a party/follow the
     gates already answered (`planReply`, `BotConversation.java:841-845`), `BotReplyView.of` + `ReplyPlanner.plan`
-    (`BotConvo/BotReplyPlanner` caller `:696-703`, `ReplyPlanner.plan` `:286`) decide a `Move`
+    (`BotConvo/BotReplyView.of`, caller `BotConversation.java:696-703`, `ReplyPlanner.plan` `:286`) decide a `Move`
     (`ReplyPlanner.java:31`: HELLO, HELLO_BACK, SMALL_TALK, ACTIVITY, TRAIN_SPOT, LEVEL_TALK, BUSY, PARTY_YES, PARTY_NO)
     plus the exact facts it may state. Everything else returns `null` and keeps the pre-m02 prompt.
 11. **Build the prompt.** Plan on → `ReplyPlanner.prompt(view, plan)` (`:711`, `:528`; rules `:554`, facts prefixed
@@ -147,7 +147,7 @@ the same code path produces a bank line and the bot still answers.
 | `Intent.WHERE_AT` | `whereAt` — the bot's map | scripted | `BotChatActions.java:293`, `:137` |
 | `Intent.QUESTS` / `RECOMMEND_QUEST` | `quests(bot, player)` | scripted | `BotChatActions.java:263`, `:138-139` |
 | life-runtime party map (`103000800`, `221023200`, `200080101`, `930000000`, `261000021`) | deferred: `PARTY_DECLINED`, fact `PENDING_LIFE:` , line "lemme check a sec" | `SCRIPTED` | `BotChatActions.java:125-131` |
-| `Con.SCAM` / `MANIPULATION` / `HARASSMENT` / `RWT` | `onFlagged`: no model, note, brush-off or silence | `FLAGGED` / `SCRIPTED` | `BotConversation.java:1201-1240`, `ChatTriage.java:154-172` |
+| `Con.SCAM` / `MANIPULATION` / `HARASSMENT` / `RWT` | `onFlagged`: no model, note, brush-off or silence | `FLAGGED` / `SCRIPTED` | `BotConversation.java:1201-1247`, `ChatTriage.java:154-172` |
 | action reply that fails `fits` (says yes to a refusal) | bank line for the outcome | `SCRIPTED` | `BotChatActions.java:72-114`, `BotConversation.java:785-790` |
 
 ### DecideShadow (measured, never spoken)
@@ -233,7 +233,7 @@ bot, 400 recent, 30 s dedupe, `SayDo.java:50-53`).
 | `solomapling.convo.{contract,sense,card,persona,styler,timing,bank,threads,quality,stateOfMind,grounding}` | true (`:18`) | on | individual layers; `stateOfMind=false` drops the snapshot, `grounding=false` the checker (`StateOfMind.java:34-35`) |
 | `solomapling.convo.intentMin` / `toneMin` / `conMin` | 0.4 / 0.8 / 0.4 (`ConvoSense.java:25-26`) | on | decide-confidence thresholds |
 | `solomapling.chat.decide` / `decideTimeoutMs` / `decidePerSecond` | true when URL set / 400 / 8 (`ChatDecide.java:32-34`) | on | classifier client |
-| `solomapling.chat.intentMin` / `conMin` | 0.4 / 0.4 (`ChatTriage.java:376`) | on | triage thresholds |
+| `solomapling.chat.intentMin` / `conMin` | 0.4 / 0.4 (`ChatTriage.java:353-358`, `threshold` `:379`) | on | triage thresholds |
 | `solomapling.chat.replyTemperatureMax` | 0.7 (`OpenAICompatibleBrain.java:279-282`) | on | temperature cap for replies |
 | `solomapling.chat.typingScale` | 1.0 (`BotConversation.java:1574`) | on | typing-delay multiplier |
 | `solomapling.chat.logReplies` | true (`ChatStats.java:18,87`) | on | per-reply log line |
@@ -312,9 +312,10 @@ Unit tests (`src/test/java/soloMapling/ArtificialPlayer/`), 15 in `BotBrainSyste
 | --- | --- |
 | Triage/read | `BotBrainSystem/ChatTriageTest`, `ChatDecideTest`, `ChatDecideContextTest`, `ChatDecideEvaluation`, `ChatLabelledSet`, `ChatVoiceSample`, `DecideProvenanceTest`, `BotConvo/ConvoSenseTest`, `ConvoSenseSplitTest`, `ConvoSenseEvaluation`, `PlayerChatMeaningRegressionTest`, `StateOfMindTest` |
 | Routing/budget | `BotBrainSystem/ChatRouterTest`, `CloudBudgetChargeTest`, `CloudCachePriceTest`, `ChatStatsTest`, `OpenAICompatibleBrainTest`, `DecideBenchmarkBridge(+Test)` |
-| Wording/guards | `BotBrainSystem/ReplyCleanerTest`, `BotConvo/{ReplyPlannerTest,ReplyReplayTest,ReplyReplay,SayDoTest,SpeechGuardTest,RepeatGuard?,NameGuardTest,NameGuardReportTest,MessyChatTest,HumanTimingTest,ClaimRulesTest,VoiceStylerTest}`, `BotChatActionsTest`, `BotChatPromptTest`, `BotChatTuningTest` |
-| Whole conversation | `BotConversationFlowTest`, `BotConversationHeardTest`, `BotConversationHoldTest`, `ConvoConversationFlowTest`, `ConvoTalkFallbackTest`, `ConvoGatesTest`, `ConvoContractTest`, `ConvoActionsTest`, `ConvoQualityTest`, `BankClaimsTest`, `ChatBankTest`, `DecideShadowTest`, `DecideShadowSelfCheckTest`, `LfgPartyTest`, `WhisperTrailTest` |
-| Packs | `BotDialogueHandlerTest`, `BotDialogueBackedPickTest`, `DialoguePackCheckTest`, `DialogueSlotResolutionTest` |
+| Wording/guards | `BotBrainSystem/ReplyCleanerTest`, `BotConvo/ReplyPlannerTest`, `ReplyReplayTest`, `ReplyReplay`, `SayDoTest`, `SpeechGuardTest`, `RepeatGuardTest`, `NameGuardTest`, `NameGuardReport` (helper), `MessyChatTest`, `HumanTimingTest`, `ClaimRulesTest`, `VoiceStylerTest`, `ScriptBackingTest`, `ChannelMentionsTest`, `BotChatActionsTest`, `BotChatPromptTest`, `BotChatTuningTest` |
+| Whole conversation | `soloMapling/ArtificialPlayer/BotConversationFlowTest`, `BotConversationHeardTest`, `BotConversationHoldTest`, `PersonalSpaceChatTest`, `BotTalkGuardTest`, `ConversationScriptBackingTest`, `ConvoEvalPromptsTest`; `BotConvo/ConvoConversationFlowTest`, `ConvoTalkFallbackTest`, `ConvoGatesTest`, `ConvoContractTest`, `ConvoActionsTest`, `ConvoQualityTest`, `ConvoDailyScoreTest`, `ConvoTuneTest`, `ConvoPersonaTest`, `ConvoEntitiesTest`, `ConvoScopeTest`, `BankClaimsTest`, `ChatBankTest`, `DecideShadowTest`, `DecideShadowSelfCheckTest`, `LfgPartyTest`, `WhisperTrailTest`, `TalkBrainTest`, `TalkPlannerTest`, `TalkQaForcedYesTest`, `TalkQaFreePairTest`, `TrainSpotReplyTest`, `LevelTalkTest`, `TrainingTipsTest`, `PromiseIntentsTest`, `PartnerMemoryTest`, `RelationshipCardTest` |
+| Bot-to-bot | `BotConvo/BotTalkBudgetTest`, `BotTalkGreetBackTest`, `BotTalkInviteToMakeTest`, `BotTalkSayDoTest`, `BotTalkSocialActsTest`, `BotTalkTickPerfTest`, `BotTalkTickThreadTest`, `BotThreadsTest`, `BotThreadsAfterTest`, `BotThreadsBeefTest`, `BotThreadsDoerTest`, `BotThreadsPartiedAskTest`, `BotThreadsTuneTest`, `SpanishAccentTest` |
+| Packs | `soloMapling/ArtificialPlayer/BotDialogueHandlerTest`, `BotDialogueBackedPickTest`, `DialoguePackCheckTest`, `DialogueSlotResolutionTest`, `BotDialoguePack/DialogueBrandTest` |
 
 Fixtures: `src/test/resources/chat/{labelled-lines.tsv, convo-lines.tsv, holdout-lines.tsv, convo-holdout.tsv,
 convo-decide-answers.json, convo-holdout-answers.json, replies-fixture.jsonl, thread-lines-2026-10-23-25.jsonl}`.

@@ -154,7 +154,7 @@ log is their only quest store (BotQuestLog.java:13-16).
 | `-Dsolomapling.botSkillBooks` | `false` | **on** | BotSkillBooks.java:43, :75-76 |
 | `-Dslums.gear.dexless` | off | **on** | BotProgression.java:223-231 |
 | `-Dslums.bots.apvariants` / `.fromSlot` | off / — | **on** / `auto` | BotProgression.java:435-455 |
-| `-Dsolomapling.walkWhenWatched` | on unless `false` | default | src/main/java/soloMapling/ArtificialPlayer/BotTravelSystem/GCMoveSystem/WatchGate.java:23 |
+| `-Dsolomapling.walkWhenWatched` | on unless `false` | default | src/main/java/soloMapling/ArtificialPlayer/GCMoveSystem/WatchGate.java:27, :40-42 |
 | `BOT_REBIRTH_ENABLED`, `BOT_REBIRTH_PER_DAY` (yaml) | `false`, 2 | **true, 2** | src/main/java/config/ServerConfig.java:477-478; docs/release/1.6.4.conf:205; BotRebirth.java:116-120 |
 | `-Dsolomapling.economy.maker.botBatch` | `false` (economy.yaml `maker.botBatch`) | **on** | src/main/java/soloMapling/Economy/economy.yaml:159; BotMaker.java:84 |
 | TEST start-test.sh | — | TEST: unknown (script unreachable in this review) | — |

@@ -20,7 +20,7 @@ and the `host:port` that folder's client joins.
   exe overrides it, `config.rs:76`): `feedUrl`, `accessKey`, `downloadConcurrency`, `clientExecutable`.
 - Settings file in the data folder (`settings.rs:34-52`): `channel`, `feedUrl`, `accessKey`, `builtinAccessKey`,
   `accessUser`, `folders`.
-- Server side: nothing in this repo. nginx answers 401 and decides who is a developer (`tauri/docs/nginx-dev-tier.md:7-13`).
+- Server side: nothing in this repo. nginx answers 401 and decides who is a developer (`tauri/docs/nginx-dev-tier.md:3-16`).
 
 ## How it works
 
@@ -97,9 +97,6 @@ and none is reproduced here.
 | Item | Where | Lifetime |
 | --- | --- | --- |
 | Channel enum / feed prefixes | `channels.rs:13-42` (`live`/`test`/`rc`, `""`/`launcher-test/`/`launcher-rc/`) | compiled in |
-| Live feed URL | `tauri/launcher.config.json` (`feedUrl`), `settings.feedUrl` override | settings file |
-| Access key | `settings.accessKey` (player), `config.accessKey` / `settings.builtinAccessKey` (baked) | settings file (atomic write, 0600 on Unix, `settings.rs:114`) |
-| Basic user | `settings.accessUser`, re-derived on every probe | settings file |
 | Channel + per-channel folders | `settings.channel`, `settings.folders` (`channels.rs:130-157`) | settings file |
 | Download pass | `Inner.download_pass` `(base, DownloadPass)`, memory only | one session, re-requested when <1 h left (`account.rs:71-86`) |
 | Site session | `data_dir/site-session-<live\|test\|dev>.bin` | until logout/refusal (`site.rs:326,351`) |
@@ -211,11 +208,12 @@ ancient updater that does exist (`src/updater.mjs`, Electron) has one feed and n
 
 ## State
 
-Working. Evidence: `probe_channels` with the two-user fallback is exercised by `channels.rs:302-313` and
-`/root/work/launcher-165-server/tauri/core/tests/feed.rs:306`; the origin-bound credential logic has dedicated redirect tests (`/root/work/launcher-165-server/tauri/core/tests/feed.rs:316,362`); the download pass
-end-to-end path is live in 1.6.1+ (`RUNBOOK.md` records Live pass rule ON 2026-11-01 02:59:53 UTC and RC/Test 1.6.5
-published over 1.6.4 with "without a key, all three feeds and the RC exe answer 401"). `channels.rs`, `http.rs` and
-`site.rs` compile and are used by the shipped `launcher.rs`, not by a dead path.
+Working. Evidence: `probe_channels`' two-user fallback is exercised by `channels.rs:302-313` and
+`tauri/core/tests/feed.rs:306,669`; the origin-bound credential logic has dedicated redirect tests
+(`tauri/core/tests/feed.rs:316,362`); the download-pass path has been live since 1.6.1 (`RUNBOOK.md` records the Live
+pass rule ON 2026-11-01 02:59:53 UTC and RC/Test 1.6.5 published over 1.6.4, with "without a key, all three feeds and
+the RC exe answer 401"). `channels.rs`, `http.rs` and `site.rs` are reached from the shipped `launcher.rs`, not a dead
+path.
 
 ## Open questions
 

@@ -25,7 +25,7 @@ changes a mood", src/main/java/soloMapling/ArtificialPlayer/BotSocialSystem/Soci
 | `!pos` / `!navprobe` | GM3 command | `!pos` always; nav region line + `!navprobe` under `DebugTools.isEnabled()` | src/main/java/client/command/commands/gm3/PosCommand.java:43; src/main/java/client/command/CommandsExecutor.java:468 |
 | `/bots/{cid}`, `/maps/{id}`, `/positions` | HTTP (loopback + `X-Slums-Inspect` secret) | `-Dslums.inspect.port` **and** `DebugTools.featureOn("slums.inspect")` **and** loopback bind **and** secret ≥ 16 chars | src/main/java/soloMapling/inspect/BotInspectApi.java:104-125; boot src/main/java/net/server/Server.java:1044 |
 | `/qa/events` | HTTP long-poll, loopback | `-Dslums.qa.feed=true` **and** not live | src/main/java/soloMapling/inspect/QaEventFeed.java:60, 109-116, 122-136; attached src/main/java/soloMapling/inspect/BotInspectApi.java:194 |
-| `mmc botlog <id\|name>`, `mmc chalkboard <id\|name>` | in-game messenger console | `gmLevel() >= 4` **and** `MapleRootSolo` on | src/main/java/net/server/channel/handlers/MessengerHandler.java:125-128; src/main/java/soloMapling/server/MapleMessengerConsole.java:31, 307 |
+| `mmc connect` / `mmc disconnect` then `botlog <id\|name>` / `botunlog <id\|name>` / `chalkboard <id\|name>` / `setallchalk` / `removeallchalk` / `resetbotlog` | in-game messenger console (whisper-style, `mmc connect` first) | `gmLevel() >= 4` **and** `MapleRootSolo` on | src/main/java/net/server/channel/handlers/MessengerHandler.java:125-128; commands registered src/main/java/soloMapling/server/MapleMessengerConsole.java:87-150, help text :31 |
 | `BotLog.txt` | log file (always on) | none — `static final boolean log = true` | src/main/java/soloMapling/BotLogger.java:20; src/main/resources/log4j2.xml:48-66, 143-145 |
 | `data/autoqa/bot-life.json` | JSON snapshot every 60 s | `-Dslums.botlife.metrics` ≠ `false` | src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifeRuntime.java:883-921 |
 | `data/autoqa/botwatch-latest.json` + `botwatch/botwatch-<stamp>.json` | JSON, on watch end | `!botwatch start` | src/main/java/soloMapling/autoqa/BotWatch.java:552-568 |
@@ -148,11 +148,14 @@ BotDebugHandler.java:104-107). `debugBubble` routes through `DebugUtilities.debu
 hard-coded `false` (src/main/java/soloMapling/DebugUtilities.java:14-17), so bubbles are inert regardless of flags.
 
 The console side is `MapleMessengerConsole`, entered only from a GM4's messenger chat through the `MapleRootSolo` hook
-(src/main/java/net/server/channel/handlers/MessengerHandler.java:125-128): `mmc botlog <id|name>` calls
-`startLoggingBot`/`stopLoggingBot` (:57-75, dispatched :307-322), `mmc chalkboard <id|name>` flips
-`BotDebugHandler.setBotChalkboard` (:77-84, dispatched :324-331), `setallchalk`/`removeallchalk` sweep every bot
-(:334-345). `isLoggingBot(id)` is the read the per-bot logger gates on
-(src/main/java/soloMapling/server/MapleMessengerConsole.java:53-55; BotDebugHandler.java:66).
+(src/main/java/net/server/channel/handlers/MessengerHandler.java:125-128). The GM first types `mmc connect` to join the
+console (`connectUser`, src/main/java/soloMapling/server/MapleMessengerConsole.java:91-105), then `botlog <id|name>`
+(`registerBotLoggingCommand("botlog", true)`, :111) and `botunlog` (:112) start/stop that bot's messenger mirror
+(`startLoggingBot`/`stopLoggingBot`, :57-75), `chalkboard <id|name>` flips `BotDebugHandler.setBotChalkboard` (:114-122,
+toggle at :77-84), `setallchalk`/`removeallchalk` sweep every bot (:124-130), `resetbotlog` (:132) and `cmd <chatCommand>`
+(:136) reuse the chat-command path. Every handler runs behind `executeIfConnected` (:280-286), which refuses with "You
+must be connected to the console to use this command.". `isLoggingBot(id)` is the read the per-bot logger gates on
+(:53-55; BotDebugHandler.java:66).
 
 `BotLogger.log` is unconditional — `static final boolean log = true`
 (src/main/java/soloMapling/BotLogger.java:20) — so **every** bot state-change line reaches `BotLog.txt`, and only the
@@ -263,16 +266,16 @@ The whole `soloMapling/` tree is fork-local: its first commit is the 2026-10-18 
 | `BotWhyCommandTest.disabledCommandDoesNotLookUpOrTouchBots` | refusal path is side-effect free | BotWhyCommandTest.java:90 |
 | `QaLogTest.offWhenNothingRuns` / `onlyTheTopicsOfARunningScenarioAreOn` | mask recompute | src/test/java/soloMapling/qa/QaLogTest.java:34, 43 |
 | `QaLogTest.linesLandInTheRunsFileFilteredByMapAndOwner` / `aSaidLineReachesOnlyTheRunOfThePlayerItNames` | map+owner routing | QaLogTest.java:53, 77 |
-| `QaLogTest.everyRateLimitsAKey` / `nothingIsWrittenAfterStop` | rate limit, detach clears `lastByKey` | QaLogTest.java:94, 101 |
-| `QaEventFeedTest` (7 tests) | off unless explicit, live guard, map lines reach watched chars and are dropped otherwise, ring | src/test/java/soloMapling/inspect/QaEventFeedTest.java:69, 80, 92, 101, 114, 142, 161 |
+| `QaLogTest.everyRateLimitsAKey` / `nothingIsWrittenAfterStop` | per-key rate limit (one true then false per 60 s window); a stopped run writes nothing | QaLogTest.java:94, 101 |
+| `QaEventFeedTest` (12 tests) | off unless explicit, live guard, filter by topic/char/regex, map lines reach watched chars and are dropped otherwise, ring, long-poll, sink vs run | src/test/java/soloMapling/inspect/QaEventFeedTest.java:69, 80, 92, 101, 114, 142, 161, 177, 194, 203, 220, 239 |
 | `DebugToolsTest.offOnLiveOnOnTheTestServer` | test-vs-live rule | src/test/java/soloMapling/server/DebugToolsTest.java:13 |
 | `BotInspectApiTest` (`DebugTools.featureFor(live) == false`) | per-feature default on live | src/test/java/soloMapling/inspect/BotInspectApiTest.java:170 |
 | `InspectViewsTest` | key shape incl. `plan`/`why` | src/test/java/soloMapling/inspect/InspectViewsTest.java:45, 56, 72, 93 |
 | `BotWatchJudgeTest` | `OK/IDLE/MISMATCH/TELEPORTY/LOGGED_OUT` verdicts | src/test/java/soloMapling/autoqa/BotWatchJudgeTest.java:69-97 |
 | `SocialMetricsTest` | `countAct`/`shortReason`/`moodWord` shapes | src/test/java/soloMapling/ArtificialPlayer/BotSocialSystem/SocialMetricsTest.java:66, 88 |
-| `BotWatchCommandTest`, `BotWatchScenarioTest`, `NavProbeScenariosTest` | command syntax, bw-1, nav probes | src/test/java/client/command/commands/gm3/BotWatchCommandTest.java:11; src/test/java/soloMapling/qa/BotWatchScenarioTest.java:59; src/test/java/soloMapling/qa/NavProbeScenariosTest.java:32 |
+| `BotWatchCommandTest`, `BotWatchScenarioTest`, `BotWatchWriteTest`, `BotWatchCatalogTest`, `NavProbeScenariosTest` | command syntax/refusals, `bw-1` emits, `BotWatch.write` shapes the latest+dated files, catalog wiring, nav probes | src/test/java/client/command/commands/gm3/BotWatchCommandTest.java:11; src/test/java/soloMapling/qa/BotWatchScenarioTest.java:59; src/test/java/soloMapling/autoqa/BotWatchWriteTest.java; src/test/java/soloMapling/autoqa/BotWatchCatalogTest.java; src/test/java/soloMapling/qa/NavProbeScenariosTest.java:32 |
 | `SocialTraceJudgeTest`, `SocialTraceTrainingTipTest` | trace line judging | src/test/java/soloMapling/autoqa/SocialTraceJudgeTest.java |
-| `DocSwitchDriftTest` | `docs/release/1.6.2.conf` ships `inspect`/`killcalib`/`navTrace`, docs never say "off on live" | src/test/java/.../DocSwitchDriftTest.java |
+| `DocSwitchDriftTest` | pins `docs/release/1.6.2.conf` for `slums.inspect`, `slums.killcalib`, `slums.navTrace` and asserts no listed doc says "off on live" — but the constant is hard-coded to the **1.6.2** conf (src/test/java/soloMapling/DocSwitchDriftTest.java:21, 24), not the 1.6.4 conf live now ships | src/test/java/soloMapling/DocSwitchDriftTest.java:19-54 |
 
 Auto-QA checks (`src/main/java/soloMapling/autoqa/AutoQaCatalog.java`):
 
@@ -309,10 +312,11 @@ at all; `LifeRuntime.reportIfDue` (the `bot-life.json` shape) is asserted only b
 **working** (with one staging defect, b276, and one dead-gate finding).
 
 Evidence: the core surfaces are wired and tested — `QaLog` mask/owner/map routing and its rate limiter have six unit
-tests (src/test/java/soloMapling/qa/QaLogTest.java:34-101); `QaEventFeed` has seven including the live guard and the
-map-drop rule (src/test/java/soloMapling/inspect/QaEventFeedTest.java:69-194); `DebugTools` and `BotInspectApi` have
-live-vs-test tests (src/test/java/soloMapling/server/DebugToolsTest.java:13,
-src/test/java/soloMapling/inspect/BotInspectApiTest.java:170); the inspect API ships **on** for live
+tests (src/test/java/soloMapling/qa/QaLogTest.java:34-101, file 109 lines); `QaEventFeedTest` has twelve, including the
+secret/query refusals, the live guard, topic/char/regex filtering, the map-drop rule, the ring, long-poll behaviour and
+sink-vs-run separation (src/test/java/soloMapling/inspect/QaEventFeedTest.java:69-239, file 249 lines); `DebugTools`
+and `BotInspectApi` have live-vs-test tests (src/test/java/soloMapling/server/DebugToolsTest.java:13-21,
+src/test/java/soloMapling/inspect/BotInspectApiTest.java:168-174); the inspect API ships **on** for live
 (docs/release/1.6.4.conf:271) and is exercised by auto-QA `t-nv-3`
 (src/main/java/soloMapling/autoqa/AutoQaCatalog.java:1545-1547). `!botwhy` renders from a live code path with the brain
 on by default (src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifeRuntime.java:94-102) and is reachable on

@@ -26,9 +26,9 @@ No opcode or scheduler starts any of this: it is release-time tooling. The one r
 
 **Client flow — staging tree to the file nginx serves.**
 
-1. `stage-client` copies the published client layer `$PATCH_DIR/layers/client/$FROM_LAYER/files` and overlays only
-   `slums.dll`, `slums-build.txt`, `Custom.wz` and any `--data` image (`stage-client:96-129`). Each is hashed on the build
-   desktop (`:54-57`), re-hashed after `scp` (`:79-92`), and lands via `cp -a --no-preserve=links -T` once the paths match
+1. `stage-client` copies the published layer `$PATCH_DIR/layers/client/$FROM_LAYER/files` and overlays only `slums.dll`,
+   `slums-build.txt`, `Custom.wz` and any `--data` image (`stage-client:96-129`). Each is hashed on the build desktop
+   (`:54-57`), re-hashed after `scp` (`:79-92`), and lands via `cp -a --no-preserve=links -T` once the paths match
    (`:116-117`); old files are unlinked first (`:120`), never written through. Provenance sits beside the tree,
    `client-<v>.STAGED.txt` (`:44`), because every file *inside* it is published.
 2. `publish-client` checks the version (`publish-client:68`), the option combinations (`:73-76`) and that the source is on
@@ -41,10 +41,10 @@ No opcode or scheduler starts any of this: it is release-time tooling. The one r
    (`:101`); the host publisher must hash the same as the launcher repo (`publish-lib.sh:16-27`). `client-allow.txt` goes
    to the host (`:103`) — the allow list is a review artefact, not host state.
 5. Hash-diff: when `PATCH_DIR` equals `LIVE_PATCH_DIR` (default `/srv/slums-patch`) the run adds `--live-feed`
-   (`:108-114`), and `ALLOW_LIVE_ENDPOINT_CHANGE=1` adds `--allow-endpoint-change`. `verify --client-dir "$SRC"`
-   (`:116,120`) runs `verify-client.py` on the effective set (base manifest overlaid by the staging tree): every reference
-   file must match, `--previous` adds the `removed` check (`verify-client.py:172-236`), and an unlisted difference dies
-   before anything is published (`publish-client:120`).
+   (`:108-114`); `ALLOW_LIVE_ENDPOINT_CHANGE=1` adds `--allow-endpoint-change`. `verify --client-dir "$SRC"` (`:116,120`)
+   runs `verify-client.py` on the effective set (base manifest overlaid by the staging tree): every reference file must
+   match, `--previous` adds the `removed` check (`verify-client.py:172-236`), and an unlisted difference dies before
+   anything is published (`publish-client:120`).
 6. Publish the layer (`:122,135`): `node tools/publish.mjs --layer client --source SRC --out $PATCH_DIR --version $CV`.
    `writeLayer` (`publish.mjs:224-255`) copies into a `.mapleroot-publish-*` temp dir while hashing, writes the manifest
    with `flag:'wx'`, reserves the version dir with `fs.mkdir` (`:245`), renames `files/` then `manifest.json` in
@@ -131,10 +131,9 @@ No opcode or scheduler starts any of this: it is release-time tooling. The one r
 | `--no-packs` / `--no-announce` / `--allow-no-access-key` | off (`publish-client:73-76`, `publish.mjs:445`) | no packs / no Cody post / a launcher with no built-in key |
 | `MIN_CLIENT_BUILD` | `0` = off (`ServerConfig.java:61`) | 1.6.4 draft `10740` vs live `10721` (`docs/release/1.6.4.conf:284,10`) |
 
-Channels are Live `/srv/slums-patch` (player key, endpoint check on), Test `/srv/slums-patch/launcher-test` (`layers`
-symlinks to the live layers), RC `/srv/slums-patch/launcher-rc` (`docs/ops/lxc125-architecture.md:101-102`; see
-`channels-and-auth.md`). TEST: unknown — the TEST server's own feed path was not read, so which of these a 1.6.4 RC/Test
-publish uses is unconfirmed.
+Channels are Live `/srv/slums-patch` (player key, endpoint check on), Test `…/launcher-test` (`layers` symlinks to the
+live layers) and RC `…/launcher-rc` (`docs/ops/lxc125-architecture.md:101-102`; see `channels-and-auth.md`). TEST:
+unknown — the TEST server's feed path was not read, so which of these a 1.6.4 RC/Test publish uses is unconfirmed.
 
 ## Invariants
 
@@ -149,8 +148,8 @@ publish uses is unconfirmed.
   `tools/release/release:178`).
 - **The pointer file is written last.** Layer `manifest.json` before the directory rename (`publish.mjs:247-248`), release
   `manifest.json` after all layers validate (`:395-399`), `launcher.json` last (`:466-467`).
-- **What is published is what was hashed.** The source is re-stat'ed before and after the copy, failing with "Source
-  changed while publishing" (`publish.mjs:64-82`), and the manifest is re-verified against disk once the layer lands
+- **What is published is what was hashed.** The source is re-stat'ed after the copy, failing with "Source changed while
+  publishing" (`publish.mjs:64-82`), and the manifest is re-verified against disk once the layer lands
   (`publish-client:138`).
 - **Every difference from the reference is named** in `client-allow.txt`; the all-clear is `HASH-DIFF PASS`
   (`verify-client.py:233`). **The publisher that runs is the reviewed one** (`publish-lib.sh:16-27`), **a launcher never
@@ -173,9 +172,9 @@ is not derived from the base tree at all (method: `../base-vs-custom.md`):
 
 Seven commits follow: `a50fe655f` (Cody post), `ae3c91cb7` (`/launcher-test/` mirror), `66a2ae9e8` (1.4.1 deploy),
 `0ff53df38` (one release command), `23eae9ffb` (a release without `--no-packs` stopped silently), `aee6f180d`
-(live-endpoint refusal), `fb8286344` (news first + layer reuse). `--launcher` mode is a hand-written Electron/asar reader
+(live-endpoint refusal), `fb8286344` (news first + layer reuse). `--launcher` mode is a hand-written asar reader
 (`publish.mjs:405-422`), not upstream tooling: 16-byte prefix, JSON directory, packed range at
-`8 + headerSize + offset` (`:408-419`), and an unpacked or non-integer-size entry is refused (`:417`).
+`8 + headerSize + offset` (`:408-419`); unpacked or non-integer-size entries are refused (`:417`).
 
 ## Tests and QA
 
@@ -197,10 +196,10 @@ Seven commits follow: `a50fe655f` (Cody post), `ae3c91cb7` (`/launcher-test/` mi
 Launcher repo (`npm test`): `test/layers.test.mjs:62` immutable layer folders with a top manifest pinning layer hashes,
 `:101` later layers override, `:122` only changed layers download, `:147` fast verify trusts size+mtime, `:205`
 player-owned `config.ini` survives repair, `:231` `schemaVersion 1` loads, `:248` traversal/reserved paths rejected,
-`:288` first install with bounded concurrency and retries; `test/releases.test.mjs:45` nested install/repair, `:67` a
-corrupt payload cannot partially replace a release, `:80` publishing is immutable and cannot expose linked files, `:96`
-redirected feeds, `:103` news round-trip plus bad-news rejection; `test/tauri-publish.test.mjs:32` signed Tauri publish
-immutable with the updater JSON last, `:54` HTTPS-only credential-free base URL — both skipped without `cargo tauri`.
+`:288` first install with bounded concurrency; `test/releases.test.mjs:45` nested install/repair, `:67` a corrupt payload
+cannot partially replace a release, `:80` publishing is immutable and cannot expose linked files, `:96` redirected feeds,
+`:103` news round-trip and bad-news rejection; `test/tauri-publish.test.mjs:32,54` a signed Tauri publish with the updater
+JSON last and an HTTPS-only credential-free base URL — both skipped without `cargo tauri`.
 
 Not covered: `set-min-client-build` and `publish-launcher` (only `publishLayer` is tested), the UTF-16 limit and the
 control-character rule in `publish_checks.py`, the real `ssh`/`scp` path, the `/launcher-test/` mirror, and
@@ -228,16 +227,16 @@ publishing scenario, so no `!qa` run can see the patch feed.
 ## State
 
 **Working** for the client pipeline: the gates are implemented *and* reachable, and it ran for 1.3.0 —
-`client-allow.txt:5-6` ("Captured 2026-10-20 from the published 1.3.0 set (base v83-2026.10.19 + client 1.2.1)") — with
-client 1.2.1 being the layer live players have (`docs/ops/lxc125-architecture.md:101`). **Partial** for the launcher
-pipeline: `launcher.json` is "none published yet at the root" (`docs/ops/lxc125-architecture.md:102`), so its real path
-rests on `test/layers.test.mjs` and `test/releases.test.mjs`, not on a live channel file. Not runtime-verified here:
-nothing was published and the feed on 8090 was not read — code and repo-doc evidence only.
+`client-allow.txt:5-6` ("Captured 2026-10-20 from the published 1.3.0 set (base v83-2026.10.19 + client 1.2.1)") — client
+1.2.1 being the layer live players have (`docs/ops/lxc125-architecture.md:101`). **Partial** for the launcher pipeline:
+`launcher.json` is "none published yet at the root" (`:102`), so it rests on `test/layers.test.mjs` and
+`test/releases.test.mjs`, not on a live channel file. Not runtime-verified: nothing was published and the feed on 8090 was
+not read — code and repo-doc evidence only.
 
 ## Open questions
 
-- Which `PATCH_DIR` a 1.6.4 RC/Test publish uses is recorded nowhere I could read; `publish-client:108-114` only tests
-  whether the path equals the live one. TEST: unknown.
+- Which `PATCH_DIR` a 1.6.4 RC/Test publish uses is recorded nowhere I could read (`publish-client:108-114` only tests
+  whether the path equals the live one). TEST: unknown.
 - Is the Electron `--launcher` channel still used? `docs/release/RUNBOOK.md:56` publishes Tauri first "then the Electron
   hand-over", and no `launcher.json` sits at the root, so the Electron flow may be dead weight kept for the hand-over.
 - `docs/architecture/launcher/README.md:73-74` states the endpoint invariant without naming the enforcing line; it is

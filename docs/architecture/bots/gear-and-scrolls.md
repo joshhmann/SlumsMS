@@ -25,7 +25,7 @@ A fourth, unrelated path lives in the same file family: `ScrollingBot` (`src/mai
 | `BotMaker.townBatch(bot)` — crystal/scrap batch at a town stop | town step | `src/main/java/soloMapling/ArtificialPlayer/BotTypes/TrainingBot.java:1540`; `src/main/java/soloMapling/ArtificialPlayer/BotMakerSystem/BotMaker.java:218` |
 | `!botscroll [<name\|id> [now [careful\|normal\|gambler]]]` | GM command (level 4) | `src/main/java/client/command/commands/gm4/BotScrollCommand.java:28-58`, registered `src/main/java/client/command/CommandsExecutor.java:432` |
 | `!botwhy <name>` gear line | GM inspection (level 3) | `src/main/java/client/command/commands/gm3/BotWhyCommand.java:40-41` → `BotGearWhy.describe`; gated `src/main/java/client/command/commands/gm3/BotWhyCommand.java:21-24` |
-| `@maker plan\|crystals <alt>\|scrap <alt>` | `src/main/java/client/command/commands/gm0/MakerCommand.java:38-63`, registered `src/main/java/client/command/CommandsExecutor.java:292` |
+| `@maker plan\|crystals <alt>\|scrap <alt>` | player command (level 0, alt-scoped) | `src/main/java/client/command/commands/gm0/MakerCommand.java:38-63`, registered `src/main/java/client/command/CommandsExecutor.java:292` |
 | `!botyield` scroll ledger | GM command | `src/main/java/client/command/commands/gm4/BotYieldCommand.java:33` → `ScrollLedger.report` |
 | `!qa run sc-2` / `gn-2 (sc-1)` | QA scenario | `src/main/java/soloMapling/qa/QaScenarios.java:750-768` (manual sc-1), `:772-860` (sc-2 bot-driven) |
 | `GameQaWorld.botScrollStep` | QA staging | `src/main/java/soloMapling/qa/GameQaWorld.java:1027` → `BotScrolling.stepNow` |
@@ -93,17 +93,17 @@ Weapons: a bot may only take a weapon of its job's kinds that draws the *same* s
 | Phase | Action | File:line |
 |---|---|---|
 | gate | `ScrollBudget.enabled()` (= `-Dsolomapling.botScrolling` not `"false"`) | `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:692-694`, `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/ScrollBudget.java:61` |
-| pace | one step every 4–8 s, `IDLE_MS=60_000` when it has nothing to roll | `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:64,703-707` |
-| collect | finished listings come back (`BotConsignment.collect`) | `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:709` |
-| appetite | `Appetite.of(botId)` — stable per bot: CAREFUL / NORMAL / GAMBLER | `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:711`, `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/ScrollRules.java:41-53` |
-| buy | on a new map, `ShopCatalog.onMap` NPC scrolls at ≥1000 mesos, at most `MAX_NPC_BUY_PER_SCROLL=3` extra | `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:602-630` |
-| post wants | every 10 min, an FM want for a scroll that fits and is not held | `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:653-690`, `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/ScrollWants.java:59` |
-| plan | `-Dslums.scroll.ev` → `ScrollPlanner` (EV); else `ScrollRules.choose`; a GAMBLER falls back to rules when EV finds nothing | `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:238-247` |
+| pace | one step every 4–8 s (`nextStepAt = now + STEP_MIN_MS..STEP_MAX_MS`, `:703`), `IDLE_MS=60_000` when it has nothing to roll (`:727`) | `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:64-65,700-704,725-729` |
+| collect | finished listings come back (`BotConsignment.collect`) | `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:705` |
+| appetite | `Appetite.of(botId)` — stable per bot: CAREFUL / NORMAL / GAMBLER | `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:707,724`, `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/ScrollRules.java:41-53` |
+| buy | on a new map, `ShopCatalog.onMap` NPC scrolls at ≥1000 mesos, at most `MAX_NPC_BUY_PER_SCROLL=3` extra | `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:711-720,602-630` |
+| post wants | every 10 min, an FM want for a scroll that fits and is not held | `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:713-717,721-723,653-690`, `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/ScrollWants.java:59` |
+| plan | `-Dslums.scroll.ev` → `ScrollPlanner` (EV); else `ScrollRules.choose`; a GAMBLER falls back to rules when EV finds nothing; no plan or no budget unit → 60 s idle | `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:724-729,238-247` |
 | budget | daily mesos cap = `-Dsolomapling.botScrollPerLevel` × level; `MAX_ROLLS=20` (`-Dsolomapling.botScrollRollsPerDay`) | `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/ScrollBudget.java:69-73,86-101,134` |
 | roll | `ItemInformationProvider.scrollEquipWithId(equip, scrollId, white, 0, false)` — **vegaItemId is always 0** | `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:128-129` |
 | outcome | CURSE (null result) → destroy + `LifeRuntime.event(BOOM)` + `BotDrama.onBotBoom`; else SUCCESS if level rose | `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:421-479` |
 | broadcast / log | `PacketCreator.getScrollEffect` to the map, `ScrollLedger.rolled`, godly meter, `QaLog.Topic.SCROLL` | `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:456-474` |
-| after | SUCCESS → `BotGear.review`; finished pieces listed (`BotConsignment.list`) or kept when unvalued; tossed only if level 0 and value ≤ 0 | `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:553-590` |
+| after | SUCCESS → `BotGear.review`; finished pieces listed (`BotConsignment.list`) or kept when unvalued; tossed only if level 0 and value ≤ 0 | `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:732-741,553-590` |
 
 The rules layer (`ScrollRules`) only accepts plain `204xxxx` stat scrolls that are not 2049xxx / clean-slate / chaos / modifier (`src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/ScrollRules.java:81`), requires a free slot and category/req match (`:90`), and partitions picks into safe / long-shot / dark. Long shots and dark scrolls vanish once the day's godly meter is spent (`src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:223-231`); a white scroll is only spent on a long shot and never by a GAMBLER (`src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/ScrollRules.java:181-227`).
 
