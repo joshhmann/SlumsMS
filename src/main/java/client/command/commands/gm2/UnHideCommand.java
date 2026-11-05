@@ -25,18 +25,22 @@ package client.command.commands.gm2;
 
 import client.Character;
 import client.Client;
-import client.SkillFactory;
 import client.command.Command;
 
 public class UnHideCommand extends Command {
     {
-        setDescription("Toggle Hide.");
+        setDescription("Unhide from players.");
     }
 
     @Override
     public void execute(Client c, String[] params) {
         Character player = c.getPlayer();
-        SkillFactory.getSkill(9101004).getEffect(SkillFactory.getSkill(9101004).getMaxLevel()).applyTo(player);
-
+        // GM Hide skill 9101004 toggles, so applying it blindly re-hid the GM when !unhide was sent twice and then
+        // bots ignored the GM (BotHelpers.java:67). Unhide only when hidden.
+        if (!player.isHidden()) {
+            player.yellowMessage("You are already visible.");
+            return;
+        }
+        player.Hide(false);
     }
 }
