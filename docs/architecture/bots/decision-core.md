@@ -59,7 +59,7 @@ it does.
     `MAX_WAIT_MS = 30_000` (LifeActivityQueue.java:10), `bot.submitLifeActivity` queues it
     (TrainingBot.java:813-822) and nudges the bot.
 11. **Feasibility gate B, at drain.** `TrainingBot.runLifeActivities` (TrainingBot.java:843) drains the queue with
-    `LifeExecutor` (TrainingBot.java:847-849). `LifeAcceptance.tryStart` (LifeAcceptance.java:47-64) re-checks
+    `LifeExecutor` (TrainingBot.java:847-849). `LifeAcceptance.tryStart` (LifeAcceptance.java:25-42) re-checks
     `stillFree`, `executor.supports(activity)` (→ `canStartLifeActivity` again, LifeExecutor.java:11) and then
     `executor.start` → `TrainingBot.startLifeActivity` (TrainingBot.java:1040).
 12. **Start re-check.** `startLifeActivity` re-tests `isStartingHere()`, `lifeExecutionEnabled()`,
@@ -192,9 +192,9 @@ Not covered: no test asserts that a *selected* activity ever reaches `accepted` 
   to the bot's life note (TrainingBot.java:850-853); it is not counted per activity and does not reach
   `bot-life.json`.
   **NEW-FINDING:** no counter for gate-B refusals exists anywhere (`LifeAcceptance.Status` has 7 values,
-  LifeAcceptance.java:12, and none is aggregated).
-- `INVITE_GUILD` is permanently ineligible (TrainingBot.java:1019), yet it carries weights and a personality bias
-  (LifePolicy.java:206-208, LifeProfile.java:114) — dead scoring configuration.
+  LifeAcceptance.java:11, and none is aggregated).
+- `INVITE_GUILD` is permanently ineligible (TrainingBot.java:1012), yet it carries weights and a personality bias
+  (LifePolicy.java:213, LifeProfile.java:114) — dead scoring configuration.
   **NEW-FINDING:** a fifth of the catalogue is unreachable through the scorer; harmless, but it makes the option list
   read as if guilds were a brain activity.
 
