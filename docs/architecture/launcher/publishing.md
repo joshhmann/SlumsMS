@@ -88,7 +88,7 @@ No opcode or scheduler starts any of this: it is release-time tooling. The one r
 | Layer immutability / rerun | published layer `manifest.json` byte-identical to what this tree would produce, files at listed sizes; NFC-uppercased `assertNoAlias`, `wx` writes, `mkdir` version dir, `.mapleroot-publish.lock` | an existing layer with different bytes, a case variant, a concurrent publish | `publish_checks.py:104-120`, `publish.mjs:15,188-203,244-248`; `publish-client:88-94` |
 | Hash-diff | base + client effective set vs `$REFERENCE`: no unexpected missing/different/extra, and `--previous` keeps every file of the current release (a dropped overlay was the 1.2.0 Arcane-maps crash) | any difference not in `client-allow.txt` | `verify-client.py:172-236`; run `publish-client:116,120` and `:138` |
 | Live endpoint | new layer's `config.ini` `[config] host`/`port` equals the live layer's | a test-server client on `/srv/slums-patch` | `verify-client.py:129-150`; wired `publish-client:108-114` |
-| Allow list | every overlay path named explicitly | an unlisted extra/missing/different file | `tools/release/client-allow.txt:1-6`; `verify-client.py:172-222` |
+| Allow list | every overlay path named explicitly (`missing\|different\|extra\|removed <glob>`) | an unlisted extra/missing/different file | `tools/release/client-allow.txt:3,13-123`; `verify-client.py:172-222` |
 | Publisher identity | sha256 of `tools/ src/ package.json` on both sides, first 16 hex | a host publisher that is not the reviewed one | `publish-lib.sh:16-27` |
 | Source hygiene | no symlinks or non-regular files; output not equal to or inside source | weird trees | `publish.mjs:42-56,173-186`; `publish_checks.py:67-82` |
 | Release manifest | `launch.executable` in some layer; no `MANIFEST.JSON` alias; version not already live | a manifest pointing at nothing | `publish.mjs:383-393` |
@@ -222,12 +222,12 @@ publishing scenario, so no `!qa` run can see the patch feed.
 - NEW-FINDING: `--restore-manifest` checks the named layers exist but never re-runs the endpoint check
   (`publish-client:47-58`), so an old manifest pointing elsewhere is accepted.
 - NEW-FINDING: `tools/release/routing-required.txt:5` (map `211080100` routed until client fix `3e640f1` is live) is
-  enforced by `tools/release/gen-deploy:46-51`, not by `publish-client`, which never consults it.
+  enforced by `tools/release/gen-deploy:46-52`, not by `publish-client`, which never consults it.
 
 ## State
 
 **Working** for the client pipeline: the gates are implemented *and* reachable, and it ran for 1.3.0 —
-`client-allow.txt:5-6` ("Captured 2026-10-20 from the published 1.3.0 set (base v83-2026.10.19 + client 1.2.1)") — client
+`client-allow.txt:5` ("Captured 2026-10-20 from the published 1.3.0 set (base v83-2026.10.19 + client 1.2.1)") — client
 1.2.1 being the layer live players have (`docs/ops/lxc125-architecture.md:101`). **Partial** for the launcher pipeline:
 `launcher.json` is "none published yet at the root" (`:102`), so it rests on `test/layers.test.mjs` and
 `test/releases.test.mjs`, not on a live channel file. Not runtime-verified: nothing was published and the feed on 8090 was

@@ -31,7 +31,7 @@ The Temple of Time mainline (quests 3500-3520) is a second quest *source* on the
 | `Character.levelUp` / offscreen level grant | two progression hooks from the server core | src/main/java/client/Character.java:4049-4052 (offscreen), :4120-4121 (watched) |
 | `BotStore` load/save | `restore` / `buildNew` around the stat columns | src/main/java/soloMapling/ArtificialPlayer/BotStore.java:510-516, :602-607 |
 | `!botwhy` plan lines | `BotQuestChat.describe(memory)` prints "Quests: …" | src/main/java/soloMapling/ArtificialPlayer/BotQuestSystem/BotQuestChat.java:183-196; src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifeRuntime.java:774-775 |
-| Bot chat (`ChatTriage.Intent.QUESTS` / `RECOMMEND_QUEST`) | `BotQuestChat.doing` / `recommend` | src/main/java/soloMapling/ArtificialPlayer/BotChatActions.java:259-274 |
+| Bot chat (`ChatTriage.Intent.QUESTS` / `RECOMMEND_QUEST`) | `BotQuestChat.doing` / `recommend` | src/main/java/soloMapling/ArtificialPlayer/BotBrainSystem/ChatTriage.java:34; src/main/java/soloMapling/ArtificialPlayer/BotChatActions.java:259-274 |
 | auto-QA `t-bq-1`, `t-tm-1`, `t-jb-1`, `t-jb-2`, `t-gb-2`, `t-gb-6` | QA lanes | src/main/java/soloMapling/autoqa/AutoQaCatalog.java:1432-1437, :1444-1445, :1462-1463, :1480-1481, :1485-1486 |
 | `-D` switches | see Switches | BotQuests.java:63, :95-101 |
 
@@ -66,7 +66,7 @@ Score = (quest value) / (grind EXP forgone on the trip). At 1.0 the quest is exa
 |---|---|---|
 | `rewardExp` × `questExpFactor` (`USE_QUEST_RATE ? questExpRate/expRate : 1.0`) | **+**×1 added to value | BotQuests.java:331, :192-194; BotQuestScorer.java:56 |
 | `bonus` | **+**×1 (bots always pass `0`) | BotQuests.java:331; BotQuestScorer.java:56 |
-| required kills of a mob **not** on the grind map × `mobExp` | **+**×1 added to value | BotQuestScorer.java:58-63 |
+| required kills of a mob **not** on the grind map × `mobExp` | **+**×1 added to value — **dead in production**: the pick filter already requires every mob on the map, so `otherKills` is always 0 | BotQuestScorer.java:58-63; BotQuests.java:321 |
 | required kills of a mob **on** the grind map | counts as neither value nor cost | BotQuestScorer.java:18-19 |
 | travel seconds `2.0 × (hops→start + hops→end) × 20 s` | **+** added to cost | BotQuests.java:330, :69 |
 | kills elsewhere × `killSecondsPerMob` (`60/kpm`) | **+** added to cost | BotQuests.java:332; BotQuestScorer.java:65 |
@@ -231,31 +231,42 @@ NEW-FINDING: `RECOMMEND_MIN_SCORE` is declared and unit-tested but has no produc
 quest" path has no worth floor at all — `BotQuestChat.recommend` filters only by level and what the bot knows
 (src/main/java/soloMapling/ArtificialPlayer/BotQuestSystem/BotQuestScorer.java:29; BotQuestChat.java:134-152).
 
-NEW-FINDING: `BotQuests.ranked` requires `here.containsAll(q.mobs().keySet())` (BotQuests.java:321), yet the scorer is
-still handed `here` as the overlap set (BotQuests.java:331) and spends lines excluding overlap mobs
-(BotQuestScorer.java:58-63) — after that filter the overlap set can only remove *value*, and only if the same quest
-also lists a mob that spawns on the map, which the filter already guarantees. The two rules cannot both be live, so one
-of them is dead logic.
+NEW-FINDING: `BotQuests.ranked` filters to quests whose every required mob spawns on the grind map
+(BotQuests.java:321) and then hands that same full set to the scorer as `overlapMobs` (BotQuests.java:331), so
+`!overlapMobs.contains(...)` at src/main/java/soloMapling/ArtificialPlayer/BotQuestSystem/BotQuestScorer.java:59 can never
+be true in production: `otherKills` is always 0 and `travelSeconds` is the whole cost. The scorer's off-map-EXP branch
+and its `killSecondsPerMob` argument are therefore unreachable from the only caller, and a quest that needs one mob off
+the map is excluded outright rather than priced (the upstream port priced it — BotQuestScorer.java:10-21).
 
 NEW-FINDING: the Temple lane picker is consulted only inside `TempleOfTime.consider`
 (TempleOfTime.java:117-118), which itself only runs when `BotQuests.consider` passes `grinding == true`
 (BotQuests.java:275, :281). A bot that reaches its Temple level while its brain keeps it in town never gets a lane,
 and `TempleLanes.hunters` will age its own entries out after 6 h (TempleLanes.java:30, :133).
 
-NEW-FINDING: `JobErrand.begin` schedules travel and a timeout on a single-thread daemon pool
-(JobErrand.java:88-94, :273-303); a bot whose `travel` callback never fires (a mover that swallows the completion)
-holds its `PENDING`/`ALLOW` entry until the timeout, blocking *every other* bot's errand on the same thread. The
-timeout is the only escape and it is a wall-clock 6 min per stuck bot.
+NEW-FINDING: a quest taken while nobody watched can never be upgraded. `atNpc` records the mode at take time
+(BotQuests.java:456 `log.taken(BotQuestLog.Mode.MODELLED)`) and the turn-in sends anything not `REAL` down
+`recordOffscreen` even when `watched` is true on that later tick (BotQuests.java:480) — so a bot that happens to be
+observed when it turns in still gets no rewards and no real completion, which contradicts the class's "where a player
+can see it, the real quest path runs" (BotQuests.java:39-42).
 
-NEW-FINDING: `BotProgression.payForPackages` charges the 4th-job package on every settle where it is unpaid
-(BotProgression.java:243-254) while `settledLevel` only records the level *after* the charge
-(BotProgression.java:235) — a bot that levels twice inside one `progress` call pays once, but a bot that cannot pay
-re-tries the full 10 M on each later settle, with no partial-payment record.
+NEW-FINDING: the `BotQuestLog` class doc links `{@link BotQuests#LEVEL_WINDOW}` (src/main/java/soloMapling/ArtificialPlayer/BotQuestSystem/BotQuestLog.java:27)
+but no `LEVEL_WINDOW` member exists anywhere in `BotQuests` — grep finds only that javadoc line — so the stated reason a
+dropped completed id can never be re-picked ("picks only look at quests whose start level is within LEVEL_WINDOW") does
+not describe the code that runs; the level rule is the Quest.wz `lvmin/lvmax` check at BotQuests.java:320.
+
+NEW-FINDING: the daily quest cap counts quests that paid nothing. `recordRefused` and `recordOffscreen` both call
+`log.complete(false, ...)` (BotQuests.java:586, :599) and `complete` unconditionally does `rollDay`+`doneToday++`
+(src/main/java/soloMapling/ArtificialPlayer/BotQuestSystem/BotQuestLog.java:217-218), so `perDay()` is spent on modelled
+and reward-less turn-ins; a bot whose rewards the yield caps refuse three times (BotQuests.java:497) burns its whole day
+on quests that gave it nothing, and `doneToday` is also what gates the next pick (BotQuests.java:279).
 
 ## State
 
-**working.** Evidence: eighteen unit tests green by construction around the driver and the build maths
-(src/test/java/soloMapling/ArtificialPlayer/BotQuestSystem/BotQuestsTest.java, BotProgressionSystem/BotBuildTest.java);
+**working.** Evidence: 182 unit tests exist around the driver, the build maths and the Temple data — 68 in
+src/test/java/soloMapling/ArtificialPlayer/BotQuestSystem/, 111 in
+src/test/java/soloMapling/ArtificialPlayer/BotProgressionSystem/, 3 in
+src/test/java/soloMapling/ArtificialPlayer/BotQuestStateBoundaryTest.java (counted `@Test` methods; not executed in this
+review — no builds allowed);
 six live auto-QA checks (`t-bq-1`, `t-tm-1`, `t-jb-1`, `t-jb-2`, `t-gb-2`, `t-gb-6`) cover exactly the four acceptance
 flows; all switches are on in live's UNIT_EDITS (docs/release/1.6.4.conf:271); the Temple scripted steps are tested
 against the real quest scripts (src/test/java/soloMapling/ArtificialPlayer/BotQuestSystem/TempleScriptsForBotsTest.java).
@@ -271,10 +282,10 @@ are out of scope by design (TempleOfTime.java:41-42; BotQuestIndex.java:124-132)
    (BotQuests.java:574-589).
 2. `BotQuests.consider` requires `grinding`; is a bot that lives in town forever supposed to never quest, or should the
    `HANG_OUT`/`IN_TOWN` phase be able to pick a quest whose NPC is in front of it? (BotQuests.java:275)
-3. Which side of the containsAll/overlap contradiction is meant to be authoritative — the filter or the scorer?
-   (BotQuests.java:321,331; BotQuestScorer.java:58-63)
+3. Is the off-map quest really meant to be unpickable (filter at BotQuests.java:321), or was the scorer's off-map pricing
+   (BotQuestScorer.java:58-63) supposed to see those quests? One of the two is dead today.
 4. Was `RECOMMEND_MIN_SCORE` meant to gate chat recommendations, and did dropping it let bots recommend junk quests
    (BotQuestChat.java:134-152)?
-5. `BotRebirth.enabled()` needs `BOT_REBIRTH_ENABLED && USE_REBIRTH_SYSTEM` (BotRebirth.java:116) and live sets the
-   first but this review did not confirm `USE_REBIRTH_SYSTEM` in live's yaml — is rebirth, and therefore the level-200
-   progression tail, actually on in live?
+5. `BotRebirth.enabled()` needs `BOT_REBIRTH_ENABLED && USE_REBIRTH_SYSTEM` (BotRebirth.java:116); live sets the first
+   (docs/release/1.6.4.conf:205) and 1.6.1's conf says the second is "already true on live"
+   (docs/release/1.6.1.conf:61), but 1.6.4's conf does not restate it — unverified in this review.

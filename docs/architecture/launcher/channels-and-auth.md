@@ -86,7 +86,7 @@ ships in `tauri/launcher.config.json`; the key files are named, never quoted):
 | Channel | Feed base URL | Launcher-update URL | Basic user the launcher tries | Key source | Who may publish |
 | --- | --- | --- | --- | --- | --- |
 | Live | `https://slumspatch.asslorde.com/manifest.json` (unchanged) | `<feed>/tauri/launcher.json` | `slums`, then `slumsdev` | player's own key in `settings.accessKey`; the baked key only for the built-in origin (`config.rs:51-64`) | only the owner, after "GO"; hand-over build needs the friends key baked in (`AGENTS.md:13-16`) |
-| Test | `https://slumspatch.asslorde.com/launcher-test/manifest.json` | `.../launcher-test/tauri/launcher.json` | `slums`, then `slumsdev` | dev key (the same key, whose nginx user is `slumsdev`) | dev box, `/opt/slums-tools/launcher-tauri-publisher`, no owner gate (`RUNBOOK.md:116-124`) |
+| Test | `https://slumspatch.asslorde.com/launcher-test/manifest.json` | `.../launcher-test/tauri/launcher.json` | `slums`, then `slumsdev` | dev key (the same key, whose nginx user is `slumsdev`) | dev box, `/opt/slums-tools/launcher-tauri-publisher`, no owner gate (`/root/work/launcher-tauri-release/RUNBOOK.md:116-124`) |
 | RC | `https://slumspatch.asslorde.com/launcher-rc/manifest.json` | `.../launcher-rc/tauri/launcher.json` | `slums`, then `slumsdev` | dev key | dev box, same publisher, `--base-url .../launcher-rc/ --out /srv/slums-patch/launcher-rc` |
 
 Key files, by path only: the exe's baked key lives in `tauri/launcher.config.json` (and, for a friends build, in the
@@ -173,7 +173,7 @@ ancient updater that does exist (`src/updater.mjs`, Electron) has one feed and n
   `a_dev_only_key_still_opens_test_and_rc_when_live_refuses_it` (`:669`), which models nginx (Live accepts only
   `slums`, Test/RC only `slumsdev`) and asserts both the probe triple and the remembered user.
 - `tauri/core/tests/site.rs:70-133`: site mapping per channel, token file per site, download-pass parsing.
-- `tauri/core/tests/test_site_paths.rs:25-27`: `#[ignore]`d, needs `SLUMS_QA_INVITE`, asserts it is not pointed at the
+- `tauri/core/tests/test_site_paths.rs:24-30`: `#[ignore]`d, needs `SLUMS_QA_INVITE`, asserts it is not pointed at the
   live site ("this test makes accounts").
 - `test/access-key.test.mjs` (legacy Electron updater): Basic on every request, none without a key, cross-origin drop,
   401 not retried. `test/tauri-publish.test.mjs:32,54`: immutable publish, channel JSON last, HTTPS/credential checks.
@@ -223,5 +223,5 @@ path.
 - Ticket 106 wants the shared key retired; nothing here shows how the launcher would be built without `accessKey`
   while still opening Live. `publish.mjs:445` refuses an Electron build without one, and `publishTauriLauncher`
   (`publish.mjs:493`) has no equivalent check — is that deliberate for the Tauri hand-over?
-- `docs/HANDOFF.md` and `STATUS-1.6.4.md` never mention channels or the Basic user names, so a reader of those alone
-  would not know a dev tier exists. Worth adding a pointer, not a rewrite.
+- `docs/HANDOFF.md` names the Test channel once in passing (`docs/HANDOFF.md:120`) and neither file mentions the Basic
+  user names or the dev tier, so a reader of those alone would not know RC exists. Worth a pointer, not a rewrite.

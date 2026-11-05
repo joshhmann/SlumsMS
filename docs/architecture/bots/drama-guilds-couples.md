@@ -57,9 +57,11 @@ Commands:
 | `@romance on\|off\|wedding\|breakup\|divorce` | player | `src/main/java/client/command/commands/gm0/RomanceCommand.java:16-36` |
 | `@botdrama off\|on` | player | `src/main/java/client/command/commands/gm0/BotDramaCommand.java:15-38` |
 | `@guildwar` / `@guildwar peace` | player | `src/main/java/client/command/commands/gm0/GuildWarCommand.java:16` |
-| `@botromance …` (status/stage/ask/propose/wedding/object/runaway/crash/divorce/step) | GM | `src/main/java/client/command/commands/gm4/BotRomanceCommand.java:13-16` |
-| `@botguild …` (list/form/stage/recruit/bossrun/quit/join/kick/step) | GM | `src/main/java/client/command/commands/gm4/BotGuildCommand.java` |
-| `@couple …` (list/spawn/form/wedding/break/step) | GM | `src/main/java/client/command/commands/gm4/CoupleCommand.java:21-26` |
+| `@botromance …` (status/stage/ask/propose/wedding/object/runaway/crash/divorce/step) | GM | `src/main/java/client/command/commands/gm4/BotRomanceCommand.java:15` |
+| `@botguild …` (list/form/stage/recruit/bossrun/quit/join/kick/step) | GM | `src/main/java/client/command/commands/gm4/BotGuildCommand.java:45` |
+| `@couple …` (list/spawn/form/wedding/break/step) | GM | `src/main/java/client/command/commands/gm4/CoupleCommand.java:34` |
+
+Registration: `src/main/java/client/command/CommandsExecutor.java:294-297` (player) and `:437-441` (GM).
 
 YAML: all dialogue lives in `src/main/java/soloMapling/ArtificialPlayer/BotDialoguePack/DramaDialogue.yaml` (650 lines; root key `Drama:` at `:9`, romance `:11-175`, wedding `:202-265`, roasts `:267-303`, social `:305-372`, KS war `:375-392`, revenge `:397-428`, war/poach/ally `:430-490`, teasing `:492-540`, beef `:544-578`).
 
@@ -176,14 +178,14 @@ Not covered: no test drives a couple-ring purchase (auto-QA `t-rg-2` is manual, 
 
 ## Known issues
 
-| Card | Line in `/root/work/STATUS-1.6.4.md` | Issue |
-|---|---|---|
-| b225 | 57 | KPQ pass hand-overs invisible (fix `205acddac`) — drama hooks stay silent across instance handover |
-| b232 | 58 | Follower bot in an instance does not leave with its leader (`625948ac9`) |
-| b240 | 59 | Bots say they are grinding while standing in town (`23fe8f08f`, `3aba87f15`) |
-| b241 | 60 | KPQ bonus-stage messages (`6c257d926`) |
+| Card | Line in `/root/work/STATUS-1.6.4.md` | Issue | Overlap with this subsystem |
+|---|---|---|---|
+| b225 | 57 | KPQ: passes bots hand to the leader never show on the ground or in the leader's Etc tab (fix `205acddac` in `5cc8061d1`) | none — party/instance loot, not drama |
+| b232 | 58 | A follower inside an instance does not leave with its leader (`625948ac9`) | none — the follower is `src/main/java/soloMapling/ArtificialPlayer/BotTypes/FollowerBot.java`, not `BotRomance`'s follow |
+| b240 | 59 | Regular bots say they are grinding while standing in town (`23fe8f08f`, `3aba87f15`) | indirect — same chatter/state plumbing `DramaKit.say` writes through |
+| b241 | 60 | KPQ bonus stage: messages keep coming until everyone leaves (`6c257d926`) | none — instance script |
 
-Only b225-b241's four cards exist; b233-b239 are unused. Adjacent: b276 (`:78`, QA feed drops map-scoped PLAN/ROUTE lines), b284 (`:80`, ten-lane false failures), b285 (`:81`, alt upgrade trade refused unless owner online), b298 (`:48`, crafted packets skip the leader check).
+Only b225-b241's four cards exist; b233-b239 are unused, and none of the four is a drama, guild or couple defect. Adjacent: b276 (`:78`, QA feed drops map-scoped PLAN/ROUTE lines), b284 (`:80`, ten-lane false failures), b285 (`:81`, alt upgrade trade refused unless owner online), b298 (`:48`, crafted packets skip the leader check).
 
 NEW-FINDING: `src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java:293-296` — an unanswered proposal is auto-accepted after 40 s (`WeddingTakenAsYes`), so a player who walks away from the altar marries the bot without ever saying "i do"; the runaway beat is the only escape and it is rolled at 8%.
 

@@ -56,6 +56,8 @@ No packet, YAML row or `-D` flag starts or re-tunes the wheel; see **Switches**.
 | 9 | `BotSM.updateState()` switches on `BotState` IDLE/RUNNING/PAUSE/TRADING/FINISHED; `FINISHED` unregisters the bot | `src/main/java/soloMapling/ArtificialPlayer/BotSM.java:286-359`, `src/main/java/soloMapling/ArtificialPlayer/BotSM.java:493-500` |
 | 10 | Subclasses override `updateState()`; `TrainingBot` runs `super.updateState()` first, then its phase machine | `src/main/java/soloMapling/ArtificialPlayer/BotTypes/TrainingBot.java:589-591`, phase enum at `src/main/java/soloMapling/ArtificialPlayer/BotTypes/TrainingBot.java:294-295` |
 
+There is no `TrainingBot.update()`; `BotSM.updateState()` is the only FSM entry, overridden per bot type and always calling `super.updateState()` first (20 files under `src/main/java/soloMapling/ArtificialPlayer/BotTypes/` call `super.updateState()`; `src/main/java/soloMapling/ArtificialPlayer/BotTypes/TrainingBot.java:589-591` is the training one, `src/main/java/soloMapling/ArtificialPlayer/BotTypes/FMBot.java:940` the FM one).
+
 `BotTiming`/`MethodScheduler` are what tick bodies use for anything that used to sleep: `after()` for one delayed side effect, `chain()` for a scripted sequence (whole chain parks one virtual thread), `pause()` inside a chain (`src/main/java/soloMapling/server/BotTiming.java:54-70`, `src/main/java/soloMapling/server/BotTiming.java:82-104`, `src/main/java/soloMapling/server/BotTiming.java:106-132`; `src/main/java/soloMapling/server/MethodScheduler.java:16-29`). Pacing the FSM's own next step is `BotSM.waitFor(ms)`, which the wheel honours without holding any thread (`src/main/java/soloMapling/ArtificialPlayer/BotSM.java:148-161`).
 
 ### Intervals and sizes
@@ -146,7 +148,7 @@ Nothing is persisted; every value above is process-local and dies with the JVM.
 | `BOT_ROSTER_PEAK_ONLINE` / `BOT_POPULATION_PEAK` | 1200 / 1600 | `SERVER_SET` 3000 / 3500 | `src/main/java/config/ServerConfig.java:139`, `src/main/java/config/ServerConfig.java:154`; `docs/release/1.6.4.conf:201-214` |
 | `BOT_DIRECTOR_BOOT_FILL_PER_SECOND` / `_IN_FLIGHT` / `BOT_DIRECTOR_TICK_SECONDS` | 8 / 8 / 30 | `SERVER_SET` 2 (fill rate) | `src/main/java/config/ServerConfig.java:143-149`; `docs/release/1.6.4.conf:201` |
 | `-Dslums.qa` (`QaSuite`) | off | QA-only, not a live flag | `src/main/java/soloMapling/qa/QaSuite.java:33`, `src/main/java/soloMapling/qa/QaSuite.java:77-79` |
-| `-Dsolomapling.enabled` + `-Dsolomapling.template-id` | false / 0 | not enabled in `UNIT_EDITS` | `src/main/java/soloMapling/server/MapleRootSolo.java:16-20` |
+| `-Dsolomapling.enabled` + `-Dsolomapling.template-id` | false / 0 (both required: `isEnabled()` ANDs a template id > 0) | `UNIT_EDITS` carries other `-Dsolomapling.*` bot flags but not these two, so the on/off pair is live-inherited, not set per release (`docs/release/1.6.4.conf:271`) | `src/main/java/soloMapling/server/MapleRootSolo.java:16-25` |
 
 There is **no switch at all** for the driver period, the governor thresholds, `DRAIN_MS`, the combat tick period, the macro cadences or any CPU budget — all are `private static final` constants (`src/main/java/soloMapling/server/BotTickService.java:34`, `src/main/java/soloMapling/server/BotTickService.java:72-76`; `src/main/java/soloMapling/ArtificialPlayer/BotTypes/TrainingBot.java:114`; `src/main/java/soloMapling/ArtificialPlayer/BotSM.java:166`, `src/main/java/soloMapling/ArtificialPlayer/BotSM.java:470-489`). Re-tuning means an edit and a rebuild.
 

@@ -23,12 +23,12 @@ the same code path produces a bank line and the bot still answers.
 
 | Trigger | Where | What it does |
 | --- | --- | --- |
-| Player map chat | `src/main/java/net/server/channel/handlers/GeneralChatHandler.java:55` (hidden), `:59-61` (`MapChatLog.record`), `:63-65` (`BotDrama.onPlayerChat` early return), `:66-67` (`MessageQueue.getInstance().addMessage("primary", …)`), `:68` (`BotBuffRequestHandler.tryHandle`) | queues the line for the bot dispatcher |
+| Player map chat | `src/main/java/net/server/channel/handlers/GeneralChatHandler.java:52-54` (QaLog CHAT), `:56` (hidden GM ignored), `:59-61` (`MapChatLog.record`), `:64-65` (`BotDrama.onPlayerChat` early return), `:66-67` (`MessageQueue.getInstance().addMessage("primary", …)`), `:68` (`BotBuffRequestHandler.tryHandle`) | queues the line for the bot dispatcher |
 | Dispatcher tick | `src/main/java/soloMapling/ArtificialPlayer/BotMessagingSystem/Dispatcher.java:44` (2 s `scheduleAtFixedRate`), `:54` `run`, `:102` `dispatch` | picks the addressee, routes, calls `BotConversation` |
 | Routing rules | `BotMessagingSystem/ChatRoute.java:169` `decide` (`Step` enum `:60`), `:41/:43/:45` speaker/reply/thread-join windows, `:51/:56` hearing bubble 400×150 px | name → facing → thread → reply → closest |
 | Player whispers | `src/main/java/net/server/channel/handlers/WhisperHandler.java:109` `CharacterStorage.getBotById`, `:113` `BotConversation.say(brain, user, message, null, whisperBack)`, `:114-117` 1-in-3 busy whisper (`BUSY_WHISPERS` `:101`) | one conversation, delivered back as a whisper |
 | Party chat | `src/main/java/net/server/channel/handlers/MultiChatHandler.java:67` → `BotPartySystem/BotPartyChat.java:64` `onPartyChat`, `:94` `BotConversation.talk(..., sayInParty)` | answers on the party channel |
-| Buddy chat | `MultiChatHandler.java:64` → `BotBuddies.buddyChat` (`BotBuddies.java:823`), `BotConversation.talk(brain, player, line, reply -> …)` (`:859-867`) | answers on the buddy channel, `SpeechGuard` + `MessyChat.forWhisper` |
+| Buddy chat | `MultiChatHandler.java:63` → `BotBuddies.buddyChat` (`BotBuddies.java:823`), `BotConversation.talk(brain, player, line, reply -> …)` (`:859-867`) | answers on the buddy channel, `SpeechGuard` + `MessyChat.forWhisper` |
 | Bot-to-bot | `BotConvo/BotTalk.start()` and `BotConvo/BotThreads.start()`, both at `src/main/java/soloMapling/Environment/EnvironmentManager.java:147-148` | separate engines, never the player brain |
 | Ambient chatter (canned packs) | `BotChatterSystem/BotChatter.maybeStartChatter` (`BotChatter.java:76`) from `BotTypes/SocialBot.java:202` and `BotTypes/TownWandererBot.java:154`; forced by GM `!env chatter fire` (`client/command/commands/gm4/EnvironmentCommand.java:293`) | two-bot exchange, no player involved |
 | Cluster conversations | `ConversationManager.getInstance().start()` at `EnvironmentManager.java:146` | 2-4 line bot-only scenes near players |
@@ -374,7 +374,7 @@ unit-tested (`BotBrainSystem` 15 + `BotConvo` 59 test classes, `AutoQaCatalog.ja
 `/root/work/STATUS-1.6.4.md:55-59`), and the planner — the mechanism that was supposed to fix exactly that — only went
 on for live on 2026-11-05 (`docs/release/1.6.4.conf:267`) after being frozen off for the 11-02 run (`:252`), with its
 proof being a single TEST pass of `t-pl-1`/`t-cv-1`. Evidence of the gaps: `AutoQaCatalog.java:70-71` (chat timeouts),
-`STATUS-1.6.4.md:78-83` (QA-feed and 10-lane false failures).
+`/root/work/STATUS-1.6.4.md:78-83` (QA-feed and 10-lane false failures).
 
 ## Open questions
 

@@ -20,15 +20,13 @@ that make the next check cheap (`.slumsms-launcher/state.json`, `installed.json`
 ## How it works
 
 1. **Bounds, then inspect in `spawn_blocking`.** `install_release` refuses concurrency or pack concurrency outside 1..32
-   (install.rs:674-680), then runs `inspect` (install.rs:681-684 → install.rs:83-206) over every manifest file, resolving
-   `destination` first (install.rs:104):
-   - absent → pending (install.rs:107);
-   - **player-owned** (`release.player_owned`, default `config.ini`): keep the player's copy and mark it verified when
-     `state.json` records the same manifest hash (install.rs:112-116); else, for `config.ini`, remember the recorded
-     server and make it pending so the channel's server can be merged (install.rs:118-121);
-   - **size differs** from the manifest → pending (install.rs:122-124);
-   - **Fast mode** and `state.json` size+mtime match → trust the recorded hash (install.rs:126-131);
-   - otherwise queue for hashing (install.rs:133).
+   (install.rs:674-680), then runs `inspect` (install.rs:681-684 → install.rs:83-206) per manifest file after resolving
+   `destination` (install.rs:104): absent → pending (install.rs:107); **player-owned** (`release.player_owned`, default
+   `config.ini`) keeps the player's copy and marks it verified when `state.json` records the same hash
+   (install.rs:112-116), else for `config.ini` remembers the recorded server and makes it pending so the channel's
+   server can be merged (install.rs:118-121); **size differs** → pending (install.rs:122-124); **Fast mode** with
+   `state.json` size+mtime agreeing → trust the recorded hash (install.rs:126-131); everything else is queued for
+   hashing (install.rs:133).
 
    Queued files are SHA-256'd by 4 scoped threads (install.rs:147-180); `digest` returns `None` if a file changed
    mid-read (fsutil.rs:198-219). `kept_bytes = manifest total − pending bytes` (install.rs:202) is what a resume counts.
@@ -40,12 +38,12 @@ that make the next check cheap (`.slumsms-launcher/state.json`, `installed.json`
    deletes `.mapleroot-stage-*` older than one hour (install.rs:657-671; `STALE_STAGE` install.rs:32) and this run's
    `.mapleroot-stage-<6 hex>` is created inside the game folder (install.rs:702-703).
 4. **Decide packs vs per-file.** Packs need `options.packs` (always true from the app), `pending.files.len() >= 32`
-   (`PACK_MIN_FILES`, install.rs:31) and a `packs` reference on some layer (install.rs:740). Indexes are then fetched and
+   (`PACK_MIN_FILES`, install.rs:31) and a `packs` reference on some layer (install.rs:740). Indexes are fetched and
    validated (`load_pack_sources`, install.rs:609-631): the bytes must hash to the SHA-256 pinned in the top manifest
-   (install.rs:615-616), and `validate_pack_index` re-checks schema, layer/version, the layer manifest SHA-256, unique
-   URLs, non-repeated file indexes and each pack's declared size (packs.rs:47-87). An unusable index is downgraded to a
-   note — "Packs for {layer} are unavailable (…); downloading its files one by one." (install.rs:630) — except
-   access-key errors and cancellation, which propagate (install.rs:629).
+   (install.rs:615-616), and `validate_pack_index` re-checks schema, layer/version, manifest SHA-256, unique URLs,
+   non-repeated file indexes and each pack's size (packs.rs:47-87). An unusable index is downgraded to a note — "Packs
+   for {layer} are unavailable (…); downloading its files one by one." (install.rs:630) — except access-key errors and
+   cancellation, which propagate (install.rs:629).
 5. **Plan.** `plan_packs` (packs.rs:145-209) prices a span as `end − start + 128 KiB` per request
    (`DEFAULT_REQUEST_COST`, packs.rs:11) against one request per file, keeps only packs with a positive saving, merges
    entries whose gap is under one request (packs.rs:128-143) and keys content by `sha256:size` so an identical file
@@ -96,7 +94,7 @@ that make the next check cheap (`.slumsms-launcher/state.json`, `installed.json`
   unchanged layers are not re-fetched (release.rs:85-97).
 - Pack index — `layers/<name>/<version>/packs/index.json`,
   `{schemaVersion:1, layer, version, manifestSha256, packs:[{url,size,sha256,files:[index…]}]}`; a pack concatenates
-  those manifest files, so each offset is the sum of the sizes before it (packs.rs:47-87, README.md:134).
+  those manifest files, so each offset is the sum of the sizes before it (packs.rs:47-87, /root/work/launcher-165-server/README.md:134).
 - Nothing about an install lives outside the game folder except the launcher's own settings (download concurrency,
   install dir) in its app-data config (config.rs:14).
 
@@ -133,12 +131,11 @@ that make the next check cheap (`.slumsms-launcher/state.json`, `installed.json`
   (tauri/app/src/single_instance.rs:5).
 - **Disk errors are not retried** — `Error::io` marks local+permanent (error.rs:52-55); both download loops return
   immediately on `local` (install.rs:480-481, :846-847). There is no separate permission path: parents are created lazily
-  inside `destination(…, create=true)` (fsutil.rs:161-175), so an unwritable folder surfaces as the first write's
-  `Error::io` — permanent, reported, not retried; a path component that is a file or symlink is refused outright
-  (fsutil.rs:112-113, fsutil.rs:176-178).
+  in `destination(…, create=true)` (fsutil.rs:161-175), so an unwritable folder surfaces as the first write's `Error::io`
+  — permanent, reported, not retried; a path component that is a file or symlink is refused outright (fsutil.rs:112-113).
 - **Free space is checked once, best effort** — `ensure_disk_space` returns `Ok` when the platform cannot answer
-  (`let Some(free) = free else { return Ok(()) }`, install.rs:642) and otherwise demands `bytes + min(bytes, 512 MiB)`
-  (install.rs:643); `free_disk_bytes` walks up to the nearest existing ancestor (fsutil.rs:255-263).
+  (install.rs:642) and otherwise demands `bytes + min(bytes, 512 MiB)` (install.rs:643); `free_disk_bytes` walks up to the
+  nearest existing ancestor (fsutil.rs:255-263).
 
 ## Origin
 
@@ -189,21 +186,19 @@ through a redirect/CDN, and the live patch host itself.
 - b270 (S3, Client) — a Live client publish wrote `manifest.json` without `news[]`; the publish path around the
   installer's feed (`/root/work/STATUS-1.6.4.md:75`).
 - o04 (Ops, later) — move client and launcher builds from Silvia to tarkov2 (`/root/work/STATUS-1.6.4.md:130`).
-- Ticket 20 (open, target 1.6.0) — packed first install for remote friends; the mechanism exists, the server repo still
-  publishes with `--no-packs`.
-- Ticket 106 (open, 1.6.1) — replace the shared patch key with a per-account download pass
-  (`docs/tickets/106-launcher-download-pass.md`).
+- Ticket 20 (open, target 1.6.0) — packed first install for remote friends; the mechanism exists but the server repo
+  still publishes with `--no-packs`. Ticket 106 (open, 1.6.1) — per-account download pass instead of the shared patch
+  key (`docs/tickets/106-launcher-download-pass.md`).
 - NEW-FINDING: the pack-level `sha256` from the index is never verified. `validate_pack_index` stores it (packs.rs:84)
   and `plan_packs` carries it, but nothing compares downloaded bytes to it — only each member file's SHA-256
   (install.rs:411) and the index's own hash (install.rs:615). The manifest still guarantees the *set* of files, so this
   is a hardening gap, not a corruption path.
-- NEW-FINDING: no "game is running" guard. `GAME_RUNNING` exists (error.rs:10) but only guards writes of game options
+- NEW-FINDING: no "game is running" guard. `GAME_RUNNING` (error.rs:10) only guards writes of game options
   (`game_config.rs:142-148`, used at launcher.rs:899/922); `install_release` will rename over `slums.dll` in a folder a
-  client is using and rely on Windows sharing violations — which `Error::io` turns into a permanent, non-retried
-  failure (error.rs:52-55).
-- NEW-FINDING: a hand-set server is recognised only from `state.json`'s `server` field, so a player who edits
-  `config.ini`'s host/port on a fresh machine (no state entry) has it replaced by the channel's value once
-  (install.rs:563-569; `recorded_server` defaults to `None`).
+  client is using and rely on Windows sharing violations — which `Error::io` makes permanent, so no retry (error.rs:52-55).
+- NEW-FINDING: a hand-set server is recognised only from `state.json`'s `server` field, so a player editing
+  `config.ini`'s host/port on a fresh machine (no state entry) has it replaced once by the channel's value
+  (install.rs:563-569; `recorded_server` starts `None`).
 - NEW-FINDING: `BACKLOG-1.6.0.md:83` still says ticket 20 is "not started | no chunk/pack code in server repo" — stale,
   packs exist in the launcher repo.
 
@@ -216,12 +211,12 @@ own index (publish.mjs:326). What is missing is the operational half: every live
 (`docs/release/README.md:18-23`, `docs/release/RUNBOOK.md:33`, `docs/release/1.6.3-deploy-steps.md:92`) and no `--packs`
 invocation exists anywhere in `docs/release/` or `tools/release/`, so Live serves loose files and the pack path has never
 run against the real host. No Windows run over a folder with a locked or running client is recorded either; the launcher
-README notes the same gap for self-update (README.md:313-314).
+README notes the same gap for self-update (/root/work/launcher-165-server/README.md:313-314).
 
 ## Open questions
 
 - Who runs `publish.mjs --packs base@<version>` for Live, and when? The recipe exists only in the launcher README
-  (README.md:97-98); the server repo's release scripts have no step for it, yet `publish-client` carries `--no-packs`
+  (/root/work/launcher-165-server/README.md:97-98); the server repo's release scripts have no step for it, yet `publish-client` carries `--no-packs`
   "for a client release that goes out before the launcher/packs release" (tools/release/publish-client:16). Until that
   lands, packs are dead code on Live.
 - Should `config.ini`'s channel server be merged on a fresh install with no `state.json`? The current rule ("none

@@ -36,7 +36,7 @@ it as `CARGO_BIN_EXE_fake-launcher`); it is not part of a release.
 2. Credentials. The same feed origin gets `Authorization: Basic` (`launcher.rs:792-794`) and `X-Slums-Pass`
    (`launcher.rs:795-796`, `tauri/core/src/http.rs:18`).
 3. The plugin decides "is this an update": `release.version > current_version` (`tauri-plugin-updater 2.14.0`
-   `src/updater.rs:712-720`). Nothing newer → `"Self-update: no newer launcher on this channel."` and the game check
+   `/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-updater-2.14.0/src/updater.rs:712-720`). Nothing newer → `"Self-update: no newer launcher on this channel."` and the game check
    runs (`launcher.rs:798-801`).
 4. Policy re-check in our code: `update_decision` refuses a non-`MAJOR.MINOR.PATCH` version, a lower one, an equal one,
    and a version that already failed this session (`tauri/core/src/selfupdate.rs:31-39`).
@@ -44,11 +44,11 @@ it as `CARGO_BIN_EXE_fake-launcher`); it is not part of a release.
    `"the update {v} is not on the patch server ({url}); refusing it"` (`launcher.rs:807-810`;
    `http.rs:104-106`).
 6. Download and verify. `update.download(...)` buffers the body and calls `self.verify(&buffer)` before returning
-   (plugin `updater.rs:881-893`). `verify_signature` decodes the base64 pubkey into a minisign `PublicKey`, decodes the
+   (plugin `/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-updater-2.14.0/src/updater.rs:881-893`). `verify_signature` decodes the base64 pubkey into a minisign `PublicKey`, decodes the
    base64 signature into a `Signature`, calls `public_key.verify(data, &signature, true)`, and only then reads the
-   trusted comment (plugin `updater.rs:1893-1918`).
+   trusted comment (plugin `/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-updater-2.14.0/src/updater.rs:1893-1918`).
 7. Version binding. `verify_signed_version` takes the `version:` field out of the trusted comment
-   (plugin `updater.rs:1963-1967`); missing and `requireSignedVersion` → `Error::MissingSignedVersion`
+   (plugin `/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-updater-2.14.0/src/updater.rs:1963-1967`); missing and `requireSignedVersion` → `Error::MissingSignedVersion`
    (`:1930-1939`); unequal to the announced version → `Error::SignedVersionMismatch` (`:1951-1958`).
 8. Shape gate. `looks_like_exe` requires `len > 1024` and an `MZ` prefix on Windows (`selfupdate.rs:42-48`), so a
    signed-but-wrong artifact is refused again (`launcher.rs:827-829`).
@@ -99,14 +99,15 @@ it as `CARGO_BIN_EXE_fake-launcher`); it is not part of a release.
 | `<feed>/tauri/launcher.json` | version, notes, pub_date, per-platform url + signature | publisher, last (`publish.mjs:531-535`) |
 | `<feed>/tauri/<v>/SlumsMS-Launcher.exe` | immutable published exe | publisher, first (`:516-523`) |
 | `<exe>.sig` beside a built exe | base64 of the 4-line minisign text | signing step |
-| `tauri/app/tauri.conf.json:41` | base64 of the minisign **public** key text | committed constant |
+| `/root/work/launcher-165-server/tauri/app/tauri.conf.json:41` | base64 of the minisign **public** key text | committed constant |
 
 Signature shape, checked against the shipped 1.6.5 artifacts: four lines (untrusted comment, 74-byte signature packet
 with algorithm `ED` = prehashed BLAKE2b-512 and key id `79FEB767F5F1D862`, `trusted comment: timestamp:…\tfile:…\t
 version:1.6.5`, 64-byte global signature). `minisign-verify 0.3.0` enforces exactly those lengths and that the trusted
-comment starts `trusted comment: ` (`/root/.cargo/registry/src/*/minisign-verify-0.3.0/src/lib.rs:236-263`) and checks
-the artifact signature *and* the global signature over signature‖trusted comment (`:333-347`), with `UnexpectedKeyId`
-when key ids differ (`:352-371`). The conf key decodes to the same key id and a 42-byte `Ed` public packet.
+comment starts `trusted comment: ` (`/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/minisign-verify-0.3.0/src/lib.rs:235-267`) and checks
+the artifact signature *and* the global signature over signature‖trusted comment (`:334-346`), refusing
+`UnexpectedKeyId` when key ids differ (`:357-359`). The conf key decodes to the same key id and a 42-byte `Ed` public
+packet (`:288-303`).
 
 Nothing about the update is persisted to `settings.json` or `state.json`: `skip_version` is memory only
 (`launcher.rs:105`), and no record of a verified signature survives the process. **What is signed is the exe bytes and
@@ -118,7 +119,7 @@ the trusted comment — not the `url` and not the `version` field of `launcher.j
 
 | Switch | Default | Effect |
 |---|---|---|
-| `plugins.updater.requireSignedVersion` | `true` (`tauri.conf.json:42`) | signed version must equal the announced one |
+| `plugins.updater.requireSignedVersion` | `true` (`/root/work/launcher-165-server/tauri/app/tauri.conf.json:42`) | signed version must equal the announced one |
 | `plugins.updater.endpoints` | `[]` (`:43`) | the endpoint is supplied at runtime, so the feed URL follows the channel |
 | `plugins.updater.pubkey` | the minisign key (`:41`) | the only trust root in the binary |
 | `--no-self-update` / `SLUMSMS_NO_SELF_UPDATE=1` | off | skips the whole path (`launcher.rs:72`, `:761`) |
@@ -144,12 +145,12 @@ so release builds refuse a non-HTTPS endpoint outright
 - **Same key on every channel and in the hand-over build.** Live, RC, Test and the Electron hand-over all verify
   against the same public key, so one signature works everywhere and an installed launcher can cross channels
   (`/root/work/launcher-tauri-release/RUNBOOK.md:101-103`; the pubkey in `/root/work/launcher-tauri/tauri/app/
-  tauri.conf.json:41` is byte-identical to `tauri/app/tauri.conf.json:41`).
+  /root/work/launcher-165-server/tauri/app/tauri.conf.json:41` is byte-identical to `/root/work/launcher-165-server/tauri/app/tauri.conf.json:41`).
 - **The signature must be bound to the announced version.** Enforced on the publisher side before publishing
   (`publish.mjs:503`) and on the consumer side before the swap, only because `requireSignedVersion` is `true`
-  (`tauri.conf.json:42` → plugin `updater.rs:1934-1939`). Turning it off would let a hostile feed pair a new version
+  (`/root/work/launcher-165-server/tauri/app/tauri.conf.json:42` → plugin `/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-updater-2.14.0/src/updater.rs:1934-1939`). Turning it off would let a hostile feed pair a new version
   number with an old, validly signed build.
-- **Never downgrade.** Three independent refusals: `selfupdate.rs:34`, plugin `updater.rs:714`, publisher
+- **Never downgrade.** Three independent refusals: `selfupdate.rs:34`, plugin `/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-updater-2.14.0/src/updater.rs:714`, publisher
   `publish.mjs:512-514`.
 - **The key and the pass go only to the feed origin.** `same_origin` is checked before the download
   (`launcher.rs:807-810`), and `http.rs:122-134` drops both headers once a redirect leaves the origin and refuses an
@@ -188,7 +189,7 @@ ed25519.
   (`:18-31`), then assert the exact channel JSON, the floor on republishing, the `/signature is for version 1\.5\.2/`
   refusal, HTTPS-only, no credentials, and `MAJOR.MINOR.PATCH`.
 - `/root/work/launcher-handover/test/handover.test.mjs:65` — the signature matrix, against an **independent** verifier
-  (`src/handover.mjs:76-100`, its own BLAKE2b because Electron lacks it: `7f385b0`): a real signature verifies; a
+  (`/root/work/launcher-handover/src/handover.mjs:76-100`, its own BLAKE2b because Electron lacks it: `7f385b0`): a real signature verifies; a
   flipped byte, another key, another version and a tampered comment each fail with a distinct message.
 - Auto-QA: exactly one launcher check exists and it is manual —
   `src/main/java/soloMapling/autoqa/AutoQaCatalog.java:783` `t-la-1` "The Tauri launcher's own checklist". Nothing
@@ -209,10 +210,10 @@ shell scripts only, never with a real Tauri window on Windows in CI.
 - **o04** (Ops, later): move client and launcher builds off Silvia to tarkov2.
 - **NEW-FINDING:** the 60 s timeout is set on the builder and applied to `check()` only. `update_from_release`
   constructs the `Update` with `timeout: None`
-  (`tauri-plugin-updater-2.14.0/src/updater.rs:735`), and `Update::download` honours only *that* field (`:849-851`), so
+  (`/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-updater-2.14.0/src/updater.rs:735`), and `Update::download` honours only *that* field (`:849-851`), so
   `launcher.rs:791` does not bound the download: a feed that accepts the connection and stalls hangs the check with no
   deadline.
-- **NEW-FINDING:** the download is buffered with no size cap (`updater.rs:881-888` `buffer.extend(chunk)`), while the
+- **NEW-FINDING:** the download is buffered with no size cap (`/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-updater-2.14.0/src/updater.rs:881-888` `buffer.extend(chunk)`), while the
   Electron hand-over capped the same artifact at 64 MiB (`/root/work/launcher-handover/src/handover.mjs:22`). A feed
   that serves a large body can exhaust memory before the signature is ever checked.
 - **NEW-FINDING:** `--self-update-failed=` is parsed and honoured (`launcher.rs:70`, `:802`) but this launcher never
