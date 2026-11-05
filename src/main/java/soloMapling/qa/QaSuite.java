@@ -176,7 +176,9 @@ public final class QaSuite {
         QaLog.attach(run);
         List<String> lines;
         try {
-            dramaBaseline(ctx);
+            if (!java.util.Collections.disjoint(scenario.topics(), DRAMA_TOPICS)) {
+                dramaBaseline(ctx);
+            }
             lines = scenario.stage(ctx);
         } catch (QaRefusal r) {
             run.stop("refused: " + r.getMessage(), clock.instant());
@@ -294,8 +296,12 @@ public final class QaSuite {
         }
     }
 
+    /** The topics of the runs that need the GM's @botdrama on (af, rv, gu, gw, rm, cp/we and pb runs). */
+    static final Set<QaLog.Topic> DRAMA_TOPICS = java.util.EnumSet.of(QaLog.Topic.AFFINITY, QaLog.Topic.RIVALRY,
+            QaLog.Topic.ROMANCE, QaLog.Topic.BOT_GUILD, QaLog.Topic.GUILD_WAR, QaLog.Topic.COUPLE);
+
     /**
-     * Every run starts with the GM's @botdrama on, put back at stop. The setting is stored per character, so a run cut
+     * Every drama run starts with the GM's @botdrama on, put back at stop. The setting is stored per character, so a run cut
      * off by a restart (af-3 on Nov 5, mid-deploy) never undid its "off", and every drama check after it skipped.
      */
     static void dramaBaseline(QaContext ctx) {
