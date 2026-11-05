@@ -813,7 +813,7 @@ table.t { width: 100%; border-collapse: collapse; }
 .xc-itemlist td { padding: 3px 6px; }
 .xc-itemlist img { image-rendering: pixelated; object-fit: contain; display: block; width: 22px; height: 22px; max-width: none; }  /* the site-wide img max-width shrank them to dots in the narrow first column */
 .xc-itemlist tr.on td { background: var(--xc-up-bg); }
-.xc-itemlist td:nth-child(2) { text-align: left; width: 100%; }
+.xc-itemlist th:nth-child(2), .xc-itemlist td:nth-child(2) { text-align: left; width: 100%; }
 .xc-name { all: unset; cursor: pointer; font: 600 .84rem var(--f-body); color: var(--xc-ink); }
 .xc-name:hover, .xc-name:focus-visible { text-decoration: underline; color: var(--xc-sun); }
 .xc-rowgo { white-space: nowrap; } .xc-rowgo button { font: 800 .72rem var(--f-body); padding: 3px 9px; border-radius: 4px;
@@ -888,7 +888,9 @@ table.t { width: 100%; border-collapse: collapse; }
 @media (max-width: 900px) {
   .xc-term { grid-template-columns: minmax(0, 1fr); padding: 8px;
     grid-template-areas: "alert" "tabs" "browse" "tick" "chart" "book" "form" "orders" "depth" "trades" "rules"; }
-  .xc-itemlist th:nth-child(5), .xc-itemlist td:nth-child(5), .xc-itemlist th:nth-child(6), .xc-itemlist td:nth-child(6) { display: none; }
+  /* phone: icon, name, price and the two buttons stacked; the 24 h move, bid and ask are on the item's own screen */
+  .xc-itemlist th:nth-child(n+4):nth-child(-n+6), .xc-itemlist td:nth-child(n+4):nth-child(-n+6) { display: none; }
+  .xc-rowgo { display: grid; gap: 4px; }
 }
 /* the NX ticker in the Megaphone (ticker.js): signed-in players see the exchange's price */
 .rail .xtick b { color: var(--on-rail); } .rail .xtick .up { color: var(--up-fill); } .rail .xtick .down { color: #ff7b7f; }
