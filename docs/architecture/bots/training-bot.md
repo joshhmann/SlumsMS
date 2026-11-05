@@ -25,14 +25,14 @@ draining for it", `TrainingBot.java:219`).
 | `BotTickService` wheel | scheduler | `DRIVER_PERIOD_MS = 100` (`src/main/java/soloMapling/server/BotTickService.java:34,167`), per-entry `period/nextDue` |
 | `BotSM.tickRunnable` | tick body | `BotSM.java:75-97`; skips while `isWaiting()` or `AfkCampers.holds(this)`, counts `BotPerfStats.MACRO_TICKS`, wraps `updateState()` in try/catch |
 | `TrainingBot.updateState()` | the machine | `TrainingBot.java:589-672` |
-| `ensureCombatTicker()` | shared sweep start | `TrainingBot.java:207-215`, called from `doInit()` `:1471`; cancelled by `BotShutdown.onQuiesce` `:216` |
+| `ensureCombatTicker()` | shared sweep start | `TrainingBot.java:207-216`, called from `doInit()` `:1471`; cancelled by `BotShutdown.onQuiesce` `:215` |
 | `!bot trainbot <cid>` | GM command | converts a bot to `TRAINING_BOT` via stop→set→start `src/main/java/client/command/commands/gm4/ArtificialPlayerCommand.java:284-289` |
 | `!bot breaknow <cid>` | GM command | `tb.forceBreakNow()` `ArtificialPlayerCommand.java:290-300`, help text `:931` |
 | `!bot restspot <cid>` | GM command | `RestSpotFinder.debug(chr)` `ArtificialPlayerCommand.java:301-309`, help `:932` |
 | `!botwhy <name>` | GM inspection | `src/main/java/client/command/commands/gm3/BotWhyCommand.java:17-24,47+` (gated on `LifeRuntime.enabled()` or QA + `-Dslums.botlife.preview`) |
 | `CombatStaging` | QA staging | `tb.forceRopeBreakNow()` `src/main/java/soloMapling/ArtificialPlayer/BotCombatSystem/CombatStaging.java:268`; `tb.forceGrindOn(map)` `:383` |
 | `GameQaWorld` life hooks | QA staging | `triggerLifeNeed` `src/main/java/soloMapling/qa/GameQaWorld.java:1506-1516`, `prepareLifeRestock` `:1520-1531`, `submitLifeRestock` `:1533-1537`, `botLifeReport` `:1539-1549`, `forceLifeChannel` `:1673+` |
-| `TrainingBotDialogue.yaml` | YAML rows | dialogue path set in the constructor `TrainingBot.java:407-414` |
+| `TrainingBotDialogue.yaml` | YAML rows | dialogue path set in the constructor `TrainingBot.java:408-414` |
 | `config.yaml` `BOT_COMBAT_*` etc. | config keys | see `## Switches` |
 
 ## How it works
@@ -176,8 +176,8 @@ nudge debounce 1500 ms (`BotSM.java:166,393-416`), driver wheel 100 ms (`BotTick
 
 ### GrindBreakRoutine
 
-`final class GrindBreakRoutine` (`src/main/java/soloMapling/ArtificialPlayer/BotTypes/GrindBreakRoutine.java:24`), one
-instance per TrainingBot (`TrainingBot.java:` `breaks` field, constructed with the bot).
+`final class GrindBreakRoutine` (`src/main/java/soloMapling/ArtificialPlayer/BotTypes/GrindBreakRoutine.java:23`), one
+instance per TrainingBot (`TrainingBot.java:384` `private final GrindBreakRoutine breaks = new GrindBreakRoutine(this)`).
 
 | Member | Behaviour | file:line |
 |---|---|---|
@@ -186,11 +186,11 @@ instance per TrainingBot (`TrainingBot.java:` `breaks` field, constructed with t
 | `due()` | `breakAtMs > 0 && now >= breakAtMs` | `:80-82` |
 | `forceNow()` / `forceRopeNow()` | `!bot breaknow` hook / forces the rope variant | `:85-96` |
 | `hangsOnRope(ropeAvailable, ropeAsked, roll)` | `ropeAvailable && (ropeAsked \|\| roll < 0.35)` | `:98-100` |
-| `resuming()` / `consumeResumeRemaining()` | one-shot saved remainder, consumed by `doGrind` first tick | `:102-114` |
-| `begin(chr, grind, savedRemainingMs)` | consumes the due flag, resolves `RestSpotFinder.find` first (null → skip the break, unobserved only), picks rope vs ground, `grind.release(chr)`, `GCMovement.stop`, sit decision, `sayContext("BreakStart")`; true → caller enters `BREAK_TRAVEL` | `:118-158` |
-| `tickTravel(chr)` | rope arrival = climbing and `|Δx| <= 14`, `|Δy| <= 44` → `setRestHold(true)`; ground arrival = `|dx| <= 60 && |dy| <= 120` → `stop` + `setIdle("rest")`; progress (`PROGRESS_EPS_PX`, or `isNavigatingClimb`) pushes a 9 s stall deadline; stall or 60 s cap → one retarget to `RestSpotFinder.findLocal`, second time rests in place | `:160-214` |
-| `tickRest(chr)` | one-time setup (60–100 s rest, mid-rest `sayContext("Fatigue")`, chair when sitting and the spot is not mob-occupied, chalkboard with `BREAK_SIGN_CHANCE`); finishes only when `!bot.recruitingNow()` — clears sign, dismounts rope or cancels the chair, `sayContext("BreakOver")`; true → caller re-enters `GRIND` | `:216-263` |
-| `abandon(chr)` | death or channel move mid-break: clears the sign, forgets break and remainder | `:265+` |
+| `resuming()` / `consumeResumeRemaining()` | `resumeRemainingMs > 0` / one-shot saved remainder, consumed by the `doGrind` first tick | `:102-111` |
+| `begin(chr, grind, savedRemainingMs)` | consumes the due flag, resolves `RestSpotFinder.find` first (null → skip the break, unobserved only), picks rope vs ground, `grind.release(chr)`, `GCMovement.stop`, sit decision, `sayContext("BreakStart")`; true → caller enters `BREAK_TRAVEL` | `:118-153` |
+| `tickTravel(chr)` | rope arrival = climbing and `|Δx| <= 14`, `|Δy| <= 44` → `setRestHold(true)`; ground arrival = `|dx| <= 60 && |dy| <= 120` → `stop` + `setIdle("rest")`; progress (`PROGRESS_EPS_PX`, or `isNavigatingClimb`) pushes a 9 s stall deadline; stall or 60 s cap → one retarget to `RestSpotFinder.findLocal`, second time rests in place | `:160-210` |
+| `tickRest(chr)` | one-time setup latch `restStarted` (`:217-218`) rolls the 60–100 s rest; mid-rest `sayContext("Fatigue")` (`:241-244`); chair when sitting and the spot is not mob-occupied, chalkboard with `BREAK_SIGN_CHANCE`; finishes only when `now >= breakUntilMs && !bot.recruitingNow()` (`:245`) — sign down, rope hold released or chair cancelled, `sayContext("BreakOver")`; true → caller re-enters `GRIND` | `:216-261` |
+| `abandon(chr)` | death or channel move mid-break: sign down, rope hold and idle cleared, `breakAtMs`/`resumeRemainingMs`/rest spot forgotten (`:279-286`) | `:265-286` |
 
 ### LifeHost implementation
 
@@ -218,9 +218,9 @@ instance per TrainingBot (`TrainingBot.java:` `breaks` field, constructed with t
 | `dailyLife` (`LifeRuntime`) | profile, memory, plan, needs, friends | `TrainingBot.java:305`; constructor `:407-414` |
 | `lifeDestination`, `lifeVisit`, `lifeFishingStarted`, `lifePqTrip` | current life trip | `TrainingBot.java:306-312` |
 | `shopQueue`, `shopTargetMapId`, `resupplySite`, `sellNothingUntilMs` | town/shop itinerary | `TrainingBot.java:139-148,1591,1711-1745` |
-| `restockCall`, `eventCall`, `inBossRun`, `walkBackMapId`, `stayPutOnly` | latched interrupts | `TrainingBot.java:327-328,1397,735,2905` |
+| `restockCall`, `eventCall`, `inBossRun`, `walkBackMapId`, `stayPutOnly` | latched interrupts | `TrainingBot.java:326-327,1400,733,346` |
 | `ACTIVE_GRINDERS` (`Set<TrainingBot>`) | who the shared 250 ms sweep visits | `TrainingBot.java:202` |
-| `BotRoster.Activity("grind", homeMapId, {TRAIN_STATE: currentTrainMapId})` | persisted across logout | `TrainingBot.java:1506-1517`, read back in `resumeGrind` `:1487-1504` |
+| `BotRoster.Activity("grind", homeMapId, {TRAIN_STATE: currentTrainMapId})` | persisted across logout | `TrainingBot.java:1505-1515`, read back in `resumeGrind` `:1487-1504` |
 | `lifeActivityState().activity()` / `currentLifeVisit()` | what `BotWatch` reports as the bot's doing | `BotWatch.java:427-464` |
 
 ## Switches
@@ -238,7 +238,7 @@ instance per TrainingBot (`TrainingBot.java:` `breaks` field, constructed with t
 | `-Dslums.fishing.enabled` / `-Dslums.fishing.rewards` | false | FISH visits only (`src/main/java/soloMapling/fishing/FishingPolicy.java:15-16`); the `LIFE_DWELL` FISH arm exits to `DECIDE` without them (`TrainingBot.java:1306`) | not set ⇒ off; the conf says fishing is "not in 1.6.4 at all" (`docs/release/1.6.4.conf:104`) |
 | `-Dslums.botquests.enabled` | false in code (`BotQuests.java:96` requires it **and** the brain) | quest NPC visits, offscreen quest kills | **on** — `UNIT_EDITS` `docs/release/1.6.4.conf:271` |
 | `-Dslums.grind.gearFirst` | false (`GearFirstAdvisor.java:42`) | map choice prefers drop maps | **on** (`UNIT_EDITS`) |
-| `-Dslums.bots.partysupport` | false (`src/main/java/soloMapling/ArtificialPlayer/BotSupportSwitches.java:29`) | `BotPartySupport.tick` heals party / buff pots (`TrainingBot.java:2191`) | **on** (`UNIT_EDITS`) |
+| `-Dslums.bots.partysupport` | false (`src/main/java/soloMapling/ArtificialPlayer/BotSupportSwitches.java:29`) | `BotPartySupport.tick` heals party / buff pots (`TrainingBot.java:2187`) | **on** (`UNIT_EDITS`) |
 | `-Dslums.junk.sort`, `-Dslums.scroll.ev`, `-Dslums.gear.optimizer`, `-Dslums.gear.dexless`, `-Dslums.bots.apvariants`, `-Dslums.bots.famerequest`, `-Dslums.bots.magicguard`, `-Dsolomapling.jobErrand` | off | the town/shop/gear/quest sub-behaviours the phases call | **on** (`UNIT_EDITS`) |
 | `BOT_COMBAT_HUMAN` / `BOT_COMBAT_AOE_MIN_MOBS` / `BOT_COMBAT_SLOPPINESS` / `BOT_COMBAT_DEATHS` / `BOT_KS_MANNERS` / `BOT_SPREAD` | `true` / `3` / `1.0` / `true` / `true` / `true` (`src/main/java/config/ServerConfig.java:266-276`) | combat realism, read via `BotCombatTuning` | not overridden in the conf |
 | `BOT_REBIRTH_ENABLED` + `USE_REBIRTH_SYSTEM` | `false` / unset (`ServerConfig.java:477,353`) | enables `REBIRTH_TRAVEL` via `BotRebirth.enabled()` (`src/main/java/soloMapling/ArtificialPlayer/BotProgressionSystem/BotRebirth.java:114-117`) | not set ⇒ no rebirth trips |
@@ -281,9 +281,9 @@ SoloMapling work:
 
 | Path | Commits | Oldest | Newest |
 |---|---|---|---|
-| `src/main/java/soloMapling/ArtificialPlayer/BotTypes/TrainingBot.java` | 86 | `03d13cb21 2026-10-18` | `a8047c5d1 2026-10-19 Keep high-level bots grinding when nothing is in their band` |
-| `src/main/java/soloMapling/ArtificialPlayer/BotTypes/GrindBreakRoutine.java` | 5 | `03d13cb21 2026-10-18` | `71c3f96b2 2026-10-22 Fix bot combat and population bugs from the 1.5.0-rc3 review` |
-| `src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifeHost.java` | 4 | `b079359e8 2026-10-25 WIP S8: Bartle utility, GOAP planner, CHANGE_CHANNEL, outcome hooks` | `f4d5ee0dd 2026-10-29 Hold a bot's brain after its yes until the act runs (t-bt-3)` |
+| `src/main/java/soloMapling/ArtificialPlayer/BotTypes/TrainingBot.java` | 86 | `03d13cb21 2026-10-18` | `81a7faa31 2026-11-03 Bots now keep a persisted list of promises and keep or break them (ticket 181 stage 5)` |
+| `src/main/java/soloMapling/ArtificialPlayer/BotTypes/GrindBreakRoutine.java` | 5 | `03d13cb21 2026-10-18` | `1b2a0cb72 2026-10-23 Bots stop claiming trades and items they cannot back; cv-5 answers its thread` |
+| `src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifeHost.java` | 4 | `b079359e8 2026-10-25 WIP S8: Bartle utility, GOAP planner, CHANGE_CHANNEL, outcome hooks` | `babcd1641 2026-10-30 Let grinding bots take and turn in kill quests at the NPC (ticket 158, switch off)` |
 
 `LifeHost` is the youngest of the three: the interface was introduced for the 1.6.0 S8 "brain reach" work and
 `TrainingBot` was retrofitted onto it (`LifeHost.java:9-13`, comment "The TrainingBot is the full host").

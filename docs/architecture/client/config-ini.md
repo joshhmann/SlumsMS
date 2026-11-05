@@ -198,7 +198,9 @@ Boolean dialects — they are **not** interchangeable:
 Legacy-key fallbacks: exactly one — `attackjump` and `chargemove` fall back to `[clienthax] moveattack` when absent
 (`src/attackstop_patch.h:109-116`). No other key has a legacy alias.
 
-Launcher side (read-only repo, `/root/work/launcher-165-server`):
+Launcher side (read-only repo, `/root/work/launcher-165-server`; the older `/root/work/launcher-tauri` checkout is a
+superseded snapshot — `GAME_OPTIONS` has 10 entries at `tauri/core/src/game_options.rs:47` and `game_config.rs` has no
+`merge_server`, so cite 165 only):
 
 | Behaviour | Evidence |
 |---|---|
@@ -206,6 +208,7 @@ Launcher side (read-only repo, `/root/work/launcher-165-server`):
 | Changing any of `attackwalk`/`attackjump`/`chargemove` writes all three | `tauri/core/src/game_options.rs:100,506-511` |
 | `[clienthax] moveattack` is read, never written or removed | `tauri/core/src/game_options.rs:96-97,529` |
 | `[config] host`/`port` come from the channel layer (`merge_server`); everything else in the file is byte-for-byte | `tauri/core/src/game_config.rs:112-128` |
+| …except when the player set the server by hand since the launcher last did — then the file is kept as-is | `tauri/core/src/install.rs:563-570` (`hand_edited` at `:568`) |
 | The player's file is never replaced by Update or Repair; it is installed only when missing | launcher `README.md:230` (repo root), `tauri/core/src/install.rs:111-123,557-577` |
 | Refuses to write while the game runs | `tauri/core/src/game_config.rs:147-149` |
 | Reads `doubletapjump`/`borderless`/`dpiaware` the way `GetPrivateProfileStringA` does (`Reader::Profile`), everything else as inih | `tauri/core/src/game_options.rs:37-42,335-341` |
@@ -235,9 +238,10 @@ player-owned rule; `tauri/core/src/game_options.rs:1-17,379-400` states the byte
 5. **A repeated key flips an inih boolean back to its default.** inih joins repeats with `"\n"`
    (`INIReader.h:454-456`), which no boolean spelling matches; the Win32 reader takes the first occurrence. The
    launcher mirrors both behaviours and drops repeats when it edits (`tauri/core/src/game_options.rs:290-306,442-497`).
-6. **`[config] port` is only read after a host.** `ProcessConfigFile` returns as soon as the host read succeeds
-   (`src/injector.cpp:34-37`), and a missing/zero port leaves the long `g_nServerPort` at `0`, which
-   `WSPConnect_hook` treats as "leave the port alone" (`src/system.cpp:269`). A host without a port therefore connects
+6. **`[config] port` is only read after a host.** `ProcessConfigFile` returns before reading the port when the host
+   key is missing or empty (`src/injector.cpp:34-36`), and the port is read only after a host was stored (`:37-41`); a
+   missing/empty port leaves `g_nServerPort` at `0`, which `WSPConnect_hook` treats as "leave the port alone"
+   (`src/system.cpp:269`). A host without a port therefore connects
    to the stock v83 port.
 7. **Only connections to the stock addresses are redirected** — `63.251.217.2/.3/.4` and `127.0.0.1`
    (`src/system.cpp:223-228`); `WSPGetPeerName_hook` restores the original peer so the client's own logic is unchanged
@@ -351,7 +355,11 @@ suppresses `[config]`.
 
 `NEW-FINDING:` the launcher README's Game options table (`/root/work/launcher-165-server/README.md:253-264`) lists 10
 of the 12 options (no `borderless`/`dpiaware`) and gives `doubletapjump` as "on" while the client default and the
-launcher table are `false` (`tauri/core/src/game_options.rs:84`).
+launcher table are `false` (`tauri/core/src/game_options.rs:84`). Two lines above the player-owned rule the same README
+still asserts "The launcher does not rewrite client INIs" (`README.md:59`) and "installed once and never overwritten"
+(`:58`), both contradicted by `merge_server` (`tauri/core/src/game_config.rs:120-128`) writing `[config] host`/`port`
+into an existing file. The module doc explains the change (`game_config.rs:114-119`, owner decision 2026-11-05); the
+README sentences were not updated.
 
 ## State
 
