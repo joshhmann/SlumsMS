@@ -24,7 +24,8 @@ say "SlumsMS $VER live release from $HERE"
 
 # --- pre-flight: nothing changes here ---
 for f in deploy.sh rollback.sh REHEARSAL.md; do [ -f "$HERE/$f" ] || stop_here "missing $f in $HERE (stage it first)"; done
-grep -q "rehearsal PASS\|smoke PASS" "$HERE/REHEARSAL.md" || stop_here "REHEARSAL.md does not show a PASS: rehearse first"
+# the receipt's overall line (rehearse-host.sh): "smoke PASS" alone also shows on a rehearsal that FAILED its data check
+grep -q '\*\*Result: PASS\*\*' "$HERE/REHEARSAL.md" || stop_here "REHEARSAL.md does not show Result: PASS: rehearse first"
 systemctl is-active --quiet slumsms || stop_here "live (slumsms) is not running now; check it before releasing"
 NAV=$(sed -n "s/^NAV_CACHE_SRC='\(.*\)'/\1/p" "$HERE/deploy.sh")
 if [ -n "$NAV" ]; then [ -d "$NAV" ] || stop_here "nav cache $NAV missing"; say "nav cache: $(ls "$NAV" | wc -l) graphs in $NAV"; fi

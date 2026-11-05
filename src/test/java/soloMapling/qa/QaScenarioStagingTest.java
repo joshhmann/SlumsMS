@@ -450,6 +450,22 @@ class QaScenarioStagingTest {
     }
 
     @Test
+    void everyRunStartsWithDramaOnAndPutsALeftoverOffBackAtStop() {
+        // Nov 5: af-3 was cut off by a TEST restart, its "off" stayed stored, and 11 drama checks skipped after it
+        world.dramaOff = true;
+        start("rv-1", 104040000);
+        assertFalse(world.dramaOff, "drama on for the run");
+        suite.stop(1, "!qa stop");
+        assertTrue(world.dramaOff, "the GM's own setting comes back");
+        world.calls.clear();
+        world.dramaOff = false;
+        start("rv-1", 104040000);
+        suite.stop(1, "!qa stop");
+        assertFalse(world.dramaOff);
+        assertFalse(world.calls.contains("botdrama off"), "nothing to put back when it was already on");
+    }
+
+    @Test
     void sg1TurnsQuietBotsOnStagesAFriendAndPutsQuietBackAtStop() {
         Character gm = start("sg-1", 100000000);
         assertTrue(soloMapling.ArtificialPlayer.BotMegaphoneSystem.BotNoiseFilter.get(gm.getId()).bots());

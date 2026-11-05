@@ -41,11 +41,14 @@ class OwnedAltSwitchLineTest {
     }
 
     @Test void theShippedReleaseConfStatesTheMasterSwitch() throws Exception {
-        Path conf = Path.of("docs/release/1.6.3.conf");
-        assumeTrue(Files.exists(conf), "release conf not in this checkout");
-        String text = Files.readString(conf);
-        assertTrue(text.contains("OWNED_ALTS_ENABLED=true"),
-                "the master switch is stated in SERVER_SET, not left to its false default");
-        assertTrue(text.contains("OWNED_ALTS_SUMMON_ENABLED=true"), "and the summon switch it shipped with");
+        // every release conf from 1.6.3 on (archreview, Nov 5: the test only read 1.6.3, and 1.6.4 had dropped it)
+        for (String v : new String[] {"1.6.3", "1.6.4"}) {
+            Path conf = Path.of("docs/release/" + v + ".conf");
+            assumeTrue(Files.exists(conf), "release conf not in this checkout");
+            String text = Files.readString(conf);
+            assertTrue(text.contains("OWNED_ALTS_ENABLED=true"),
+                    v + ": the master switch is stated in SERVER_SET, not left to its false default");
+            assertTrue(text.contains("OWNED_ALTS_SUMMON_ENABLED=true"), v + ": and the summon switch it shipped with");
+        }
     }
 }

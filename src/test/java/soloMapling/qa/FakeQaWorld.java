@@ -255,7 +255,9 @@ class FakeQaWorld implements QaWorld {
     @Override public boolean setBotDramaOff(Character gm, boolean off) {
         boolean was = dramaOff;
         dramaOff = off;
-        calls.add("botdrama " + (off ? "off" : "on"));
+        if (was != off) { // the real toggle is a no-op when nothing changes
+            calls.add("botdrama " + (off ? "off" : "on"));
+        }
         return was;
     }
 
