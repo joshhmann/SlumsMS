@@ -127,9 +127,9 @@ the character is a non-bot GM of level ≥ 2 (`src/main/java/soloMapling/server/
 10. **The HP write.** `Monster.damage` (`src/main/java/server/life/Monster.java:412`) takes the monster lock, returns
     `false` when already dead, and calls `applyDamage` `:461`, which calls
     `applyAndGetHpDamage(damage, stayAlive)` `:360` — `trueDamage = Math.min(curHp, delta)` `:370`, so overkill is discarded
-    and HP never goes negative (`:368-372`). `applyDamage` then dispatches the damage packet `:472`, adds to
-    `takenDamage[chrId]` `:476-479`, updates hit streaks `:480-484`, refreshes the boss HP bar `:486` and notifies
-    `DamageRank` `:487`.
+    and HP never goes negative (`:368-372`). `applyDamage` then (unless the hit is fake) dispatches the damage packet
+    `:472`, adds to `takenDamage[chrId]` `:475-481`, updates hit streaks `:480-484`, refreshes the boss HP bar `:486`
+    and notifies `DamageRank` `:487`.
 11. **Death.** `MapleMap.killMonster` (`:1738`) → `removeKilledMonsterObject` (`:1710`, refuses when `hp < 0`, i.e.
     already removed `:1712-1714`) → over-30-levels-higher autoban alert `:1758-1759` → CPQ credit `:1770` → map-wide
     buff-to-give `:1773-1785` → `wakeBodyIfLastArm` `:1787` → `Character dropOwner = monster.killBy(chr)` `:1789`
@@ -197,7 +197,7 @@ the character is a non-bot GM of level ≥ 2 (`src/main/java/soloMapling/server/
 |---|---|---|
 | `AttackInfo` | `src/main/java/net/server/channel/handlers/AbstractDealDamageHandler.java:58-65` | `numAttacked`, `numDamage`, `numAttackedAndDamage`, `skill`, `skilllevel`, `stance`, `direction`, `rangedirection`, `charge`, `display`, `allDamage`, `ranged`, `magic`, `speed = 4`, `position`, `rangedTailPos = -1` |
 | `allDamage` | same, `:60` | `Map<Integer, List<Integer>>`: monster OID → decoded damage lines (meso OIDs map to `null` for Meso Explosion, `:583`) |
-| Monster HP | `src/main/java/server/life/Monster.java:73` `hp` (AtomicLong) | clamped at 0 while alive; `-1` is the "removed from map" marker (`disposeMapObject` `:387-390`) |
+| Monster HP | `src/main/java/server/life/Monster.java:73` `hp` (AtomicLong) | clamped at 0 while alive; `-1` is the "removed from map" marker (`disposeMapObject` `:388-390`) |
 | `takenDamage` | `src/main/java/server/life/Monster.java:95` | `Map<Integer, AtomicLong>` keyed by **character id**; fake damage counts as `1` (`:477-479`). This map is the EXP ledger |
 | `maxHpPlusHeal` | `src/main/java/server/life/Monster.java:74`, `:140`, `:510` | denominator for damage share; healing a mob raises it so healers cannot be gamed |
 | Hit streaks | `src/main/java/server/life/Monster.java:103-105` | `hitStreakAt`/`lastHitAt`, `HIT_STREAK_GAP_MS = 15_000` |
@@ -232,7 +232,7 @@ values are unknown.
 - **A monster's HP never goes below zero while it is alive.** `applyAndGetHpDamage` applies
   `Math.min(curHp, delta)` (`src/main/java/server/life/Monster.java:370`), so overkill is dropped and
   `takenDamage` records real damage only. `hp == -1` is reserved for "removed from the map"
-  (`Monster.java:387-390`), which is why `removeKilledMonsterObject` treats `hp < 0` as already-removed
+  (`Monster.java:388-390`), which is why `removeKilledMonsterObject` treats `hp < 0` as already-removed
   (`src/main/java/server/maps/MapleMap.java:1712-1714`).
 - **A monster dies once.** `Monster.damage` returns early when `!isAlive()` (`Monster.java:417-418`) and
   `killMonster` is idempotent through `removeKilledMonsterObject` (`MapleMap.java:1712`).
@@ -346,7 +346,7 @@ mob's EXP.
   not account for.
 - **NEW-FINDING: `MobDamageMobFriendlyHandler.java:83-92` kills the friendly twice.** `map.killFriendlies(monster)`
   runs `killMonster` → `removeKilledMonsterObject` → `disposeMapObject` (`MapleMap.java:1710-1727`,
-  `Monster.java:387-390`), which sets `hp = -1` and already broadcasts the kill; `applyAndGetHpDamage(damage, false)`
+  `Monster.java:388-390`), which sets `hp = -1` and already broadcasts the kill; `applyAndGetHpDamage(damage, false)`
   then runs at `:87` on an object whose HP is `-1`, returns `0`, and the following `getHp() <= 0` branch calls
   `map.removeMapObject(monster)` a second time `:88-91`.
 - **NEW-FINDING: `MonsterBombHandler.java:41-52` never checks HP or ownership.** Any client can send `MONSTER_BOMB`

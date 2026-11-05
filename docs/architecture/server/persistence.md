@@ -100,11 +100,13 @@ durable, what is lost when a write fails, and what a rollback of a release actua
 
 8. **Logout save.** `Client.disconnectInternal` runs its `finally` block over three separate steps: `saveCooldowns()`,
    `cancelAllDebuffs()`, `saveCharToDB(true)`, `logOff()`, then pending name change and `clear()`
-   (src/main/java/client/Client.java:1130-1132). `saveCooldowns()` uses **its own** connection, outside the character
-   transaction: `DELETE FROM cooldowns WHERE charid = ?` then `INSERT INTO cooldowns (charid, SkillID, StartTime,
-   length)` (src/main/java/client/Character.java:9625-9643), followed by the same pattern for `playerdiseases`
-   (:9645-9670); both catch `SQLException` and only `printStackTrace`. `isOwnedAlt()` characters return from
-   `disconnectInternal` before this (the owned-alt registry owns their one final save).
+   (src/main/java/client/Client.java:1130-1132). `saveCooldowns()` is `synchronized`, opens **its own** connection
+   (skipping the body entirely when the cooldown list is empty) and runs `DELETE FROM cooldowns WHERE charid = ?` then
+   `INSERT INTO cooldowns (charid, SkillID, StartTime, length)` — outside the character transaction
+   (src/main/java/client/Character.java:9625-9643) — followed by the same pattern for `playerdiseases` (:9645-9670);
+   both catch `SQLException` and only `printStackTrace`. Characters with `isOwnedAlt()` return from
+   `disconnectInternal` before any of this (src/main/java/client/Client.java:1062), so the owned-alt registry owns
+   their one final save.
 
 9. **Shutdown save.** `shutdownInternal` first calls `w.beginShutdown()` for every world
    (src/main/java/net/server/Server.java:2134-2136), which cancels the hourly autosave
@@ -118,7 +120,7 @@ durable, what is lost when a write fails, and what a rollback of a release actua
    (`BotShutdown.begin()`, `BotTickService.stop()`, then `BotStore.settleAndSaveAll(everyone, leftMs, BOT_WRITERS)` per
    world, `BotRoster.recordSessions`, `BotYieldCaps::flush`, `BotBonds::flushAtShutdown`, :2084-2124) and each
    `World.shutdown()` runs (:2188). At the very end `DatabaseConnection.closeSnapshotConnections()` releases the
-   pool-independent snapshot connections (:2229) and, in the non-restart branch, the process exits (:2243-2247).
+   pool-independent snapshot connections (:2229) and, in the non-restart branch, the process exits; the restart branch re-`init()`s (:2243-2253).
 
 10. **Shutdown budgets.** `ShutdownSaves.PLAYER_BUDGET_MS` and `BOT_BUDGET_MS` are 60 s each, overridable with
     `-Dslums.shutdown.playerBudgetMs` / `-Dslums.shutdown.botBudgetMs` (src/main/java/soloMapling/server/ShutdownSaves.java:29,
@@ -304,6 +306,7 @@ pool. No test asserts that `!saveall` did anything.
 | `NEW-FINDING` | `Character.saveCharToDB(boolean)` returns `void` and swallows every error, so `!saveall` reports "All players saved successfully." without proof. | src/main/java/client/Character.java:10324-10328; src/main/java/client/command/commands/gm6/SaveAllCommand.java:40-48. |
 | `NEW-FINDING` | The logout writes are split across connections: `saveCooldowns` (cooldowns + playerdiseases) and `Pet.saveToDb` each take their own connection and swallow errors, so a successful character commit does not imply the cooldowns/pets were written. | src/main/java/client/Character.java:9625-9670; src/main/java/client/inventory/Pet.java:133-148. |
 | `NEW-FINDING` | `002-classic-fm-return.sql` is the one forward migration that does not create the ledger table, so it cannot be applied to a database where 001 has not run (or the ledger was rebuilt): its `INSERT IGNORE` fails and the deploy tool then stops on "did not record itself in the ledger". | database/migrations/002-classic-fm-return.sql:2-3 vs. the `CREATE TABLE IF NOT EXISTS mapleroot_integration_migrations` in every other forward file; tools/release/templates/deploy.body.sh:220. |
+| `NEW-FINDING` | `PlayerStorage.disconnectAll` logs a throwing disconnect and then still clears the registry, so a character whose teardown failed leaves the world with no record that it was not saved — nothing retries it. | src/main/java/net/server/PlayerStorage.java:113-131. |
 | `NEW-FINDING` | Merchant close is two non-atomic writes on two connections: the items, then `fredstorage`. A crash between them leaves items saved with no Fredrick log, or vice versa. | src/main/java/server/maps/HiredMerchant.java:761-781. |
 
 ## State

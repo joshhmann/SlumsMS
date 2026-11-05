@@ -102,8 +102,8 @@ src/main/java/soloMapling/server/AttackCapture.java:48).
    expectation → FAIL with the descriptions; no judged expectation at all → SKIP; otherwise PASS, and a HALF check's
    reason keeps `logic passes; still look: <why>` (src/main/java/soloMapling/autoqa/AutoQaRunner.java:355-400).
 9. Cleanup is unconditional (`finally`, src/main/java/soloMapling/autoqa/AutoQaRunner.java:404-409): `cleanup(run)` sends
-   `!unhide` per hidden slot and `!qa stop` per slot that staged a scenario (:420-431). `world.logoutAll()` follows at the
-   end of the run (:184-190).
+   `!unhide` per hidden slot and `!qa stop` per slot that staged a scenario (:420-431). `world.logoutAll()` follows in the
+   run's own `finally` (:179-187), then `ABORTED`/`FINISHED` → `IDLE`.
 10. Each result is handed to the report the moment it is known — `onResult` writes a partial report and logs
     `Auto-QA PASS t-af-1 …` (src/main/java/soloMapling/autoqa/AutoQaService.java:240-252) — tagged with the QA clock it
     ran on (`fast lane: QA staging ran at 0.4x`, src/main/java/soloMapling/autoqa/AutoQaRunner.java:132-150).
@@ -112,9 +112,11 @@ src/main/java/soloMapling/server/AttackCapture.java:48).
     (:267-287). `AutoQaReport.write` writes `report-<UTC day>.json` **and** `latest.json`
     (src/main/java/soloMapling/autoqa/AutoQaReport.java:368).
 12. Health sweeps run beside all of this, on their own scheduled thread: `HealthSweeper.start()` every
-    `AUTOQA_SWEEP_MINUTES` (:46-58), `sweepNow()` → `HealthSweep.run(...)` over the nine (ten with `decide`) invariant
-    checks, written to `health-latest.json` + `health/<day>.jsonl` (:114-123; checks
-    src/main/java/soloMapling/autoqa/HealthSweep.java:122-135, `SENT_CHECK` :162).
+    `AUTOQA_SWEEP_MINUTES` (:46-58), `sweepNow()` → `HealthSweep.run(...)` over nine invariant checks — `foothold`,
+    `foothold (sent)`, `stuck`, `clumps`, `overlap`, `channelSplit`, `invalidMaps`, `errors`, `mapCap` — plus
+    `chatModel` when the Decide endpoints are running (src/main/java/soloMapling/autoqa/HealthSweep.java:122-137,
+    `SENT_CHECK` :162), written to `health-latest.json` + `health/<day>.jsonl`
+    (src/main/java/soloMapling/autoqa/HealthSweeper.java:112-123).
 
 ### The check catalogue
 
@@ -130,7 +132,7 @@ t-ev-3, t-nx-1, t-nx-2), 3 `.players(2)` (t-mr-1, t-nx-1, t-nx-2), 186 with an e
 LLM judge (`judged(...)`), 11 manual (t-ga-4, t-rg-1, t-rg-2, t-mv-1, t-jq-1, t-cl-1..3, t-cc-1, t-mr-2, t-la-1 — the
 same ids as the release allow-list, src/main/resources/soloMapling/autoqa-release-skips.tsv).
 
-| Prefix | Area (from the check titles) | n | Catalog lines |
+| Prefix | Area (from the check titles) | n | Catalog lines (first–last) |
 |---|---|---|---|
 | `t-af-n` | Bot friendship / rivalry acts (friend acts, grudge, @botdrama off) | 3 | 103-123 |
 | `t-rv-n` | Rival roasts, KS war, callout megaphone, apology follow, grounded trash talk | 5 | 134 |
@@ -226,6 +228,11 @@ same ids as the release allow-list, src/main/resources/soloMapling/autoqa-releas
 | `t-sa-n` | Social acts: three kinds land, budget and turn cap bite | 1 | 1583 |
 | `t-pi-n` | Henesys pilot counters report work | 1 | 1589 |
 | `t-ng-n` | 1.6.4 gear half checks: nimble weapon core, equipment bridge | 2 | 1593-1596 |
+
+The last column is the first and last `c.add(t-…)` line of that prefix, not a contiguous block: 42 of the 94 prefixes are
+interleaved because checks were added over time (worst: `t-rv` 134–1033, `t-bb` 175–933, `t-sc` 667–1267, `t-mk` 1123–1561,
+`t-mx` 1413–1519, `t-nv` 1406–1545), so a prefix's position in `build()` is not its position in the run. Counts per
+prefix are the exact count of `Check.auto/half/manual("t-<prefix>-n")` calls, and they sum to 197.
 
 ## Data
 

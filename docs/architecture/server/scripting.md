@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Nearly all game content that is not a handler lives in JavaScript under `scripts/`: 2102 `.js` files drive NPC conversations, quests, portals, reactors, map entry hooks, item use and every party quest. Java owns the engine, the per-client script session, the object handed to the script (`cm`, `im`, `qm`, `rm`, `ms`, `em`/`eim`) and the event-instance lifecycle. `scripts/event/*.js` are not one-shot scripts: each one is evaluated once per channel at boot and becomes a factory (`setup`) plus a callback table (`playerEntry`, `changedMap`, `monsterKilled`, `clearPQ`, `dispose`, …) that the server calls back into while an instance runs.
+Nearly all game content that is not a handler lives in JavaScript under `scripts/`: 2102 `.js` files across the seven loaded roots (2107 with the five top-level library stubs) drive NPC conversations, quests, portals, reactors, map entry hooks, item use and every party quest. Java owns the engine, the per-client script session, the object handed to the script (`cm`, `im`, `qm`, `rm`, `ms`, `em`/`eim`) and the event-instance lifecycle. `scripts/event/*.js` are not one-shot scripts: each one is evaluated once per channel at boot and becomes a factory (`setup`) plus a callback table (`playerEntry`, `changedMap`, `monsterKilled`, `clearPQ`, `dispose`, …) that the server calls back into while an instance runs.
 
 ## Entry points
 
@@ -19,7 +19,7 @@ Nearly all game content that is not a handler lives in JavaScript under `scripts
 | Map entered | `MapleMap` → `MapScriptManager.runMapScript` | src/main/java/server/maps/MapleMap.java:2900, :2904, :2909 |
 | PQ/boss instance started | NPC script → `EventManager.startInstance` | src/main/java/scripting/event/EventManager.java:534, :685 |
 | Reload from in-game command | `ReloadEventsCommand`, `ReloadPortalsCommand` | src/main/java/client/command/commands/gm3/ReloadEventsCommand.java:41; src/main/java/client/command/commands/gm3/ReloadPortalsCommand.java:39 |
-| Bot conversations (same scripts) | `BotNpcTalk.BotCm`, `BotQuestScript.BotQm` | src/main/java/soloMapling/bot/BotNpcTalk.java:90; src/main/java/soloMapling/bot/BotQuestScript.java:69 |
+| Bot conversations (same scripts) | `BotNpcTalk.BotCm`, `BotQuestScript.BotQm` | src/main/java/soloMapling/mechanics/BotNpcTalk.java:90; src/main/java/soloMapling/ArtificialPlayer/BotQuestSystem/BotQuestScript.java:69 |
 
 ## How it works
 
