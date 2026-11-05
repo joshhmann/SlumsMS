@@ -66,7 +66,7 @@ the same code path produces a bank line and the bot still answers.
 6. **Side systems read the same line first.** `BotStateOfMind.offer`, `haggling`, `RudeStreak.onLine`,
    `AffinityReactions.judgeTone`, `BotDrama.onPlayerLine` (which can end the ask outright with a `SCRIPTED` tier,
    `:599-605`), `BotGuilds.answerApplication` (`:611-616`).
-7. **Abuse short-circuits.** `if (triage.flagged()) onFlagged(...)` (`:606-609`, body `:1201`): no model call at all,
+7. **Abuse short-circuits.** `if (triage.flagged()) onFlagged(...)` (`:607-610`, body `:1201-1247`): no model call at all,
    `ChatStats.flagged(kind)` (`BotBrainSystem/ChatStats.java:95`), an optional `BotMemory` note, then an in-character
    brush-off, silence, or the "answered the ask" path — all `Tier.SCRIPTED`/`Tier.FLAGGED`.
 8. **Small kinds never reach the model.** `ask`'s kind switch (`:640-690`): `IGNORE` → `IGNORED` "filler"; `EMOTE` →
@@ -140,7 +140,7 @@ the same code path produces a bank line and the bot still answers.
 | Real settlement | provider `usage` tokens × price/Mtok, cache hits at the cached price | charged in full even when it exceeds the reservation (rc6 note) | `CloudBudget.java:100-107`, `:116-127` |
 | Low-priority share | 80 % of the day (`LOW_PRIORITY_BUDGET_SHARE`) | `ALL` mode stops sending `PARTNER`/`THREAD`/`AMBIENT` to the cloud at 80 %; `PLAYER` may use the last 20 % | `ChatRouter.java:44`, `:131-138` |
 | Day boundary | server local day (`ZoneId.systemDefault`), persisted to `data/convo/cloud-budget.json` | spend resets at midnight; a restart keeps the day's total | `CloudBudget.java:69`, `:207-232`, `BotBrains.java:55-60` |
-| Local concurrency | `BOT_LLM_MAX_CONCURRENT` (2), fair semaphore; cloud hardcoded 4 | no free slot before the deadline ⇒ empty answer ⇒ BANK | `OpenAICompatibleBrain.java:80`, `:224`, `BotBrains.java:80` |
+| Local concurrency | `BOT_LLM_MAX_CONCURRENT` (2), fair semaphore (`slots` `:60`, `:77`); cloud hardcoded 4 | no free slot before the deadline ⇒ empty answer ⇒ BANK (`:224`) | `BotBrains.java:80` |
 | Per-player rate | `BOT_LLM_PLAYER_MIN_INTERVAL_MS` (1500) | `fail("rate limited")` ⇒ empty ⇒ BANK (`complete` `:90-97`, `reply` `:113-119`) | `OpenAICompatibleBrain.java:62` |
 | Draft shape | one line, ≤160 raw chars, ≤70 sent, no markdown/emoji/thinking block | `voiceProblem` ⇒ `fail` ⇒ empty ⇒ BANK | `ReplyCleaner.java:14`, `:43`, `:49`, `:85` |
 | Voice | assistant phrasing, AI talk, brand, real-world/era anachronism | `ContentGuard.aiTalk` then `ContentGuard.problem` ("explicit", "slur", "off-limits insult") | `ReplyCleaner.java:49-84`, `ContentGuard.java:46`, `:79` |
@@ -152,7 +152,7 @@ the same code path produces a bank line and the bot still answers.
 | --- | --- | --- | --- |
 | `IGNORE` ("" / brb / afk / asdf) | nothing, `IGNORED` "filler" | none | `ChatTriage.java:102`, `BotConversation.java:642` |
 | `EMOTE` (lol, ^^, nice) | emote or scripted whisper | `EMOTE`/`SCRIPTED` | `ChatTriage.java:104`, `BotConversation.java:645-655` |
-| `GREETING` | bank small talk, else a planned HELLO / HELLO_BACK | local LLM, `PLAYER` | `ChatTriage.java:107`, `BotConversation.java:663-673`, `ReplyPlanner.java:307-312` |
+| `GREETING` | bank small talk, else a planned HELLO / HELLO_BACK | local LLM, `PLAYER` | `ChatTriage.java:107`, `BotConversation.java:663-673`, `ReplyPlanner.plan` `ReplyPlanner.java:303-307` (SMALL_TALK when the bot already spoke, else HELLO for a stranger / HELLO_BACK) |
 | `THANKS` / `BYE` | bank line | `SCRIPTED` | `ChatTriage.java:109-111`, `BotConversation.java:657-661` |
 | `TALK` + `Intent.NONE` | free chat, plan or pre-m02 prompt | local LLM, `PLAYER` (cloud overflow) | `BotConversation.java:711-731` |
 | `Intent.PARTY` | `BotChatActions.party` — accept/decline/wary/already; chance `SOCIAL_ACCEPT_CHANCE`/`TRAINING_ACCEPT_CHANCE` capped 0.95 | LLM may word `PARTY_YES`/`PARTY_NO` only | `BotChatActions.java:171-217`, `:133`, `ReplyPlanner.java:335-345` |

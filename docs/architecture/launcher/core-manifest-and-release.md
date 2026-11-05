@@ -19,9 +19,9 @@ writes game files — that is `install-and-packs.md`.
   also driven directly by fixtures that mirror `tools/publish.mjs` output.
 - `client_build::read_client_build(install_dir)` (`client_build.rs:72`) — read when the app builds the "installed"
   status object; surfaced by `tauri/ui/version-status.mjs:44-60`.
-- Config that starts any of this: `feedUrl` in `tauri/launcher.config.json:2` (or `--feed-url=`, a saved
+- Nothing starts it: the config is `feedUrl` in `tauri/launcher.config.json:2` (or `--feed-url=`, a saved
   `settings.json` override, or the channel derivation in `channels-and-auth.md`) plus an access key (`config.rs:51-63`).
-- No packet, opcode, tick, scheduler or in-game script reaches this code; the only server side is the static host the
+  No packet, opcode, tick, scheduler or in-game script reaches this code; the only server side is the static host the
   feed lives on and the login gate that reads `MIN_CLIENT_BUILD`.
 
 ## How it works
@@ -68,43 +68,37 @@ as transport; the per-entry digests inside it are the enforcement (`install-and-
 
 ### Writing to disk
 
-8. **Layer cache.** `write_layer_cache(root, &release)` (`release.rs:100-124`) writes
-   `.slumsms-launcher/layers/{sha256}.json` = `{requestUrl, finalUrl, body}` per non-cached layer through
-   `write_small_file` (temp + rename, `fsutil.rs:240-252`), then deletes every `.json` there not in the keep set
-   (`release.rs:117-124`). Schema 1 returns early (`:102-104`).
-9. **`state.json`** (`release.rs:17`): `{stateVersion:1, release, layers, files:{path:{size,mtimeMs,sha256,server?}}}`
-   written by `write_install_state` (`:319-334`) after each install/verify; `read_install_state` (`:298-317`) treats
-   anything unreadable as empty — it is a cache.
-10. **`installed.json`** (`release.rs:18`): `recordVersion:1, release, manifestSha256, layers, verifiedAt, launch`
-    written by `write_installed_record` (`:408-419`), skipped when unchanged (`record_installed`, `:421-433`). An empty
-    `manifest_sha256` means "the launcher's own channel" and is never recorded (`:422-424`). `read_installed_record`
-    returns `None` for anything malformed so the UI shows "Unknown" (`:357-386`).
-11. **Game files** are never written here; `load_release` is side-effect-free apart from the layer cache.
+8. **Only three writes exist**, all under `.slumsms-launcher/` (shapes in §Data): the layer cache via
+   `write_layer_cache` (`release.rs:100-124`, temp+rename at `fsutil.rs:240-252`, stale `.json` deleted at
+   `release.rs:117-124`, schema 1 returns early at `:102-104`); `state.json` via `write_install_state` (`:319-334`);
+   `installed.json` via `write_installed_record` (`:408-419`), skipped when unchanged (`record_installed`, `:421-433`)
+   and never written for an empty `manifest_sha256`, i.e. the launcher's own channel (`:422-424`).
+9. **Game files are never written here**; `load_release` is side-effect-free apart from the layer cache.
 
 ### Client build metadata (`client_build.rs`)
 
-12. `read_client_build` reads `slums-build.txt` beside `slums.dll` (`BUILD_FILE`, `:17`), ≤4096 bytes (`:19`), strips
+10. `read_client_build` reads `slums-build.txt` beside `slums.dll` (`BUILD_FILE`, `:17`), ≤4096 bytes (`:19`), strips
     a BOM, tolerates CRLF/blank lines/extra keys (`parse_build_file`, `:50-70`). `release` ≤32 printable ASCII,
     `build` ≤9 digits and >0; a missing half is derived (`:60-66`) and `build` wins over a disagreeing `release`.
-13. `build_number("1.6.0") = 1*10_000 + 6*100 + 0 = 10600` (`:30-41`); anything not `MAJOR.MINOR.PATCH` with major
+11. `build_number("1.6.0") = 1*10_000 + 6*100 + 0 = 10600` (`:30-41`); anything not `MAJOR.MINOR.PATCH` with major
     ≤9999, minor ≤99, patch ≤99 is `None`.
-14. Clients before 1.6.0 have no file; the UI falls back to the installed record's `client` layer version
+12. Clients before 1.6.0 have no file; the UI falls back to the installed record's `client` layer version
     (`tauri/ui/version-status.mjs:44-50`).
 
 ### `minClientBuild` end to end
 
-15. Server: the login gate refuses `clientBuild < MIN_CLIENT_BUILD`
+13. Server: the login gate refuses `clientBuild < MIN_CLIENT_BUILD`
     (`src/main/java/net/server/handlers/login/ClientVersionGate.java:47-53`, `:110-118`); live 1.6.4 sets
     `MIN_CLIENT_BUILD=10740` (`docs/release/1.6.4.conf:284`).
-16. Launcher: **optional and non-fatal.** `min_client_build` (`manifest.rs:347-352`) accepts only `1..=99_999_999`;
+14. Launcher: **optional and non-fatal.** `min_client_build` (`manifest.rs:347-352`) accepts only `1..=99_999_999`;
     the doc comment says "Only a display hint (the game server enforces it at login), so a missing or malformed value
     means \"no check\" and never makes the release unusable." (`:347-348`). `"10600"`, `-1`, `0`, `1.5`, `null`,
     `[10600]` all become `None` (test `manifest.rs:504-516`).
-17. It reaches the UI as `minClientBuild` on the availability object (`release.rs:207-208`, `launcher.rs:1121`,
+15. It reaches the UI as `minClientBuild` on the availability object (`release.rs:207-208`, `launcher.rs:1121`,
     `:1126`); `clientUpdateNote` (`version-status.mjs:52-60`) returns "Client update needed: the server needs build N
     or newer" only when the field is a positive integer, the folder is installed, and the installed build is known and
     older.
-18. **Behaviour when the server's minimum is higher than the installed client:** nothing is blocked and nothing is
+16. **Behaviour when the server's minimum is higher than the installed client:** nothing is blocked and nothing is
     updated out of band. The renderer relabels the ready phase "Client update needed"
     (`tauri/ui/renderer.mjs:388-392`), and Play follows the normal plan — `play_plan` compares only
     `manifest_sha256` (`play.rs:17-21`), so an unchanged manifest means `Verify`, the launcher starts the old exe,
@@ -200,12 +194,9 @@ fixtures.
 | `manifest.rs` | `unsafe_paths_are_rejected` `:463`, `relative_urls_only` `:473`, `manifests_validate_layers_packs_news_and_player_owned` `:483`, `min_client_build_is_optional_and_unknown_fields_are_ignored` `:504`, `schema_one_requires_the_executable_with_identical_spelling` `:521`, `merge_overrides_and_rejects_aliases` `:532`, `versions_compare_numerically` `:540` |
 | `release.rs` | `iso_dates_look_like_javascript` `:438`, `available_serializes_like_the_electron_status_objects` `:445` |
 | `client_build.rs` | `parses_the_exact_file_the_client_build_writes` `:92`, `tolerates_crlf_blank_lines_spaces_bom_and_extra_keys` `:97`, `derives_the_missing_half` `:104`, `rejects_garbage` `:112`, `build_numbers_round_trip` `:121`, `reads_from_the_game_folder_and_never_fails` `:132` |
-| `config.rs` | `:132`, `:147`, `:161`, `:171`, `:185`, `:195`, `shipped_defaults_point_at_the_live_https_feed_without_a_key` `:209` |
-| `http.rs` | `urls_require_https_except_loopback` `:230`, `the_key_is_basic_auth_for_the_given_user_and_bound_to_the_origin` `:242` |
-| `fsutil.rs` | `spelling_aliases_and_symlinks_are_refused` `:291`, `mtime_matches_node_formula` `:316` |
-| `instance.rs` | `updated_child_reacquires_ownership_and_later_launches_are_secondary` `:50`, `a_stuck_parent_never_leaves_an_unregistered_full_instance` `:78` |
+| `config.rs` / `settings.rs` | 7 config tests (`:132`-`:209`, incl. `shipped_defaults_point_at_the_live_https_feed_without_a_key` `:209`) and 9 settings tests (`:279`-`:413`, incl. `settings_round_trip_and_malformed_fields_are_dropped` `:392`) |
+| `http.rs` / `fsutil.rs` / `instance.rs` | `urls_require_https_except_loopback` `http.rs:230`, `the_key_is_basic_auth_for_the_given_user_and_bound_to_the_origin` `:242`, `spelling_aliases_and_symlinks_are_refused` `fsutil.rs:291`, `mtime_matches_node_formula` `:316`, `updated_child_reacquires_ownership_and_later_launches_are_secondary` `instance.rs:50`, `a_stuck_parent_never_leaves_an_unregistered_full_instance` `:78` |
 | `packs.rs` | `group_packs_is_deterministic_dedupes_and_isolates_big_files` `:351`, `index_validation_binds_to_the_layer` `:357`, `planner_takes_whole_packs_for_a_first_install_and_per_file_for_small_updates` `:391`, `planner_splits_ranges_at_big_gaps_and_takes_shadowed_content_once` `:408`, `rate_meter_and_messages` `:424` |
-| `settings.rs` | `:279`, `:301`, `:327`, `:339`, `:357`, `:376`, `:386`, `settings_round_trip_and_malformed_fields_are_dropped` `:392`, `asar_files_are_read_from_the_packed_archive` `:413` |
 
 `tauri/core/tests/feed.rs` (34 `#[tokio::test]`) covering this doc: `schema_one_manifests_still_install` `:194`,
 `hosted_layers_with_unsafe_or_reserved_paths_are_refused` `:210`, `a_tampered_layer_manifest_is_refused` `:219`,

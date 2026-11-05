@@ -17,8 +17,7 @@ inside the live folder, so the checks also gate the two unattended timers (`tool
 | `--private` | adds `street/`, `market/`, `admin/` | tools/site/build.py:64, :251 |
 | `--world` | adds `world/` from the server's site export | tools/site/build.py:65, :244 |
 | `--section <name> --out <dir>` | one-section rebuild inside an existing build | tools/site/build.py:252-255 → :178 |
-| `slums-site-market.timer` / `.service` | every 2 min: `build.py --private --world --section market` | tools/site/slums-site-market.timer:10, tools/site/slums-site-market.service:14 |
-| `slums-site-world.timer` / `.service` | same cadence: `--section world` | tools/site/slums-site-world.timer:9, tools/site/slums-site-world.service:12 |
+| `slums-site-market.timer` / `slums-site-world.timer` | every 2 min, under one `flock`: `--private --world --section market\|world` | tools/site/slums-site-market.timer:10, slums-site-market.service:14, slums-site-world.service:12 |
 | `python3 tools/site/check.py [dir]` | stand-alone check of an existing folder | tools/site/check.py:295-301 |
 | `python3 tools/site/preview.py [--dir --host --port]` | local HTTP preview with a pretend sign-in | tools/site/preview.py:122-133 |
 | `python3 tools/site/icons.py --kinds …` | build-time icon cache; **never** run by build.py | tools/site/icons.py:253-283 |
@@ -87,7 +86,7 @@ Measured at HEAD `4e3cdcc96`: a public build is 219 files (16 guide pages, 10 re
 before publishing. Inputs that must exist first: `docs/site/releases/*.md` (else `notes.py:176-177` stops),
 `docs/wiki/index.html` for the guide (`sections/guide.py`), `data/site/hiddenstreet/*.json` via `dbdata.load()`
 (`sections/dbdata.py:184-192`), `cache/site-icons/manifest.json` (`sections/database.py:101-105`), and the market and
-World exports, which are refused rather than half-read (`sections/market.py:45-46`, `sections/world.py:50-55`).
+World exports, which are refused rather than half-read (`sections/market.py:48-55`, `sections/world.py:50-55`).
 
 ## Switches
 
@@ -116,7 +115,7 @@ World exports, which are refused rather than half-read (`sections/market.py:45-4
 | Game-written text can never fail a rebuild | one player name must not leave every page stale | `check.scrub()` (`tools/site/check.py:90-108`), called by `world.load` (`sections/world.py:58`) |
 | No absolute local path in output | pages must not leak `/root/…` or `/srv/…` | `FORBIDDEN` `/opt/ /srv/ /root/ /etc/` (`check.py:22-31`) + root-relative link refusal (`check.py:210`); measured zero in a 31,911-file private build |
 | No external request of any kind | the site "loads nothing from elsewhere" | `check.py:205-208` |
-| Deterministic output for the same inputs | section rebuilds must reproduce identical bytes | tested `tools/site/test_site.py:270-278`; two builds at HEAD hash-identical (219/219 files) |
+| Deterministic output for the same inputs | section rebuilds must reproduce identical bytes | tested `tools/site/test_site.py:270-278`; two builds at HEAD hash-identical (219/219 files); the tarball is not — `make_tar` copies each file's mtime, so 35 entries and 2 gzip-header bytes drift (`tools/site/build.py:218-222`) |
 | The published folder is never written until the check passes | a visitor must never see a half-built site | `tools/site/build.py:156-172`, `:192-211`; `tools/site/test_build_safety.py:31-45` |
 | Private sections never reach a public build | `/street/`, `/market/` are sign-in guarded | `check_private` (`check.py:236-248`); ordering at `check.py:285-292`; `tools/site/test_site.py:258-262` |
 | Search engines stay out | friends-only site | `robots.txt` + `noindex` in the first 4096 bytes (`check.py:270-282`); `tools/site/test_site.py:76-81` |
@@ -181,6 +180,9 @@ indirectly through note icon tokens (`test_site.py:332-341`); nothing asserts th
   timers run every 2 minutes (`tools/site/slums-site-market.timer:10`).
 - **NEW-FINDING:** `check_noindex` opens `robots.txt` without closing it (`tools/site/check.py:275`), a
   `ResourceWarning` in the suite.
+- **NEW-FINDING:** `tools/site/test_site.py:1272-1273` calls `unittest.main()` in the middle of the file, so
+  `ScrubTest` (`:1276`) and `AvatarTest` (`:1288`) only run under `discover` (82 tests) and are silently skipped by
+  `python3 test_site.py` (80 tests) — measured both ways at HEAD.
 
 ## State
 

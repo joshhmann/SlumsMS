@@ -25,7 +25,7 @@ database: the game server remains the only place a password is checked (`tools/s
 | Dev CLI `site-me`, `site-signin`, `site-signup`, `site-signout` | `tauri/core/examples/cli.rs:78-112` |
 | Site `POST /api/login/password`, `POST /api/login/signup` | `tools/site/login_service.py:571` |
 | Site `GET /api/login/me`, `POST /api/login/logout`, `POST /api/login/download-pass` | `login_service.py:552,566,573` |
-| Game `POST /signup`, `POST /verify` on loopback | `src/main/java/soloMapling/site/auth/SiteAuthApi.java:216,238-241`; started from `src/main/java/net/server/Server.java:1043` |
+| Game `POST /signup`, `POST /verify` on loopback | `src/main/java/soloMapling/site/auth/SiteAuthApi.java:241-243`; started from `src/main/java/net/server/Server.java:1043` |
 | GM/player commands that make codes: `!invite`, `!invite list`, `!invite revoke`; `@invite` for players | `src/main/java/client/command/commands/gm3/InviteCommand.java:23-60` |
 | Resets: `!resetpw list|approve|deny` | `src/main/java/client/command/commands/gm3/ResetPwCommand.java:17-34`; `src/main/java/client/command/CommandsExecutor.java:499` |
 
@@ -57,12 +57,12 @@ launcher dev build. Details in `## Switches`.
    `X-Slums-Auth: <secret>` (8 s timeout). No URL set, no secret, or no salt → `None`.
 7. Game `SiteAuthApi.handle` (`SiteAuthApi.java:204`) compares the secret in constant time (`authorized`,
    `:353-357`) **before** routing — wrong secret = `401 UNAUTHORIZED`, nothing else runs. `route` (`:215`) then
-   enforces POST, `≤4096` bytes, JSON, and the path set (`:216-217`).
+   enforces POST, `≤4096` bytes, JSON, and the path set (`:215-231`).
 8. `SiteAccounts.verify` (`SiteAccounts.java:221`): rate limit (10/ip/min, 120 global), name/password length,
    15-minute lock after 5 fails, `store.findAccount`, `refused()` for banned/tempban/bot-id/template/revoked
    (`:269-272`), then `AccountPasswords.checkHashedOnly` — the plaintext is only ever compared, never stored
    (`:250-260`). Success → `store.profile(id)` for `gmLevel` + character list.
-9. Answer `200 {ok, account_id, account, gm, gm_level, characters}` (`SiteAuthApi.java:359-372`), or
+9. Answer `200 {ok, account_id, account, gm, gm_level, characters}` (`SiteAuthApi.java:360-376`), or
    `{ok:false, error, rule?}`.
 10. Site `signed_in()` (`login_service.py:625-631`) mints the session (`Sessions.issue`, `:139-153`: payload keys
     `a`,`n`,`c`,`iat`,`exp`,`sid`, optional `cs`,`g`,`gl`; `b64(json)+"."+b64(HMAC-SHA256)`), and answers

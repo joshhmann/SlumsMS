@@ -10,11 +10,13 @@ drops, and gives the map up again. Two independent decisions:
 | Which map, for the next session (level band, region, crowd, gear, path) | once per `DECIDE` | `TrainingMapChooser` (`src/main/java/soloMapling/ArtificialPlayer/BotGrindSystem/TrainingMapChooser.java:69`) |
 | Which spot on that map, and how to work it (camp / patrol / roam / stack) | once per grind episode | `GrindBrain` + `SpotFinder` + one `GrindStrategy` (`src/main/java/soloMapling/ArtificialPlayer/BotGrindSystem/GrindBrain.java:104`) |
 
-Everything here treats the bot as an ordinary `Character`: `getClient().getPlayer()` is `null` on the shared headless
-client, so combat, loot and map state are read off the `Character` itself
-(`src/main/java/soloMapling/ArtificialPlayer/BotTypes/TrainingBot.java:2626` reads `chr`, never a `Player`).
+Everything here treats the bot as an ordinary `Character`: one shared headless `Client` per channel
+(`src/main/java/soloMapling/ArtificialPlayer/BotClientHandler.java:14-38`), so `getClient().getPlayer()` is `null` and
+every grind read/write goes through the `Character` itself
+(`src/main/java/soloMapling/ArtificialPlayer/BotGrindSystem/GrindBrain.java:148` takes a `Character`; no grind class
+ever holds a `Player`).
 
-The package is 41 files / ~9,983 lines under `src/main/java/soloMapling/ArtificialPlayer/BotGrindSystem/`, plus the
+The package is 41 files / ~9,545 lines under `src/main/java/soloMapling/ArtificialPlayer/BotGrindSystem/`, plus the
 map-cap registry (`src/main/java/soloMapling/ArtificialPlayer/BotMapCap.java`, 405 lines) and the generic map bounder
 (`src/main/java/soloMapling/server/BoundedMaps.java`, 33 lines) outside it.
 
@@ -353,7 +355,7 @@ Evidence:
   `PatrolStrategy.java:60`).
 - Looting runs on every path (at-feet, instant, sweep, pet) and is unit-tested at the filter layer
   (`LootPickerTest.java:67-105`) and exercised live by auto-QA `t-pt-1` (`AutoQaCatalog.java:726`).
-- 41 test classes' worth of assertions pass on the pure decision layers (path, chooser, gear-first, finder, regions,
+- 18 test files' worth of assertions pass on the pure decision layers (path, chooser, gear-first, finder, regions,
   travel, caps, budget); the IO/orchestration classes (`CampStrategy`, `RoamStrategy`, `StackStrategy`, `GrindBrain`,
   `GrindLoot`, `TrainingBot`'s phase machine) are covered only by QA checks and source-text scans.
 - Live runs the gear-first path (`docs/release/1.6.4.conf:271`) and the default leveling path, so both are
