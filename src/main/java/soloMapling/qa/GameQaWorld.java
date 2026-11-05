@@ -163,6 +163,125 @@ final class GameQaWorld implements QaWorld {
     }
 
     @Override
+    public List<String> petPotStage(Character gm) {
+        try {
+            return PetPotStaging.run(new PetPotHost(gm));
+        } catch (RuntimeException e) {
+            return List.of("REFUSED staging failed: " + e);
+        }
+    }
+
+    /** {@link PetPotStaging.Host} on a real character. */
+    private final class PetPotHost implements PetPotStaging.Host {
+        private final Character gm;
+
+        PetPotHost(Character gm) {
+            this.gm = gm;
+        }
+
+        @Override
+        public boolean petOut() {
+            for (Pet pet : gm.getPets()) {
+                if (pet != null) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Override
+        public int petSlot() {
+            Inventory cash = gm.getInventory(InventoryType.CASH);
+            if (cash == null) {
+                return -1;
+            }
+            for (Item item : cash.list()) {
+                if (item.getPetId() > 0) {
+                    return item.getPosition();
+                }
+            }
+            return -1;
+        }
+
+        @Override
+        public boolean givePet() {
+            return GameQaWorld.this.givePet(gm, PetPotStaging.PET_ITEM, PetPotStaging.PET_DAYS);
+        }
+
+        @Override
+        public boolean summonPet(int cashSlot) {
+            client.processor.action.SpawnPetProcessor.processSpawnPet(gm.getClient(), (byte) cashSlot, false);
+            return petOut();
+        }
+
+        @Override
+        public boolean pouchOn() {
+            return client.processor.action.PetAutopotProcessor.hasAutoHpPouch(gm);
+        }
+
+        @Override
+        public int pouchSlot() {
+            Inventory equip = gm.getInventory(InventoryType.EQUIP);
+            if (equip == null) {
+                return -1;
+            }
+            for (Item item : equip.list()) {
+                if (item.getItemId() == PetPotStaging.HP_POUCH) {
+                    return item.getPosition();
+                }
+            }
+            return -1;
+        }
+
+        @Override
+        public boolean givePouch() {
+            return giveItem(gm, PetPotStaging.HP_POUCH, 1) == 1;
+        }
+
+        @Override
+        public boolean wearPouch(int equipSlot) {
+            InventoryManipulator.equip(gm.getClient(), (short) equipSlot, (short) PetPotStaging.HP_POUCH_SLOT);
+            return pouchOn();
+        }
+
+        @Override
+        public int redPotions() {
+            return countItem(gm, PetPotStaging.RED_POTION);
+        }
+
+        @Override
+        public int giveRedPotions(int quantity) {
+            return giveItem(gm, PetPotStaging.RED_POTION, quantity);
+        }
+
+        @Override
+        public int key91() {
+            client.keybind.KeyBinding bound = gm.getKeymap().get(PetPotStaging.KEY);
+            return bound == null ? -1 : bound.getAction();
+        }
+
+        @Override
+        public void bindKey91(int itemId) {
+            gm.changeKeybinding(PetPotStaging.KEY, new client.keybind.KeyBinding(PetPotStaging.POTION_KEY_TYPE, itemId));
+        }
+
+        @Override
+        public void sendKeymap() {
+            gm.sendKeymap();
+        }
+
+        @Override
+        public float alert() {
+            return gm.getAutopotHpAlert();
+        }
+
+        @Override
+        public void setAlert(float value) {
+            gm.setAutopotHpAlert(value);
+        }
+    }
+
+    @Override
     public String itemName(int itemId) {
         String name = ItemInformationProvider.getInstance().getName(itemId);
         return name == null ? String.valueOf(itemId) : name;

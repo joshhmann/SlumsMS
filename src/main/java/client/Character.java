@@ -10695,17 +10695,32 @@ public class Character extends AbstractCharacterObject {
 
         // autopot on HPMP deplete... thanks shavit for finding out D. Roar doesn't trigger autopot request
         if (hpchange < 0) {
+            boolean qaPetPot = soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.PETPOT); // !qa pp-1
+            int potHp = qaPetPot ? this.getHp() : 0;
             KeyBinding autohpPot = this.getKeymap().get(91);
+            float autohpAlert = this.getAutopotHpAlert();
+            String potOutcome = "no-key";
             if (autohpPot != null) {
                 int autohpItemid = autohpPot.getAction();
-                float autohpAlert = this.getAutopotHpAlert();
                 if (((float) this.getHp()) / this.getCurrentMaxHp() <= autohpAlert) { // try within user settings... thanks Lame, Optimist, Stealth2800
                     Item autohpItem = this.getInventory(InventoryType.USE).findById(autohpItemid);
-                    if (autohpItem != null) {
+                    if (autohpItem == null) {
+                        potOutcome = "no-potions";
+                    } else {
                         this.setAutopotHpAlert(0.9f * autohpAlert);
-                        PetAutopotProcessor.runAutopotAction(client, autohpItem.getPosition(), autohpItemid);
+                        String refusal = PetAutopotProcessor.runAutopotAction(client, autohpItem.getPosition(), autohpItemid);
+                        potOutcome = refusal == null ? "fired" : "refused " + refusal;
                     }
+                } else {
+                    potOutcome = "above-threshold";
                 }
+            }
+            if (qaPetPot) {
+                soloMapling.qa.QaLog.owner(soloMapling.qa.QaLog.Topic.PETPOT, this.getId(), "PETPOT server "
+                        + this.getName() + " hp " + potHp + "/" + this.getCurrentMaxHp()
+                        + " threshold " + autohpAlert
+                        + " pouch " + (PetAutopotProcessor.hasAutoHpPouch(this) ? "yes" : "no")
+                        + " map " + this.getMapId() + " " + potOutcome);
             }
         }
 

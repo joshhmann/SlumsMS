@@ -78,12 +78,13 @@ public class PetAutopotProcessor {
             this.itemId = itemId;
         }
 
-        public void run() {
+        /** @return null when pots were used, else why not, for the caller's log */
+        public String run() {
             Client c = this.c;
             Character chr = c.getPlayer();
             if (!chr.isAlive()) {
                 c.sendPacket(PacketCreator.enableActions());
-                return;
+                return "dead";
             }
 
             int useCount = 0, qtyCount = 0;
@@ -102,7 +103,7 @@ public class PetAutopotProcessor {
                 if (toUse != null) {
                     if (toUse.getItemId() != itemId) {
                         c.sendPacket(PacketCreator.enableActions());
-                        return;
+                        return "other-item";
                     }
 
                     toUseList = null;
@@ -111,7 +112,7 @@ public class PetAutopotProcessor {
                     if (toUse.getQuantity() <= 0) {
                         if (!cursorOnNextAvailablePot(chr)) {
                             c.sendPacket(PacketCreator.enableActions());
-                            return;
+                            return "no-pots";
                         }
                     }
 
@@ -176,19 +177,33 @@ public class PetAutopotProcessor {
                 useInv.unlockInventory();
             }
 
-            if (stat != null) {
-                for (int i = 0; i < useCount; i++) {
-                    stat.applyTo(chr);
-                }
+            if (stat == null) {
+                c.sendPacket(PacketCreator.enableActions());
+                return "empty-slot";   // the slot the client named holds nothing (moved or used up meanwhile)
+            }
+
+            for (int i = 0; i < useCount; i++) {
+                stat.applyTo(chr);
             }
 
             chr.sendPacket(PacketCreator.enableActions());
+            return null;
         }
     }
 
-    public static void runAutopotAction(Client c, short slot, int itemid) {
+    /** Uses the pet's potion, and says why not when it did not. @return null when pots were used */
+    public static String runAutopotAction(Client c, short slot, int itemid) {
         AutopotAction action = new AutopotAction(c, slot, itemid);
-        action.run();
+        return action.run();
+    }
+
+    /** The Auto HP Potion Pouch, worn by the pet in the equipped inventory's -24 (BodyPart.PET_AUTO_HP_POUCH). */
+    public static final int AUTO_HP_POUCH = 1812002;
+
+    /** Whether the pet wears the HP pouch. The client is what sends the request: without the pouch it never does. */
+    public static boolean hasAutoHpPouch(Character chr) {
+        Item pouch = chr.getInventory(InventoryType.EQUIPPED).getItem((short) -24);
+        return pouch != null && pouch.getItemId() == AUTO_HP_POUCH;
     }
 
 }

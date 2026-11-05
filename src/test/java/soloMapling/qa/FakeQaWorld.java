@@ -54,6 +54,22 @@ class FakeQaWorld implements QaWorld {
     }
 
     @Override public boolean petSummoned(Character gm, int petItemId) { return petOut; }
+
+    /** b280 (pp-1): what the staging did, one line per step; the real rules are covered by PetPotStagingTest. */
+    List<String> petPotLines = List.of(
+            "pet Brown Kitty (5000000) up, from CASH slot 5",
+            "pouch 1812002 on the pet (EQUIPPED slot -24)",
+            "gave 100 red potions 2000000 (100 carried)",
+            "key 91 bound to the red potion (was empty), keymap sent",
+            "HP alert 0.00 -> 0.50");
+    int petPotStages;
+
+    @Override public List<String> petPotStage(Character gm) {
+        petPotStages++;
+        calls.add("petpot");
+        return petPotLines;
+    }
+
     @Override public String itemName(int itemId) { return "item" + itemId; }
     @Override public Integer marketValue(int itemId) { return values.get(itemId); }
     @Override public Point npcPosition(Character gm, int npcId) { return npcPos; }

@@ -40,6 +40,11 @@ public final class PetAutoPotHandler extends AbstractPacketHandler {
         int itemId = p.readInt();
 
         Character chr = c.getPlayer();
+        boolean qaPetPot = soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.PETPOT); // !qa pp-1
+        // what the client saw when its pet asked: the pot lands below, so read it first
+        int hpAsked = qaPetPot ? chr.getHp() : 0;
+        int mpAsked = qaPetPot ? chr.getMp() : 0;
+
         StatEffect stat = ItemInformationProvider.getInstance().getItemEffect(itemId);
         if (stat.getHp() > 0 || stat.getHpRate() > 0.0) {
             float estimatedHp = ((float) chr.getHp()) / chr.getMaxHp();
@@ -51,7 +56,15 @@ public final class PetAutoPotHandler extends AbstractPacketHandler {
             chr.setAutopotMpAlert(estimatedMp + 0.05f);
         }
 
-        PetAutopotProcessor.runAutopotAction(c, slot, itemId);
+        String refusal = PetAutopotProcessor.runAutopotAction(c, slot, itemId);
+        server.reports.PlayerTrail.event(chr, "petpot", itemId, refusal);
+
+        if (qaPetPot) {
+            soloMapling.qa.QaLog.owner(soloMapling.qa.QaLog.Topic.PETPOT, chr.getId(), "PETPOT recv " + chr.getName()
+                    + " slot " + slot + " item " + itemId + " hp " + hpAsked + "/" + chr.getMaxHp()
+                    + " mp " + mpAsked + "/" + chr.getMaxMp()
+                    + " map " + chr.getMapId() + (refusal == null ? "" : " refused " + refusal));
+        }
         //Thanks RobbertW for this snippy snip
         if (chr.countItem(itemId) == 25) {
             chr.showHint("Your pet is almost out of #e#r#t" + itemId + "##k#n! (#b25#k left)", 300);
