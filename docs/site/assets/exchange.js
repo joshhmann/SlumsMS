@@ -47,6 +47,8 @@
   function pct(p) { return p === null || p === undefined ? "-" : (p > 0 ? "▲ +" : p < 0 ? "▼ " : "") + p.toFixed(2) + "%"; }
   function dirOf(p) { return p === null || p === undefined || Math.abs(p) < 0.005 ? "flat" : p > 0 ? "up" : "down"; }
   function icon(t) { return t && t.item_id ? ROOT + "database/icons/items/" + t.item_id + ".png" : ROOT + "assets/brand/badge-180.png"; }
+  // a catalog item Slums Street has no icon for (18 on TEST, 2026-11-05) shows the badge instead of a broken image
+  function iconFail(e) { var i = e.target; if (!i.dataset.f) { i.dataset.f = "1"; i.src = ROOT + "assets/brand/badge-180.png"; } }
   // Object.assign would read the getters once; copy them as getters
   function extend(base, more) { return Object.defineProperties(base, Object.getOwnPropertyDescriptors(more)); }
 
@@ -179,7 +181,7 @@
     var base = window.live(API + "book", 10);
     var init = base.init;
     return extend(base, {
-      fmt: fmt, short: short, when: when, clock: clock, pct: pct, dirOf: dirOf, icon: icon, label: label,
+      fmt: fmt, short: short, when: when, clock: clock, pct: pct, dirOf: dirOf, icon: icon, iconFail: iconFail, label: label,
       range: "3d", ranges: [["24h", DAY], ["3d", 3 * DAY], ["7d", 7 * DAY], ["30d", 30 * DAY]],
       candles: [], candlesFor: "",
       cats: CATS, cat: "all", q: "", sort: "volume", shown: PAGE, all: null, fullAt: 0,
@@ -255,7 +257,10 @@
         store().closed = !!(this.data && this.data.open === false);  // switched off on this server (b063)
         if (this.data && this.data.open === true) openLines();
         if (this.data && this.data.limits) store().limits = this.data.limits;
-        if (this.list.length && !this.list.some(function (x) { return x.id === store().tk; })) store().tk = this.list[0].id;
+        // only once the game's list is in: before it, the desk's NX tab is the whole list, and a #s2040805 link would
+        // be sent back to NX (seen on TEST 2026-11-05)
+        if (this.data && this.data.tickers && this.list.length && !this.list.some(function (x) { return x.id === store().tk; }))
+          store().tk = this.list[0].id;
         store().meta = this.cur;
       },
       loadHistory: function () {

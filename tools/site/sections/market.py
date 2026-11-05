@@ -726,7 +726,7 @@ update: the patch notes will say when.</p>
 <span x-text="eventText(e)"></span></p></template></div>
 <nav class="xc-tabsbar" style="grid-area: tabs" aria-label="Tickers"><template x-for="t in tabs" :key="t.id">
 <button type="button" class="xc-tk" :class="cur && cur.id === t.id && 'on'" @click="pick(t.id)" :aria-pressed="cur && cur.id === t.id">
-<img :src="icon(t)" alt="" width="22" height="22" loading="lazy"><b x-text="label(t)"></b>
+<img :src="icon(t)" alt="" width="22" height="22" loading="lazy" @error="iconFail($event)"><b x-text="label(t)"></b>
 <span x-text="short(t.last)"></span><small :class="dirOf(t.change_24h_pct)" x-text="pct(t.change_24h_pct)"></small></button></template></nav>
 <section class="xc-p xc-browse" style="grid-area: browse" x-show="hasCatalog" x-cloak><h2>Items
 <small x-text="count('all') + ' to trade'"></small></h2>
@@ -737,7 +737,7 @@ update: the patch notes will say when.</p>
 <option value="price">Highest price</option><option value="name">Name</option></select></label></div>
 <div class="xc-scroll xc-items"><table class="xc-book xc-itemlist"><thead><tr><th></th><th>Item</th><th>Price</th><th>24h</th><th>Bid</th><th>Ask</th><th></th></tr></thead>
 <tbody><template x-for="t in page" :key="t.id"><tr :class="cur && cur.id === t.id && 'on'">
-<td><img :src="icon(t)" alt="" width="22" height="22" loading="lazy"></td>
+<td><img :src="icon(t)" alt="" width="22" height="22" loading="lazy" @error="iconFail($event)"></td>
 <td><button type="button" class="xc-name" @click="pick(t.id)" x-text="t.name"></button></td>
 <td x-text="fmt(priceOf(t))"></td><td :class="dirOf(t.change_24h_pct)" x-text="pct(t.change_24h_pct)"></td>
 <td class="up" x-text="fmt(t.bid)"></td><td class="down" x-text="fmt(t.ask)"></td>
@@ -749,7 +749,7 @@ x-text="'Show more (' + (found.length - shown) + ' left)'"></button></p>
 <p class="xc-note">Price is the last trade, else the best ask, bid or fair value. An item with no price yet still
 takes orders: set yours.</p></section>
 <header class="xc-tick" style="grid-area: tick" x-show="cur && cur.id !== 'NX'" x-cloak>
-<div class="xc-sym"><img :src="icon(cur)" alt="" width="36" height="36"><div><b x-text="label(cur)"></b>
+<div class="xc-sym"><img :src="icon(cur)" alt="" width="36" height="36" @error="iconFail($event)"><div><b x-text="label(cur)"></b>
 <span x-text="cur && cur.name"></span></div></div>
 <div class="xc-last"><b x-text="fmt(cur && cur.last)">-</b><span :class="dir" x-text="pct(cur && cur.change_24h_pct)"></span>
 <small x-text="unit"></small></div>
