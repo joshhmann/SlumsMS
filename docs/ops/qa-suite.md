@@ -1342,3 +1342,13 @@ Check the disabled menu too. Auto-QA row `t-ng-8` is HALF: it stages one core on
   NPC confirmation. The required `slums.forge.coreexchange=true` switch is off by default; no new release skip
   allowance is added. Its registration is not evidence it has run on TEST.
 See [the full gear candidate checklist](../release/1.6.4-gear-progression.md) for normal drops, forging and combat.
+
+## Feature health (fast check)
+
+`tools/ops/feature-health` reads the server's stats snapshot (`live.json`, refreshed every 30 s; default: TEST over `ssh mapletest`) and checks every row of `tools/ops/feature-health.tsv` in seconds. Each feature group reads OK, SILENT (path missing or no activity where activity is expected), FAILING (a failure ratio or limit broken) or SLOW (a timing limit broken, or a flag-only warning such as the DB gate refusals). It prints worst first, then `feature-health: N OK, N SILENT, N FAILING, N SLOW (uptime Xh)`; exit 1 only when something is FAILING. Under 1 h of uptime the rates are noisy and it says so.
+
+    tools/ops/feature-health [--file live.json] [--host mapletest] [--only social-acts,server] [--json]
+
+It never queues or restarts anything. Live (`--host live` or 192.168.0.164) is refused unless `--live-readonly` is given. Rule syntax is in the script header; thresholds marked `guess` in the TSV are the owner's to tune; there are no economy numbers in it. Tests: `python3 -m unittest tools/ops/test_feature_health.py`.
+
+It tells you whether a feature is alive at scale from aggregate counters. It does not replace auto-QA (`tools/ops/autoqa-run`) for client-visible behaviour or rare paths, which no counter shows.

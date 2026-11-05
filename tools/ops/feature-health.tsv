@@ -1,0 +1,49 @@
+# feature	path	rule	note   (format: see header of tools/ops/feature-health). 'guess' = threshold invented, owner to tune. No economy numbers.
+server	health/heapUsedMb	ratio(health/heapUsedMb, health/heapMaxMb) <= 0.9	heap under 90% of max
+server	health/gcMsPerMin	slow: <= 1000	guess
+server	health/tickMsPerS	slow: <= 20000	guess: bot ticks sum across threads; TEST ran 10k-15k
+server	health/pool/waiting	== 0	DB pool nobody waiting
+server	health/uptimeS	> 0	snapshot has uptime
+db-gate	-	flag: per_hour(health/gate/refusals) <= 5000	guess: flag, do not fail
+bots	bots/director	== on	director on
+bots	-	ratio(bots/online, bots/target) >= 0.9	online within 10% of target; silent when none
+bots	bots/online	> 0	bots online
+wealthIndex	wealthIndex/enabled	== true	
+social-acts	-	optional fail_rate(social/acts/counters/ACCEPT.ok, social/acts/counters/ACCEPT.failed) <= 0.5	guess: ACCEPT failures vs ok
+social-acts	-	optional fail_rate(social/acts/counters/APOLOGIZE.ok, social/acts/counters/APOLOGIZE.failed) <= 0.5	guess: APOLOGIZE failures vs ok
+social-acts	-	optional fail_rate(social/acts/counters/ARGUE.ok, social/acts/counters/ARGUE.failed) <= 0.5	guess: ARGUE failures vs ok
+social-acts	-	optional fail_rate(social/acts/counters/ASK_HELP.ok, social/acts/counters/ASK_HELP.failed) <= 0.5	guess: ASK_HELP failures vs ok
+social-acts	-	optional fail_rate(social/acts/counters/COMPLIMENT.ok, social/acts/counters/COMPLIMENT.failed) <= 0.5	guess: COMPLIMENT failures vs ok
+social-acts	-	optional fail_rate(social/acts/counters/CONVERSE.ok, social/acts/counters/CONVERSE.failed) <= 0.5	guess: CONVERSE failures vs ok
+social-acts	-	optional fail_rate(social/acts/counters/DECLINE.ok, social/acts/counters/DECLINE.failed) <= 0.5	guess: DECLINE failures vs ok
+social-acts	-	optional fail_rate(social/acts/counters/GIVE_GIFT.ok, social/acts/counters/GIVE_GIFT.failed) <= 0.5	guess: GIVE_GIFT failures vs ok
+social-acts	-	optional fail_rate(social/acts/counters/GREET.ok, social/acts/counters/GREET.failed) <= 0.5	guess: GREET failures vs ok
+social-acts	-	optional fail_rate(social/acts/counters/INVITE.ok, social/acts/counters/INVITE.failed) <= 0.5	guess: INVITE failures vs ok
+social-acts	-	optional fail_rate(social/acts/counters/OFFER_HELP.ok, social/acts/counters/OFFER_HELP.failed) <= 0.5	guess: OFFER_HELP failures vs ok
+social-acts	-	optional fail_rate(social/acts/counters/SHARE_INFO.ok, social/acts/counters/SHARE_INFO.failed) <= 0.5	guess: SHARE_INFO failures vs ok
+social-acts	-	optional fail_rate(social/acts/counters/INVITE.ok, social/acts/counters/INVITE.failed: nothing to invite them to) <= 0.25	guess: INVITE 'nothing to invite them to'
+social-decisions	-	per_hour(social/acts/counters/decision.acted) >= 100	guess: decisions acted per hour
+social-decisions	social/acts/enabled	== true	
+social-intents	-	fail_rate(social/intents/counters/kept, social/intents/counters/broken) <= 0.2	guess: kept vs broken
+social-budget	-	fail_rate(social/budget/counters/allowed, social/budget/counters/denied) <= 0.3	guess: denied vs allowed
+social-talk	social/talk/avgTickMs	slow: <= 20	avgTickMs
+social-talk	social/talk/on	== true	
+social-talk	social/talk/talks	> 0	talks said
+social-tick	social/socialTick/msPerS	slow: <= 50	guess
+social-tick	social/socialTick/calls	> 0	
+chat-cloud	-	optional ratio(chat/cloud/failed, chat/cloud/calls) <= 0.2	guess: failed over calls
+chat-cloud	chat/cloud/avgMs	optional slow: <= 6000	guess
+modes	social/modes/enabled	== true	
+modes	social/modes/stats/evaluations	> 0	
+switches	switches/slums.mechanics	== true	party quests with bots (1.6.4 must be on TEST)
+switches	switches/slums.mechanics.boss	== true	bots in boss expeditions (1.6.4 must be on TEST)
+switches	switches/slums.mechanics.lobby	== true	PQ lobby (1.6.4 must be on TEST)
+switches	switches/slums.chaos.zakum	== true	Chaos Zakum (1.6.4 must be on TEST)
+switches	switches/slums.botlife.execute	== true	botlife (1.6.4 must be on TEST)
+switches	switches/slums.bottalk	== true	bot talk (1.6.4 must be on TEST)
+switches	switches/slums.bonds	== true	bonds (1.6.4 must be on TEST)
+switches	switches/slums.exchange	== true	exchange (1.6.4 must be on TEST)
+switches	switches/slums.fishing.enabled	== true	fishing (1.6.4 must be on TEST)
+switches	switches/config.BOT_DIRECTOR_ENABLED	== true	director (1.6.4 must be on TEST)
+switches	switches/config.BOT_COMBAT_DEATHS	== true	mortal bots 1.6.4 (1.6.4 must be on TEST)
+switches	switches/slums.bots.immortal	optional == false	1.6.4 mortal bots; the TEST immortal switch must be off
