@@ -156,6 +156,11 @@ public final class OwnedAltService {
         return backend.list(owner).stream().filter(row -> eligible(owner, row))
                 .filter(row -> available(row.id)).toList();
     }
+    /** Every alt this owner has, out or not: what {@code @bonds} lists. {@link #list} keeps only those free to summon. */
+    public List<Candidate> owned(Character owner) {
+        requireEnabled();
+        return backend.list(owner).stream().filter(row -> eligible(owner, row)).toList();
+    }
     private Set<Integer> occupied(int ownerId) {
         Set<Integer> ids = new HashSet<>(backend.companions(ownerId));
         friendReservations.forEach((id, leader) -> { if (leader == ownerId) ids.add(id); });

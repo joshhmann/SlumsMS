@@ -150,7 +150,7 @@ public final class RelationView {
             }
             public List<String> altNames() {
                 try {
-                    return OwnedAltService.getInstance().list(p).stream().map(OwnedAltService.Candidate::name).toList();
+                    return OwnedAltService.getInstance().owned(p).stream().map(OwnedAltService.Candidate::name).toList();
                 } catch (RuntimeException e) {
                     return List.of();
                 }
