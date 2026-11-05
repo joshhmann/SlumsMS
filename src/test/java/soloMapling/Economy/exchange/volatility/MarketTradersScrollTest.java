@@ -88,7 +88,7 @@ class MarketTradersScrollTest {
 
         List<String> skip = MarketQa.scrollCheck(ex, roster(java.util.Map.of()), now.get());
         assertTrue(skip.get(0).startsWith("SKIP"), String.join(" | ", skip));
-        assertTrue(skip.get(0).contains("2.2 per trader-hour"), skip.get(0));
+        assertTrue(skip.get(0).contains("no trader is online"), skip.get(0));
     }
 
     MarketTraders.Roster roster(java.util.Map<Long, FakeBotWallet> wallets) {
