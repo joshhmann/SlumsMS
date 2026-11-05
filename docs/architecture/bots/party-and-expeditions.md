@@ -73,7 +73,7 @@ src/main/java/soloMapling/ArtificialPlayer/BotPopulationDirector.java:602) and f
 
 `LifePq` holds the three v83 lobbies and the opening hours (src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifePq.java:27-31,
 :49-64). `LifeRuntime.pqDestination` returns the plan's PQ town if the plan's next step is `PARTY_QUEST`, else the
-level's lobby, else -1 (src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifeRuntime.java:179-185). The lobby
+level's lobby, else -1 (src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifeRuntime.java:180-185). The lobby
 maps are in the may-load allowlist (LifeRuntime.java:188-198), so the bot arrives and loads the map like a player.
 
 `TrainingBot.canStartLifeActivity(PARTY_QUEST)` requires a destination, no existing party, not already there, and
@@ -194,7 +194,7 @@ Bots are excluded from ARIANT/ARIANT1/ARIANT2 (ExpeditionBots.java:410-412); the
 (ExpeditionBots.java:391). Zakum 6-30 lv 50, Chaos Zakum 6-30 lv 120, Scarga 6-30 lv 100
 (ExpeditionType.java:35-40).
 
-### State
+### Stored state
 
 | Store | Key | What | File:line |
 |---|---|---|---|
@@ -306,13 +306,13 @@ NEW-FINDING: src/main/java/soloMapling/ArtificialPlayer/BotConvo/LfgParty.java:2
 synchronized` deque with no pruning on `release`, so a `removeFirstOccurrence` of an older timestamp leaves the window
 accounting only correct while `take` is called at least once per window; `release` alone never expires entries.
 
-NEW-FINDING: src/main/java/soloMapling/ArtificialPlayer/BotTypes/OPQ/OPQOrchestrator.java:47 — the 1 Hz tick is started
-by the first `registerBot` and never stopped (`ensureTickRunning` line :324-330); a server that has ever run an OPQ bot
-keeps the timer for the process lifetime.
+NEW-FINDING: src/main/java/soloMapling/ArtificialPlayer/BotTypes/OPQ/OPQOrchestrator.java:56-58 — the stage-2 box
+index is keyed by map *instance* but comments say "cleared on reset"; `resetForNewRun` (:295) is the only clearer, so a
+process that runs many OPQ instances accumulates one entry per dead instance until a reset is called.
 
-NEW-FINDING: src/main/java/soloMapling/ArtificialPlayer/BotPartySystem/ExpeditionBots.java:129-131 — `follows` converts
-a `TrainingBot` to a `FollowerBot` as a side effect of the *eligibility check*, so asking "may this bot join" mutates the
-bot's type even when a later gate (`quota`, `busy`) refuses it.
+NEW-FINDING: src/main/java/soloMapling/ArtificialPlayer/BotPartySystem/ExpeditionBots.java:127 — `follows` converts a
+`TrainingBot` to a `FollowerBot` (`trainer.order(Verb.FOLLOW, …)` at :535) as a side effect of the *eligibility check*,
+so asking "may this bot join" mutates the bot's type even when the later `quota`/`busy` branches refuse it.
 
 ## State
 

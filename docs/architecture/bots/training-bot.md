@@ -68,7 +68,7 @@ BREAK_REST, LIFE_TRAVEL, LIFE_DWELL, REBIRTH_TRAVEL }` — `TrainingBot.java:294
 | `SHOP_TRAVEL` | `doInTown` `:1591`, `doShopDwell` `:1737` | `doTravel(shopTargetMapId, SHOP_DWELL, SHOP_RETURN)` `:2041-2081` | `SHOP_DWELL` on arrival, `SHOP_RETURN` on fail/timeout (`:649`) |
 | `SHOP_DWELL` | `SHOP_TRAVEL` arrival | `doShopDwell()` `:1711-1745`: first tick `phaseDeadlineMs = now + shopDwellMs()`, emote, `sayContext("ShopRestock")`, `startResupplyWalk()` or `BotWanderSystem.start`; later `pollResupply` → `BotWanderSystem.start`, `BotScrolling.townTick`, `BotWealth.townTick`, `BotShops.townTick` | deadline → next `shopQueue` item `SHOP_TRAVEL` `:1737`, else `SHOP_RETURN` `:1739` |
 | `SHOP_RETURN` | `SHOP_DWELL` done `:1739`, `SHOP_TRAVEL` failure | `doTravel(homeMapId >= 0 ? homeMapId : MapId.HENESYS, DECIDE, DECIDE)` (`:651-652`) | `DECIDE` both ways |
-| `DECIDE` | `SHOP_RETURN`/`GO_TRAIN`/`LIFE_TRAVEL`/`REBIRTH_TRAVEL` fail or arrive, `handleDeath` release, `leaveForChannelMove` `:784`, boss-run end `:609`, `startLifeActivity` GRIND+MOVE_MAP `:1082`, `answerEventCall` `:1448-1457`, `grindWatchdog` bail `:2254`, `grindCrowdBail` `:2313`, `startSaunaTrip` null-char `:1752`, `stayPutOnly` | `doDecide()` `:1896-2040`: `finishResupply`, `stayPutOnly`→`stayHere`, `BotRecruitManager.consumeStationHere`, party `steer`, `WorldEventSteer.decide` + `BotMapGates.mayEnter` + `BotMapCap.admit`, `decideRebirth`, `TrainingTips.take`, `walkBackMapId`, quest `huntMap`, then `TrainingMapChooser.choose(chr, homeMapId, crowdExcludedMaps(), ::debugChat)` | `REBIRTH_TRAVEL` `:1432`; `GRIND` (station, steer, event, walk-back, no-pick-with-mobs `:1994`, first-trip warp `:2027`); `IN_TOWN` (`:1999`); `GO_TRAIN` `:2035` |
+| `DECIDE` | `SHOP_RETURN`/`GO_TRAIN`/`LIFE_TRAVEL`/`REBIRTH_TRAVEL` fail or arrive, `handleDeath` release, `leaveForChannelMove` `:784`, boss-run end `:609`, `startLifeActivity` GRIND+MOVE_MAP `:1082`, `answerEventCall` `:1448-1457`, `grindWatchdog` bail `:2254`, `grindCrowdBail` `:2313`, `startSaunaTrip` null-char `:1752`, `stayPutOnly` | `doDecide()` `:1896-2036`: `finishResupply`, `stayPutOnly`→`stayHere`, `BotRecruitManager.consumeStationHere`, party `steer`, `WorldEventSteer.decide` + `BotMapGates.mayEnter` + `BotMapCap.admit`, `decideRebirth`, `TrainingTips.take`, `walkBackMapId`, quest `huntMap`, then `TrainingMapChooser.choose(chr, homeMapId, crowdExcludedMaps(), ::debugChat)` | `REBIRTH_TRAVEL` `:1432`; `GRIND` (station, steer, event, walk-back, no-pick-with-mobs `:1994`, first-trip warp `:2027`); `IN_TOWN` (`:1999`); `GO_TRAIN` `:2035` |
 | `GO_TRAIN` | `doDecide` `:2035`, `startLifeActivity` HELP_FRIEND `:1086`, `changeChannelNow` `:1205` | `doTravel(currentTrainMapId, GRIND, DECIDE)` (`:654`) | `GRIND` on arrival, `DECIDE` on fail |
 | `GRIND` | `doInit`/`resumeGrind` `:1501`, `doDecide` `:1994,2027`, `stayHere` `:2930`, `forceGrindOn` `:2394`, break end `:2419` | `doGrind()` `:2106-2213` (see below) | `BREAK_TRAVEL` `:2199-2200`; `GO_TOWN` on session end `:2208-2211`, supply retreat `:2512`, bag retreat `:2544`, `runningLow` `:2570`, crowd-bail TOWN `:2305`; `DECIDE` from watchdog `:2189`→`:2254`, crowd-bail HOP `:2193`→`:2313` |
 | `GO_TOWN` | `doGrind` session end / retreats, `restockCall` `:623`, `startLifeRestockTrip` `:867` | `doTravel(homeMapId >= 0 ? homeMapId : MapId.HENESYS, IN_TOWN, IN_TOWN)` (`:659-660`) | `IN_TOWN` both ways |
@@ -341,10 +341,12 @@ release asymmetry; nothing asserts the 250 ms sweep's per-bot exception isolatio
 | b285 (S3) | ticket 178: an alt can offer an upgrade for a sibling alt, but the trade command refuses it unless the owner is present |
 | b287 (S4) | `t-xc-5`: a PANIC-style scroll trader holding a Chaos/White Scroll never lists it |
 
-NEW-FINDING: `src/main/java/soloMapling/ArtificialPlayer/BotTypes/GrindBreakRoutine.java:118-126` — `begin()` sets
-`breakAtMs = 0` (line `:119`) before it resolves the rest spot, and returns false at `:125` when `RestSpotFinder.find`
-yields nothing; the caller (`TrainingBot.java:2197-2203`) just carries on, so that grind session silently loses its
-break with no reschedule — `schedule` only runs again on the next `doGrind` first tick (`:2122`).
+Deliberate, checked: `src/main/java/soloMapling/ArtificialPlayer/BotTypes/GrindBreakRoutine.java:118-126` — `begin()`
+sets `breakAtMs = 0` (`:119`) before it resolves the rest spot and returns false at `:125` when
+`RestSpotFinder.find` yields nothing. The consumption is documented in the method's own comment ("the due-flag is
+consumed either way, so a skipped session simply gets no break") and repeated at the caller
+(`TrainingBot.java:2198`), so a session that finds no safe spot grinds on instead of trekking; `schedule` re-arms on
+the next `doGrind` first tick (`:2122`). Not a defect — only worth a counter if the skip rate matters.
 
 NEW-FINDING: `src/main/java/soloMapling/ArtificialPlayer/BotTypes/TrainingBot.java:2003-2035` — `doDecide` records
 `currentTrainMapId = pick.mapId()` at `:2003` and then has three exits that can bypass `GO_TRAIN` (`:2027` warp,

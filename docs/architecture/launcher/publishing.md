@@ -30,10 +30,10 @@ No opcode or scheduler starts any of this: it is release-time tooling. The one r
 
 1. `stage-client` copies the published client layer `$PATCH_DIR/layers/client/$FROM_LAYER/files` and overlays the
    changed artefacts (`stage-client:96-129`): `slums.dll`, `slums-build.txt`, `Custom.wz`, any `--data` images. Each is
-   hashed on the build desktop (`stage-client:54-57`), re-hashed after `scp` (`:79-92`), and written with
-   `cp -a --no-preserve=links -T` only once the paths match `:116-117`. Old files are unlinked before new ones arrive
-   (`:120`), never written through. Provenance goes beside the tree, `client-<v>.STAGED.txt` (`:44`), because every file
-   *inside* it gets published.
+   hashed on the build desktop (`:54-57`), re-hashed after `scp` (`:79-92`), and written with
+   `cp -a --no-preserve=links -T` only once the paths match `:116-117`; old files are unlinked first (`:120`), never
+   written through. Provenance goes beside the tree, `client-<v>.STAGED.txt` (`:44`), since every file *inside* it is
+   published.
 2. `publish-client` checks the version (`publish-client:68`), option combinations (`:73-76`), and that the source is on
    the host (`:80`). News goes first: `checks news` runs `publish_checks.py:48`, and a bad file dies with "would be
    refused by the publisher: nothing published" (`publish-client:82-85`) — the b052 fix.
@@ -201,14 +201,14 @@ publisher's `--launcher` mode is a hand-written Electron/asar reader (`publish.m
 - `tools/release/test_stage_client_lib.py` — `ParseTest` (exact bytes, CRLF, missing build) and `DataSpecTest`
   (Windows/client path validation) (`:6-25`).
 
-Launcher repo (`npm test`): `test/layers.test.mjs` — immutable layer folders with a top manifest pinning layer hashes
-(`:62`), later layer overrides (`:101`), only changed layers download (`:122`), fast verify trusts size+mtime (`:147`),
-player-owned `config.ini` (`:205`), `schemaVersion 1` still loads (`:231`), traversal/reserved-path rejection (`:248`),
-first install with bounded concurrency (`:288`); `test/releases.test.mjs` — nested install/repair (`:45`), a corrupt
-payload cannot partially replace a release (`:67`), publishing is immutable, exposes no linked files, rejects traversal
-and Windows aliases (`:80`), redirected feeds (`:96`), news round-trip and bad-news rejection (`:103`);
-`test/tauri-publish.test.mjs` — signed Tauri publish immutable with the updater JSON last (`:32`), HTTPS-only
-credential-free base URL and a real Windows program (`:54`), both skipped without `cargo tauri`.
+Launcher repo (`npm test`): `test/layers.test.mjs:62` immutable layer folders with a top manifest pinning layer hashes,
+`:101` later layer overrides, `:122` only changed layers download, `:147` fast verify trusts size+mtime, `:205`
+player-owned `config.ini`, `:231` `schemaVersion 1` still loads, `:248` traversal/reserved-path rejection, `:288` first
+install with bounded concurrency; `test/releases.test.mjs:45` nested install/repair, `:67` a corrupt payload cannot
+partially replace a release, `:80` publishing is immutable, exposes no linked files, rejects traversal and Windows
+aliases, `:96` redirected feeds, `:103` news round-trip and bad-news rejection; `test/tauri-publish.test.mjs:32` signed
+Tauri publish immutable with the updater JSON last, `:54` HTTPS-only credential-free base URL and a real Windows
+program, both skipped without `cargo tauri`.
 
 Not covered: `set-min-client-build` and `publish-launcher` have no test at all (only `publishLayer` is);
 `publish_checks.py`'s UTF-16 limit and control-character rule are not asserted directly; nothing exercises the real
