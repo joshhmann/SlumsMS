@@ -94,8 +94,11 @@ The hook is attached by `Lamps_Attach()` (`src/lamps.cpp:2633-2635`) from `Attac
 (`src/weather.cpp:2285`), so the guard only exists in `MAPLEROOT_WEATHER` builds, where the same hook also
 serves the lamps feature (`src/CMakeLists.txt:100-105`).
 
-**3. Linked-canvas guard.** Stock `Ztl_variant_t__GetUnknown` (`0x00414ADA`) funnels every canvas link into
-`HandleLinkProperty` (`src/inlink.cpp:31-43`). `FillLinkedCanvas` (`src/inlink_guard.cpp:22-89`):
+**3. Linked-canvas guard.** Two detours feed every canvas link into `HandleLinkProperty` (`src/inlink.cpp:31-33`):
+`get_unknown_hook` on `0x00414ADA` (`src/inlink.cpp:35-43`) and `Ztl_variant_t__GetUnknown_hook` on
+`0x004032B2` (`src/inlink.cpp:45-50`), both attached in `AttachClientInlink` (`src/inlink.cpp:64-65`). Each
+calls stock first, then queries `IWzCanvas` and only then resolves links, so an unresolvable link never blocks
+the stock return. `FillLinkedCanvas` (`src/inlink_guard.cpp:22-89`):
 
 1. null canvas → `false` (`:23-25`).
 2. inside one `try`: read `property`, then each of `_inlink`, `_outlink`, `source` as `VT_BSTR` (`:26-41`).
@@ -278,7 +281,7 @@ byte tests silently degrade to their no-exe variants (or disappear, for inlink).
 
 - **b251 (S2, `/root/work/STATUS-1.6.4.md:72`)** — still listed open: "Client crash entering Rose Garden: Abandoned Garden
   (211080100) … Routing stays". Two independent fixes landed on 2026-11-04: the data fix `68caea7` /
-  `117d43b` (Custom.wz `attackN/info/type`) and the code guard `3e640f1`. The server still blocks the map:
+  `117d43b` (Custom.wz `attackN/info/type`) and the code guard `3e640f1`. The server still blocks the map (server repo paths below):
   `src/main/resources/soloMapling/map-routing.tsv:93-99` marks 211080100-700 `client-crash`, and
   `Probes164.mapRouting` asserts they fall back to 211080000 (`src/main/java/soloMapling/autoqa/Probes164.java:462-467`).
   The card cannot close until that table is regenerated and a QA build proves the map.
@@ -296,7 +299,8 @@ byte tests silently degrade to their no-exe variants (or disappear, for inlink).
   `0x20000000..0x2200000E` and high words `0x8003`/`0x8004`/`0x8007`. Both crash classes this document exists
   for are plain `0x8000`-high-word HRESULTs — `E_POINTER 0x80004003` (b251, b103) and `E_FAIL 0x80004005` — so
   `Last C++ error:` in the report (`src/crash_report.cpp:139-141`) reads `00000000` for exactly the failures that
-  matter most here. The widen list in `src/mobattackfix_patch.h:107-117` shows the intended neighbourhood.
+  matter most here. (`0x80004003 & 0xFFFF0000 == 0x80000000`.) The `ResumeFor`/`StockRaises` pair in
+  `src/mobattackfix_patch.h:109-117` shows how precisely these codes are otherwise handled.
 - **NEW-FINDING: `src/mapobj_guard.h:22-24` / `src/lamps.cpp:1496-1497`** — the map-object guard is compiled
   only inside `MAPLEROOT_WEATHER` (`src/CMakeLists.txt:100-105`). A build without the weather addon — the
   documented way to configure a minimal client (`CMakeLists.txt:5`) — silently ships **without** the
@@ -318,7 +322,7 @@ byte tests silently degrade to their no-exe variants (or disappear, for inlink).
 
 ## State
 
-**working** for the five guards, **partial** for the crash report, **broken** for one header pointer. Evidence:
+**working** for the five guards, **partial** for the crash report, **stale** for one header comment. Evidence:
 
 | Part | State | Evidence |
 |---|---|---|

@@ -54,15 +54,15 @@ Off-process entry points: `deploy/site/slumsms-site-avatars.service` (runs `solo
 
 ### 5. `SiteAuthApi` — request/response
 
-1. `startIfEnabled()` (`src/main/java/soloMapling/site/auth/SiteAuthApi.java:105`) needs `-Dslums.auth.port` (`:106`) and a secret file (`-Dslums.auth.secretFile`) whose trimmed content is at least `MIN_SECRET=16` (`:38,111`); a short or missing secret logs why and leaves the API off (`:114-117`).
-2. It wires `SiteAccounts.forGame()` (`:118`), `PasswordResets.forGame(accounts, secret)` (`:119`) and a `SiteInvites` over `AuthStore.Jdbc` (`:120`), then binds `InetAddress.getLoopbackAddress()` with a 2-thread daemon pool (`:153-164`).
+1. `startIfEnabled()` (`src/main/java/soloMapling/site/auth/SiteAuthApi.java:105`) returns unless `-Dslums.auth.port` is set (`:106-109`), then requires a secret file (`-Dslums.auth.secretFile`) whose trimmed content is at least `MIN_SECRET=16` (`:38,111`); a short or missing secret logs why and leaves the API off (`:112-115`).
+2. It wires `SiteAccounts.forGame()` (`:116`), `PasswordResets.forGame(accounts, secret)` (`:117`) and a `SiteInvites` over `AuthStore.Jdbc` (`:118`), then binds `InetAddress.getLoopbackAddress()` with a 2-thread daemon pool (`:119,153-164`).
 3. `serve()` reads at most `MAX_BODY+1 = 4097` bytes (`:37,189`), calls `handle(method, path, authHeader, body)` (`:190`) and always answers `application/json` + `Cache-Control: no-store` (`:196-197`). A runtime failure becomes `500 UNAVAILABLE` (`:191-193`).
 4. `handle()` checks `MessageDigest.isEqual` against the secret header `X-Slums-Auth` (`:36,291`) and answers `401 UNAUTHORIZED` before any routing (`:204-206`).
 5. `route()` (`:215`) rejects unknown paths with `404 NOT_FOUND`, non-POST with `405`, a null or oversized body with `413`, unparsable JSON with `400` (`:216-229`). Known paths: `/signup`, `/verify`, `/reset/request|status|complete` (`RESET_PATHS`, `:290`), `/invite/create|list|cancel` (`INVITE_PATHS`, `:292`), `/exchange/approve` (`:251`).
-6. `/signup` and `/verify` call `SiteAccounts.signup`/`verify` (`src/main/java/soloMapling/site/auth/SiteAccounts.java:167,221`); success also notifies the exchange (`SiteAuthApi.java:238-240`). A rate-limited result answers HTTP 429, every other result 200 (`:241`).
-7. `/exchange/approve` (`SiteAuthApi.java:262`) requires `account_id > 0` and a token matching `[0-9a-f]{8,64}`, re-checks the password, verifies it belongs to that account, then calls the exchange; the class doc at `:255-260` states the password and token are never logged.
-8. `/reset/complete` additionally sets `revoke_sessions: true` in its answer (`SiteAuthApi.java:344`); `ResetStore.Jdbc` marks the request `used` and updates `accounts.password` (`src/main/java/soloMapling/site/auth/ResetStore.java:73,75`).
-9. Response bodies: success `{ok, account_id, account, gm, gm_level, characters}` and failure `{ok:false, error, rule?}` (`SiteAuthApi.java:360,378`).
+6. `/signup` and `/verify` call `SiteAccounts.signup`/`verify` (`src/main/java/soloMapling/site/auth/SiteAccounts.java:167,221`); success also notifies the exchange (`SiteAuthApi.java:244-246`). A rate-limited result answers HTTP 429, every other result 200 (`:247`).
+7. `/exchange/approve` (`SiteAuthApi.java:262`) requires `account_id > 0` and a token matching `[0-9a-f]{8,64}` (`:265`), re-checks the password, verifies it belongs to that account, then calls the exchange; the doc at `:253-261` lists the answers and states the password and token are never logged.
+8. `/reset/complete` additionally sets `revoke_sessions: true` in its answer (`SiteAuthApi.java:346`); `ResetStore.Jdbc` marks the request `used` and updates `accounts.password` (`src/main/java/soloMapling/site/auth/ResetStore.java:73,75`).
+9. Response bodies are built by `body(SiteAccounts.Result)` (`SiteAuthApi.java:360-376`): success `{ok:true, account_id, account, gm, gm_level, characters}`, failure `{ok:false, error, rule?}`; transport-level errors use `error(status, code)` (`:378-383`).
 
 ### 6. `BotInspectApi` and `QaEventFeed`
 

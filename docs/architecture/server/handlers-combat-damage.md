@@ -54,11 +54,11 @@ combat-adjacent scope hints only because of the name.
 
 | Handler | parse call | Gates before `applyAttack` | `applyAttack` argument |
 |---|---|---|---|
-| `CloseRangeDamageHandler` | `parseDamage(p, chr, false, false)` `:55` | morph-without-attack → `getClient().disconnect(false, false)` `:57-61`; dojo secret skill `1009/10001009/20001009` needs 10000 energy `:65`; dojo energy gain `:70-71`; finisher/orb bookkeeping `:82-131`; `SACRIFICE` self-damage `:145`; bamboo dojo reset `:165-170`; cooldown `:176-180`; Darksight/Wind Walk cancel `:184-189` | `attackCount` from `getAttackEffect(chr,null).getAttackCount()` `:192` |
+| `CloseRangeDamageHandler` | `parseDamage(p, chr, false, false)` `:55` | morph-without-attack → `getClient().disconnect(false, false)` `:57-60`; dojo secret skill `1009/10001009/20001009` needs 10000 energy `:65`; dojo energy gain `:70-71`; finisher/orb bookkeeping `:80-131`; `SACRIFICE` self-damage `:145`; bamboo dojo reset `:165-170`; cooldown `:176-180`; Darksight/Wind Walk cancel `:184-189` | `attackCount` computed at `:157-159` (`getAttackEffect(chr,null).getAttackCount()`), passed at `:192` |
 | `RangedAttackHandler` | `parseDamage(p, chr, true, false)` `:62` | morph `:65-68`; dojo energy `:74-75`; `WeaponType.NOT_A_WEAPON` return `:106-107`; bullet/soul-arrow/shadow-claw accounting `:112-185`; projectile level gates `:148-161`; visible-projectile (cash `5021`) `:191-204`; cooldown `:226-230`; Darksight cancel `:235-237` | `bulletCount` `:243`; energy-orb/spark/taunt and Shark Wave short-circuit with `1` `:82`, `:86`; Aran combos `2/3/5` `:96`, `:99`, `:102` |
-| `MagicDamageHandler` | `parseDamage(p, chr, false, true)` `:51` | morph `:54-56`; dojo energy `:63-64`; cooldown `:77-83` | `effect.getAttackCount()` `:86`; MP Eater passive after the hit `:87-91` |
+| `MagicDamageHandler` | `parseDamage(p, chr, false, true)` `:51` | morph `:54-57`; dojo energy `:63-64`; cooldown `:77-83` | `effect.getAttackCount()` `:86`; MP Eater passive after the hit `:87-91` |
 | `TouchMonsterDamageHandler` | `parseDamage(p, chr, false, false)` `:35` | player must be at energy-bar 15000 **or** have `BODY_PRESSURE` `:34` | `1` `:37` |
-| `SummonDamageHandler` | hand-rolled (no `parseDamage`) `:88-100` | player alive `:74`; summon OID must belong to the player `:78-86`; ownership-restricted map `:104` | per-hit `capSummonDamage` `:119-121` |
+| `SummonDamageHandler` | hand-rolled (no `parseDamage`) `:88-100` | player alive `:75`; summon OID must belong to the player `:78-85`; ownership-restricted map `:103` | per-hit `capSummonDamage` `:119-121` |
 
 `AttackCapture` runs in every attack handler *after* parsing and before any gate
 (`src/main/java/net/server/channel/handlers/CloseRangeDamageHandler.java:56`,
@@ -96,10 +96,10 @@ the character is a non-bot GM of level ≥ 2 (`src/main/java/soloMapling/server/
    `RangedAttackHandler.java:220`, `MagicDamageHandler.java:73`) *before* the hit lands, so the animation shows even if
    `applyAttack` then refuses.
 5. **`applyAttack` gates** (`src/main/java/net/server/channel/handlers/AbstractDealDamageHandler.java:107`):
-   ownership-restricted map `:109`; banned `:117`; skill effect null → `enableActions` + return `:122-126`;
+   ownership-restricted map `:109`; banned `:117`; skill effect null → `enableActions` + return `:122-125`;
    **MP gate `:128-132`** — if `player.getMp() < attackEffect.getMpCon()` the server adds an `MPCON` autoban point,
    sends `enableActions` and returns without damaging anything (this is b295); mob-count cap → `MOB_COUNT.autoban`
-   `:160-163`; dead player `:166`. The old `attackCount != attack.numDamage` consistency check is commented out
+   `:161-163`; dead player `:166`. The old `attackCount != attack.numDamage` consistency check is commented out
    `:169-173`.
 6. **Per-monster resolution** (`:188-282`): the monster is looked up by OID `:213`; `distanceToDetect` starts at
    `200000.0` `:216` and grows for ranged `:219`, magic `:223`, Aran `:227`, combo/body-pressure `:231`,
@@ -126,8 +126,8 @@ the character is a non-bot GM of level ≥ 2 (`src/main/java/soloMapling/server/
    `afterBossKilled` phase handoff `:1659-1662`, else `killMonster(monster, chr, true)` `:1666`.
 10. **The HP write.** `Monster.damage` (`src/main/java/server/life/Monster.java:412`) takes the monster lock, returns
     `false` when already dead, and calls `applyDamage` `:461`, which calls
-    `applyAndGetHpDamage(damage, stayAlive)` `:360` — `trueDamage = Math.min(curHp, delta)`, so overkill is discarded
-    and HP never goes negative `:368-372`. `applyDamage` then dispatches the damage packet `:472`, adds to
+    `applyAndGetHpDamage(damage, stayAlive)` `:360` — `trueDamage = Math.min(curHp, delta)` `:370`, so overkill is discarded
+    and HP never goes negative (`:368-372`). `applyDamage` then dispatches the damage packet `:472`, adds to
     `takenDamage[chrId]` `:476-479`, updates hit streaks `:480-484`, refreshes the boss HP bar `:486` and notifies
     `DamageRank` `:487`.
 11. **Death.** `MapleMap.killMonster` (`:1738`) → `removeKilledMonsterObject` (`:1710`, refuses when `hp < 0`, i.e.
@@ -181,7 +181,7 @@ the character is a non-bot GM of level ≥ 2 (`src/main/java/soloMapling/server/
 
 | Route | Flow |
 |---|---|
-| Summon hit | `SummonDamageHandler` `:88-100` reads per-mob damage, recomputes `calcMaxDamage` `:143` (magic vs weapon branch chosen by `summonEffect.getWatk() == 0` `:107`), clamps with `capSummonDamage` `:139`, applies the summon's statuses `:124-128`, then `map.damageMonster` `:129` |
+| Summon hit | `SummonDamageHandler` `:88-100` reads per-mob damage, recomputes `calcMaxDamage` `:143` (magic vs weapon branch chosen by `summonEffect.getWatk() == 0` `:107`), clamps with `capSummonDamage` `:139`, applies the summon's statuses `:125-127`, then `map.damageMonster` `:129` |
 | Mob vs mob (hypnotise) | `MobDamageMobHandler` `:48` recomputes `calcMaxDamage(attacker, damaged, magic)` `:77` and clamps above it with a `DAMAGE_HACK` alert `:63-71`, then `map.damageMonster(chr, damaged, dmg)` `:72` |
 | Mob vs friendly NPC | `MobDamageMobFriendlyHandler` `:40` rolls the damage **server-side** `:52`, announces the friendly's death message per mob id `:54-81`, `killFriendlies` `:83`, then `applyAndGetHpDamage` `:87` |
 | Field obstacle | `FieldDamageMobHandler` `:38` requires the map to have an active environment `:45-48` and `0 <= dmg <= GameConstants.MAX_FIELD_MOB_DAMAGE` (`src/main/java/constants/game/GameConstants.java:50`) `:52-56`, then `map.damageMonster` `:59` |
@@ -197,7 +197,7 @@ the character is a non-bot GM of level ≥ 2 (`src/main/java/soloMapling/server/
 |---|---|---|
 | `AttackInfo` | `src/main/java/net/server/channel/handlers/AbstractDealDamageHandler.java:58-65` | `numAttacked`, `numDamage`, `numAttackedAndDamage`, `skill`, `skilllevel`, `stance`, `direction`, `rangedirection`, `charge`, `display`, `allDamage`, `ranged`, `magic`, `speed = 4`, `position`, `rangedTailPos = -1` |
 | `allDamage` | same, `:60` | `Map<Integer, List<Integer>>`: monster OID → decoded damage lines (meso OIDs map to `null` for Meso Explosion, `:583`) |
-| Monster HP | `src/main/java/server/life/Monster.java` `hp` (AtomicLong) | clamped at 0 while alive; `-1` is the "removed from map" marker (`disposeMapObject` `:387-390`) |
+| Monster HP | `src/main/java/server/life/Monster.java:73` `hp` (AtomicLong) | clamped at 0 while alive; `-1` is the "removed from map" marker (`disposeMapObject` `:387-390`) |
 | `takenDamage` | `src/main/java/server/life/Monster.java:95` | `Map<Integer, AtomicLong>` keyed by **character id**; fake damage counts as `1` (`:477-479`). This map is the EXP ledger |
 | `maxHpPlusHeal` | `src/main/java/server/life/Monster.java:74`, `:140`, `:510` | denominator for damage share; healing a mob raises it so healers cannot be gamed |
 | Hit streaks | `src/main/java/server/life/Monster.java:103-105` | `hitStreakAt`/`lastHitAt`, `HIT_STREAK_GAP_MS = 15_000` |
@@ -219,7 +219,7 @@ the character is a non-bot GM of level ≥ 2 (`src/main/java/soloMapling/server/
 | `DOJO_ENERGY_DMG` | `ServerConfig.java:556` | `20` (`config.example.yaml:475`) | `TakeDamageHandler.java:289` | energy gained per hit taken |
 | `USE_ULTRA_THREE_SNAILS` | `ServerConfig.java:454` | `false` (`config.example.yaml:371`) | `AbstractDealDamageHandler.java:424` | lets Three Snails damage scale with shells instead of a fixed line |
 | `USE_FAST_REUSE_HERO_WILL` | `ServerConfig.java:458` | `false` (`config.example.yaml:375`) | `SpecialMoveHandler.java:103` | divides Hero's Will cooldown by 60 |
-| `-Dslums.attackcapture` | system property | off | `src/main/java/soloMapling/server/AttackCapture.java:48`, `:59` | logs GM attack/cast/summon packets to `logs/attack-capture.tsv`; also the flag that registers the `!qa` command family (`docs/architecture/server/commands.md:149`). Live's unit passes neither this nor `-Dslums.qa` |
+| `-Dslums.attackcapture` | system property | off | `src/main/java/soloMapling/server/AttackCapture.java:48`, `:59` | logs GM attack/cast/summon packets to `logs/attack-capture.tsv`; because `QaSuite.isEnabled()` ORs it in (`src/main/java/soloMapling/qa/QaSuite.java:33`, `:77-78`) it also turns on every QA log hook (`docs/architecture/server/commands.md:148-149`, `docs/architecture/server/qa-and-autoqa.md:251`). Live passes neither this nor `-Dslums.qa` |
 | `-Dslums.chaos.zakum` | system property | off | `src/main/java/constants/id/MobId.java:40` | chaos Zakum altar ids; feeds `shieldingArms` and therefore `bossDamageBlocked` |
 
 `docs/release/1.6.4.conf` (live's `SERVER_SET`) contains **none** of the `config.yaml` keys above, so live runs each
@@ -230,11 +230,11 @@ values are unknown.
 ## Invariants
 
 - **A monster's HP never goes below zero while it is alive.** `applyAndGetHpDamage` applies
-  `Math.min(curHp, delta)` (`src/main/java/server/life/Monster.java:368-372`), so overkill is dropped and
+  `Math.min(curHp, delta)` (`src/main/java/server/life/Monster.java:370`), so overkill is dropped and
   `takenDamage` records real damage only. `hp == -1` is reserved for "removed from the map"
   (`Monster.java:387-390`), which is why `removeKilledMonsterObject` treats `hp < 0` as already-removed
   (`src/main/java/server/maps/MapleMap.java:1712-1714`).
-- **A monster dies once.** `Monster.damage` returns early when `!isAlive()` (`Monster.java:419-421`) and
+- **A monster dies once.** `Monster.damage` returns early when `!isAlive()` (`Monster.java:417-418`) and
   `killMonster` is idempotent through `removeKilledMonsterObject` (`MapleMap.java:1712`).
 - **Client damage numbers are advisory.** Every line is re-clamped against a server-side estimate
   (`AbstractDealDamageHandler.java:844-857`, `:886-892` for negatives; `SummonDamageHandler.java:119`;
@@ -246,7 +246,7 @@ values are unknown.
   flagged.
 - **No MP, no damage.** `applyAttack` refuses before any HP write when `getMp() < getMpCon()`
   (`AbstractDealDamageHandler.java:128-132`), and a party Heal the caster cannot pay for heals nobody
-  (`src/main/java/server/StatEffect.java:896-903`). This is b295's invariant and is covered by
+  (`src/main/java/server/StatEffect.java:896-901`). This is b295's invariant and is covered by
   `src/test/java/net/server/channel/handlers/AttackWithoutMpTest.java` and
   `src/test/java/server/StatEffectHealAffordTest.java`.
 - **EXP is a share of recorded damage, not of the killing blow.** `expPerDmg = mobExp / maxHpPlusHeal`
@@ -255,7 +255,7 @@ values are unknown.
 - **A player's HP can only be zeroed through the stat pool**, never by direct field writes from a handler;
   `safeAddHP` clamps to `1` (`src/main/java/client/AbstractCharacterObject.java:501-507`) while `addMPHP` /
   `addHP` can kill. Death is decided in one place, `hpChangeAction` (`src/main/java/client/Character.java:10585-10594`).
-- **All monster death work runs under the monster lock** (`Monster.damage` `:414-451`,
+- **All monster death work runs under the monster lock** (`Monster.damage` `:415-451`,
   `removeKilledMonsterObject` `src/main/java/server/maps/MapleMap.java:1711`).
 
 ## Origin
@@ -384,10 +384,10 @@ the known issues above include two trust holes (`MonsterBombHandler`, the dead l
 - Is `MobDamageMobFriendlyHandler`'s double-removal benign in practice, or does the second `removeMapObject` decrement
   `spawnedMonstersOnMap`/event counters twice? Determining this needs the PQ scripts (`HenesysPQ`, `AmoriaPQ`) that
   spawn those friendlies.
-- Why does `STATUS-1.6.4.md:45` still show b295 as unclaimed when `a5a30faef` and both fail-before tests are in
+- Why does `/root/work/STATUS-1.6.4.md:45` still show b295 as unclaimed when `a5a30faef` and both fail-before tests are in
   `origin/release-1.6.4`? Either the status export predates the merge or the fix was never merged into the branch the
   export reads.
 - `Monster.damage`'s `stayAlive` flag: `MapleMap.damageMonster` always passes `false`
   (`src/main/java/server/maps/MapleMap.java:1645`), and only `applyAndGetHpDamage(Integer.MAX_VALUE, false)` /
-  `heal` reach it otherwise. No caller passes `true`, so the `curHp--` branch at `Monster.java:369-371` looks
+  `heal` reach it otherwise. No caller passes `true`, so the `curHp--` branch at `Monster.java:367-368` looks
   unreachable; whether it is intended for a future "leave at 1 HP" mechanic is undetermined.

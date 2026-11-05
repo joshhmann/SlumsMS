@@ -18,21 +18,22 @@ All packet handlers are registered in one place; the inventory-related ones occu
 | InventoryMergeHandler | ITEM_SORT | src/main/java/net/PacketProcessor.java:153 | invType byte |
 | ItemMoveHandler | ITEM_MOVE | src/main/java/net/PacketProcessor.java:154 | int, type byte, src short, action short, qty short |
 | UseCashItemHandler | USE_CASH_ITEM | src/main/java/net/PacketProcessor.java:164 | position short, itemId int (+ per-type payload) |
-| UseItemHandler | USE_ITEM, USE_RETURN_SCROLL | src/main/java/net/PacketProcessor.java:164-166 | int, slot short, itemId int |
+| UseItemHandler | USE_ITEM, USE_RETURN_SCROLL | src/main/java/net/PacketProcessor.java:165-166 | int, slot short, itemId int |
 | ScrollHandler | USE_UPGRADE_SCROLL | src/main/java/net/PacketProcessor.java:167 | int, scrollSlot short, equipSlot short, ws short |
-| UseSummonBagHandler | USE_SUMMON_BAG | src/main/java/net/PacketProcessor.java:167-168 | int, slot short, itemId int |
+| UseSummonBagHandler | USE_SUMMON_BAG | src/main/java/net/PacketProcessor.java:168 | int, slot short, itemId int |
 | ItemPickupHandler | ITEM_PICKUP | src/main/java/net/PacketProcessor.java:171 | int, byte, pos, oid int |
-| CancelItemEffectHandler | CANCEL_ITEM_EFFECT | src/main/java/net/PacketProcessor.java:171-175 | itemId (negated) |
-| DistributeAPHandler / DistributeSPHandler | DISTRIBUTE_AP / DISTRIBUTE_SP | src/main/java/net/PacketProcessor.java:171-180 | int, num int / skillid int |
+| CancelItemEffectHandler | CANCEL_ITEM_EFFECT | src/main/java/net/PacketProcessor.java:175 | itemId (negated) |
+| DistributeAPHandler / DistributeSPHandler | DISTRIBUTE_AP / DISTRIBUTE_SP | src/main/java/net/PacketProcessor.java:178-179 | int, num int / skillid int |
 | KeymapChangeHandler | CHANGE_KEYMAP | src/main/java/net/PacketProcessor.java:180 | mode int + per-mode payload |
-| SetItemHandler | SET_ITEM_ACTION | src/main/java/net/PacketProcessor.java:180-192 | byte (1 catalog, 2 pieces) |
-| WeaponTintHandler | WEAPON_TINT_ACTION | src/main/java/net/PacketProcessor.java:192-195 | action byte (+ per-action body) |
+| SetItemHandler | SET_ITEM_ACTION | src/main/java/net/PacketProcessor.java:192 | byte (1 catalog, 2 pieces) |
+| WeaponTintHandler | WEAPON_TINT_ACTION | src/main/java/net/PacketProcessor.java:195 | action byte (+ per-action body) |
 | UseItemEffectHandler | USE_ITEMEFFECT | src/main/java/net/PacketProcessor.java:200 | itemId int |
-| SkillEffectHandler | SKILL_EFFECT | src/main/java/net/PacketProcessor.java:200-207 | skillId, level, flags, speed, aids |
-| SkillBookHandler | USE_SKILL_BOOK | src/main/java/net/PacketProcessor.java:207-222 | int, slot short, itemId int |
+| SkillEffectHandler | SKILL_EFFECT | src/main/java/net/PacketProcessor.java:207 | skillId, level, flags, speed, aids |
+| SkillBookHandler | USE_SKILL_BOOK | src/main/java/net/PacketProcessor.java:222 | int, slot short, itemId int |
 | SkillMacroHandler | SKILL_MACRO | src/main/java/net/PacketProcessor.java:223 | byte num, then per-macro |
 | UseMountFoodHandler | USE_MOUNT_FOOD | src/main/java/net/PacketProcessor.java:226 | int, pos short, itemid int |
 | PetAutoPotHandler | PET_AUTO_POT | src/main/java/net/PacketProcessor.java:230 | byte, long, int, slot short, itemId int |
+| AutoAssignHandler | AUTO_DISTRIBUTE_AP | src/main/java/net/PacketProcessor.java:241 | the client's "auto-assign" button, neighbours the AP path |
 | UseHammerHandler | USE_HAMMER | src/main/java/net/PacketProcessor.java:251 | nothing |
 | UseSolomonHandler | USE_SOLOMON_ITEM | src/main/java/net/PacketProcessor.java:259 | int, slot short, itemId int |
 | UseGachaExpHandler | USE_GACHA_EXP | src/main/java/net/PacketProcessor.java:260 | nothing |
@@ -61,11 +62,13 @@ implementation (src/main/java/client/command/CommandsExecutor.java:246).
    (src/main/java/client/inventory/Inventory.java:98-107); the comment at :311 records the same reasoning for
    removal. `iterator()` delegates to `list()` (src/main/java/client/inventory/Inventory.java:629).
 3. Slots are `short`s. Positive = the tab; negative = equipped, mapped by `BodyPart`
-   (src/main/java/client/inventory/BodyPart.java:29-63: -24 is `PET_AUTO_HP_POUCH`, -25 `PET_AUTO_MP_POUCH`, -49 the
-   equipped medal used for megaphone prefixes at src/main/java/net/server/channel/handlers/UseCashItemHandler.java:105-110).
+   (src/main/java/client/inventory/BodyPart.java:3-85, so an equipped slot's character code is the `BodyPart` value
+   negated: `PET_AUTO_HP_POUCH` 24 at :32, `MEDAL` 49 at :61 — the equipped medal the megaphone prefix reads from slot
+   -49 at src/main/java/net/server/channel/handlers/UseCashItemHandler.java:110).
 4. `InventoryType` has UNDEFINED(0), EQUIP(1), USE(2), SETUP(3), ETC(4), CASH(5), CANHOLD(6) and EQUIPPED(-1)
-   (src/main/java/client/inventory/InventoryType.java:29-35); `getByWZName` maps Install→SETUP, Consume→USE, Pet→CASH
-   (src/main/java/client/inventory/InventoryType.java:55).
+   (src/main/java/client/inventory/InventoryType.java:27-35); `getByWZName` maps Install→SETUP, Consume→USE, Etc→ETC,
+   Cash and Pet→CASH, Eqp→EQUIP and anything unknown→UNDEFINED
+   (src/main/java/client/inventory/InventoryType.java:60-69).
 5. `Item` (src/main/java/client/inventory/Item.java:33) carries id, cashId, sn, position, quantity, petid, pet, owner,
    itemLog, flag, expiration, giftFrom (:36-47). A cash id is minted lazily from a static `AtomicInteger runningCashId
    = 777000000` (:35, :97-103); the persistent allocator is `CashIdGenerator.generateCashId()`
@@ -223,32 +226,33 @@ implementation (src/main/java/client/command/CommandsExecutor.java:246).
 
 ### 7. Scroll application
 
-1. `ScrollHandler.handlePacket` (src/main/java/net/server/channel/handlers/ScrollHandler.java:52) takes the client lock,
-   parses `scrollSlot`, `equipSlot` and the white-scroll bit `(ws & 2) == 2` (:57-62), resolves the target from the
-   EQUIPPED inventory, and when the character has Legendary Spirit (skill 1003) and `equipSlot >= 0` resolves it from
-   the EQUIP tab instead (:64-68). The comment at :66-69 records that the MapleRoot repack shipped this handler with an
-   empty body and it was restored from Cosmic.
-2. Refusals all answer `announceCannotScroll` (a scroll-effect FAIL, or `getInventoryFull` for the legendary-spirit UI):
-   missing target or a scroll slot that is not a `204xxxx` stack with quantity ≥ 1 (:75, :197-202), a clean slate on an
-   equip that cannot take one (:85), a non-modifier scroll on an equip with 0 slots (:89), a scroll req list that does
-   not name the equip (:93-97), and `canScroll(scrollId, itemId)` for everything except chaos/clean-slate (:99-101).
-3. Consumption happens under the USE inventory lock: the white scroll first, then the scroll
-   (:107-127). Then `ii.scrollEquipWithId(toScroll, scroll.getItemId(), whiteScroll, 0, chr.isGM())` (:134) — the fourth
-   argument is the Vega item id and is `0` here, i.e. no probability boost.
-4. Result mapping: `null` → CURSE (:137); SUCCESS when the level rose, or a clean slate added a slot, or a
-   spikes/cold flag went on (:138); otherwise FAIL. CURSE removes the equip entirely unless it is a wedding ring, which
-   is downgraded to FAIL with the mods re-sent (:143-167). Mods are `(3, scrolled)` + `(0, scrolled)` and are followed by
-   a map-wide `getScrollEffect` broadcast (:169-170).
-5. Side effects: the `!qa gn-2` log line (:179-183), the "beef boom" bot-drama hook on CURSE (:187), and
-   `chr.equipChanged()` when a worn equip changed (:190).
+1. `ScrollHandler.handlePacket` (src/main/java/net/server/channel/handlers/ScrollHandler.java:52) takes the client with
+   `tryacquireClient()` (:53), parses `scrollSlot`, `equipSlot` and the white-scroll bit `(ws & 2) == 2` (:56-63),
+   resolves the target from the EQUIPPED tab, and when the character has Legendary Spirit (skill 1003) and
+   `equipSlot >= 0` resolves it from the EQUIP tab instead (:67-72). The comment at :73-74 records that the MapleRoot
+   repack shipped this handler with an empty body and it was restored from Cosmic.
+2. Refusals all answer `announceCannotScroll` (a scroll-effect FAIL for Legendary Spirit, otherwise
+   `getInventoryFull`, :204-210): missing target or a scroll slot that is not a `204xxxx` stack with quantity ≥ 1
+   (:75-78 via `useInventoryItemMissing`, :199-202), a clean slate on an equip that cannot take one (:85), a
+   non-modifier scroll on an equip with 0 slots (:88), a scroll req list that does not name the equip (:93-98), and
+   `canScroll(scrollId, itemId)` for everything except chaos/clean-slate (:99-103).
+3. Consumption happens under the USE inventory lock: the white scroll first (:120-127), then the scroll (:129)
+   (:113-132).
+4. `ii.scrollEquipWithId(toScroll, scroll.getItemId(), whiteScroll, 0, chr.isGM())` (:134) — the fourth argument is the
+   Vega item id and is `0` here, i.e. no probability boost. Result mapping: `null` → CURSE (:136-137); SUCCESS when the
+   level rose, or a clean slate added a slot, or a spikes/cold flag went on (:138-139); otherwise FAIL. CURSE removes
+   the equip from its tab unless it is a wedding ring, which is downgraded to FAIL with the mods re-sent (:143-172).
+   Mods are `(3, scrolled)` + `(0, scrolled)` (:174-176) followed by a map-wide `getScrollEffect` broadcast (:178).
+5. Side effects: the `!qa gn-2` log line (:179-184), the "beef boom" bot-drama hook on CURSE (:185-189), and
+   `chr.equipChanged()` when a worn equip changed (:190-191).
 6. The engine is `ItemInformationProvider.scrollEquipWithId(equip, scrollId, usingWhiteScroll, vegaItemId, isGM)`
    (src/main/java/server/ItemInformationProvider.java:1047): it needs an upgrade slot (or a clean slate, or the
-   `USE_PERFECT_GM_SCROLL` GM override) (:1052), reads `success` from the scroll's stats (:1054), applies the Vega boost
-   (10→30, 60→90, Chaos 60 → 100) (:1056-1071), and on success either sets a spikes/cold flag, adds a slot for a clean
-   slate, rolls chaos stats (`scrollEquipWithChaos`, :688) or applies `improveEquipStats`. A non-clean-slate scroll then
-   spends a slot and raises the equip level (:1098-1104). On failure it spends a slot unless
+   `USE_PERFECT_GM_SCROLL` GM override) (:1052), reads `success` from the scroll's stats (:1053), applies the Vega boost
+   (10→30, 60→90, Chaos-60 → 100) (:1055-1069), and on success either sets a spikes/cold flag, adds a slot for a clean
+   slate, rolls chaos stats (`scrollEquipWithChaos`, :688) or applies `improveEquipStats` (:1071-1098). A non-clean-slate
+   scroll then spends a slot and raises the equip level (:1099-1103). On failure it spends a slot unless
    `USE_PERFECT_SCROLLING`, a white scroll, a clean slate, the GM override or a modifier scroll applies (:1106), and
-   returns `null` (boom) when `Randomizer.nextInt(100) < cursed` (:1109).
+   returns `null` (boom) when `Randomizer.nextInt(100) < cursed` (:1109-1111).
 7. `canScroll(scrollid, itemid)` (src/main/java/net/server/channel/handlers/ScrollHandler.java:213-224) compares the
    `%100` scroll class against the equip's item class, with an explicit 20492 accessory-scroll case; it is public
    because the bots scroll with the same rule (ticket 11).
@@ -256,8 +260,8 @@ implementation (src/main/java/client/command/CommandsExecutor.java:246).
 ### 8. Cash items (UseCashItemHandler)
 
 1. `handlePacket` (src/main/java/net/server/channel/handlers/UseCashItemHandler.java:75) throttles to one cash item per
-   3 s (`getLastUsedCashItem`, :77-85), resolves `position`/`itemId` against the CASH tab (falling back to
-   `findById`), and builds the `"<medal> "` prefix from equipped slot -49 (:105-110).
+   3 s (:78-84), reads `position`/`itemId`, resolves them against the CASH tab and falls back to `findById` (:87-102),
+   refuses an empty stack (:104-107) and builds the `"<medal> "` prefix from equipped slot -49 (:109-113).
 2. It then dispatches on `itemId / 10000` (:115-655): 504 teleport rocks (validated against the saved trock list, VIP-only
    cross-continent, `FieldLimit.CANNOTVIPROCK`), 505 AP/SP reset (:148 — SP reset moves one point between two skills,
    clears macros that named the emptied skill, and consumes only on success; AP reset delegates to
@@ -272,14 +276,15 @@ implementation (src/main/java/client/command/CommandsExecutor.java:246).
    == 0`) stays in the inventory. That is the b297 fix, commit `3837df51f`.
 4. Vega's Spell (:588-651) reads the equip slot, then the fed scroll, refuses when the equip has no slot left, and
    requires `vegaAccepts(spellId, useItemId, success)` — `useItemId` must be a `204xxxx` scroll whose WZ `success` is
-   exactly 10 (for 5610000) or 60 (for 5610001) (:712-720). It blocks the cash shop, sends `sendVegaScroll(0x40)`,
+   exactly 10 (for 5610000) or 60 (for 5610001) (:712-721). It blocks the cash shop, sends `sendVegaScroll(0x40)`,
    applies **the fed scroll** through the 5-arg `scrollEquipWithId(..., itemId, isGM)` (:627), treats a boom as a
-   failure that keeps the item (:628), answers 0x41/0x43, consumes both the scroll and the spell, and finishes in a
-   3 s timer that re-sends the item, broadcasts the scroll effect and re-enables actions (:634-651). Commit
-   `4e5a5e4…`/`4e5a3851f` + `b0e5e4c58`.
-5. Anything else hits the final `else`: `log.warn("NEW CASH ITEM TYPE: {}, packet: {}", …)` and nothing is consumed
-   (:657-660). `remove(c, position, itemid)` re-resolves the slot by item id if the recorded position drifted and calls
-   `InventoryManipulator.removeFromSlot(CASH, position, 1, true, false)` (:748-764).
+   failure that keeps the item (:624-628) and answers 0x41/0x43 (:629). Commits `4e5a3851f` + `b0e5e4c58`.
+5. Vega's Spell tail: after consuming the scroll and the spell (:632-633) a 3 s timer re-blocks the cash shop,
+   re-sends the scrolled item `(3, …)` + `(0, …)`, broadcasts `getScrollEffect` from the level comparison, calls
+   `equipChanged()` for a worn equip and re-enables actions (:636-655).
+6. Anything else hits the final `else`: `log.warn("NEW CASH ITEM TYPE: {}, packet: {}", …)` and nothing is consumed
+   (:656-659). `remove(c, position, itemid)` re-resolves the slot by item id if the recorded position drifted, under
+   the CASH lock, and calls `InventoryManipulator.removeFromSlot(CASH, position, 1, true, false)` (:748-764).
 
 ### 9. Stat and skill-point assignment
 
@@ -475,12 +480,12 @@ compilation; nothing tests the cash-item dispatch for 504/505/506/508/509/520/52
 |---|---|---|
 | b289 | /root/work/STATUS-1.6.4.md:39 | S1: a 9,999 throwing-star stack bought for 500 mesos sold back for 10,249. Old bug. Fixed on this branch by `e8ca08368` — `Shop.buy` now charges `ii.getPrice(itemId, slotMax)` for a rechargeable and `Shop.sellPayout` pays the same expression (src/main/java/server/Shop.java:109-117, :265). STATUS still lists it open with the owner's "just add it to 1.6.4". |
 | b290 | /root/work/STATUS-1.6.4.md:40 | S2: Vega's Spell discarded the fed scroll and rolled the item's own level, a pure loss at level 15+. Ticket 182 (docs/tickets/182-server-code-audit-1-6-4.md:51) and brief `s-b290/BRIEF.md`. Fixed here (`4e5a3851f`, `b0e5e4c58`) and tested; STATUS still records it as a live paid-item loss with no closer assigned. |
-| b297 | /root/work/STATUS-1.6.4.md:46 | S2: megaphones 5070000/5073000/5074000 were consumed with no broadcast. Fixed by the `default` arm at src/main/java/net/server/channel/handlers/UseCashItemHandler.java:375-378 (`3837df51f`) and tested. Still open in STATUS ("paid-item loss"). |
+| b297 | /root/work/STATUS-1.6.4.md:47 | S2: megaphones 5070000/5073000/5074000 were consumed with no broadcast. Fixed by the `default` arm at src/main/java/net/server/channel/handlers/UseCashItemHandler.java:375-378 (`3837df51f`) and tested. Still open in STATUS ("paid-item loss"). |
 | b287 | /root/work/STATUS-1.6.4.md:83 | S4, adjacent: the t-xc-5 scroll trader bot holding a Chaos/White Scroll never lists it — a supply-side scroll bug, not this subsystem's handler. |
 | b291 | /root/work/STATUS-1.6.4.md:41 | S3: items 4036550-4036553 are never minted, so three side systems are dead. |
 | L10 | /root/work/STATUS-1.6.4.md:101 | Scrolls, USE and ETC items become tradable exchange tickers (ticket 270, branch `164-excatalog`) — an economy change on top of this inventory model. |
 | b280 | src/main/java/soloMapling/qa/QaLog.java:73 | the `PETPOT` topic comment names b280: a pet's auto-potion request and whether it was refused. Not in STATUS-1.6.4.md's table; only the QA instrumentation exists. |
-| NEW-FINDING | src/main/java/net/server/channel/handlers/UseCashItemHandler.java:771 | `if (i == id)` compares the **array index** with the **item id**, so `getIncubatedItem` can only ever match an id equal to an index (0-19) — it grants `amount = 0` of every one of its 20 listed ids, then still removes the incubator and the target item (`:274-277`). |
+| NEW-FINDING | src/main/java/net/server/channel/handlers/UseCashItemHandler.java:771 | `if (i == id)` compares the **array index** with the **item id**, so `getIncubatedItem(c, 5060002)` (:274) never matches its 20-entry table and `amount` stays 0 (:769-774); `addById(c, id, (short) 0)` (:778) then grants a zero-quantity inventory full of nothing while the caller still removes the incubator and the target item (:275-276). |
 | NEW-FINDING | src/main/java/net/server/channel/handlers/UseCashItemHandler.java:571 | a second `else if (itemType == 552) { //DS EGG THING` is unreachable: 552 is already handled at :558, so the "DS EGG THING" branch is dead code and no DS-egg behaviour exists. |
 | NEW-FINDING | src/main/java/client/Character.java:2656-2827 | `modifiedPickupItem` (reached by any player through `@backpack on`, src/main/java/client/command/CommandsExecutor.java:246 → `BackPackToggleCommand.java:41`) is a hand-copied fork of `originalPickupItem` that dropped three gates: `MapId.isSelfLootableOnly` (src/main/java/client/Character.java:2562, so on the Happyville-tree and guild-PQ maps anyone whose ownership timer has run out can take a drop that is meant to be dropper-only), `GodlyDrops.tellLooter` (:2632) and `updateAriantScore` (:2630). The quest gate is NOT lost — `MapItem.canBePickedBy` re-checks `needQuestItem` (src/main/java/server/maps/MapItem.java:145) and the modified path calls it at :2664. It also carries `itemId == 2430030 && isPet` twice with a leftover scaffold comment ("Insert the condition for itemId == 2430030 and isPet here", :2708-2709 and :2733). |
 | NEW-FINDING | src/main/java/net/server/channel/handlers/UseCashItemHandler.java:605-608 | refusing a Vega cast answers `getInventoryFull()` — a wrong packet for "the equip has no upgrade slots", which the client renders as a full inventory. |

@@ -87,7 +87,7 @@ flowchart TD
    and *all* points also to `map.addAllMonsterSpawn(...)` so a reset can rebuild the map. `SpawnPoint.getMonster`
    (src/main/java/server/life/SpawnPoint.java:81-110) builds a fresh `Monster` from the cached stats, sets position,
    team, foothold and spawn counters, and registers a `MonsterListener` whose `monsterKilled` sets
-   `nextPossibleSpawn = now + (mobTime > 0 ? SECONDS.toMillis(mobTime) : aniTime)` (:96-105); `mobTime == 0` instead
+   `nextPossibleSpawn = now + (mobTime > 0 ? SECONDS.toMillis(mobTime) : aniTime)` (:90-101); `mobTime == 0` instead
    uses `mobInterval` (default 5000 ms, :41 and :106-108).
 9. **The respawn tick.** `RespawnTask` runs every `RESPAWN_INTERVAL`
    (src/main/java/net/server/Server.java:1097). It walks `Server.getAllChannels()` and skips any channel whose
@@ -115,7 +115,7 @@ flowchart TD
     what the entrant can see and what is deferred: bots (`deferrableCharacter`) and `ITEM` objects outside
     `VIEW_RANGE_SQ = 722_500` go into a `Deferred` list and are sent nearest-first, one chunk per `STEP_MS = 100`,
     at most `MAX_STEPS = 15` chunks (src/main/java/server/maps/MapleMap.java:3503-3520, :3567-3590;
-    src/main/java/server/maps/MapEntryPlacement.java:39-45). Mobs never trickle (MapEntryPlacement.java:87-90).
+    src/main/java/server/maps/MapEntryPlacement.java:39-45). Mobs never trickle (src/main/java/server/maps/MapEntryPlacement.java:87-89).
 13. **Unload.** `Channel.shutdown` runs every step through `shutdownStep(what, Runnable)` so one failure cannot abort
     the rest: merchants, away players, players, event scripts, then `mapManager.dispose()` and `mapManager = null`
     (src/main/java/net/server/channel/Channel.java:198-215). `MapManager.dispose` disposes each cached map and drops
@@ -136,7 +136,7 @@ flowchart TD
 | `MapManager` | `Map<Integer,MapleMap> maps` (`HashMap`) + fair RW locks; optional `EventInstanceManager` | src/main/java/server/maps/MapManager.java:35-42 |
 | `MapleMap` | `mapobjects`, `monsterSpawn`, `allMonsterSpawn`, `spawnedMonstersOnMap`, `characters`, `botCount`, `entryStamps`, `portals`, `footholds`, `droppedItems`, `mapOwner` | src/main/java/server/maps/MapleMap.java:71-139 |
 | `SpawnPoint` | monster id, position, foothold, f/team, `mobTime`, `mobInterval`, `nextPossibleSpawn`, live count, `denySpawn` | src/main/java/server/life/SpawnPoint.java:34-44 |
-| `MapRouting` | `BLOCKED`, `KIND`, `BY_PORTAL` (key = `(from<<32)|target`), `ANY_PORTAL`, `FROM_ANYWHERE`, `FALLBACK` | src/main/java/server/maps/MapRouting.java:66-80 |
+| `MapRouting` | `BLOCKED`, `KIND`, `BY_PORTAL` (key = `(from<<32)` OR-ed with target), `ANY_PORTAL`, `FROM_ANYWHERE`, `FALLBACK` | src/main/java/server/maps/MapRouting.java:66-80 |
 
 Persistent inputs used at map build time: table `plife` (map + world scoped life overrides, src/main/java/server/maps/MapFactory.java:107),
 table `playernpcs` (MapFactory.java:289), and the classpath table `/soloMapling/map-routing.tsv`
@@ -268,8 +268,8 @@ override path) — it has no test class in this tree.
 
 ## State
 
-- **World/channel topology: working.** World ids, slot-ordered registration, CDN channel ports and Bera-alone are
-  covered by passing-shaped unit tests (`WorldConfigsTest`, `ServerWorldRegistryTest`, `ChannelPortTest`) and the
+- **World/channel topology: working.** World ids, slot-ordered registration, channel ports and Bera-alone are
+  covered by unit tests (`WorldConfigsTest`, `ServerWorldRegistryTest`, `ChannelPortTest`) and the
   boot path validates ids before binding (src/main/java/net/server/Server.java:957).
 - **Map lifetime and respawn: working.** Cache, null-not-cached, `updateMaps`, `dispose` are all exercised by
   `MapRespawnLimitsTest`, `ReactorLoadTest` and `ChannelBroadcastAfterShutdownTest`; the respawn formula is a single
