@@ -3,13 +3,13 @@
 ## Purpose
 
 `config.ini` beside the game executable is the only configuration file `slums.dll` reads: it carries the login
-server address and every runtime switch for the patch features. It is shipped as `config.example.ini`
-(86 numbered lines, no trailing newline, `config.example.ini:1-86`) and copied into a package as `config.ini` by
+server address and every runtime switch for the patch features. It is shipped as `/root/work/client/src-164-data/config.example.ini`
+(86 numbered lines, no trailing newline, `/root/work/client/src-164-data/config.example.ini:1-86`) and copied into a package as `config.ini` by
 `tools/package_runtime.py:13,20`. The client only ever reads it — there is no `WritePrivateProfileString` anywhere in
 the tree, so the file belongs to the player and the launcher.
 
 Two independent readers consume it, with different syntax and different failure modes: the bundled **inih** parser
-(`mapleroot/ijl15/INIReader.h`, used only by the MapleRoot companion's `doini()` and by `WinHook.cpp`) and the **Win32
+(`/root/work/client/src-164-data/mapleroot/ijl15/INIReader.h`, used only by the MapleRoot companion's `doini()` and by `WinHook.cpp`) and the **Win32
 profile API** (`GetPrivateProfileStringA` / `GetPrivateProfileIntA`, used by every `src/` switch). The same key can be
 read only by one or the other, and the two disagree about inline comments and repeated keys — see `## Invariants`.
 
@@ -22,7 +22,7 @@ working directory. The launcher starts the game with the install folder as the w
 | Phase | Where | What is read |
 |---|---|---|
 | process attach | `src/injector.cpp:47-51` `DllMain` → `ProcessCommandLine()` `:49`, `ProcessConfigFile()` `:50`, `AttachSystemHooks()` `:51` | `[config] host`, `[config] port`; `[graphics] borderless`, `[graphics] dpiaware`; `[graphics] d3d9host`, `adapterfallback`, `[clienthax] settingswindow`, `[clienthax] uitour` |
-| first client hook | `src/system.cpp:26-36` `SetUnhandledExceptionFilter_hook` → `AttachClientHooks()` (`src/hook.h:129-304`) → `InitializeMapleRoot()` `src/hook.h:150` → `src/mapleroot.cpp:55` → `mapleroot/ijl15/DllMain.cpp:196` `HaxMaple` → `mapleroot/ijl15/MapleHook.cpp:222` `doini()` | every inih key: `[general] resolution`, `[discord] enableactivitystatus`, `[clienthax] nobulb/customcolor/moveattack/attackwalk/attackjump/chargemove/jumpshoot/jumpmagic/enablewinkey` |
+| first client hook | `src/system.cpp:26-36` `SetUnhandledExceptionFilter_hook` → `AttachClientHooks()` (`src/hook.h:129-304`) → `InitializeMapleRoot()` `src/hook.h:150` → `src/mapleroot.cpp:55` → `/root/work/client/src-164-data/mapleroot/ijl15/DllMain.cpp:196` `HaxMaple` → `/root/work/client/src-164-data/mapleroot/ijl15/MapleHook.cpp:222` `doini()` | every inih key: `[general] resolution`, `[discord] enableactivitystatus`, `[clienthax] nobulb/customcolor/moveattack/attackwalk/attackjump/chargemove/jumpshoot/jumpmagic/enablewinkey` |
 | same hook, later in the table | `src/hook.h:258,265,273,283,293,298` | `[clienthax] jumpkeydown`, `invresize`, `lowdefensepenalty`, `mobattackfix`, `doubletapjump`, `[debug] attackdiag` |
 | first use (lazy static) | `src/weathersway.cpp:877-878`, `src/lamps.cpp:1499-1504`, `src/hud_native.cpp:389-390`, `src/uilayout.cpp:367-368` | `[weather] sway`, `[weather] ropesway`, `[clienthax] mapobjguard`, `[clienthax] nativehud`, `[debug] uistate` |
 
@@ -47,7 +47,7 @@ options while `SlumsMS.exe` or `MapleStory.exe` runs (`tauri/core/src/game_confi
 4. **Feature switches at the client hook.** `AttachClientHooks` (`src/hook.h:129`) runs once (static guard `:130-132`)
    when the client calls `SetUnhandledExceptionFilter` from `0x00796FDD`, then walks its patch table in a fixed order;
    each attach reads its own key and either patches or returns.
-5. **inih switches in `doini()`.** `mapleroot/ijl15/YourStuff.h:600-657` constructs one `INIReader("config.ini")`
+5. **inih switches in `doini()`.** `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:600-657` constructs one `INIReader("config.ini")`
    (`:602`) and — only if `ParseError() == 0` (`:603`) — applies `resolution`, `enableactivitystatus`, `nobulb`,
    `customcolor`, the four movement keys, `jumpshoot`, `jumpmagic` and `enablewinkey` via `WriteByte`/`WriteValue`/
    `PatchNop` at the addresses in the key table. A patch whose site already holds other bytes is skipped rather than
@@ -63,22 +63,22 @@ options while `SlumsMS.exe` or `MapleStory.exe` runs (`tauri/core/src/game_confi
 |---|---|---|
 | Name | `config.ini` | `src/constants.h:5` (`CONSTANTS_CONFIG_NAME`) |
 | Location | working directory of the process | `".\\" CONSTANTS_CONFIG_NAME` at every Win32 read site; launcher sets CWD `tauri/core/src/play.rs:86,96` |
-| Format | INI; UTF-8 BOM tolerated by inih, `;`/`#` comments | `mapleroot/ijl15/INIReader.h:66-68,200-206,209-212` |
+| Format | INI; UTF-8 BOM tolerated by inih, `;`/`#` comments | `/root/work/client/src-164-data/mapleroot/ijl15/INIReader.h:66-68,200-206,209-212` |
 | Written by the client | never | no `WritePrivateProfileString` in the tree |
 | Written by the launcher | game options (12 keys) + `[config] host/port` | `tauri/core/src/game_config.rs:142-166,120-128` |
-| Shipped template | `config.example.ini:1-86`, copied verbatim as `config.ini` | `tools/package_runtime.py:20` |
+| Shipped template | `/root/work/client/src-164-data/config.example.ini:1-86`, copied verbatim as `config.ini` | `tools/package_runtime.py:20` |
 
 ### Two readers
 
 | | inih (`INIReader`) | Win32 profile API |
 |---|---|---|
-| Code | `mapleroot/ijl15/INIReader.h:311-459` | `GetPrivateProfileStringA` / `GetPrivateProfileIntA` |
-| Used by | `doini()` (`mapleroot/ijl15/YourStuff.h:602`), `Hook_CreateWindowExA` (`mapleroot/ijl15/WinHook.cpp:2,16`) | every `src/` switch |
-| Separator | `=` **or** `:` (`INIReader.h:244`) | `=` only |
-| Inline comment | `;` after whitespace is stripped (`INIReader.h:143-158,249-253`) | part of the value |
-| Repeated key | values joined with `"\n"` (`INIReader.h:454-456`) → a boolean no longer parses → default | first line wins |
-| Continuation | indented line appends to the previous key (`INIReader.h:213-227`) | not supported |
-| Bad line | `ParseError() != 0`, and `doini` then applies **nothing** (`YourStuff.h:603`) | per-key; other lines unaffected |
+| Code | `/root/work/client/src-164-data/mapleroot/ijl15/INIReader.h:311-459` | `GetPrivateProfileStringA` / `GetPrivateProfileIntA` |
+| Used by | `doini()` (`/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:602`), `Hook_CreateWindowExA` (`/root/work/client/src-164-data/mapleroot/ijl15/WinHook.cpp:2,16`) | every `src/` switch |
+| Separator | `=` **or** `:` (`/root/work/client/src-164-data/mapleroot/ijl15/INIReader.h:244`) | `=` only |
+| Inline comment | `;` after whitespace is stripped (`/root/work/client/src-164-data/mapleroot/ijl15/INIReader.h:143-158,249-253`) | part of the value |
+| Repeated key | values joined with `"\n"` (`/root/work/client/src-164-data/mapleroot/ijl15/INIReader.h:454-456`) → a boolean no longer parses → default | first line wins |
+| Continuation | indented line appends to the previous key (`/root/work/client/src-164-data/mapleroot/ijl15/INIReader.h:213-227`) | not supported |
+| Bad line | `ParseError() != 0`, and `doini` then applies **nothing** (`/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:603`) | per-key; other lines unaffected |
 
 ### Keys by section
 
@@ -97,30 +97,30 @@ is read once per process.
 
 | Key | Default | Read by | when | Effect | Written by |
 |---|---|---|---|---|---|
-| `resolution` | `5` shipped (`config.example.ini:2`); reader default `1` | `mapleroot/ijl15/YourStuff.h:608` — **compiled out**: `#ifndef MAPLEROOT_KAENTAKE` (`:607`) with `MAPLEROOT_KAENTAKE` always defined (`mapleroot/CMakeLists.txt:49`) | — | **dead key.** `setResolution` (`YourStuff.h:479-505`, 1=800x600 … 5=1920x1080) is never called from here; the live resolution is the registry value `soScreenResolution` (`src/resolution.cpp:177-192`) | nobody; not exposed by the launcher (launcher `README.md:266`) |
-| `center` | `true` | `mapleroot/ijl15/WinHook.cpp:16` | — | **dead key.** Only `Hook_CreateWindowExA` reads it, and `HaxWinApi()` is called only from the non-single-DLL `DllMain` (`mapleroot/ijl15/DllMain.cpp:215`), excluded by `MAPLEROOT_SINGLE_DLL` (`mapleroot/CMakeLists.txt:49`, guard `DllMain.cpp:208`) | nobody |
-| `width`, `height` | — | none; the reads are commented out (`mapleroot/ijl15/YourStuff.h:604-605`) | — | not read at all | nobody |
+| `resolution` | `5` shipped (`/root/work/client/src-164-data/config.example.ini:2`); reader default `1` | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:608` — **compiled out**: `#ifndef MAPLEROOT_KAENTAKE` (`:607`) with `MAPLEROOT_KAENTAKE` always defined (`/root/work/client/src-164-data/mapleroot/CMakeLists.txt:49`) | — | **dead key.** `setResolution` (`/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:479-505`, 1=800x600 … 5=1920x1080) is never called from here; the live resolution is the registry value `soScreenResolution` (`src/resolution.cpp:177-192`) | nobody; not exposed by the launcher (launcher `/root/work/launcher-165-server/README.md:266`) |
+| `center` | `true` | `/root/work/client/src-164-data/mapleroot/ijl15/WinHook.cpp:16` | — | **dead key.** Only `Hook_CreateWindowExA` reads it, and `HaxWinApi()` is called only from the non-single-DLL `DllMain` (`/root/work/client/src-164-data/mapleroot/ijl15/DllMain.cpp:215`), excluded by `MAPLEROOT_SINGLE_DLL` (`/root/work/client/src-164-data/mapleroot/CMakeLists.txt:49`, guard `/root/work/client/src-164-data/mapleroot/ijl15/DllMain.cpp:208`) | nobody |
+| `width`, `height` | — | none; the reads are commented out (`/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:604-605`) | — | not read at all | nobody |
 
 #### `[discord]`
 
 | Key | Default | Read by | when | Effect | Written by |
 |---|---|---|---|---|---|
-| `enableactivitystatus` | `true` | `mapleroot/ijl15/YourStuff.h:611-614` (inih `GetBoolean`) | hook | starts the Discord rich-presence updater (`beginUpdates`) | launcher option `discord` (`tauri/core/src/game_options.rs:70-71`) |
+| `enableactivitystatus` | `true` | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:611-614` (inih `GetBoolean`) | hook | starts the Discord rich-presence updater (`beginUpdates`) | launcher option `discord` (`tauri/core/src/game_options.rs:70-71`) |
 
 #### `[clienthax]`
 
 | Key | Default | Read by | when | Effect | Written by |
 |---|---|---|---|---|---|
 | `jumpkeydown` | `false` | `src/midair.cpp:16-17` — **strict**: only `true` (any case) or `1`; `yes`/`on` are rejected (`:17`) | hook (`src/hook.h:258`, always compiled, `src/CMakeLists.txt:24`) | 6 NOPs at `MidAir::kKeydownAirExit`, after a stock-byte check (`src/midair.cpp:19-25`); keydown attacks may start in the air. TEST only (`src/midair.cpp:2`) | nobody (not a launcher option) |
-| `nobulb` | `true` | `mapleroot/ijl15/YourStuff.h:616-618` | hook (inih) | `PatchNop(0x00A08D5B, 5)` — no quest lightbulb popup | launcher `nobulb` (`game_options.rs:74-75`) |
-| `customcolor` | `true` | `mapleroot/ijl15/YourStuff.h:620-624` | hook (inih) | orange name/level and skill text: `WriteValue(0x0098B70C+1, 0xFFFF5D00)`, `WriteByte(0x008c4944+1, 25)`, `WriteByte(0x008AA6CB+1, 25)` | launcher `customcolor` (`:76-77`) |
-| `moveattack` | absent (= `true`) | `mapleroot/ijl15/YourStuff.h:631-641` → `integration::ResolveMoveAttackSettings` (`src/attackstop_patch.h:109-116`) | hook (inih) | **legacy**; only a fallback for `attackjump` and `chargemove`. Read, never written | launcher reads it, never writes or removes it (`game_options.rs:96-97`, `:503-524`) |
+| `nobulb` | `true` | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:616-618` | hook (inih) | `PatchNop(0x00A08D5B, 5)` — no quest lightbulb popup | launcher `nobulb` (`game_options.rs:74-75`) |
+| `customcolor` | `true` | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:620-624` | hook (inih) | orange name/level and skill text: `WriteValue(0x0098B70C+1, 0xFFFF5D00)`, `WriteByte(0x008c4944+1, 25)`, `WriteByte(0x008AA6CB+1, 25)` | launcher `customcolor` (`:76-77`) |
+| `moveattack` | absent (= `true`) | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:631-641` → `integration::ResolveMoveAttackSettings` (`src/attackstop_patch.h:109-116`) | hook (inih) | **legacy**; only a fallback for `attackjump` and `chargemove`. Read, never written | launcher reads it, never writes or removes it (`game_options.rs:96-97`, `:503-524`) |
 | `attackwalk` | `false` | same (`src/attackstop_patch.h:112`) | hook (inih) | keeps walk input during attacks — patch `0x009CBFB0`, 1 byte `7E`→`EB` (`attackstop_patch.h:45-53`). Never follows `moveattack` | launcher `attackwalk` (`game_options.rs:78-79`) |
 | `attackjump` | `true` (= `moveattack` when absent) | `src/attackstop_patch.h:113` | hook (inih) | jump during attacks — `0x0094C3BB`, 6 bytes `0F 8F 12 01 00 00`→6×`90` | launcher `attackjump` (`:80-81`) |
 | `chargemove` | `true` (= `moveattack` when absent) | `src/attackstop_patch.h:114` | hook (inih) | move while charging keydown skills — `0x0095F97A`, 2 bytes `7F 2C`→`EB 59` | launcher `chargemove` (`:82-83`) |
-| `jumpshoot` | `true` | `mapleroot/ijl15/YourStuff.h:643-647` | hook (inih) | `E9` + rel32 at `0x009539FA` → `0x00953A11` (`TryDoingShootAttack`) | launcher `jumpshoot` (`:86-87`) |
-| `jumpmagic` | `true` | `mapleroot/ijl15/YourStuff.h:649-653` | hook (inih) | `E9` + rel32 at `0x009559E5` → `0x00955A20` | launcher `jumpmagic` (`:88-89`) |
-| `enablewinkey` | `true` | `mapleroot/ijl15/YourStuff.h:655` | hook (inih) | `Hook_CWvsApp__EnableWinkey` — Windows key works in game | launcher `winkey` (`:72-73`) |
+| `jumpshoot` | `true` | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:643-647` | hook (inih) | `E9` + rel32 at `0x009539FA` → `0x00953A11` (`TryDoingShootAttack`) | launcher `jumpshoot` (`:86-87`) |
+| `jumpmagic` | `true` | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:649-653` | hook (inih) | `E9` + rel32 at `0x009559E5` → `0x00955A20` | launcher `jumpmagic` (`:88-89`) |
+| `enablewinkey` | `true` | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:655` | hook (inih) | `Hook_CWvsApp__EnableWinkey` — Windows key works in game | launcher `winkey` (`:72-73`) |
 | `doubletapjump` | `false` | `src/bounce.cpp:231` (`ReadIniBool`, `:135-139`) | hook (`src/hook.h:293`, `MAPLEROOT_INTEGRATION`) | second jump press in the air uses the Ninja Bounce skill; off = nothing installed (`bounce.cpp:234`) | launcher `doubletapjump` (`:84-85`), read as `Reader::Profile` |
 | `invresize` | `true` | `src/invresize.cpp:548-552` (`EnabledInConfig`), used `:677` | hook (`src/hook.h:265`, `MAPLEROOT_INV_RESIZE`) | drag-resize the item inventory 4-16 × 3-14; false logs "Inventory resize: off in config.ini … stock window kept" (`:678`) | launcher: not an option; the key is left alone |
 | `lowdefensepenalty` | `false` (fix on) | `src/mobdamage.cpp:34-38` | hook (`src/hook.h:273`) | `true` keeps the stock rule (low defence adds damage); false installs the cave at `0x0079328D` | nobody (not a launcher option) |
@@ -128,7 +128,7 @@ is read once per process.
 | `settingswindow` | `true` | `src/d3d9host.cpp:302` | attach (`src/system.cpp:322`) | the Ctrl+F10/F11 HUD window; false also kills `uitour` (`:303`) and all HUD input/draw (`:270`, `:163`) | nobody |
 | `uitour` | `true` | `src/d3d9host.cpp:303` | attach | first-run Edit UI tour (`src/uitour.cpp:103-106`), once per PC (`HKCU\Software\SlumsMS\Overlay\tourSeen`, `src/uitour.cpp:23`) | nobody |
 | `mapobjguard` | `true` | `src/lamps.cpp:1498-1506` | lazy (static `const bool`, read once) | a map object whose art is missing costs that one object instead of the session (map 272000000 evidence in `src/mapobj_guard.h`) | nobody |
-| `nativehud` | `1` (on) | `src/hud_native.cpp:388-392` (`GetPrivateProfileIntA`) | lazy (static `s_on`) | stock-art HP/MP/EXP modules; 0 disables. Built only under `MAPLEROOT_INTEGRATION` (`src/CMakeLists.txt:120`) | nobody — **undocumented key** (not in `config.example.ini`, not in `README.md`) |
+| `nativehud` | `1` (on) | `src/hud_native.cpp:388-392` (`GetPrivateProfileIntA`) | lazy (static `s_on`) | stock-art HP/MP/EXP modules; 0 disables. Built only under `MAPLEROOT_INTEGRATION` (`src/CMakeLists.txt:120`) | nobody — **undocumented key** (not in `/root/work/client/src-164-data/config.example.ini`, not in `/root/work/client/src-164-data/README.md`) |
 
 #### `[weather]`
 
@@ -159,8 +159,8 @@ Both are logged once: `weathersway: config [weather] sway=%d ropesway=%d` (`src/
 
 | Entry | Line | Why it does nothing |
 |---|---|---|
-| `ChairOpacity=255` | `config.example.ini:57` | no reader in `src/` or `mapleroot/`; sits under the `[clienthax]` header (no section transition before it), so it would be a `[clienthax]` key |
-| `SkillOpacity=255` | `config.example.ini:58` | same |
+| `ChairOpacity=255` | `/root/work/client/src-164-data/config.example.ini:57` | no reader in `src/` or `mapleroot/`; sits under the `[clienthax]` header (no section transition before it), so it would be a `[clienthax]` key |
+| `SkillOpacity=255` | `/root/work/client/src-164-data/config.example.ini:58` | same |
 
 ## Switches
 
@@ -173,7 +173,7 @@ The file's keys *are* the switches (full table under `## Data`). What governs wh
 | `MAPLEROOT_ATTACK_DIAG` (`src/CMakeLists.txt:110-113`) | `[debug] attackdiag` | ON |
 | `MAPLEROOT_WEATHER` (`src/CMakeLists.txt:100-105`) | `[weather] sway`, `ropesway`, and `[clienthax] mapobjguard` (in `lamps.cpp`) | ON |
 | `mapleroot_companion` (`mapleroot/CMakeLists.txt:46-49`) | every inih key — `discord`, `nobulb`, `customcolor`, the movement four, `jumpshoot`, `jumpmagic`, `enablewinkey` | always linked |
-| `MAPLEROOT_KAENTAKE` (`mapleroot/CMakeLists.txt:49`) | removes `[general] resolution` and the `[general] center` hook | always defined |
+| `MAPLEROOT_KAENTAKE` (`/root/work/client/src-164-data/mapleroot/CMakeLists.txt:49`) | removes `[general] resolution` and the `[general] center` hook | always defined |
 
 Delete one of those options and the matching key becomes silently inert (no error, no log).
 
@@ -190,7 +190,7 @@ Boolean dialects — they are **not** interchangeable:
 
 | Reader | True | False | Anything else |
 |---|---|---|---|
-| inih `GetBoolean` (`INIReader.h:428-439`) | `true` `yes` `on` `1` | `false` `no` `off` `0` | the caller's default |
+| inih `GetBoolean` (`/root/work/client/src-164-data/mapleroot/ijl15/INIReader.h:428-439`) | `true` `yes` `on` `1` | `false` `no` `off` `0` | the caller's default |
 | `integration::ParseIniBool` (`src/attackstop_patch.h:74-79`) | same eight | same eight | `nullopt` → the caller's default |
 | `WindowPolicy::IniTrue` (`src/window_policy.h:27-31`, `[graphics]` only) | `1` `true` `yes` `on` | everything else, including empty | false |
 | `src/midair.cpp:17` (`jumpkeydown` only) | `true` (any case), `1` | everything else | off |
@@ -209,14 +209,14 @@ superseded snapshot — `GAME_OPTIONS` has 10 entries at `tauri/core/src/game_op
 | `[clienthax] moveattack` is read, never written or removed | `tauri/core/src/game_options.rs:96-97,529` |
 | `[config] host`/`port` come from the channel layer (`merge_server`); everything else in the file is byte-for-byte | `tauri/core/src/game_config.rs:112-128` |
 | …except when the player set the server by hand since the launcher last did — then the file is kept as-is | `tauri/core/src/install.rs:563-570` (`hand_edited` at `:568`) |
-| The player's file is never replaced by Update or Repair; it is installed only when missing | launcher `README.md:230` (repo root), `tauri/core/src/install.rs:111-123,557-577` |
+| The player's file is never replaced by Update or Repair; it is installed only when missing | launcher `/root/work/launcher-165-server/README.md:230` (repo root), `tauri/core/src/install.rs:111-123,557-577` |
 | Refuses to write while the game runs | `tauri/core/src/game_config.rs:147-149` |
 | Reads `doubletapjump`/`borderless`/`dpiaware` the way `GetPrivateProfileStringA` does (`Reader::Profile`), everything else as inih | `tauri/core/src/game_options.rs:37-42,335-341` |
 
 Keys the launcher must **preserve** (it does not understand them, so it must not rewrite or drop them):
 `[general] resolution`, `[general] center`, `[clienthax] ChairOpacity`, `SkillOpacity`, `jumpkeydown`, `invresize`,
 `lowdefensepenalty`, `mobattackfix`, `settingswindow`, `uitour`, `mapobjguard`, `nativehud`, all of `[weather]`, all of
-`[debug]`, plus every comment, unknown key, line ending and the BOM. `README.md:230` of the launcher states the
+`[debug]`, plus every comment, unknown key, line ending and the BOM. `/root/work/launcher-165-server/README.md:230` of the launcher states the
 player-owned rule; `tauri/core/src/game_options.rs:1-17,379-400` states the byte-preserving edit rule.
 
 ## Invariants
@@ -229,14 +229,14 @@ player-owned rule; `tauri/core/src/game_options.rs:1-17,379-400` states the byte
    `tauri/core/src/game_config.rs:55-57`).
 3. **`doini()` is all-or-nothing.** One unparseable line anywhere in the file makes `ParseError() != 0` and every inih
    key silently falls back to its default — `nobulb`, `customcolor`, the movement four, `jumpshoot`, `jumpmagic`,
-   `enablewinkey`, `discord` (`mapleroot/ijl15/YourStuff.h:603`). The `GetPrivateProfileStringA` keys are unaffected,
+   `enablewinkey`, `discord` (`/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:603`). The `GetPrivateProfileStringA` keys are unaffected,
    because they re-read the file per key. Noted in `docs/research-126-midair.md:233`.
 4. **The Win32 keys do not see inline comments.** `mobattackfix=true ; b251` reads as `true ; b251`, which
    `ParseIniBool` rejects, so the key silently becomes its default. The inih keys tolerate the same trailing comment
-   when a space precedes `;` (`INIReader.h:143-158`). The launcher compensates by dropping inline comments when it
+   when a space precedes `;` (`/root/work/client/src-164-data/mapleroot/ijl15/INIReader.h:143-158`). The launcher compensates by dropping inline comments when it
    writes a `Reader::Profile` key (`tauri/core/src/game_options.rs:379-381`).
 5. **A repeated key flips an inih boolean back to its default.** inih joins repeats with `"\n"`
-   (`INIReader.h:454-456`), which no boolean spelling matches; the Win32 reader takes the first occurrence. The
+   (`/root/work/client/src-164-data/mapleroot/ijl15/INIReader.h:454-456`), which no boolean spelling matches; the Win32 reader takes the first occurrence. The
    launcher mirrors both behaviours and drops repeats when it edits (`tauri/core/src/game_options.rs:290-306,442-497`).
 6. **`[config] port` is only read after a host.** `ProcessConfigFile` returns before reading the port when the host
    key is missing or empty (`src/injector.cpp:34-36`), and the port is read only after a host was stored (`:37-41`); a
@@ -251,22 +251,22 @@ player-owned rule; `tauri/core/src/game_options.rs:1-17,379-400` states the byte
 9. **A patch is applied only over stock bytes.** Every switchable site classifies the current bytes first and leaves a
    foreign patch alone (`src/attackstop_patch.h:118-133`, `src/midair.cpp:19-22`, `src/mobattackfix.cpp:74-80`,
    `src/invresize.cpp:681-683`).
-10. **Defaults are triplicated**: client source, `config.example.ini`, and the launcher's `GAME_OPTIONS` fallbacks. The
+10. **Defaults are triplicated**: client source, `/root/work/client/src-164-data/config.example.ini`, and the launcher's `GAME_OPTIONS` fallbacks. The
     launcher pins the 12 it owns to the client source with a test (`tauri/core/src/game_options.rs:724-746`); nothing
     pins the other ~15 keys, so a change in the client default alone leaves the example file stale.
 11. **Key and section names are case-insensitive in both readers** (inih lowercases in `MakeKey`,
-    `INIReader.h:441-447`; the Win32 profile API is case-insensitive) and the launcher's parser lowercases the same way
+    `/root/work/client/src-164-data/mapleroot/ijl15/INIReader.h:441-447`; the Win32 profile API is case-insensitive) and the launcher's parser lowercases the same way
     (`tauri/core/src/game_options.rs:282-284`).
 
 ## Origin
 
 | File | Origin | Evidence |
 |---|---|---|
-| `config.example.ini` | **custom** (ours, derived from the MapleRoot checkpoint) | `git log`: `6119130 2026-10-18 "Checkpoint accepted MapleRoot client integration and addons"` → `d82253c 2026-10-18` → `53fd583 2026-10-21 "Split moveattack into attackwalk, attackjump and chargemove"` → `221af9c 2026-10-23`. 19 commits touch it. The key set with `[clienthax]`/`[graphics]` is ours; there is no upstream `config.example.ini` |
-| `mapleroot/ijl15/INIReader.h` | **base** — vendored inih | only commit `6119130 2026-10-18`; header says "inih and INIReader are released under the New BSD license" (`INIReader.h:3`, `:99-106`), i.e. it arrived with the MapleRoot companion checkout (`docs/PROVENANCE.md:3`) |
+| `/root/work/client/src-164-data/config.example.ini` | **custom** (ours, derived from the MapleRoot checkpoint) | `git log`: `6119130 2026-10-18 "Checkpoint accepted MapleRoot client integration and addons"` → `d82253c 2026-10-18` → `53fd583 2026-10-21 "Split moveattack into attackwalk, attackjump and chargemove"` → `221af9c 2026-10-23`. 19 commits touch it. The key set with `[clienthax]`/`[graphics]` is ours; there is no upstream `/root/work/client/src-164-data/config.example.ini` |
+| `/root/work/client/src-164-data/mapleroot/ijl15/INIReader.h` | **base** — vendored inih | only commit `6119130 2026-10-18`; header says "inih and INIReader are released under the New BSD license" (`/root/work/client/src-164-data/mapleroot/ijl15/INIReader.h:3`, `:99-106`), i.e. it arrived with the MapleRoot companion checkout (`docs/PROVENANCE.md:3`) |
 | `src/injector.cpp` (`[config]` reader, command-line precedence) | **base** (Kaentake), unmodified in behaviour | `git log --follow`: `de776d0 2025-08-26 "Initial commit"` … `ccb160d 2025-08-31`; `docs/KAENTAKE-UPSTREAM.md:11-23` documents command line over `config.ini` and the `[config] host/port` example before our tree starts |
 | `src/system.cpp` (`borderless`/`dpiaware`) | **base + custom** | base `6003540 2025-08-27`; our block is `a1607ae 2026-10-28 "Borderless window and DPI-aware mode ([graphics] borderless / dpiaware, both off)"` |
-| `mapleroot/ijl15/YourStuff.h`, `mapleroot/ijl15/WinHook.cpp` | **base** (MapleRoot companion), `YourStuff.h` modified by us | `WinHook.cpp` is a single checkpoint commit `6119130`; `YourStuff.h` gained `44ab18f 2026-10-21 "Proof: let config undo MapleRoot moveattack so attacks stop walking"` and `53fd583` (the three-key split). `docs/PROVENANCE.md:3` — "the companion source is the MapleRoot ijl15 source port, with only relative project paths adjusted" |
+| `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h`, `/root/work/client/src-164-data/mapleroot/ijl15/WinHook.cpp` | **base** (MapleRoot companion), `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h` modified by us | `WinHook.cpp` is a single checkpoint commit `6119130`; `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h` gained `44ab18f 2026-10-21 "Proof: let config undo MapleRoot moveattack so attacks stop walking"` and `53fd583` (the three-key split). `docs/PROVENANCE.md:3` — "the companion source is the MapleRoot ijl15 source port, with only relative project paths adjusted" |
 | `src/attackstop_patch.h` | **custom** | `44ab18f 2026-10-21`, `53fd583 2026-10-21` |
 | `src/window_policy.h` | **custom** | `a1607ae 2026-10-28` |
 | `src/d3d9host.cpp` | **custom** | `bc58352 2026-10-25 "Host Direct3D 9 for Parsec diagnosis and an in-game settings window"` |
@@ -318,26 +318,26 @@ disables the inih effects while the `[graphics]` switches keep working.
 
 | Id | Card / source | State |
 |---|---|---|
-| b251 | `/root/work/STATUS-1.6.4.md:72` | Rose Garden 211080100 client crash; fixed in 1.6.4 by `[clienthax] mobattackfix` being on by default (`src/mobattackfix.cpp:60-64`, `config.example.ini:40-46`) — the only shipped bug fixed by a config key |
-| b270 | `STATUS-1.6.4.md:75` | launcher news manifest, not the client |
-| b274 | `STATUS-1.6.4.md:76` | boss portals never send portal-enter; unrelated to config.ini |
-| L15 | `STATUS-1.6.4.md:106` | client fixes and the bonds window, later |
-| e14 | `STATUS-1.6.4.md:124` | in-game Slums Exchange window, client+server, later |
+| b251 | `/root/work/STATUS-1.6.4.md:72` | Rose Garden 211080100 client crash; fixed in 1.6.4 by `[clienthax] mobattackfix` being on by default (`src/mobattackfix.cpp:60-64`, `/root/work/client/src-164-data/config.example.ini:40-46`) — the only shipped bug fixed by a config key |
+| b270 | `/root/work/STATUS-1.6.4.md:75` | launcher news manifest, not the client |
+| b274 | `/root/work/STATUS-1.6.4.md:76` | boss portals never send portal-enter; unrelated to config.ini |
+| L15 | `/root/work/STATUS-1.6.4.md:106` | client fixes and the bonds window, later |
+| e14 | `/root/work/STATUS-1.6.4.md:124` | in-game Slums Exchange window, client+server, later |
 
-`NEW-FINDING:` `config.example.ini:57-58` ships `ChairOpacity=255` and `SkillOpacity=255` with no reader anywhere in
+`NEW-FINDING:` `/root/work/client/src-164-data/config.example.ini:57-58` ships `ChairOpacity=255` and `SkillOpacity=255` with no reader anywhere in
 the tree; they sit under the `[clienthax]` header with no section transition, so they read as `[clienthax]` keys. Dead
 weight in a player-facing file, and the launcher's own README already calls them ignored.
 
-`NEW-FINDING:` `config.example.ini:2` ships `resolution=5` for a key this build cannot read: the read is compiled out
-by `MAPLERoot_KAENTAKE`-style guard at `mapleroot/ijl15/YourStuff.h:607` and the option is always defined
-(`mapleroot/CMakeLists.txt:49`). A player editing it sees no effect; the live resolution is the registry
+`NEW-FINDING:` `/root/work/client/src-164-data/config.example.ini:2` ships `resolution=5` for a key this build cannot read: the read is compiled out
+by `MAPLERoot_KAENTAKE`-style guard at `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:607` and the option is always defined
+(`/root/work/client/src-164-data/mapleroot/CMakeLists.txt:49`). A player editing it sees no effect; the live resolution is the registry
 `soScreenResolution` (`src/resolution.cpp:179`).
 
 `NEW-FINDING:` `src/hud_native.cpp:390` reads `[clienthax] nativehud` (default on) and the key appears in neither
-`config.example.ini` nor `README.md`, against the repo rule "document keys in README and config.example.ini"
+`/root/work/client/src-164-data/config.example.ini` nor `/root/work/client/src-164-data/README.md`, against the repo rule "document keys in README and config.example.ini"
 (`AGENTS.md:13`).
 
-`NEW-FINDING:` `mapleroot/ijl15/YourStuff.h:603` makes every inih key hostage to the whole file's syntax. A single
+`NEW-FINDING:` `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:603` makes every inih key hostage to the whole file's syntax. A single
 malformed line silently reverts `nobulb`, `customcolor`, `attackjump`, `chargemove`, `jumpshoot`, `jumpmagic`,
 `enablewinkey` and `discord` to their defaults with no message; only `docs/research-126-midair.md:233` mentions it. The
 `GetPrivateProfileStringA` switches keep working, so the failure is partial and confusing.
@@ -356,7 +356,7 @@ suppresses `[config]`.
 `NEW-FINDING:` the launcher README's Game options table (`/root/work/launcher-165-server/README.md:253-264`) lists 10
 of the 12 options (no `borderless`/`dpiaware`) and gives `doubletapjump` as "on" while the client default and the
 launcher table are `false` (`tauri/core/src/game_options.rs:84`). Two lines above the player-owned rule the same README
-still asserts "The launcher does not rewrite client INIs" (`README.md:59`) and "installed once and never overwritten"
+still asserts "The launcher does not rewrite client INIs" (`/root/work/client/src-164-data/README.md:59`) and "installed once and never overwritten"
 (`:58`), both contradicted by `merge_server` (`tauri/core/src/game_config.rs:120-128`) writing `[config] host`/`port`
 into an existing file. The module doc explains the change (`game_config.rs:114-119`, owner decision 2026-11-05); the
 README sentences were not updated.
@@ -369,23 +369,23 @@ through `InitializeMapleRoot`. Verification for this assessment is line-level re
 `ctest` set; no client run was performed here.
 
 Sub-parts that are not working: `[general] resolution` and `[general] center` are dead in this build (compiled out,
-`mapleroot/ijl15/YourStuff.h:607`, `mapleroot/ijl15/DllMain.cpp:208-222`), and `ChairOpacity`/`SkillOpacity` have no
+`/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:607`, `/root/work/client/src-164-data/mapleroot/ijl15/DllMain.cpp:208-222`), and `ChairOpacity`/`SkillOpacity` have no
 reader at all. They are shipped in the example file anyway.
 
 ## Open questions
 
-1. Should `config.example.ini` drop `resolution` and `ChairOpacity`/`SkillOpacity`, or keep them as documentation of the
+1. Should `/root/work/client/src-164-data/config.example.ini` drop `resolution` and `ChairOpacity`/`SkillOpacity`, or keep them as documentation of the
    MapleRoot surface? Neither the client nor the launcher consumes them, but `docs/KAENTAKE-UPSTREAM.md:5` still
    describes the resolution selector as a feature of the install.
 2. Is the `doini` all-or-nothing gate acceptable? Making `doini` read key-by-key with `GetPrivateProfileStringA`
    instead of inih would remove the single-point failure, but it would also drop inih's `:` separator and continuation
    support that existing player files may rely on. No decision recorded.
-3. Does the Win32 profile API tolerate a UTF-8 BOM? `config.example.ini` has none and the launcher preserves whatever it
+3. Does the Win32 profile API tolerate a UTF-8 BOM? `/root/work/client/src-164-data/config.example.ini` has none and the launcher preserves whatever it
    finds (`tauri/core/src/game_options.rs:270-280`), but nothing documents how `GetPrivateProfileStringA` treats a BOM
    before `[general]`, so a BOM-edited file's `[general]` section is unverified.
 4. Nothing pins defaults for the ~15 keys the launcher does not own (`lowdefensepenalty`, `mobattackfix`, `invresize`,
    `settingswindow`, `uitour`, `mapobjguard`, `nativehud`, `sway`, `ropesway`, `d3d9host`, `adapterfallback`, plus
-   `[config]`/`[debug]`). A client default change would leave `config.example.ini` and `README.md` stale with no test
+   `[config]`/`[debug]`). A client default change would leave `/root/work/client/src-164-data/config.example.ini` and `/root/work/client/src-164-data/README.md` stale with no test
    to catch it — the launcher test only covers its own 12.
 5. `src/attackdiag.cpp:212` and `src/uilayout.cpp:368` read `[debug]` with `GetPrivateProfileIntA`, so `uistate=on`
    is `0` (off) while every other switch would accept `on` as true. Whether that is intentional for QA keys is

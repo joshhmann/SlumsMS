@@ -112,12 +112,12 @@ Runtime entry points outside the install list:
 | Files | What it changes on screen | config.ini switches | State |
 |---|---|---|---|
 | `src/bounce.cpp`, `src/bounce_rules.h`, `src/bounce_zones_builtin.inc` | Jump again mid-air → Ninja Bounce; skills are refused on the server's jump-quest maps; skill impulse differs per job family | `[clienthax] doubletapjump`, default **false** (`src/bounce.cpp:231`) | partial — zones and impulses always run, double-tap is opt-in |
-| `mapleroot/ijl15/SkillEdits/Activeskill.h` | call sites that ask the client for the impulse and the veto | — | working |
+| `/root/work/client/src-164-data/mapleroot/ijl15/SkillEdits/Activeskill.h` | call sites that ask the client for the impulse and the veto | — | working |
 
 1. MapleRoot already rewrites the jump-skill branch at `0x0096792A` into `CUserLocal::DoActiveSkill_BoundJump` `0x0096BE38`; its cave at `0x0096BF0B` accepts the bounce ids next to `14101004` and rewrites the impulse immediates per use. SlumsMS hooks into that, it does not duplicate it.
 2. Double-tap: `AttachBounceMod` (:230-250) redirects the single `CUserLocal::Jump` call at `0x0094F5A7` to `JumpKeyThunk` (:127-133), a naked stub that captures the key message's `lParam` and jumps to `JumpKeyCall` (:108-125). Only when `g_doubleTap` is true; unexpected bytes log "Bounce: unexpected bytes at 0x%08X, double-tap jump NOT installed".
 3. `JumpKeyCall` accepts a fresh press (lParam bit 30 clear), requires airborne-by-client-physics through `ReadAirState` (:90-106: no foothold, not on a ladder/rope, not swimming or flying), and then asks `DoActiveSkill` for the bounce of its job family. The stock one-bound-jump-per-airtime flag at `CUserLocal+0x2B58` still applies.
-4. `SlumsBounce_BlockSkill` (:164-183) is called at the top of MapleRoot's `DoActiveSkill` detour (`mapleroot/ijl15/SkillEdits/Activeskill.h:620`): all six universal bounce ids are refused on a blocked map, and Flash Jump (`4111006`/`14101004`) only where the zone category says so. Ninja Bounce on the ground is a no-op, refused before any MP, cooldown or animation. Hermit Flash Jump branches at `0x0096BF02` **before** MapleRoot's cave, so the cave never sets its impulse — this function writes it inline instead.
+4. `SlumsBounce_BlockSkill` (:164-183) is called at the top of MapleRoot's `DoActiveSkill` detour (`/root/work/client/src-164-data/mapleroot/ijl15/SkillEdits/Activeskill.h:620`): all six universal bounce ids are refused on a blocked map, and Flash Jump (`4111006`/`14101004`) only where the zone category says so. Ninja Bounce on the ground is a no-op, refused before any MP, cooldown or animation. Hermit Flash Jump branches at `0x0096BF02` **before** MapleRoot's cave, so the cave never sets its impulse — this function writes it inline instead.
 5. `SlumsBounce_ApplyImpulse` (:147-162) rewrites three immediates per skill and family: `kImpulseLeftVx 0x0096C00A+1`, `kImpulseRightVx 0x0096C021+3`, `kImpulseVy 0x0096C031+1` (`src/bounce_rules.h:178-180`). Defaults: MapleRoot Ninja `{-683,606,-688}`, Vertical `{-1,0,-1200}`, stock Flash Jump `{-350,350,-250}` (:192-194); job families 4xx and 14xx keep their native values.
 6. Wire, LP 0x3737 (`kBounceZonesSyncOpcode`, `src/bounce_rules.h:132`): version 1 = `version(1), nativeBounce(4), n(2) ranges, m(2) flash ranges`, each pair `first/last` inclusive int32, capped at `kMaxZoneRanges 4096` (:134) and rejected unless `nativeBounce` is 0 or a Ninja Bounce. Version 2 = `version(1), count(1)=4`, then four `(leftVx,rightVx,vy)` in the order ninjaNative, ninjaOther, verticalNative, verticalOther, each ≤ `kMaxImpulse 5000` (:181-182). `BounceZones_HandleSync` (:185-229) detects v2 by `bytes[2] == kBounceImpulsesVersion` and on a malformed packet logs "Bounce: malformed ... keeping the current values/list" — it never clears state.
 7. Built-in fallback list: 16 inclusive ranges (`src/bounce_zones_builtin.inc:3-18`), generated from the server's `bounce-zones.yaml` `jump_quests` by `tools/bounce/gen_client_zones.py` and checked against the server's golden packet (header note, line 2).
@@ -200,17 +200,17 @@ WZ data these features need beyond stock v83, all shipped in `Custom.wz` and gen
 
 | Key | Section | Default | Read at | Effect when changed |
 |---|---|---|---|---|
-| `nativehud` | `clienthax` | 1 (**not documented** in `config.example.ini`) | `src/hud_native.cpp:390`, cached in a `static` | 0 keeps the stock status bar strip |
-| `invresize` | `clienthax` | true (`config.example.ini:34`) | `src/invresize.cpp:548-556` | false patches nothing and logs at :677 |
-| `doubletapjump` | `clienthax` | false (`config.example.ini:29`) | `src/bounce.cpp:231` | false still installs block zones + impulses, only the jump-call redirect is skipped |
-| `lowdefensepenalty` | `clienthax` | false (`config.example.ini:39`) | `src/mobdamage.cpp:34-38` | true keeps the stock (adding) penalty |
-| `settingswindow` | `clienthax` | true (`config.example.ini:48`) | `src/d3d9host.cpp:302` | false disables Ctrl+F10/F11 and the whole overlay draw gate (`src/d3d9host.cpp:163`) |
-| `uitour` | `clienthax` | true (`config.example.ini:51`) | `src/d3d9host.cpp:303` | false never shows the tour, even once |
-| `mapobjguard` | `clienthax` | true (`config.example.ini:56`) | `src/lamps.cpp:1498-1501`, read once | false lets a missing-art map object fail as stock |
-| `sway` | `weather` | true (`config.example.ini:65`) | `src/weathersway.cpp:871-884`, read once | false → nothing bends |
-| `ropesway` | `weather` | true (`config.example.ini:66`) | same | false → ropes/ladders stay as the map draws them, plants still bend |
-| `d3d9host` | `graphics` | true (`config.example.ini:81`) | `src/d3d9host.cpp:297` | false → no ImGui at all: no HUD modules, no grips, no settings window; saved layout still applies |
-| `adapterfallback` | `graphics` | true (`config.example.ini:82`) | `src/d3d9host.cpp:301` | device-creation retry across adapters |
+| `nativehud` | `clienthax` | 1 (**not documented** in `/root/work/client/src-164-data/config.example.ini`) | `src/hud_native.cpp:390`, cached in a `static` | 0 keeps the stock status bar strip |
+| `invresize` | `clienthax` | true (`/root/work/client/src-164-data/config.example.ini:34`) | `src/invresize.cpp:548-556` | false patches nothing and logs at :677 |
+| `doubletapjump` | `clienthax` | false (`/root/work/client/src-164-data/config.example.ini:29`) | `src/bounce.cpp:231` | false still installs block zones + impulses, only the jump-call redirect is skipped |
+| `lowdefensepenalty` | `clienthax` | false (`/root/work/client/src-164-data/config.example.ini:39`) | `src/mobdamage.cpp:34-38` | true keeps the stock (adding) penalty |
+| `settingswindow` | `clienthax` | true (`/root/work/client/src-164-data/config.example.ini:48`) | `src/d3d9host.cpp:302` | false disables Ctrl+F10/F11 and the whole overlay draw gate (`src/d3d9host.cpp:163`) |
+| `uitour` | `clienthax` | true (`/root/work/client/src-164-data/config.example.ini:51`) | `src/d3d9host.cpp:303` | false never shows the tour, even once |
+| `mapobjguard` | `clienthax` | true (`/root/work/client/src-164-data/config.example.ini:56`) | `src/lamps.cpp:1498-1501`, read once | false lets a missing-art map object fail as stock |
+| `sway` | `weather` | true (`/root/work/client/src-164-data/config.example.ini:65`) | `src/weathersway.cpp:871-884`, read once | false → nothing bends |
+| `ropesway` | `weather` | true (`/root/work/client/src-164-data/config.example.ini:66`) | same | false → ropes/ladders stay as the map draws them, plants still bend |
+| `d3d9host` | `graphics` | true (`/root/work/client/src-164-data/config.example.ini:81`) | `src/d3d9host.cpp:297` | false → no ImGui at all: no HUD modules, no grips, no settings window; saved layout still applies |
+| `adapterfallback` | `graphics` | true (`/root/work/client/src-164-data/config.example.ini:82`) | `src/d3d9host.cpp:301` | device-creation retry across adapters |
 | `uistate` | `debug` | 0 (**QA only**, not documented) | `src/uilayout.cpp:368` | 1 writes `slums-ui-state.json` every 500 ms for the client-mcp driver |
 
 Non-ini switches: the damage-number toggle is the registry value `damage_short` (`src/damagefmt.cpp:61`), and every widget's visibility/size is registry state edited in the Ctrl+F10 window. Build switches are CMake options, all defaulting OFF (`CMakeLists.txt:3-18`); `scripts/build.ps1:14` turns on INTEGRATION, CASHSHOP_WINDOW, WEATHER, MOVEMENT_KEYS, MOUNT_INFO, DAILY_CHECKIN, SET_EQUIP, MONSTER_BOOK, COLOR_PRISM, ATTACK_DIAG and INV_RESIZE. `MAPLEROOT_HUD_METERS` and `MAPLEROOT_DAMAGE_FORMAT` are **not** in that list, so the EXP/DPS meters and the short damage numbers are absent from the default build.
@@ -240,7 +240,7 @@ Non-ini switches: the damage-number toggle is the registry value `damage_short` 
 | uitour | custom | `4764317 2026-10-27 "First-run Edit UI tour (1.6.1)"` |
 | settings_overlay / d3d9host | custom | `bc58352 2026-10-25 "Host Direct3D 9 for Parsec diagnosis and an in-game settings window"` |
 | invresize | **base-derived (third party)** | `docs/PROVENANCE.md:15` — ported from the community `invresize` mod, no licence file, owner confirmed public share 2026-10-25; this repo moved addresses/stock bytes into a testable header, logs instead of a message box, and added the `[clienthax] invresize` switch. First commit `997a0fc 2026-10-25` |
-| bounce | custom on a MapleRoot base | `8cb9909 2026-10-21 "Add double-tap jump and server-driven bounce block zones"`; the skill-rewrite machinery it extends lives in `mapleroot/ijl15/SkillEdits/Activeskill.h` (MapleRoot companion, `docs/PROVENANCE.md:1-9`) |
+| bounce | custom on a MapleRoot base | `8cb9909 2026-10-21 "Add double-tap jump and server-driven bounce block zones"`; the skill-rewrite machinery it extends lives in `/root/work/client/src-164-data/mapleroot/ijl15/SkillEdits/Activeskill.h` (MapleRoot companion, `docs/PROVENANCE.md:1-9`) |
 | weather core / fx / accum / puddle / splash / sway / sound / wind / lamps | **modified** port | `6119130 2026-10-18 "Checkpoint accepted MapleRoot client integration and addons"`; `src/weather.cpp:8-48` lists exactly what was removed from the ported package: F6/F7/F8 hotkeys, the 14-entry hardcoded field list, the injected night-desert backdrop |
 | weathermove | custom, **not built** | `src/CMakeLists.txt:102-103` compiles `weathermove_disabled.cpp`; `weathermove.cpp` is unreferenced by the build |
 | weathercanvas | modified | `src/weathercanvas.cpp:37-40` kill switch added by this repo |
@@ -313,7 +313,7 @@ Documented as deferred in `docs/160-ui-adjust-plan.md` and still true in the cod
 - The game menu still pops up at its stock place above the bar, not next to a moved Menu button (`:105`).
 - Parsec device creation and the exit-time `C0000005` in `slums.dll` cleanup are parked (owner decision, `docs/160-ui-adjust-plan.md`).
 
-NEW-FINDING: `config.example.ini` documents none of `[clienthax] nativehud` (`src/hud_native.cpp:390`, default **1**), the registry value `damage_short` (`src/damagefmt.cpp:61`), `[debug] uistate` (`src/uilayout.cpp:368`) or `[debug] attackdiag` (`src/attackdiag.cpp:212`) — a default-on behaviour (the native HUD replaces the stock bar) has no discoverable switch for players or QA.
+NEW-FINDING: `/root/work/client/src-164-data/config.example.ini` documents none of `[clienthax] nativehud` (`src/hud_native.cpp:390`, default **1**), the registry value `damage_short` (`src/damagefmt.cpp:61`), `[debug] uistate` (`src/uilayout.cpp:368`) or `[debug] attackdiag` (`src/attackdiag.cpp:212`) — a default-on behaviour (the native HUD replaces the stock bar) has no discoverable switch for players or QA.
 
 NEW-FINDING: `src/CMakeLists.txt:102-103` compiles `weathermove_disabled.cpp`, so the entire 278-line footing implementation in `src/weathermove.cpp` is dead code with no config key to reach it — the feature is neither "off by config" nor "deleted", it is unreachable in every build this repo produces.
 
@@ -336,7 +336,7 @@ NEW-FINDING: `src/hud_meters.cpp:34` keeps `g_levelCounter` as a stand-in for th
 | uitour | working | `uitour_first_run`; gated by `[clienthax] uitour` |
 | damagefmt | partial | logic and glyph baking exist, but the switch is registry-only and off by default, and the build option is not enabled in `scripts/build.ps1` |
 | invresize | working | `invresize_sites`; `[clienthax] invresize` default true; tab-5 bug fixed in 1.6.0 |
-| bounce (zones + impulses) | working | `bounce_doubletap_and_zones`; applied inside the MapleRoot detour (`mapleroot/ijl15/SkillEdits/Activeskill.h:563,620`) |
+| bounce (zones + impulses) | working | `bounce_doubletap_and_zones`; applied inside the MapleRoot detour (`/root/work/client/src-164-data/mapleroot/ijl15/SkillEdits/Activeskill.h:563,620`) |
 | bounce (double-tap) | partial | compiled and tested, but `[clienthax] doubletapjump` defaults **false** (`src/bounce.cpp:231`), so the path is unexercised in a default install |
 | weather (sky/tint/fx/accum/puddle/splash/sway/sound) | working | `weather_animated_portal_colors`, `weather_rope_sway_no_box`; server side `server/weather/*` |
 | weather (footing) | broken | `weathermove.cpp` not compiled (`src/CMakeLists.txt:102-103`) and no switch exists |
@@ -349,7 +349,7 @@ NEW-FINDING: `src/hud_meters.cpp:34` keeps `g_levelCounter` as a stand-in for th
 - Which byte addresses in this document are confirmed against the 1.6.4 exe specifically? The provenance note says every address was re-checked against sha256 `86e4e6be…ac90`, but that check is not reproducible on this host (no `MapleStory.exe`, no Windows toolchain).
 - Do the v2 bounce impulses reach a client that has never received a v1 zone list? `BounceZones_HandleSync` (`src/bounce.cpp:185-229`) detects v2 by a byte offset, so a server sending only v2 would leave the built-in fallback list in force with server impulses — not verified against a live server.
 - Is `weathermove` meant to ship at all? The disabled stub says "Visual-only weather", the 278-line implementation says footing is designed and claimed safe, and `WeatherDebuff.java` already covers the slow. Nothing in the repo records the decision to shelve it.
-- Should `nativehud` be documented in `config.example.ini`, or is the intent that the native HUD is unconditional? Either way the current state (switch exists, undocumented) is unintentional-looking.
+- Should `nativehud` be documented in `/root/work/client/src-164-data/config.example.ini`, or is the intent that the native HUD is unconditional? Either way the current state (switch exists, undocumented) is unintentional-looking.
 - Was the 4-tab "full" inventory view meant to survive resize? The forced narrow mode patch is the only `m_bFull` read in the client, so there is no half-measure available without more sites.
 - Who owns `docs/research-118-122.md`'s claim that the meters "ship"? The code is gated behind a build option the release script does not set.
 - `src/uilayout.cpp:379`'s `slums-ui-state.json` contract is consumed by an external QA driver (client-mcp); its field set is not versioned anywhere in this repo.

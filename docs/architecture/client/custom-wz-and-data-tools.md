@@ -110,7 +110,7 @@ lengths/offsets fail closed, "No network access, live-tree writes, automatic rep
 7. **Miss path** (`raw__OnGetLocalObject_hook`, `:37-57`): a successful stock lookup always wins
    (`:44`); a miss is answered from Custom.wz only if the exact path is in `g_vecOverrides` (`:47`) **and** its
    image is not a stock image (`:52-55`). That guard is the fix for the MapleRoot double mount (game folder first,
-   `./Data` second — `mapleroot/ijl15/MapleHook.cpp:166-197`), which used to hand out Custom.wz's partial copy of
+   `./Data` second — `/root/work/client/src-164-data/mapleroot/ijl15/MapleHook.cpp:166-197`), which used to hand out Custom.wz's partial copy of
    `Effect/BasicEff.img` instead of the stock one (`src/customwz_policy.h:5-12`: rc3-rc5 damage digits missing
    `0`..`9`, 1.6.0.2 Arcane boss `Mob/<id>.img` info without `maxHP`).
 8. **Merge path** (`raw_Serialize_hook`, `:65-104`): when a stock property with a Custom.wz counterpart
@@ -192,8 +192,8 @@ loads the file without checking it exists.
 | `MAPLEROOT_MOVEMENT_KEYS` | CMake | OFF (`CMakeLists.txt:4`) | `src/resman.cpp:68-70` | turns on the second injection that rides the Serialize hook (`InjectMovementKeyIcons`) |
 | `MAPLEROOT_DAMAGE_FORMAT` | CMake | OFF (`CMakeLists.txt:16`) | `src/CMakeLists.txt:69-75` | compiles the reader of `Effect/BasicEff.img/*/10..13` |
 | `MAPLEROOT_DAILY_CHECKIN`, `MONSTER_BOOK`, `COLOR_PRISM` | CMake | OFF (`CMakeLists.txt:8,10,11`) | `src/CMakeLists.txt:80,89,93` | compile the readers of the corresponding Custom.wz nodes |
-| `[clienthax] mapobjguard` | config.ini | `true` (`config.example.ini:56`) | `src/lamps.cpp:1496-1506` | the containment for missing map art (the reason `add_time_temple_art.py` exists), not a Custom.wz switch |
-| `[clienthax] mobattackfix` | config.ini | `true` (`config.example.ini:46`) | `src/mobattackfix.cpp:59-64` | the containment for the stock attack-info throw; the *data* fix is `add_mob_attack_type.py` |
+| `[clienthax] mapobjguard` | config.ini | `true` (`/root/work/client/src-164-data/config.example.ini:56`) | `src/lamps.cpp:1496-1506` | the containment for missing map art (the reason `add_time_temple_art.py` exists), not a Custom.wz switch |
+| `[clienthax] mobattackfix` | config.ini | `true` (`/root/work/client/src-164-data/config.example.ini:46`) | `src/mobattackfix.cpp:59-64` | the containment for the stock attack-info throw; the *data* fix is `add_mob_attack_type.py` |
 
 Every `scripts/build.ps1:11` configure turns all the addon options **ON**, so a released DLL always contains the
 readers — but they still degrade gracefully when the node is absent (table above).
@@ -330,8 +330,8 @@ copied into `build/Release` by the build (`src/CMakeLists.txt:142-146`) and stag
 `tools/release/stage-client:36-37,50-123`.
 
 The b251 data fix is **partial by construction**: the `Mob/<id>.img` leaves are in the file and switchable only by
-shipping or not shipping them (`mobattackfix` is the code-side switch, `config.example.ini:46`), and the owner
-deferred the card's remainder (`STATUS-1.6.4.md:72`). The attack-type classifier has no test gate, and no Python tool
+shipping or not shipping them (`mobattackfix` is the code-side switch, `/root/work/client/src-164-data/config.example.ini:46`), and the owner
+deferred the card's remainder (`/root/work/STATUS-1.6.4.md:72`). The attack-type classifier has no test gate, and no Python tool
 runs in CI, so "the file is up to date" is only ever known by a human running `--check`.
 
 ## Open questions

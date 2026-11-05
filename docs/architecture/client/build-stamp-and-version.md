@@ -203,8 +203,8 @@ Formula change, one line: until 1.6.0 the build was `major*10000 + minor*100 + p
 
 ## Switches
 
-No `config.ini` key governs the stamp. `config.example.ini` has only the sections `[general]`, `[discord]`,
-`[clienthax]`, `[weather]`, `[graphics]`, `[config]` (`config.example.ini:1,4,7,60,68,84`) and none of its keys are
+No `config.ini` key governs the stamp. `/root/work/client/src-164-data/config.example.ini` has only the sections `[general]`, `[discord]`,
+`[clienthax]`, `[weather]`, `[graphics]`, `[config]` (`/root/work/client/src-164-data/config.example.ini:1,4,7,60,68,84`) and none of its keys are
 read by `src/buildstamp_proto.h`, `src/bypass.cpp:399-451` or `src/buildshow.cpp`. Nothing falls back to a legacy key:
 there is no older stamp key to fall back to. Switching happens at two other layers.
 

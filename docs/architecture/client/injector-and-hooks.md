@@ -14,8 +14,8 @@ Two layers exist:
 - `src/hook.h`/`src/hook.cpp` — the detour and byte-patch primitives plus `AttachClientHooks()`, the single ordered
   table of every client-side modification.
 
-The MapleRoot companion (`mapleroot/ijl15/`, formerly a separate `ijl15.dll`) is now linked into the same DLL
-(`src/mapleroot.cpp:7`) and keeps its own patch table, driven by its own INI reader (`mapleroot/ijl15/YourStuff.h:600-657`).
+The MapleRoot companion (`/root/work/client/src-164-data/mapleroot/ijl15/`, formerly a separate `ijl15.dll`) is now linked into the same DLL
+(`src/mapleroot.cpp:7`) and keeps its own patch table, driven by its own INI reader (`/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:600-657`).
 
 ## Entry points
 
@@ -36,7 +36,7 @@ The MapleRoot companion (`mapleroot/ijl15/`, formerly a separate `ijl15.dll`) is
 | `AttachCreateBlockMod()` | `src/createblock.cpp:14-30` | `src/hook.h:245` |
 | `AttachMidAirMod()` | `src/midair.cpp:14-27` | `src/hook.h:258` |
 | `AttachMovementKeysMod()` | `src/movementkeys.cpp:188-219` | `src/hook.h:140` (compile-time) |
-| `doini()` (companion patches) | `mapleroot/ijl15/YourStuff.h:600-657` | `HaxMaple()` `mapleroot/ijl15/MapleHook.cpp:222` |
+| `doini()` (companion patches) | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:600-657` | `HaxMaple()` `/root/work/client/src-164-data/mapleroot/ijl15/MapleHook.cpp:222` |
 
 `DummyExport` (`src/injector.cpp:12`) exists only so the DLL has an export the injector can name.
 
@@ -183,9 +183,9 @@ table (`hpmp`, `createblock`, `midair`, `movementkeys`, `attackstop`, `invresize
 follows, and only in `MAPLEROOT_INTEGRATION` builds. In a non-integration build nothing calls `Fail`, so a failed detour
 is logged and the client continues without that feature.
 
-### 7. Companion patches (`mapleroot/ijl15/YourStuff.h`)
+### 7. Companion patches (`/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h`)
 
-`doini()` (`mapleroot/ijl15/YourStuff.h:600-657`) reads `config.ini` with its own `INIReader` (`:602`) and applies, in
+`doini()` (`/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:600-657`) reads `config.ini` with its own `INIReader` (`:602`) and applies, in
 file order: the split attack-stop trio via `ApplyMoveAttackSettings` (`:628-641`, `iniBool` at `:632-634`), `jumpshoot`
 E9 at `0x009539FA` (`:643-647`), `jumpmagic` E9 at `0x009559E5` (`:649-653`), and
 `Hook_CWvsApp__EnableWinkey(reader.GetBoolean("clienthax","enablewinkey","true"))`. `nobulb` (`PatchNop 0x00A08D5B`,
@@ -229,20 +229,20 @@ All `config.ini` keys that govern this subsystem. "Reader" is the code that cons
 
 | Key | Default | Reader (file:line) | Effect |
 |---|---|---|---|
-| `[config] host` | `127.0.0.1` (`config.example.ini:85`; the compiled fallback is `CONSTANTS_DEFAULT_HOST`, `src/constants.h:9`) | `src/injector.cpp:34`, fallback `src/system.cpp:236` | server host, resolved once |
-| `[config] port` | `8485` (`config.example.ini:86`) | `src/injector.cpp:38`, applied `src/system.cpp:270` | login port; 0 leaves the stock port |
-| `[graphics] borderless` | `false` (`config.example.ini:74`) | `src/system.cpp:306` via `:68-72` | `WS_POPUP` window, centred |
-| `[graphics] dpiaware` | `false` (`config.example.ini:75`) | `src/system.cpp:307` | `SetProcessDPIAware()` |
-| `[clienthax] jumpkeydown` | `false` (`config.example.ini:10`) | `src/midair.cpp:16-17` | NOP the keydown air gate |
-| `[clienthax] attackwalk` | `false` (`config.example.ini:22`) | `mapleroot/ijl15/YourStuff.h:632-641` | attack-stop site 1 |
-| `[clienthax] attackjump` | `true` (`config.example.ini:23`) | same | attack-stop site 3 |
-| `[clienthax] chargemove` | `true` (`config.example.ini:24`) | same | attack-stop site 2 |
+| `[config] host` | `127.0.0.1` (`/root/work/client/src-164-data/config.example.ini:85`; the compiled fallback is `CONSTANTS_DEFAULT_HOST`, `src/constants.h:9`) | `src/injector.cpp:34`, fallback `src/system.cpp:236` | server host, resolved once |
+| `[config] port` | `8485` (`/root/work/client/src-164-data/config.example.ini:86`) | `src/injector.cpp:38`, applied `src/system.cpp:270` | login port; 0 leaves the stock port |
+| `[graphics] borderless` | `false` (`/root/work/client/src-164-data/config.example.ini:74`) | `src/system.cpp:306` via `:68-72` | `WS_POPUP` window, centred |
+| `[graphics] dpiaware` | `false` (`/root/work/client/src-164-data/config.example.ini:75`) | `src/system.cpp:307` | `SetProcessDPIAware()` |
+| `[clienthax] jumpkeydown` | `false` (`/root/work/client/src-164-data/config.example.ini:10`) | `src/midair.cpp:16-17` | NOP the keydown air gate |
+| `[clienthax] attackwalk` | `false` (`/root/work/client/src-164-data/config.example.ini:22`) | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:632-641` | attack-stop site 1 |
+| `[clienthax] attackjump` | `true` (`/root/work/client/src-164-data/config.example.ini:23`) | same | attack-stop site 3 |
+| `[clienthax] chargemove` | `true` (`/root/work/client/src-164-data/config.example.ini:24`) | same | attack-stop site 2 |
 | `[clienthax] moveattack` | (absent from the example; `value_or(true)`) | `src/attackstop_patch.h:109-116` | **legacy fallback** for `attackjump`/`chargemove` only |
-| `[clienthax] jumpshoot` | `true` (companion default) | `mapleroot/ijl15/YourStuff.h:643` | E9 at `0x009539FA` |
-| `[clienthax] jumpmagic` | `true` (companion default) | `mapleroot/ijl15/YourStuff.h:649` | E9 at `0x009559E5` |
-| `[clienthax] nobulb` | `true` (`config.example.ini:11`) | `mapleroot/ijl15/YourStuff.h:616-618` | removes the quest bulb |
-| `[clienthax] customcolor` | `true` (`config.example.ini:12`) | `mapleroot/ijl15/YourStuff.h:620-624` | orange stat/skill string case |
-| `[clienthax] enablewinkey` | `true` (companion default) | `mapleroot/ijl15/YourStuff.h:655` | replaces the unconditional `EnableWinKey` patch in integration builds |
+| `[clienthax] jumpshoot` | `true` (companion default) | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:643` | E9 at `0x009539FA` |
+| `[clienthax] jumpmagic` | `true` (companion default) | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:649` | E9 at `0x009559E5` |
+| `[clienthax] nobulb` | `true` (`/root/work/client/src-164-data/config.example.ini:11`) | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:616-618` | removes the quest bulb |
+| `[clienthax] customcolor` | `true` (`/root/work/client/src-164-data/config.example.ini:12`) | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:620-624` | orange stat/skill string case |
+| `[clienthax] enablewinkey` | `true` (companion default) | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:655` | replaces the unconditional `EnableWinKey` patch in integration builds |
 
 Only `host`/`port`, `[graphics]` and `jumpkeydown` are read by `src/`; the rest of the companion's keys
 (`nobulb`, `customcolor`, `jumpshoot`, `jumpmagic`, `enablewinkey`, chair/skill opacity, …) are read by the companion's
@@ -274,10 +274,10 @@ Every write this subsystem performs, with the gate that controls it. "—" means
 | attack-stop site 1 (`keydown skill movable`) | `src/attackstop_patch.h:47` | `0x0095F97A`, `7F 2C`→`EB 59` | `[clienthax] attackwalk` | `false` |
 | attack-stop site 2 (`WorkUpdateActive`) | `src/attackstop_patch.h:48` | `0x009CBFB0`, `7E`→`EB` | `[clienthax] chargemove` | `true` (or legacy `moveattack`) |
 | attack-stop site 3 (`Jump` one-time gate) | `src/attackstop_patch.h:49-50` | `0x0094C3BB`, 6 bytes → 6×`90` | `[clienthax] attackjump` | `true` (or legacy `moveattack`) |
-| shoot-in-air `E9` | `mapleroot/ijl15/YourStuff.h:643-647` | `0x009539FA` → `0x00953A11` | `[clienthax] jumpshoot` | `true` |
-| magic-in-air `E9` | `mapleroot/ijl15/YourStuff.h:649-653` | `0x009559E5` → `0x00955A20` | `[clienthax] jumpmagic` | `true` |
-| no-bulb NOPs | `mapleroot/ijl15/YourStuff.h:616-618` | `0x00A08D5B`, 5 bytes | `[clienthax] nobulb` | `true` |
-| orange colour case | `mapleroot/ijl15/YourStuff.h:620-624` | `0x0098B70C+1`, `0x008C4944+1`, `0x008AA6CB+1` | `[clienthax] customcolor` | `true` |
+| shoot-in-air `E9` | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:643-647` | `0x009539FA` → `0x00953A11` | `[clienthax] jumpshoot` | `true` |
+| magic-in-air `E9` | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:649-653` | `0x009559E5` → `0x00955A20` | `[clienthax] jumpmagic` | `true` |
+| no-bulb NOPs | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:616-618` | `0x00A08D5B`, 5 bytes | `[clienthax] nobulb` | `true` |
+| orange colour case | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:620-624` | `0x0098B70C+1`, `0x008C4944+1`, `0x008AA6CB+1` | `[clienthax] customcolor` | `true` |
 | bindable movement keys (4 detours + jmp + nop + `Patch4`) | `src/movementkeys.cpp:206-217` | `0x00836619`, `0x00836C82`, `0x00836C5F`, `0x0059A25A`, `0x0059B00A`, `0x00833FB0` | — (compile-time `MAPLEROOT_MOVEMENT_KEYS`) | on when the option is built |
 
 Four rows carry no gate at all and are written without any stock-byte check: the four `src/bypass.cpp:481-484` patches.
@@ -291,7 +291,7 @@ Fallback rules worth naming:
 
 - Command line beats `[config]` (`src/injector.cpp:30`).
 - `attackjump`/`chargemove` fall back to the legacy `moveattack`; `attackwalk` deliberately does **not**
-  (`src/attackstop_patch.h:110-116`, documented at `config.example.ini:18-21`).
+  (`src/attackstop_patch.h:110-116`, documented at `/root/work/client/src-164-data/config.example.ini:18-21`).
 - `mobattackfix`, `mapobjguard`, `lowdefensepenalty`, `invresize`, weather keys, `d3d9host`/`adapterfallback` are read
   by their own modules, outside this document's scope.
 
@@ -332,10 +332,10 @@ The table above is authoritative for ini keys; every write whose Switch column r
 | `hook.h` `AttachClientHooks` table | **modified** | first `6003540 2025-08-27`, newest `3e640f1 2026-11-04` (b251 mob attack-info guard); the module list grew with each addon |
 | `checked_hook.h`, `patch_common.h`, `mapleroot.cpp`, `packetdispatcher.cpp`, `movementkeys.cpp` | **custom** | all first appear in `6119130 2026-10-18 "Checkpoint accepted MapleRoot client integration and addons"`; `docs/PROJECT-STATUS.md:24` — "Kaentake handles startup, networking, resolution and Custom.wz. The MapleRoot companion retains gameplay extensions through bridge ABI 0x00010001." |
 | `createblock.cpp` | **custom** | `6590386 2026-10-22`; rationale in the header, not in a ticket (`src/createblock_patch.h:8-27`) |
-| `midair.cpp`, `attackstop_patch.h` | **custom split of a companion feature** | attack-stop sites come from MapleRoot's single `moveattack` write, split into three keys (`src/attackstop_patch.h:45-53`, `config.example.ini:13-24`); history `44ab18f`/`53fd583 2026-10-21` |
+| `midair.cpp`, `attackstop_patch.h` | **custom split of a companion feature** | attack-stop sites come from MapleRoot's single `moveattack` write, split into three keys (`src/attackstop_patch.h:45-53`, `/root/work/client/src-164-data/config.example.ini:13-24`); history `44ab18f`/`53fd583 2026-10-21` |
 | `stringpool.cpp` | **custom** | first `f3f6b56 2026-02-27 "Implement AttachStringPoolMod"`, encode fix `5fd4e4e 2026-04-02 "Fix stringpool encode error (#11)"`, carried over in `f1b64a6 2026-10-19 "Ship the client as one slums.dll started by SlumsMS.exe"` |
 | `inlink.cpp`, `inlink_guard.cpp` | **custom** | both landed in `e2be634 2026-10-31`; the guard exists because b103 (rc12) crashed the client on a linked minimap canvas (`src/inlink_guard.h:8-12`) |
-| `mapleroot/ijl15/**` | **MapleRoot upstream** | `docs/PROVENANCE.md:3` — "The companion source is the MapleRoot ijl15 source port, with only relative project paths adjusted" |
+| `/root/work/client/src-164-data/mapleroot/ijl15/**` | **MapleRoot upstream** | `docs/PROVENANCE.md:3` — "The companion source is the MapleRoot ijl15 source port, with only relative project paths adjusted" |
 
 `docs/PROVENANCE.md` names neither `injector.cpp` nor `hook.cpp`; their Kaentake ancestry is proven only by git history.
 
@@ -395,7 +395,7 @@ There is no automated check anywhere that the exe being patched is the exe the a
   `src/midair.cpp:14-27` patches `kKeydownAirExit` under `[clienthax] jumpkeydown`. Stale header.
 - **`NEW-FINDING:` two independent `config.ini` readers with different parsers.** `src/` uses
   `GetPrivateProfileStringA` + `WindowPolicy::IniTrue` (`src/window_policy.h:27-31`), the companion uses its own
-  `INIReader` (`mapleroot/ijl15/YourStuff.h:602`). Only `src/attackstop_patch.h:71-74` mirrors the companion's
+  `INIReader` (`/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:602`). Only `src/attackstop_patch.h:71-74` mirrors the companion's
   `GetBoolean` semantics, and it does so by convention, not by sharing code.
 - **`NEW-FINDING:` `AttachClientBypass` patches are not covered by `VerifyKaentakeHooks` groups of their own** — the
   `"AttachClientBypass"` verify at `src/hook.h:144` only checks that the *detours* attached, not that `PatchRetZero`
@@ -405,7 +405,7 @@ There is no automated check anywhere that the exe being patched is the exe the a
   `src/CMakeLists.txt:76-78`). Two mechanisms touch the same exception path with no shared test, and the build script
   turns neither on (`scripts/build.ps1:11`).
 - **b251** (`/root/work/STATUS-1.6.4.md:72`) — client crash entering Rose Garden 211080100; the attack-info guard is
-  `AttachMobAttackFixMod` (`src/hook.h:283`), default on (`config.example.ini:46`). Routed but not closed.
+  `AttachMobAttackFixMod` (`src/hook.h:283`), default on (`/root/work/client/src-164-data/config.example.ini:46`). Routed but not closed.
 - **b270** (`/root/work/STATUS-1.6.4.md:75`) — launcher wrote `manifest.json` without `news[]`; launcher-side, outside this
   subsystem, listed because the client lane owns it.
 - **b274** (`/root/work/STATUS-1.6.4.md:76`) — Will's/Magnus boss portals never send a portal-enter; inconclusive, partially a
@@ -448,7 +448,7 @@ There is no automated check anywhere that the exe being patched is the exe the a
 - Does `0x00796FDD` hold on every exe the project ships against, or only on sha256 `86e4e6be…ac90`? If the gate never
   fires, `AttachClientHooks` never runs and the client is silently stock — no log line distinguishes that from "hooks
   installed".
-- `[clienthax] moveattack` is honoured by `src/attackstop_patch.h:110` but absent from `config.example.ini`; is any
+- `[clienthax] moveattack` is honoured by `src/attackstop_patch.h:110` but absent from `/root/work/client/src-164-data/config.example.ini`; is any
   deployed `config.ini` still relying on it, and is the fallback meant to be removed at some point?
 - `ATTACK_DIAG`'s `[debug] attackdiag` (`src/attackdiag.cpp:212`) and `[debug] uistate` (`src/uilayout.cpp:368`) are
-  read but undocumented in `config.example.ini` — debug-only by intent, or drift?
+  read but undocumented in `/root/work/client/src-164-data/config.example.ini` — debug-only by intent, or drift?

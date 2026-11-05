@@ -67,18 +67,18 @@ reserved **before** the join when the accept converts to a follower; a refused r
 The trip is a commitment: `LfgParty.holds` keeps the bot from logging out (src/main/java/soloMapling/ArtificialPlayer/BotLogout.java:92,
 src/main/java/soloMapling/ArtificialPlayer/BotPopulationDirector.java:602) and from being picked for `LOG_OUT`
 (src/main/java/soloMapling/ArtificialPlayer/BotTypes/TrainingBot.java:1026). `TrainingBot` learns the destination from
-`LfgParty.lobbyMap` and treats it as `lifePqTrip` (TrainingBot.java:996-1004, :1088, :1100, :1105-1108).
+`LfgParty.lobbyMap` and treats it as `lifePqTrip` (TrainingBot.java:996-1006, :1088, :1100, :1105-1108).
 
 ### 3. Life-driven PQ trip (no player, no LFG)
 
-`LifePq` holds the three v83 lobbies and the opening hours (src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifePq.java:27-31,
-:49-64). `LifeRuntime.pqDestination` returns the plan's PQ town if the plan's next step is `PARTY_QUEST`, else the
+`LifePq` holds the three v83 lobbies and the opening hours (src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifePq.java:28-31,
+:50-64). `LifeRuntime.pqDestination` returns the plan's PQ town if the plan's next step is `PARTY_QUEST`, else the
 level's lobby, else -1 (src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifeRuntime.java:180-185). The lobby
 maps are in the may-load allowlist (LifeRuntime.java:188-198), so the bot arrives and loads the map like a player.
 
 `TrainingBot.canStartLifeActivity(PARTY_QUEST)` requires a destination, no existing party, not already there, and
-either a plan step, an LFG trip, or `LifePq.pqHoursNow()` (TrainingBot.java:996-1004). `pqHoursNow` is true after
-16:00 and on weekends after 10:00, unless `-Dslums.botlife.pqAlways` (LifePq.java:49-64); with no config read (unit
+either a plan step, an LFG trip, or `LifePq.pqHoursNow()` (TrainingBot.java:996-1006). `pqHoursNow` is true after
+16:00 and on weekends after 10:00, unless `-Dslums.botlife.pqAlways` (LifePq.java:50-64); with no config read (unit
 tests) it returns false rather than throwing (LifePq.java:62-63).
 
 Bots that reach a lobby do not idle: `SocialInitiative.lobbyTick` scans for a real player of the band every 20-45 s and
@@ -155,7 +155,7 @@ ExpeditionBots.java:157-180).
 ### 7. Party chat
 
 `BotPartyChat` answers a party line every 1.5 s and other lines every 6 s, at most 8 bot lines a minute, with a 4 %
-solo-chatter chance (src/main/java/soloMapling/ArtificialPlayer/BotPartySystem/BotPartyChat.java:32-42).
+solo-chatter chance (src/main/java/soloMapling/ArtificialPlayer/BotPartySystem/BotPartyChat.java:37-42).
 `PartyBotOrders.fromPartyChat` runs first, so an order in party chat is obeyed before the bot replies
 (BotPartyChat.java:70).
 
@@ -185,13 +185,13 @@ Sources: src/main/java/soloMapling/mechanics/content/*.yaml (each row's `recruit
 `KpqStaging.BOT_LEVEL_MIN/MAX` (KpqStaging.java:38-39).
 
 The bot's own lobby table is narrower than the content rows: `LifePq.LOBBIES` only knows kpq 21-30 / lpq 35-50 / opq
-51-70 (LifePq.java:27-31), so a life-driven trip only ever goes to those three.
+51-70 (LifePq.java:28-31), so a life-driven trip only ever goes to those three.
 
 ### Expedition types bots are admitted to
 
 `ExpeditionType` carries `(minSize, maxSize, minLevel, maxLevel, minutes)` (src/main/java/server/expeditions/ExpeditionType.java:114).
-Bots are excluded from ARIANT/ARIANT1/ARIANT2 (ExpeditionBots.java:410-412); the level gate is the type's own
-(ExpeditionBots.java:391). Zakum 6-30 lv 50, Chaos Zakum 6-30 lv 120, Scarga 6-30 lv 100
+Bots are excluded from ARIANT/ARIANT1/ARIANT2 (ExpeditionBots.java:411-414); the level gate is the type's own
+(ExpeditionBots.java:390). Zakum 6-30 lv 50, Chaos Zakum 6-30 lv 120, Scarga 6-30 lv 100
 (ExpeditionType.java:35-40).
 
 ### Stored state
@@ -218,9 +218,9 @@ Bots are excluded from ARIANT/ARIANT1/ARIANT2 (ExpeditionBots.java:410-412); the
 | `-Dslums.exped.altfollow` | ON | on | ExpeditionBots.java:66, :72-73, conf:74 |
 | `-Dslums.exped.door` | off | no | src/main/java/soloMapling/ArtificialPlayer/BotPartySystem/ExpeditionDoor.java:24-30 |
 | `-Dslums.bots.partysupport` | off | yes | src/main/java/soloMapling/ArtificialPlayer/BotSupportSwitches.java:28-30, conf:271 |
-| `-Dslums.botlife.pqAlways` | false | n/a (QA) | LifePq.java:57 |
+| `-Dslums.botlife.pqAlways` | false | n/a (QA) | LifePq.java:58 |
 | `-Dslums.chaos.zakum=true` | off | yes (conf:53) | content/zakum-chaos.yaml:flag |
-| `solomapling.partyChat` | true | defaults on | BotPartyChat.java:58 |
+| `solomapling.partyChat` | true | defaults on | BotPartyChat.java:57-59 |
 | `solomapling.opq.lobbyRecruitPerMinute` | 3 | dev only | OPQLobbyChat.java:34-36 |
 | `lfgPartiesPer10Min` (`ConvoSwitches`) | 3 | default | LfgParty.java:213-214 |
 
@@ -237,7 +237,7 @@ TEST: unknown (start-test.sh unreachable from this checkout).
 5. A lobby start goes through `RealRunPool` first; a refused run gets no party, no NPC talk and no instance
    (KpqLobby.java:133-152, ContentLobby.java:136-149).
 6. Stage progress is per map instance, never per map id (OPQSharedContext.java:33-42).
-7. An LFG trip never breaks a party a real player joined (LfgParty.java:491-499).
+7. An LFG trip never breaks a party a real player joined (LfgParty.java:493-497).
 
 ## Origin
 

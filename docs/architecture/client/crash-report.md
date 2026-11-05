@@ -201,7 +201,7 @@ Sizes and constants: `g_report` 24 KiB, `g_tail` 16 KiB (`src/crash_report.cpp:2
 | `-Dsolomapling.reportsFile` (server JVM) | `data/reports/reports.jsonl` | `ReportStore.java:115-120` | Where reports and `context/` live; unset logs a warning (`:116-117`) |
 | caps bit 1 (`CAPS_LOG_UPLOAD`) | no client sets it | server reads it at `BugClientLogs.java:68`; the client computes caps at `src/bypass.cpp:399-419` from `kCapCustomNpcData` only (`src/buildstamp_proto.h:25`) | Gates the whole LP 0x373A request |
 
-There is **no `config.ini` key** for any of this: `config.example.ini` has no `[crash]` section and no crash source
+There is **no `config.ini` key** for any of this: `/root/work/client/src-164-data/config.example.ini` has no `[crash]` section and no crash source
 reads an ini. The research note proposed `[crash] report=1`, `[crash] firstchance=1`, `[crash] missingasset=warn`,
 `[debug] crashtest=av|null|oom|stack|cxx|driver` and a separate `MAPLEROOT_CRASH_TEST` option
 (`docs/research-121-crash-report.md:243-291`); none of them exists. No CMake preset turns the reporter on either
@@ -319,7 +319,7 @@ then decide how (or whether) the file ever leaves the machine.
 | Delivery of a report to anyone | **broken** — no reader, no sender, no consent UI | steps 15-16 above |
 | Server request/accept/storage (`@bug` → 0x373A → 0x373B → `clientLogs`) | **working on the server**, dormant in practice | `BugClientLogsTest`, `BugLogUploadHandlerTest`, `ReportCommandTest:84` green; caps bit unreachable from a client (`src/bypass.cpp:399-419`) |
 | Client answering 0x373A | **absent** | 0 hits for 0x373A/0x373B in the client repo |
-| Minidumps | **absent** | `grep -r MiniDumpWriteDump|minidump|dbghelp` matches only third-party Detours (`mapleroot/ijl15/detours.h:371-408`) |
+| Minidumps | **absent** | `grep -r MiniDumpWriteDump|minidump|dbghelp` matches only third-party Detours (`/root/work/client/src-164-data/mapleroot/ijl15/detours.h:371-408`) |
 
 ## Open questions
 

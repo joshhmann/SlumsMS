@@ -186,9 +186,9 @@ expect so a different exe is detected, not corrupted: `Classify()` in `src/mobat
 
 | Key | Default | Read at | Effect |
 |---|---|---|---|
-| `[clienthax] mobattackfix` | `true` (absent key ⇒ on) | `src/mobattackfix.cpp:60-64` (`GetPrivateProfileStringA`, `ParseIniBool(value).value_or(true)`) | `false` keeps the stock `E_POINTER` throw: the client closes on the affected map (`config.example.ini:40-46`) |
-| `[clienthax] mapobjguard` | `true` | `src/lamps.cpp:1498-1506` (read once per process, same `value_or(true)`) | `false` = rethrow every failed map object (`config.example.ini:52-56`) |
-| `[debug] attackdiag` | `0` (absent ⇒ off) | `src/attackdiag.cpp:212` (`GetPrivateProfileIntA`) | `1` = dropped attacks, `2` = every remote attack; `<= 0` returns before any hook (`:213-215`). **Not present in `config.example.ini`** — documented only in `src/attackdiag.cpp:1-4` and `docs/research-126-midair.md:65` |
+| `[clienthax] mobattackfix` | `true` (absent key ⇒ on) | `src/mobattackfix.cpp:60-64` (`GetPrivateProfileStringA`, `ParseIniBool(value).value_or(true)`) | `false` keeps the stock `E_POINTER` throw: the client closes on the affected map (`/root/work/client/src-164-data/config.example.ini:40-46`) |
+| `[clienthax] mapobjguard` | `true` | `src/lamps.cpp:1498-1506` (read once per process, same `value_or(true)`) | `false` = rethrow every failed map object (`/root/work/client/src-164-data/config.example.ini:52-56`) |
+| `[debug] attackdiag` | `0` (absent ⇒ off) | `src/attackdiag.cpp:212` (`GetPrivateProfileIntA`) | `1` = dropped attacks, `2` = every remote attack; `<= 0` returns before any hook (`:213-215`). **Not present in `/root/work/client/src-164-data/config.example.ini`** — documented only in `src/attackdiag.cpp:1-4` and `docs/research-126-midair.md:65` |
 | build option `MAPLEROOT_ATTACK_DIAG` | `OFF` | `CMakeLists.txt:12`, `src/CMakeLists.txt:110-112`; on in `scripts/build.ps1:11` | absent ⇒ `AttachAttackDiagMod` is not compiled |
 | build option `MAPLEROOT_WEATHER` | `OFF` | `CMakeLists.txt:5`, `src/CMakeLists.txt:100-105`; on in `scripts/build.ps1:11` | absent ⇒ **map-object guard does not exist** (it lives in `lamps.cpp`) |
 | build option `MAPLEROOT_CRASH_REPORT` | `OFF` | `CMakeLists.txt:17`, `src/CMakeLists.txt:76-79`; **not set by `scripts/build.ps1:11`** | absent ⇒ no report writer, no resource note hooks |
@@ -239,7 +239,7 @@ are unconditional in every build.
 | `src/inlink_guard.h`, `src/inlink_guard.cpp` | **custom** on a **base** hook | `1812c10 2026-03-19 Add checks for linked canvases in inlink.cpp` is the Kaentake-era ancestor; `74068b3 2026-10-30` (b103 origin guard) and `e2be634 2026-10-31` split it into `inlink_guard.cpp` with the never-throw contract (`src/inlink_guard.h:5-12`). `src/inlink.cpp` is base Kaentake code (`docs/PROVENANCE.md:3`) |
 | `src/meleerange.cpp`, `src/meleerange_patch.h` | **custom** | `20f29c1 2026-10-25 Keep the client open when a remote melee attack has no range for its pose`; the header carries the full afterimage-table analysis (`src/meleerange_patch.h:8-18`) |
 | `src/attackdiag.cpp`, `src/attackdiag_rules.h` | **custom** | `34c1c28 2026-10-21 Log the other characters' attacks the client drops, with the reason` (ticket 32) |
-| `src/checked_hook.h` | **modified from the MapleRoot companion's pattern** | arrives with `6119130 2026-10-18 Checkpoint accepted MapleRoot client integration and addons`; consumed by `src/hook.cpp:3` and `mapleroot/ijl15/Funcs.cpp:3`, so it is the shared transaction wrapper for both the Kaentake hooks and the companion's IJL15 hooks |
+| `src/checked_hook.h` | **modified from the MapleRoot companion's pattern** | arrives with `6119130 2026-10-18 Checkpoint accepted MapleRoot client integration and addons`; consumed by `src/hook.cpp:3` and `/root/work/client/src-164-data/mapleroot/ijl15/Funcs.cpp:3`, so it is the shared transaction wrapper for both the Kaentake hooks and the companion's IJL15 hooks |
 | `src/crash_classify.h`, `src/crash_report.*`, `src/crash_scrub.h`, `src/crash_diagnostics.cpp` | **custom** | `3e77cc2 / 16521d2 / 20a09b9` all `2026-10-28` (ticket 121), designed in `docs/research-121-crash-report.md`; the classifier is header-only and Windows-free so it can be tested natively (`src/crash_classify.h:1-7`) |
 | Data-side closures of the same cards | **custom** | `68caea7` + `117d43b` (Custom.wz `Mob/<id>.img/attackN/info/type`, `tools/wz/add_mob_attack_type.py:1-29`), `210fb6c` (acc10 `timeTemple/pillar_old`) |
 
@@ -308,7 +308,7 @@ byte tests silently degrade to their no-exe variants (or disappear, for inlink).
 - **NEW-FINDING: `src/hook.h:282-283`** — `AttachMobAttackFixMod()` is the only guard install without a
   `VerifyKaentakeHooks` call; its `PatchMemory` result is never checked, so a `VirtualProtect` failure leaves the
   client unpatched with only a log line.
-- **NEW-FINDING: `src/attackdiag.cpp:212`** — `[debug] attackdiag` is absent from `config.example.ini`, so the
+- **NEW-FINDING: `src/attackdiag.cpp:212`** — `[debug] attackdiag` is absent from `/root/work/client/src-164-data/config.example.ini`, so the
   only shipped diagnostic for the attack path is undiscoverable to a player or QA lead reading the config file.
 - **NEW-FINDING: `src/crash_classify.h:86`** — `GraphicsDriver` requires `ExceptionCode == 0xC0000005`; a driver
   crash reported as `0xC0000096`, `0xC000001D` or `0xC00000FD` falls through to `InvalidCode`/`StackOverflow`

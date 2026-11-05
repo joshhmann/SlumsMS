@@ -63,7 +63,7 @@ There is no wire contract: nothing in these files sends or reads a packet. The s
 
 15. **The display toggle acts at layer load, and never keeps the layer.** `AttachDisplayMod` first compares the ten stock bytes at `0x00941417` (`src/display.cpp:35`) and stays off when they differ, logging "Display: CUser::LoadLayer is not the stock code; display toggles stay off" (`:92-95`). The hook computes whether the UOL is a cash/set effect (`Effect/ItemEff.img` or `Effect/SetEff.img`, `:63-65`), calls the original, and — only for a layer that loaded, on a character that is not `*0x00BEBF98` — reads the registry pref once and sets `layer->visible` (`:71-79`, `:55-61`). It deliberately stores no reference: keeping one left characters drawn headless until the client closed (b250, `:54`). The pref is `HKCU\Software\SlumsMS\Overlay\hide_others_cash` (`:36`, `:41-52`).
 
-16. **The companion also needs the size.** Under `MAPLEROOT_INTEGRATION`, `set_screen_resolution` calls `UpdateMapleRootResolution` → `MapleRoot_SetResolution` in `ijl15.dll` (`src/mapleroot.cpp:63-65`), which rejects anything outside 800x600..1920x1080 and rewrites four skill-notice immediates with `width - 100` (`mapleroot/ijl15/DllMain.cpp:180-189`). Startup goes the other way: `InitializeMapleRoot` checks the bridge version `0x00010001` and passes `get_screen_width()/get_screen_height()` in (`src/mapleroot.cpp:43-58`).
+16. **The companion also needs the size.** Under `MAPLEROOT_INTEGRATION`, `set_screen_resolution` calls `UpdateMapleRootResolution` → `MapleRoot_SetResolution` in `ijl15.dll` (`src/mapleroot.cpp:63-65`), which rejects anything outside 800x600..1920x1080 and rewrites four skill-notice immediates with `width - 100` (`/root/work/client/src-164-data/mapleroot/ijl15/DllMain.cpp:180-189`). Startup goes the other way: `InitializeMapleRoot` checks the bridge version `0x00010001` and passes `get_screen_width()/get_screen_height()` in (`src/mapleroot.cpp:43-58`).
 
 ## Data
 
@@ -93,9 +93,9 @@ There is no wire contract: nothing in these files sends or reads a packet. The s
 | Not supported | Why | Evidence |
 |---|---|---|
 | any size outside the five | `set_screen_resolution` has no other case; the switch falls through to 800x600 | `src/resolution.cpp:660-677` |
-| 1280x720 | absent from the list although the dead companion table has it as its own index 2 | `src/resolution.cpp:661-676` vs `mapleroot/ijl15/YourStuff.h:479-500` |
+| 1280x720 | absent from the list although the dead companion table has it as its own index 2 | `src/resolution.cpp:661-676` vs `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:479-500` |
 | index outside 0..4 | clamped when loaded | `GetOpt_Int(..., 0, 4)` `src/resolution.cpp:179` |
-| above 1920x1080 or below 800x600 for the companion | rejected | `mapleroot/ijl15/DllMain.cpp:180-189` |
+| above 1920x1080 or below 800x600 for the companion | rejected | `/root/work/client/src-164-data/mapleroot/ijl15/DllMain.cpp:180-189` |
 | exclusive fullscreen | only borderless `WS_POPUP`; the game is never switched to a fullscreen device | `src/system.cpp:198-207`, `src/window_policy.h:5-8` |
 | any scaling or stretching | "Nothing is scaled"; the frame buffer is resized, not scaled | `src/window_policy.h:5-8` |
 | per-monitor DPI awareness | only process-wide `SetProcessDPIAware` | `src/system.cpp:307-310` |
@@ -129,9 +129,9 @@ Every `config.ini` key that governs this subsystem. All are read through `GetPri
 | `uitour` | `[clienthax]` | `true` | `src/d3d9host.cpp:303` | false: first-run Edit UI tour never arms; only effective with `settingswindow=true` |
 | `borderless` | `[graphics]` | `false` | `src/system.cpp:306` (`ReadGraphicsSwitch` `:68-72`) | true: `WS_POPUP`, client-sized, centred, frameless drag/close/minimise |
 | `dpiaware` | `[graphics]` | `false` | `src/system.cpp:307-310` | true: `SetProcessDPIAware()` before any window exists |
-| `resolution` | `[general]` | `5` shipped in `config.example.ini:2` | **nothing** — legacy key, see below | dead in this build |
+| `resolution` | `[general]` | `5` shipped in `/root/work/client/src-164-data/config.example.ini:2` | **nothing** — legacy key, see below | dead in this build |
 
-Legacy key: `[general] resolution` is read only by `mapleroot/ijl15/YourStuff.h:600-608` (`reader.GetInteger("general", "resolution", 1)` → `setResolution`, scale 1..5 with 2 = 1280x720), and that block is wrapped in `#ifndef MAPLEROOT_KAENTAKE` (`mapleroot/ijl15/YourStuff.h:607`) while `mapleroot/CMakeLists.txt:49-50` always defines `MAPLEROOT_KAENTAKE`. The key therefore falls back to nothing at all: the live resolution is the registry `soScreenResolution`, and `config.example.ini:2` ships a value (`5`) that no reader in this build can consume. No other key falls back to a legacy key in this subsystem.
+Legacy key: `[general] resolution` is read only by `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:600-608` (`reader.GetInteger("general", "resolution", 1)` → `setResolution`, scale 1..5 with 2 = 1280x720), and that block is wrapped in `#ifndef MAPLEROOT_KAENTAKE` (`/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:607`) while `mapleroot/CMakeLists.txt:49-50` always defines `MAPLEROOT_KAENTAKE`. The key therefore falls back to nothing at all: the live resolution is the registry `soScreenResolution`, and `/root/work/client/src-164-data/config.example.ini:2` ships a value (`5`) that no reader in this build can consume. No other key falls back to a legacy key in this subsystem.
 
 Build-time switches, all `OFF` by default (`CMakeLists.txt:3-18`):
 
@@ -165,7 +165,7 @@ Runtime keys, not ini: Ctrl+F10 (HUD window), Ctrl+F11 (freeze/Edit UI), Esc (cl
 | 13 | The overlay withholds only what it captures: mouse when `WantCaptureMouse`, keys when `WantCaptureKeyboard`; a frozen HUD holds nothing | `src/d3d9host.cpp:288-293` |
 | 14 | The display toggle never keeps a layer reference; it writes `visible` once, at load | `src/display.cpp:54-61` |
 | 15 | The display hook refuses to run unless the ten stock bytes at `0x00941417` are unchanged | `src/display.cpp:35`, `:92-95` |
-| 16 | The companion never receives a size outside 800x600..1920x1080 | `mapleroot/ijl15/DllMain.cpp:180-189` |
+| 16 | The companion never receives a size outside 800x600..1920x1080 | `/root/work/client/src-164-data/mapleroot/ijl15/DllMain.cpp:180-189` |
 | 17 | Ctrl+F10/F11 require a *fresh* Ctrl press (`!(lParam & (1<<30))`), so autorepeat does not flicker the window | `src/d3d9host.cpp:271-276` |
 
 ## Origin
@@ -181,7 +181,7 @@ Runtime keys, not ini: Ctrl+F10 (HUD window), Ctrl+F11 (freeze/Edit UI), Esc (cl
 | `src/display_policy.h` | **custom** | `b6279d3 2026-10-28 "Scaffold ticket 120: display and performance toggles"` |
 | `src/display.cpp` | **custom** | `302bd40 2026-10-28 "Display toggles: hide other players' cash and set effects (ticket 120, first toggle)"`, fixed by `8eee9ac 2026-10-31 "...no reference to other characters' effect layers (b250)"` |
 | `src/ui_wheel.h` | **custom**, adjacent | `6ce4a21 2026-10-21 "Scroll the cash shop the right way with the mouse wheel"`; not display code |
-| `mapleroot/ijl15/DllMain.cpp`, `mapleroot/ijl15/YourStuff.h` | **base** (MapleRoot companion) | `docs/PROVENANCE.md:3` — starting install is the MapleRoot Full Repack and the companion is the MapleRoot ijl15 source port; the `MAPLEROOT_KAENTAKE` bridge block is ours |
+| `/root/work/client/src-164-data/mapleroot/ijl15/DllMain.cpp`, `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h` | **base** (MapleRoot companion) | `docs/PROVENANCE.md:3` — starting install is the MapleRoot Full Repack and the companion is the MapleRoot ijl15 source port; the `MAPLEROOT_KAENTAKE` bridge block is ours |
 
 Baseline for "ours": the client history begins at `joshhmann/kaentake 2a43a01e7f4cdd75cda08ab533049230760d7cfa` (`docs/PROVENANCE.md:3`), commit 191 of 271.
 
@@ -224,8 +224,8 @@ All five are unconditional (no CMake option guard) and run on any host: they onl
 - **Exit-time crash on Parsec** — `C0000005` in `slums.dll`'s exit cleanup, seen once while the owner was on Parsec, parked with the above and not linked to the host by evidence (`docs/160-ui-adjust-plan.md:133-134`).
 - **Display toggles are a scaffold** — `src/display_policy.h:3` says "SCAFFOLD"; only `hideOthersCash` has a hook (`src/display.cpp:68-79`), the other eight preferences in `Prefs` (`:19-26`) have no capture path, and `docs/research-119-120.md:303` lists pets/summons and skill-effect opacity as the remaining order of work. Not built by `scripts/build.ps1`.
 - **`NEW-FINDING: src/resolution.cpp:807-810 — a failed module pattern is written through as null.** `GetAddressByPattern` returns `nullptr` when `GR2D_DX8.DLL` is absent, unloaded or the pattern is not found (`src/hook.cpp:149-153`), and the result is passed straight to `PatchJmp` via `CWzGr2D__AdjustCenterY_jmp = nullptr` (`:808-809`). `PatchJmp` → `Patch1` → `PatchMemory` calls `VirtualProtect` then `memcpy` on that pointer (`src/hook.cpp:157-163`, `src/hook.h:357-361`), so a differently built `Gr2D_DX8.DLL` turns the whole resolution subsystem into an access violation at injection rather than a logged refusal — unlike `AttachDisplayMod`, which checks its bytes first (`src/display.cpp:92-95`). No byte or null check guards the 806 fixed-VA patches either.
-- **`NEW-FINDING: config.example.ini:2 ships `[general] resolution=5`, a key nothing reads in this build** (the reader is compiled out at `mapleroot/ijl15/YourStuff.h:607`), and its 1..5 scale would mean 1920x1080 while the live scale is 0..4, where 5 would be out of range. A player who edits it sees nothing happen and no log line explaining why.
-- **`NEW-FINDING: the two mode tables disagree on 1280x720.** The companion's dead table has it (`mapleroot/ijl15/YourStuff.h:479-500`, index 2), the live client's does not (`src/resolution.cpp:661-676`) — so any future re-enable of the legacy key would pick a mode the client cannot display.
+- **`NEW-FINDING: config.example.ini:2 ships `[general] resolution=5`, a key nothing reads in this build** (the reader is compiled out at `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:607`), and its 1..5 scale would mean 1920x1080 while the live scale is 0..4, where 5 would be out of range. A player who edits it sees nothing happen and no log line explaining why.
+- **`NEW-FINDING: the two mode tables disagree on 1280x720.** The companion's dead table has it (`/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:479-500`, index 2), the live client's does not (`src/resolution.cpp:661-676`) — so any future re-enable of the legacy key would pick a mode the client cannot display.
 - **`NEW-FINDING: 1024x768 and 1600x900 have never been reported working.** `docs/PROJECT-STATUS.md:26` confirms only 800x600, 1366x768 and 1920x1080, and nothing in the patch table is mode-specific, so the risk is in the layout rather than the device path.
 - **`NEW-FINDING: resolution has zero automated coverage** (see Tests and QA). 42 byte patches and 22 hooks in `src/resolution.cpp` are validated only by the fact that the client starts.
 - **`NEW-FINDING: src/display.cpp:41-47 latches the pref once.** `g_loaded` makes `LoadPrefs` a no-op after the first call, so a registry edit made by anything other than this DLL (including a second client instance) is not seen until restart; `Display_DrawSettings` calls `LoadPrefs` on every frame for no effect (`src/display.cpp:84-90`).
