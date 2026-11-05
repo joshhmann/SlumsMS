@@ -17,7 +17,7 @@ class BossRunScenariosTest {
                                                   long swings, long damage, boolean abandon, boolean altar,
                                                   boolean windowOver) {
         return new BossRunScenarios.Observed(120, bossOn, cleared, ended, inRoom, 6, swings, damage, abandon, altar,
-                windowOver);
+                windowOver, true);
     }
 
     @Test
@@ -148,5 +148,30 @@ class BossRunScenariosTest {
         assertTrue(QaScenarios.all().stream().anyMatch(s -> s.id().equals("ex-2")));
         assertTrue(QaScenarios.all().stream().anyMatch(s -> s.id().equals("ex-2") && s.tickSeconds() == 1),
                 "ex-2 is sampled every second, so it must ask for a tick");
+    }
+
+    @Test
+    void aFightWithNoRunBehindItIsNamedNotCalledUndecided() {
+        BossRunScenarios.Observed o = new BossRunScenarios.Observed(90, true, false, null, 5, 5, 334, 70_626, false,
+                true, true, false);
+        String line = BossRunScenarios.verdict(o);
+        assertTrue(line.startsWith("EX2 FAIL no mechanics run was ever armed"), line);
+    }
+
+    @Test
+    void aRunningFightWhenTheSamplingWindowClosesIsAnEnd() {
+        BossRunScenarios.Observed o = new BossRunScenarios.Observed(90, true, false, null, 5, 5, 334, 70_626, false,
+                true, true, true);
+        assertTrue(BossRunScenarios.verdict(o).startsWith("EX2 END still fighting "));
+    }
+
+    /** The first auto-QA run staged 5 members for a row that takes 6-30, so no run ever armed. */
+    @Test
+    void theStagedPartyIsAsBigAsTheZakumRowNeeds() {
+        soloMapling.mechanics.MechanicsModel.Content zakum = soloMapling.mechanics.MechanicsRuns.contentFor("ZakumBattle");
+        assertTrue(zakum != null && zakum.minPlayers() > 1);
+        assertTrue(1 + BossRunScenarios.Ex2ZakumRoom.BOTS >= zakum.minPlayers(), "GM and bots, no alt");
+        assertTrue(1 + BossRunScenarios.Ex2ZakumRoom.BOTS_WITH_ALT + 1 >= zakum.minPlayers(), "GM, bots and the alt");
+        assertTrue(1 + BossRunScenarios.Ex2ZakumRoom.BOTS <= 6, "a party holds six");
     }
 }

@@ -248,41 +248,55 @@ public final class MarketQa {
                     + "the real drop chance (one global row each, 1200 per million, about 2.2 per trader-hour), so run "
                     + "this again later (" + online + " traders online)");
         }
-        for (Cand c : holders) {
-            Ticker pick = MarketTraders.heldItem(scrolls, c.w());
-            out.add("trader " + c.t.id() + " (" + c.t.archetype() + ") holds " + c.w().have(c.k.asset()) + " " + c.k.id()
-                    + "; its pick is " + (pick == null ? "none" : pick.id()));
-            if (pick == null || !pick.id().equals(c.k.id())) {
-                bad.add("trader " + c.t.id() + " held " + c.k.id() + " and picked "
-                        + (pick == null ? "no scroll at all" : pick.id()));
+        // a trader holding both scrolls offers the one it holds most of (heldItem): judge each trader once, on that
+        // pick, which must be a scroll it really holds with no other held scroll outnumbering it
+        List<Cand> picks = new ArrayList<>();
+        java.util.Set<Long> seen = new java.util.HashSet<>();
+        for (Cand h0 : holders) {
+            if (!seen.add(h0.t.id())) {
+                continue;
             }
-        }
-        // a real order through the exchange, from the trader's own holdings: the first SELL its own decision makes
-        Cand c = holders.get(0);
-        Ticker tk = c.k;
-        TraderBrain.View v = MarketTraders.view(ex, tk, now, 0, FairValue.of(tk.id()));
-        List<TraderBrain.Open> open = new ArrayList<>();
-        for (OrderRow r : ex.openBotOrders(c.w.account(), tk.id())) {
-            open.add(new TraderBrain.Open(r.id(), r.side(), r.price(), r.nxLeft(), r.placedAt()));
-        }
-        TraderBrain.Holdings h = new TraderBrain.Holdings(c.w.have(Asset.MESO), c.w.have(tk.asset()), open,
-                Math.max(0, tk.perDay() - ex.placedToday(c.w.account(), tk.id())), tk.maxOpen());
-        TraderBrain.Place sell = null;
-        for (int seed = 1; seed <= 20 && sell == null; seed++) {
-            for (TraderBrain.Action a : TraderBrain.decide(c.t.archetype(), v, h, now, new java.util.Random(seed))) {
-                if (a instanceof TraderBrain.Place p && p.side() == Side.SELL) {
-                    sell = p;
-                    break;
+            Ticker pick = MarketTraders.heldItem(scrolls, h0.w());
+            StringBuilder held = new StringBuilder();
+            long most = 0;
+            for (Ticker k : scrolls) {
+                long n = h0.w().have(k.asset());
+                most = Math.max(most, n);
+                if (n > 0) {
+                    held.append(held.length() > 0 ? " and " : "").append(n).append(' ').append(k.id());
                 }
             }
+            out.add("trader " + h0.t.id() + " (" + h0.t.archetype() + ") holds " + held + "; its pick is "
+                    + (pick == null ? "none" : pick.id()));
+            if (pick == null) {
+                bad.add("trader " + h0.t.id() + " held a scroll and picked no scroll at all");
+            } else if (h0.w().have(pick.asset()) < most) {
+                bad.add("trader " + h0.t.id() + " picked " + pick.id() + " though it holds more of another scroll");
+            } else {
+                picks.add(new Cand(h0.t, h0.w(), pick));
+            }
         }
-        if (sell == null) {
-            bad.add("no turn of trader " + c.t.id() + " (" + c.t.archetype() + ") would ever sell the " + tk.id()
-                    + " it holds");
-        } else {
+        // a real order through the exchange, from a holder's own holdings: the first SELL its own decision makes. An
+        // archetype that never sells a held scroll (MOMENTUM waits for a trend) or a trader inside its order cooldown
+        // (the other checks and the traders' own turns order too) is passed over for the next holder.
+        boolean judged = false;
+        int cooling = 0, sellers = 0;
+        for (Cand c : picks) {
+            Ticker tk = c.k;
+            TraderBrain.Place sell = firstSell(ex, c.t, c.w, tk, now);
+            if (sell == null) {
+                continue;
+            }
+            sellers++;
             long have0 = c.w.have(tk.asset()), meso0 = c.w.have(Asset.MESO);
             Exchange.Response r = ex.placeBot(new Exchange.Place("qa-xc5-" + c.t.id() + "-" + now, c.w.account(),
                     c.w.character(), Side.SELL, sell.price(), sell.qty(), tk.id()), c.w);
+            if ("COOLDOWN".equals(r.code())) {
+                cooling++;
+                out.add("trader " + c.t.id() + " is inside the order cooldown: trying the next holder");
+                continue;
+            }
+            judged = true;
             if (!r.ok()) {
                 out.add("the sell of " + sell.qty() + " " + tk.id() + " at " + sell.price() + " was refused: "
                         + r.code() + " " + r.message());
@@ -303,9 +317,42 @@ public final class MarketQa {
                     bad.add("the trader's " + tk.id() + " order did not post, hold, price in band and cancel cleanly");
                 }
             }
+            break;
+        }
+        if (!judged && bad.isEmpty() && !picks.isEmpty()) {
+            // every holder picked its scroll, but no order could be judged: say why and wait for a better moment
+            out.add(0, cooling > 0
+                    ? "SKIP all " + cooling + " scroll holder(s) that would sell were inside the order cooldown; run "
+                    + "this again"
+                    : "SKIP the " + picks.size() + " online scroll holder(s) picked their scroll but none of their "
+                    + "archetypes sells it on a flat market (first: trader " + picks.get(0).t.id() + ", "
+                    + picks.get(0).t.archetype() + "); run this again when another archetype holds one");
+            return out;
+        }
+        if (!judged && bad.isEmpty()) {
+            bad.add("no trader could be judged");
         }
         out.add(0, bad.isEmpty() ? "PASS a scroll holder lists its scroll" : "FAIL " + String.join("; ", bad));
         return out;
+    }
+
+    /** The first SELL a trader's own decision makes for a scroll it holds over a handful of seeds, or null. */
+    private static TraderBrain.Place firstSell(Exchange ex, MarketTraders.Trader t, LiveWallet w, Ticker tk, long now) {
+        TraderBrain.View v = MarketTraders.view(ex, tk, now, 0, FairValue.of(tk.id()));
+        List<TraderBrain.Open> open = new ArrayList<>();
+        for (OrderRow r : ex.openBotOrders(w.account(), tk.id())) {
+            open.add(new TraderBrain.Open(r.id(), r.side(), r.price(), r.nxLeft(), r.placedAt()));
+        }
+        TraderBrain.Holdings h = new TraderBrain.Holdings(w.have(Asset.MESO), w.have(tk.asset()), open,
+                Math.max(0, tk.perDay() - ex.placedToday(w.account(), tk.id())), tk.maxOpen());
+        for (int seed = 1; seed <= 20; seed++) {
+            for (TraderBrain.Action a : TraderBrain.decide(t.archetype(), v, h, now, new java.util.Random(seed))) {
+                if (a instanceof TraderBrain.Place p && p.side() == Side.SELL) {
+                    return p;
+                }
+            }
+        }
+        return null;
     }
 
     /**

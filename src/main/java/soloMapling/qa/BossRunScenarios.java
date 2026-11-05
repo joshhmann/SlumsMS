@@ -45,7 +45,13 @@ final class BossRunScenarios {
 
     /** ex-2: the GM, two or more party bots and his own alt, through Adobis's path into Zakum's altar. */
     static final class Ex2ZakumRoom implements QaScenario {
-        static final int BOTS = 4;
+        /**
+         * Party bots staged next to the GM when no alt comes: the Zakum row takes 6-30 members
+         * (Orchestrator: {@code zakum takes 6-30 members, not 5} ends the run before it starts), and a party holds six.
+         * With an alt the alt is the sixth.
+         */
+        static final int BOTS = 5;
+        static final int BOTS_WITH_ALT = 4;
         static final int MIN_SECONDS = 90;
         static final int MAX_SECONDS = 150;
 
@@ -89,7 +95,7 @@ final class BossRunScenarios {
             if (!ctx.world().warp(gm, RECRUIT_MAP)) {
                 throw new QaRefusal("Map " + RECRUIT_MAP + " (where Adobis stands) does not exist here.");
             }
-            List<Integer> bots = ctx.world().stageDojoFollowers(gm, BOTS);
+            List<Integer> bots = ctx.world().stageDojoFollowers(gm, altName.isEmpty() ? BOTS : BOTS_WITH_ALT);
             if (bots.size() < 2) {
                 ctx.world().unstageDojoFollowers(bots);
                 throw new QaRefusal("At least two follower bots are needed (is your party full?).");
@@ -147,6 +153,7 @@ final class BossRunScenarios {
             String state = ctx.world().ex2Run(ctx.gm());
             r.sawAbandon |= state.contains("Abandon");
             r.sawStuck |= state.contains("could not be put in map");
+            r.sawRun |= !state.equals("no run");
             int inRoom = 0;
             r.swings = 0;
             r.damage = 0;
@@ -187,7 +194,7 @@ final class BossRunScenarios {
                 ctx.run().note("EX2", check(new Facts(r.reached.size(), r.members.size(), r.bossTarget, r.reach,
                         r.swings, r.damage, r.altarHit, r.sawAbandon, r.sawStuck, on)));
                 Observed o = new Observed(second, on, state.contains("cleared=true"), endedBecause(state), inRoom,
-                        r.members.size(), r.swings, r.damage, r.sawAbandon, r.altarHit, second >= MAX_SECONDS);
+                        r.members.size(), r.swings, r.damage, r.sawAbandon, r.altarHit, true, r.sawRun);
                 ctx.run().note("EX2", verdict(o));
             }
         }
@@ -234,7 +241,7 @@ final class BossRunScenarios {
     /** What ex-2 saw over its window, so the verdict can be judged without a server. */
     record Observed(int seconds, boolean bossOn, boolean cleared, String endedBecause, int membersInRoom,
                     int membersTotal, long swings, long damage, boolean abandonSeen, boolean altarHit,
-                    boolean windowOver) {
+                    boolean windowOver, boolean runSeen) {
     }
 
     /** What {@link #check(Facts)} prints, so the line can be judged without a server. */
@@ -264,6 +271,11 @@ final class BossRunScenarios {
         }
         if (!o.altarHit()) {
             return "EX2 FAIL the Eye of Fire was never opened " + facts;
+        }
+        if (!o.runSeen()) {
+            // the members fought by themselves with nothing driving the room (a party under the row's minimum ends
+            // its run at the start): that is a staging or arming fault, never "still fighting"
+            return "EX2 FAIL no mechanics run was ever armed for the room " + facts;
         }
         if (o.membersInRoom() == 0) {
             return "EX2 FAIL nobody reached " + ALTAR_MAP + " " + facts;
@@ -298,6 +310,7 @@ final class BossRunScenarios {
         boolean reach;
         boolean sawAbandon;
         boolean sawStuck;
+        boolean sawRun;
         boolean verdictDone;
 
         Run(List<Integer> members, long startedMs) {

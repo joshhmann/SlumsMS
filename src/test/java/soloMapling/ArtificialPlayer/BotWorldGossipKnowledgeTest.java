@@ -206,6 +206,20 @@ class BotWorldGossipKnowledgeTest {
         assertEquals(1, BotMemory.about(FRIEND - B, PLAYER).size());
     }
 
+    @Test
+    void canPassAnswersWhatPassWouldDoWithoutTellingAnyone() {
+        long now = clock.get();
+        zakum(now, WITNESS);
+        assertFalse(BotWorldGossip.canPass(STRANGER, FRIEND, now), "it never heard it");
+        assertFalse(BotWorldGossip.canPass(WITNESS, WITNESS, now));
+        assertFalse(BotWorldGossip.canPass(WITNESS, PLAYER, now), "the subject needs no telling");
+        assertTrue(BotWorldGossip.canPass(WITNESS, FRIEND, now));
+        assertTrue(BotWorldGossip.canPass(WITNESS, FRIEND, now), "asking told nobody");
+        assertEquals(0, BotMemory.about(FRIEND - B, PLAYER).size());
+        assertNotNull(BotWorldGossip.pass(WITNESS, FRIEND, now, new Random(1)));
+        assertFalse(BotWorldGossip.canPass(WITNESS, FRIEND, now + 1000), "already told");
+    }
+
     private static int PLAYER_AS_BOT() {
         return PLAYER;
     }
