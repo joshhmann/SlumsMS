@@ -266,7 +266,7 @@ def main():
     db = setting(args, "db", "SLUMS_MARKET_DB", "/var/lib/slums-market/market.db")
     inbox = setting(args, "inbox", "SLUMS_MARKET_INBOX", "/var/lib/slums-market/inbox")
     outbox = setting(args, "outbox", "SLUMS_MARKET_OUTBOX", "/var/lib/slums-market/outbox")
-    items = setting(args, "items", "SLUMS_MARKET_ITEMS", "/srv/slums-site/database/search-index.json")
+    items = setting(args, "items", "SLUMS_MARKET_ITEMS", "/srv/slums-site/street/search-index.json")
     untradeable = setting(args, "untradeable", "SLUMS_MARKET_UNTRADEABLE", "/srv/slums-site/market/untradeable.json")
     port = int(setting(args, "port", "SLUMS_MARKET_PORT", 8095))
     exchange = setting(args, "exchange", "SLUMS_MARKET_EXCHANGE", "off") == "on"

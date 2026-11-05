@@ -46,7 +46,7 @@
   function clock(iso) { var d = new Date(iso); return isNaN(d) ? "" : d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }); }
   function pct(p) { return p === null || p === undefined ? "-" : (p > 0 ? "▲ +" : p < 0 ? "▼ " : "") + p.toFixed(2) + "%"; }
   function dirOf(p) { return p === null || p === undefined || Math.abs(p) < 0.005 ? "flat" : p > 0 ? "up" : "down"; }
-  function icon(t) { return t && t.item_id ? ROOT + "database/icons/items/" + t.item_id + ".png" : ROOT + "assets/brand/badge-180.png"; }
+  function icon(t) { return t && t.item_id ? ROOT + "street/icons/items/" + t.item_id + ".png" : ROOT + "assets/brand/badge-180.png"; }
   // a catalog item Slums Street has no icon for (18 on TEST, 2026-11-05) shows the badge instead of a broken image
   function iconFail(e) { var i = e.target; if (!i.dataset.f) { i.dataset.f = "1"; i.src = ROOT + "assets/brand/badge-180.png"; } }
   // Object.assign would read the getters once; copy them as getters

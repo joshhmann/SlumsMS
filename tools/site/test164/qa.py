@@ -50,7 +50,7 @@ FAKE = {name: _RUN + i for i, name in enumerate(("limits", "revoke", "signout", 
 PAGES = ["/", "/join/", "/forgot/", "/login/", "/guide/", "/guide/getting-started.html", "/patch-notes/", "/report/", "/login/",
          "/world/", "/world/feed/", "/world/feed/megaphone.html", "/world/feed/drama.html", "/world/rankings/level.html",
          "/world/economy.html", "/robots.txt"]
-GATED = ["/database/", "/market/", "/market/board.html"]
+GATED = ["/street/", "/market/", "/market/board.html"]
 BRANDS = ["maplestory", "maple story", "nexon", "wizet", "v83"]
 
 results = []
@@ -131,11 +131,11 @@ def age_minutes(iso):
 def pages(http, quick):
     paths = list(PAGES)
     if not quick:  # Slums Street too: 8 random pages from each of its sections, and its own front pages
-        listing = ssh(f"cd {SITE_DIR}/database && for d in items mobs maps npcs quests; do ls $d | shuf -n 8 | sed \"s|^|$d/|\"; done")
-        paths += ["/database/", "/database/changes.html"] + ["/database/" + p for p in listing.split() if p.endswith(".html")]
+        listing = ssh(f"cd {SITE_DIR}/street && for d in items mobs maps npcs quests; do ls $d | shuf -n 8 | sed \"s|^|$d/|\"; done")
+        paths += ["/street/", "/street/changes.html"] + ["/street/" + p for p in listing.split() if p.endswith(".html")]
     bad, noindex, brand = [], [], []
     for p in paths:
-        st, hd, body, _ = http("GET", p, token=TOKENS["limits"] if p.startswith("/database") else None)
+        st, hd, body, _ = http("GET", p, token=TOKENS["limits"] if p.startswith("/street") else None)
         if st != 200:
             bad.append(f"{p} {st}")
             continue
@@ -444,7 +444,7 @@ def browser(quick):
     except ImportError:
         report("SKIP", "light/dark themes and phone width", "Playwright isn't installed")
         return
-    paths = ["/", "/world/", "/world/feed/", "/login/", "/guide/getting-started.html", "/market/", "/database/"]
+    paths = ["/", "/world/", "/world/feed/", "/login/", "/guide/getting-started.html", "/market/", "/street/"]
     with sync_playwright() as p:
         b = p.chromium.launch()
         problems, same = [], []
@@ -491,7 +491,7 @@ def main():
         TOKENS[name] = mint(acct, {"limits": "QaLimits", "launcher": "QaLauncher", "posts": "QaPosts"}.get(name, "QaPlayer"))
     if not ok(all(TOKENS.values()), f"test sessions made on {TEST_HOST} with the TEST key"):
         return 1
-    st, _, _, idx = http("GET", "/database/search-index.json", token=TOKENS["limits"])
+    st, _, _, idx = http("GET", "/street/search-index.json", token=TOKENS["limits"])
     untradeable = set(http("GET", "/market/untradeable.json", token=TOKENS["limits"])[3] or [])
     rows = idx if isinstance(idx, list) else []  # [["i", itemId, name], ...] (items; other kinds are mobs, maps...)
     ITEMS[:] = [r[1] for r in rows if isinstance(r, list) and len(r) > 1 and r[0] == "i" and isinstance(r[1], int)

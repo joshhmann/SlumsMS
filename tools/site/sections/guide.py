@@ -38,7 +38,7 @@ def link_cells(body, links):
         text = html.unescape(m.group(1))
         # the guide sometimes names the region ("Leafre: ...") where the data has the street; then the name alone
         hit = links.get(text) or (links.get(text.split(": ", 1)[1]) if ": " in text else None)
-        return f'<td><a href="../database/{hit[0]}/{hit[1]}.html">{m.group(1)}</a></td>' if hit else m.group(0)
+        return f'<td><a href="../street/{hit[0]}/{hit[1]}.html">{m.group(1)}</a></td>' if hit else m.group(0)
     return re.sub(r"<td>([^<]*[A-Za-z][^<]*)</td>", repl, body)
 
 

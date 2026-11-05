@@ -182,7 +182,7 @@ def rebuild_section(name, out, private=False, live=False):
     rels = notes.releases()
     set_context(rels, sections_for(private, live or name == "world"))
     copy_assets(out, private)
-    folder = {"notes": "patch-notes", "guide": "guide", "database": "database", "market": "market",
+    folder = {"notes": "patch-notes", "guide": "guide", "database": "street", "market": "market",
               "world": "world", "admin": "admin"}.get(name)
     if not folder:  # pages: a few single files, written in place
         build_section(name, out, rels)

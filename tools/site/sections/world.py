@@ -213,10 +213,10 @@ class World:
         if not (self.links_db and rec):
             return f"<b>{esc(name)}</b>"
         pic = ""
-        if os.path.isfile(os.path.join(self.site_root, "database", "icons", "mobs", f"{mob_id}.png")):
-            pic = (f'<span class="slotc"><img class="px" src="{root}database/icons/mobs/{mob_id}.png" alt="" '
+        if os.path.isfile(os.path.join(self.site_root, "street", "icons", "mobs", f"{mob_id}.png")):
+            pic = (f'<span class="slotc"><img class="px" src="{root}street/icons/mobs/{mob_id}.png" alt="" '
                    f'loading="lazy" decoding="async"></span>')
-        return f'{pic}<a href="{root}database/mobs/{mob_id}.html"><b>{esc(name)}</b></a>'
+        return f'{pic}<a href="{root}street/mobs/{mob_id}.html"><b>{esc(name)}</b></a>'
 
     def map_name(self, map_id, fallback, root):
         """A map's name, linked to its Slums Street page when this build has the database."""
@@ -224,14 +224,14 @@ class World:
         room = fm_room(map_id, name)
         if room:  # the rooms have no page of their own: "Free Market room 12", linked to the entrance's
             if self.links_db and self.db and FM_ENTRANCE in self.db.get("maps", {}):
-                return f'<a href="{root}database/maps/{FM_ENTRANCE}.html">Free Market room {room}</a>'
+                return f'<a href="{root}street/maps/{FM_ENTRANCE}.html">Free Market room {room}</a>'
             return f"Free Market room {room}"
         if not _is(map_id, int):
             return esc(name or "somewhere")
         if self.db and map_id in self.db.get("maps", {}):
             name = name or self.db["maps"][map_id].get("name")
             if self.links_db:
-                return f'<a href="{root}database/maps/{map_id}.html">{esc(name)}</a>'
+                return f'<a href="{root}street/maps/{map_id}.html">{esc(name)}</a>'
         return esc(name or f"Map {map_id}")
 
     def text(self, it):

@@ -366,9 +366,9 @@ class GuideLinksTest(unittest.TestCase):
         links = guide.db_links(data)
         body = guide.link_cells("<td>Henesys: Henesys</td><td>Leafre: Dragon Forest II</td><td>Snail</td>"
                                 "<td>Nowhere: Lost</td><td>2-7</td>", links)
-        self.assertIn('<a href="../database/maps/1.html">Henesys: Henesys</a>', body)
-        self.assertIn('<a href="../database/maps/5.html">Leafre: Dragon Forest II</a>', body)
-        self.assertIn('<a href="../database/mobs/9.html">Snail</a>', body)
+        self.assertIn('<a href="../street/maps/1.html">Henesys: Henesys</a>', body)
+        self.assertIn('<a href="../street/maps/5.html">Leafre: Dragon Forest II</a>', body)
+        self.assertIn('<a href="../street/mobs/9.html">Snail</a>', body)
         self.assertIn("<td>Nowhere: Lost</td><td>2-7</td>", body)
 
 
@@ -955,6 +955,25 @@ console.log(JSON.stringify(out));""")
         self.assertIn("self.staleGame = !!(a.data && a.data.game)", js)
         self.assertIn("The game restarted since you signed in", js)
 
+    def test_slums_street_lives_at_street_and_old_database_links_redirect(self):
+        # qw01 (owner's idea, done in 1.6.4): the URL says Slums Street; every old /database/ link gets a 301
+        from sections import database
+        self.assertEqual(database.DB, "street")
+        self.assertIn(("street/", "Slums Street", "database"), build.common.NAV)
+        for conf in ("slums-login.nginx.conf", os.path.join("test164", "nginx.conf")):
+            with open(os.path.join(build.common.HERE, conf), encoding="utf-8") as f:
+                text = f.read()
+            self.assertIn("location ^~ /database/ {", text, conf)
+            self.assertIn("rewrite ^/database/(.*)$ /street/$1 permanent;", text, conf)
+            gate = text[text.index("location /street/ {"):]
+            self.assertIn("auth_request /api/auth/check;", gate[:gate.index("}")], conf + ": /street/ needs the sign-in")
+        assets = os.path.join(build.common.HERE, "..", "..", "docs", "site", "assets")
+        for js in os.listdir(assets):
+            if js.endswith(".js"):
+                with open(os.path.join(assets, js), encoding="utf-8") as f:
+                    self.assertNotIn('"database/', f.read(), js)
+        self.assertIn("street", __import__("check").PRIVATE_SECTIONS)
+
     def test_the_exchange_lists_catalog_items_in_a_browser_and_item_pages_link_to_them(self):
         # ticket 270 (1.6.4): ~700 item tickers go in a searchable list, not the tab strip
         from sections import database, market
@@ -1215,7 +1234,7 @@ console.log(JSON.stringify(out));""")
         finally:
             build.common.BUILT.clear()
         self.assertEqual(wo.map_name(910000012, "Free Market<12>", "../"),
-                         '<a href="../database/maps/910000000.html">Free Market room 12</a>')
+                         '<a href="../street/maps/910000000.html">Free Market room 12</a>')
         wo = world.World(world.load(self.data), {"sample": False}, self.out, None)
         self.assertEqual(wo.map_name(910000012, "Free Market<12>", "../"), "Free Market room 12")
 

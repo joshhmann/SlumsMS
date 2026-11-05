@@ -118,7 +118,7 @@ No reload is needed: the web server serves the new files right away.
 **Once the market and World are live** (docs/site/LAUNCH.md steps 5 and 6), timers on 164 own
 `/srv/slums-site/market/` and `/srv/slums-site/world/`. Every publish from 187 must then be a `--private --world` build
 and keep its hands off both: `rsync -a --delete --exclude market/ --exclude world/ ...`. Before that copy, check the
-build has the icons (`ls <build>/database/icons/items | wc -l` is in the thousands, not 0): a build made without
+build has the icons (`ls <build>/street/icons/items | wc -l` (`database/` before 1.6.4) is in the thousands, not 0): a build made without
 `cache/site-icons` has empty icon slots, and the `--delete` removes the live icons (it happened on 2026-10-28 at
 21:50 UTC; restored from the backup at 02:53 UTC). Without rsync, copy the tarball instead:
 
@@ -126,6 +126,28 @@ build has the icons (`ls <build>/database/icons/items | wc -l` is in the thousan
 scp dist/slums-site.tar.gz root@<lxc-address>:/tmp/
 ssh root@<lxc-address> 'rm -rf /srv/slums-site/* && tar -xzf /tmp/slums-site.tar.gz -C /srv/slums-site --strip-components=1'
 ```
+
+## 3d. Slums Street moves to /street/ (1.6.4, qw01): the one-time live steps
+
+The build writes Slums Street to `street/` instead of `database/`. The first live publish of a build with this change
+also needs these steps, in this order (owner's go, like any live change). Neither path is ever served without the
+sign-in check, and no link is broken at any point:
+
+1. Back up the site's nginx file (`cp -p /etc/nginx/sites-available/slums-site{,.pre-street}`). In its `server { }`,
+   add a copy of the `location /database/ { ... }` block named `location /street/ { ... }`, keeping the old one.
+   Then `nginx -t && systemctl reload nginx`. Both paths are now gated; /street/ is still empty (404).
+2. Build into a new folder as in 3b step 2, and compare the icon counts of the new `street/icons/{items,mobs,npcs}` with
+   live's `database/icons/...`.
+3. Swap the folder in (3b step 3). The new pages link to /street/. Old /database/ links answer 404 until step 4,
+   a minute at most.
+4. Replace the old `location /database/ { ... }` with the redirect from `tools/site/slums-login.nginx.conf`:
+   `location ^~ /database/ { rewrite ^/database/(.*)$ /street/$1 permanent; }`, then `nginx -t && systemctl reload nginx`.
+5. The market unit's `SLUMS_MARKET_ITEMS` still names `database/search-index.json`. market_service.py reads
+   `street/search-index.json` once the old file is gone, so nothing breaks. Set it to the street path (diff the unit
+   first) and restart `slums-market` the next time it is restarted anyway.
+6. Checks (`B=http://127.0.0.1:8092`): `curl -sI $B/database/items/2000000.html` gives 301 to
+   `/street/items/2000000.html`; signed out, `$B/street/` gives the sign-in redirect; signed in, `/street/` and a
+   market item page load.
 
 ## 3b. Release night for the 1.6.2 site (owner's go for each step)
 

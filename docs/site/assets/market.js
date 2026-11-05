@@ -86,7 +86,7 @@
       input.removeAttribute("data-id");
       list.textContent = "";
       if (q.length < 2) return;
-      (items ? Promise.resolve(items) : getJSON("database/search-index.json").then(function (rows) {
+      (items ? Promise.resolve(items) : getJSON("street/search-index.json").then(function (rows) {
         items = (rows || []).filter(function (r) { return r[0] === "i" && !blocked[r[1]]; });
         return items;
       })).then(function (rows) {
@@ -305,7 +305,7 @@
     input.addEventListener("input", function () { priceLine(null); });
     var pre = new URLSearchParams(location.search).get("item");
     if (pre && /^\d+$/.test(pre)) {
-      getJSON("database/search-index.json").then(function (rows) {
+      getJSON("street/search-index.json").then(function (rows) {
         items = (rows || []).filter(function (r) { return r[0] === "i"; });
         var hit = items.filter(function (r) { return String(r[1]) === pre; })[0];
         if (hit) { input.value = hit[2]; input.setAttribute("data-id", hit[1]); priceLine(hit[1]); }

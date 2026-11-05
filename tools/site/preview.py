@@ -8,7 +8,7 @@ For looking at the site before launch, never for players. Nothing here talks to 
 - Sign-in takes any username with the password "preview1"; sign-up takes the invite code "PREVIEW" (any other code
   is refused, like a used one). The sign-up rules and the messages are the real ones. Sign out works too.
 - Forgot password: a request is "approved" by a pretend admin 15 seconds after it's made.
-- /database/, /market/ and /secret/ need that pretend sign-in, like nginx does on 164 (auth_request).
+- /street/ (Slums Street), /market/ and /secret/ need that pretend sign-in, like nginx does on 164 (auth_request).
 - The market API (/api/market/) answers 503, so the market pages show their read-only view.
 World and market data are whatever the build used (the samples unless --site-data / --market-data were given).
 """
@@ -25,7 +25,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import login_service as ls  # noqa: E402  (the real rules and messages)
 SESSION = "slums_session"
-GATED = ("/database/", "/market/", "/secret/")
+GATED = ("/street/", "/market/", "/secret/")
 
 
 class Handler(SimpleHTTPRequestHandler):

@@ -16,7 +16,9 @@ from sections import buddy
 from sections import dbdata
 
 ICONS = os.path.join(REPO, "cache", "site-icons")
-DB = "database"
+# The section is "database" in the code (nav key, --section, BUILT); its URL is street/ since 1.6.4 (owner's idea qw01:
+# "rename pages, e.g. database to Slums Street"). nginx sends every old /database/ link to /street/ with a 301.
+DB = "street"
 
 # ── categories ───────────────────────────────────────────────────────────────────────────────────
 

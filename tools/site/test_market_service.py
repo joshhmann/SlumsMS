@@ -28,6 +28,26 @@ class Clock:
         return self.t
 
 
+class ItemsMoveTest(unittest.TestCase):
+    def test_a_unit_naming_the_old_database_index_reads_the_street_one(self):
+        # Slums Street moved to street/ in 1.6.4 (qw01); live's unit names /srv/slums-site/database/search-index.json
+        tmp = tempfile.mkdtemp()
+        try:
+            os.makedirs(os.path.join(tmp, "street"))
+            with open(os.path.join(tmp, "street", "search-index.json"), "w") as f:
+                json.dump(ITEMS, f)
+            items = ms.Items(os.path.join(tmp, "database", "search-index.json"))
+            self.assertEqual(items.path, os.path.join(tmp, "street", "search-index.json"))
+            self.assertEqual(items.get()[2000000], "Red Potion")
+            os.makedirs(os.path.join(tmp, "database"))
+            with open(os.path.join(tmp, "database", "search-index.json"), "w") as f:
+                json.dump(ITEMS, f)
+            self.assertTrue(ms.Items(os.path.join(tmp, "database", "search-index.json")).path.endswith("database/search-index.json"),
+                            "an old file that is still there is used as named")
+        finally:
+            shutil.rmtree(tmp)
+
+
 class Base(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()

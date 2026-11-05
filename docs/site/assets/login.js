@@ -11,7 +11,7 @@
   function next() {
     // only a path on this site, never another site
     var n = new URLSearchParams(location.search).get("next") || "";
-    return /^\/(?!\/)[\w\-./]*$/.test(n) ? n : "../database/";
+    return /^\/(?!\/)[\w\-./]*$/.test(n) ? n : "../street/";
   }
   function signedIn(who, el) { say("Signed in as " + (who || "you") + ". Taking you there...", "ok", el); location.href = next(); }
   function asJson(r) { return r.json().then(function (j) { return { status: r.status, body: j }; }, function () { return { status: r.status, body: {} }; }); }
@@ -65,7 +65,7 @@
     } else if (j.signed_in) {
       say("You're signed in as " + (j.character || j.account || "a player") + ".", "ok");
       // the links are added here: a public page never links to the signed-in sections (check.py)
-      go.innerHTML = '<a class="btn primary" href="../database/">Slums Street</a><a class="btn" href="../market/">Slums Market</a>';
+      go.innerHTML = '<a class="btn primary" href="../street/">Slums Street</a><a class="btn" href="../market/">Slums Market</a>';
       outLine.hidden = false; go.hidden = false; forms.hidden = true;
     }
   }).catch(function () {});

@@ -23,7 +23,7 @@ import common
 import exchange_desk
 from common import REPO, esc, layout, strf, write
 from sections import buddy
-from sections.database import exchange_line, fallback_icon, scrub
+from sections.database import DB, exchange_line, fallback_icon, scrub
 
 MARKET = "market"
 DEFAULT_DIR = os.environ.get("SLUMS_MARKET_DATA", os.path.join(REPO, "cache", "market-sample"))
@@ -392,9 +392,9 @@ class Market:
     def icon(self, item_id, root, big=False):
         # the database section publishes icons of its own items; on 164 the market timer finds them already there
         # (with the icons of items that have no page but turn up here: data/site/extra-icon-items.txt)
-        p = os.path.join(self.site_root, "database", "icons", "items", f"{item_id}.png")
+        p = os.path.join(self.site_root, DB, "icons", "items", f"{item_id}.png")
         if os.path.isfile(p):
-            return (f'<span class="slotc{" big" if big else ""}"><img class="px" src="{root}database/icons/items/{item_id}.png" '
+            return (f'<span class="slotc{" big" if big else ""}"><img class="px" src="{root}street/icons/items/{item_id}.png" '
                     f'alt="" loading="lazy"></span>')
         return fallback_icon("items", item_id, root, big)
 
@@ -532,7 +532,7 @@ def build_prices(mk):
                 f'<a href="{{root}}{MARKET}/prices/index.html">Price check</a> &raquo; {esc(name)}</p>'
                 f'<div class="ent">{mk.icon(item_id, "{root}", big=True)}<div><h1>{esc(name)}</h1>'
                 f'<p class="id">Price check &middot; last {len(hist)} days'
-                + (f' &middot; <a href="{{root}}database/items/{item_id}.html">Slums Street page</a>' if item_id in mk.db["items"] else "")
+                + (f' &middot; <a href="{{root}}street/items/{item_id}.html">Slums Street page</a>' if item_id in mk.db["items"] else "")
                 + '</p>' + (exchange_line(mk.db["items"][item_id], item_id) if item_id in mk.db["items"] else "") + '</div></div>'
                 f'<div class="mkstats"><div class="hot"><small>Median{on}</small><b>{median}</b><span>mesos</span></div>'
                 f'<div><small>Lowest and highest sale{on}</small><b>{rng}</b><span>mesos</span></div>'

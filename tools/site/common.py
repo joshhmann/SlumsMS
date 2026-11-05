@@ -22,7 +22,7 @@ def strf(d, fmt):
 # ── layout ───────────────────────────────────────────────────────────────────────────────────────
 
 NAV = [("index.html", "Home", "home"), ("patch-notes/", "News", "notes"), ("world/", "World", "world"),
-       ("guide/", "Guides", "guide"), ("database/", "Slums Street", "database"), ("market/", "Slums Market", "market"),
+       ("guide/", "Guides", "guide"), ("street/", "Slums Street", "database"), ("market/", "Slums Market", "market"),
        ("report/", "Report", "report")]  # "How to play" is the home page's first button
 # World needs the server's site export, and Slums Street (the database) and Slums Market are for signed-in players:
 # each shows in the nav only in a build that includes it.

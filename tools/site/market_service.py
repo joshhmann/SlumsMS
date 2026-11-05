@@ -129,10 +129,15 @@ def rows_of(data, *keys):
 
 
 class Items:
-    """Item ids players may post or watch, with names: the site's own search index (database/search-index.json), and the
-    ones the game won't allow on the board (market/untradeable.json beside it, written by the market build)."""
+    """Item ids players may post or watch, with names: the site's own search index (street/search-index.json), and the
+    ones the game won't allow on the board (market/untradeable.json beside it, written by the market build).
+    Slums Street moved from database/ to street/ in 1.6.4 (qw01): a unit that still names the old file reads the new
+    one, so the market keeps its item names whichever is deployed first."""
 
     def __init__(self, path, untradeable=None):
+        moved = path.replace("/database/", "/street/") if path and "/database/" in path else None
+        if moved and not os.path.exists(path) and os.path.exists(moved):
+            path = moved
         self.path, self.mtime, self.names = path, None, {}
         self.untradeable_path, self.u_mtime, self.blocked = untradeable, None, set()
 
@@ -611,7 +616,7 @@ def main():
     db = setting(args, "db", "SLUMS_MARKET_DB", "/var/lib/slums-market/market.db")
     inbox = setting(args, "inbox", "SLUMS_MARKET_INBOX", "/var/lib/slums-market/inbox")
     outbox = setting(args, "outbox", "SLUMS_MARKET_OUTBOX", "/var/lib/slums-market/outbox")
-    items = setting(args, "items", "SLUMS_MARKET_ITEMS", "/srv/slums-site/database/search-index.json")
+    items = setting(args, "items", "SLUMS_MARKET_ITEMS", "/srv/slums-site/street/search-index.json")
     untradeable = setting(args, "untradeable", "SLUMS_MARKET_UNTRADEABLE", "/srv/slums-site/market/untradeable.json")
     port = int(setting(args, "port", "SLUMS_MARKET_PORT", 8095))
     store = Store(db, inbox, outbox, Items(items, untradeable))

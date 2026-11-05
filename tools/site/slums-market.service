@@ -22,7 +22,7 @@ Environment=SLUMS_MARKET_DB=/var/lib/slums-market/market.db
 # the game server (root) reads the inbox and writes the outbox; both live here because Server/ is root-only
 Environment=SLUMS_MARKET_INBOX=/var/lib/slums-market/inbox
 Environment=SLUMS_MARKET_OUTBOX=/var/lib/slums-market/outbox
-Environment=SLUMS_MARKET_ITEMS=/srv/slums-site/database/search-index.json
+Environment=SLUMS_MARKET_ITEMS=/srv/slums-site/street/search-index.json
 Environment=SLUMS_MARKET_UNTRADEABLE=/srv/slums-site/market/untradeable.json
 Environment=SLUMS_MARKET_PORT=8095
 Restart=on-failure
