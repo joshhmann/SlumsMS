@@ -85,6 +85,7 @@ class BossStagingTest {
         em = mock(EventManager.class);
         EventScriptManager scripts = mock(EventScriptManager.class);
         when(scripts.getEventManager("ZakumBattle")).thenReturn(em);
+        when(scripts.getEventManager("ChaosZakumBattle")).thenReturn(em);
         when(channel.getEventSM()).thenReturn(scripts);
         when(em.startInstance(any(Expedition.class))).thenReturn(true);
 
@@ -96,6 +97,7 @@ class BossStagingTest {
         ExpeditionBotsAccess.restoreQuota();
         BossStaging.crew = realCrew;
         System.clearProperty(Mechanics.BOSS_FLAG);
+        System.clearProperty("slums.chaos.zakum");
         System.clearProperty(ExpeditionBots.CAPTAIN_SWITCH);
     }
 
@@ -185,6 +187,35 @@ class BossStagingTest {
             verify(em).setProperty(eq("leader"), eq("Botcap"));
             verify(em).startInstance(any(Expedition.class));
         }
+    }
+
+    @Test
+    void chaosZakumHasARowSoABotOnlyRunCanBeStaged() {
+        sixBots();
+        crew.forEach(c -> when(c.getLevel()).thenReturn(120));
+        System.setProperty("slums.chaos.zakum", "true");
+        try (MockedStatic<Party> parties = partyStatics();
+             MockedStatic<ExpeditionBossLog> logs = mockStatic(ExpeditionBossLog.class)) {
+            partyOfTheCrew();
+            when(crew.get(0).getClient().getChannelServer()).thenReturn(channel);
+            logs.when(() -> ExpeditionBossLog.attemptBoss(any(Integer.class), any(Integer.class),
+                    any(Expedition.class), any(Boolean.class))).thenReturn(true);
+
+            String line = MechanicsCommand.runBoss(gm(), new MechanicsCommand.BossRequest(ExpeditionType.CHAOS_ZAKUM, 6));
+
+            assertFalse(line.contains("no mechanics content row"), line);
+            assertTrue(line.contains("STARTED"), line);
+            verify(em).startInstance(any(Expedition.class));
+        }
+    }
+
+    @Test
+    void chaosZakumStagingSaysWhenItsSwitchIsOff() {
+        sixBots();
+        BossStaging.Staged staged = BossStaging.start(gm(), ExpeditionType.CHAOS_ZAKUM, 6);
+        assertFalse(staged.started());
+        assertTrue(staged.why().contains("switched off"), staged.why());
+        assertTrue(staged.why().contains("slums.chaos.zakum"), staged.why());
     }
 
     @Test

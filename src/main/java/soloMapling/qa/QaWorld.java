@@ -554,6 +554,14 @@ public interface QaWorld {
     }
 
     /**
+     * ex-3: the same as {@link #ex2StartZakum} for Chaos Zakum - a CHAOS_ZAKUM channel expedition, the party's bots
+     * joining it (so the bots' daily Chaos limit applies), then {@code ChaosZakumBattle}'s {@code startInstance}.
+     */
+    default boolean ex3StartChaosZakum(Character gm) {
+        return false;
+    }
+
+    /**
      * ex-2: opens the Eye of Fire the way a player's click does - the same call
      * {@link soloMapling.mechanics.StepExecutor} makes ({@code reactor.hitReactor(client)}) - against the GM's client.
      * Returns what happened as one line; never throws, and never pretends a swing that did not happen.

@@ -54,12 +54,16 @@ public final class BossStaging {
         if (gm == null || gm.getClient() == null || gm.getClient().getChannelServer() == null) {
             return new Staged(ExpeditionBots.Door.REFUSED, List.of(), "you are not on a channel");
         }
-        RebirthBosses.Boss boss = type == null ? null : RebirthBosses.Boss.byType(type);
-        MechanicsModel.Content content = boss == null ? null : MechanicsRuns.contentFor(boss.script);
+        String script = type == null ? null : RebirthBosses.scriptFor(type);
+        MechanicsModel.Content content = script == null ? null : MechanicsRuns.contentFor(script);
         if (content == null) {
             return new Staged(ExpeditionBots.Door.NO_SCRIPT, List.of(),
                     "no mechanics content row for " + (type == null ? "that type" : type.name())
                             + " (mechanics/content/*.yaml)");
+        }
+        if (!Mechanics.rowFlagOn(content)) {
+            return new Staged(ExpeditionBots.Door.SWITCH_OFF, List.of(),
+                    content.name() + " is switched off on this server (its row names -D" + content.flag() + "=true)");
         }
         Channel channel = gm.getClient().getChannelServer();
         MapleMap recruit = channel.getMapFactory().getMap(content.recruitMap());

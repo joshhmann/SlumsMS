@@ -91,4 +91,28 @@ class BossRunCatalogTest {
                 "the boss lane is on (-Dslums.mechanics.boss=true)", "!qa stop"),
                 c.steps().stream().map(Check.Step::describe).toList());
     }
+
+    @Test
+    void aChaosZakumRoomWhereTheBotsFoughtPassesTheChaosCheck() throws Exception {
+        var v = AutoQaCatalogPatternTest.eval("t-ex-3",
+                "EX3 START members=6 bots=5 alt=none sample=90s/150s mechanics=true slums.mechanics.boss=true",
+                "EX3 ALTAR t=4 hit reactor 2111001 as AutoQaOne, 9 mob(s) on the map now",
+                "EX3 CHECK members=6/6 boss=yes reach=yes swings=812 dmg=401233 altar=yes abandoned=no stuck=no"
+                        + " boss-on=yes",
+                "EX3 PASS cleared members=6/6 swings=812 damage=401233 s=120");
+        for (Check.Verdict x : v) {
+            assertEquals(Check.Status.PASS, x.status(), x.toString());
+        }
+    }
+
+    @Test
+    void aChaosRunWithFiveMembersFailsBecauseTheRowTakesSix() throws Exception {
+        var v = AutoQaCatalogPatternTest.eval("t-ex-3",
+                "EX3 START members=5 bots=4 alt=none sample=90s/150s mechanics=true slums.mechanics.boss=true",
+                "EX3 ALTAR t=4 hit reactor 2111001 as AutoQaOne, 9 mob(s) on the map now",
+                "EX3 CHECK members=5/5 boss=yes reach=yes swings=812 dmg=401233 altar=yes abandoned=no stuck=no"
+                        + " boss-on=yes",
+                "EX3 END still fighting when the window closed members=5/5 swings=812 damage=401233 s=150");
+        assertEquals(Check.Status.FAIL, v.get(0).status());
+    }
 }

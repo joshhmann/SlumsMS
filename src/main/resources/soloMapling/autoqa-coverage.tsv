@@ -226,7 +226,10 @@ t-ng-10	tools/economy/gen_bridge_drops.py	bridge SQL and guide generator
 t-ng-10	src/main/java/soloMapling/qa/GearProgressionScenarios.java	hands-on guide, source, equip and combat checklist
 t-ng-10	src/main/java/soloMapling/autoqa/ProbesGear.java	read-only source rate probe
 t-ng-10	-Dslums.gear.bridge=true	normal guide and source proof are off by default
-t-ex-2	src/main/java/soloMapling/mechanics/content/zakum-chaos.yaml	the Chaos Zakum row (same altar, one instance id over)
+t-ex-3	src/main/java/soloMapling/qa/BossRunScenarios.java	stages scenario ex-3 (GM raised to 120 and five level-120 party bots; no alt needed)
+t-ex-3	src/main/java/soloMapling/mechanics/content/zakum-chaos.yaml	the Chaos Zakum row (same altar, one instance id over)
+t-ex-3	-Dslums.chaos.zakum=true	Chaos Zakum is opt-in; with it off ex-3 refuses to stage and the check SKIPs
+t-ex-3	-Dslums.mechanics.boss=true	the fight needs the boss lane on; with it off ex-3 reads EX3 BASELINE and the check SKIPs
 t-mx-1,t-mx-2,t-mx-3,t-mx-4,t-mx-5,t-mx-6	src/main/java/soloMapling/mechanics/content/cwkpq.yaml	the Crimsonwood Keep row: four rooms, the counting door and the host's summon chain
 t-mx-1,t-mx-2,t-mx-3,t-mx-4,t-mx-5,t-mx-6	src/main/java/soloMapling/mechanics/content/nwill.yaml	the Hard Will row: one room, the script's 5 s spawn, the instance's own clear flag
 t-mx-1,t-mx-2,t-mx-3,t-mx-4,t-mx-5,t-mx-6	src/main/java/soloMapling/mechanics/content/nlucid.yaml	the Hard Lucid row: one room, the script's 5 s spawn, the instance's own clear flag

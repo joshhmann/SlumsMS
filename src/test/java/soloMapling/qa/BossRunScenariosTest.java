@@ -174,4 +174,41 @@ class BossRunScenariosTest {
         assertTrue(1 + BossRunScenarios.Ex2ZakumRoom.BOTS_WITH_ALT + 1 >= zakum.minPlayers(), "GM, bots and the alt");
         assertTrue(1 + BossRunScenarios.Ex2ZakumRoom.BOTS <= 6, "a party holds six");
     }
+
+    // ── ex-3: Chaos Zakum ──
+
+    @Test
+    void ex3IsRegisteredAndTickedEverySecond() {
+        assertTrue(QaScenarios.all().stream().anyMatch(s -> s.id().equals("ex-3") && s.tickSeconds() == 1));
+    }
+
+    @Test
+    void theChaosStagedPartyIsAsBigAsTheChaosRowNeedsAndTheGmLevelFitsIt() {
+        soloMapling.mechanics.MechanicsModel.Content chaos =
+                soloMapling.mechanics.MechanicsRuns.contentFor("ChaosZakumBattle");
+        assertTrue(chaos != null && chaos.minPlayers() > 1, "the chaos row exists");
+        assertTrue(1 + BossRunScenarios.Ex2ZakumRoom.BOTS >= chaos.minPlayers(), "GM and bots, no alt");
+        assertTrue(1 + BossRunScenarios.Ex2ZakumRoom.BOTS_WITH_ALT + 1 >= chaos.minPlayers(), "GM, bots and the alt");
+        assertTrue(BossRunScenarios.CHAOS_LEVEL >= chaos.minLevel(), "the GM is raised to the row's level");
+        assertTrue(1 + BossRunScenarios.Ex2ZakumRoom.BOTS <= 6, "a party holds six");
+        assertEquals(chaos.minPlayers(), server.expeditions.ExpeditionType.CHAOS_ZAKUM.getMinSize());
+    }
+
+    @Test
+    void ex3ReportsWithItsOwnTagAndAltarRoom() {
+        BossRunScenarios.Observed o = new BossRunScenarios.Observed(120, true, true, null, 6, 6, 400, 90_000, false,
+                true, false, true);
+        assertTrue(BossRunScenarios.verdict(BossRunScenarios.Variant.CHAOS, o).startsWith("EX3 PASS cleared "));
+        BossRunScenarios.Observed none = new BossRunScenarios.Observed(120, true, false, null, 0, 6, 0, 0, false,
+                true, false, true);
+        assertTrue(BossRunScenarios.verdict(BossRunScenarios.Variant.CHAOS, none).contains("nobody reached 280030001"));
+        assertTrue(BossRunScenarios.verdict(BossRunScenarios.Variant.NORMAL, none).contains("nobody reached 280030000"));
+    }
+
+    @Test
+    void chaosBossTargetsAreTheChaosBodyAndArms() {
+        assertTrue(BossRunScenarios.bossMob(8800100, BossRunScenarios.Variant.CHAOS));
+        assertTrue(BossRunScenarios.bossMob(8800110, BossRunScenarios.Variant.CHAOS));
+        assertFalse(BossRunScenarios.bossMob(8800002, BossRunScenarios.Variant.CHAOS));
+    }
 }

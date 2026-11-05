@@ -262,6 +262,20 @@ public class ExpeditionBossLog {
         return used >= 0 && used < CHAOS_ZAKUM_BOT_DAILY_RUNS;
     }
 
+    /** Test seam: replaces the DB read of today's Chaos Zakum bot rows (pass null to put the real read back). */
+    public static void useChaosBotRunsToday(java.util.function.IntSupplier supplier) {
+        chaosBotRunsToday = supplier == null ? ExpeditionBossLog::countChaosBotRows : supplier;
+    }
+
+    /**
+     * How many more roster-bot entries Chaos Zakum has today (0 when the count cannot be read). Rows are written when a
+     * run starts, so a party filling up must be held to this number as it joins, not only checked bot by bot.
+     */
+    public static int chaosBotEntriesLeft() {
+        int used = chaosBotRunsToday.getAsInt();
+        return used < 0 ? 0 : Math.max(0, CHAOS_ZAKUM_BOT_DAILY_RUNS - used);
+    }
+
     private static int countChaosBotRows() {
         try (Connection con = DatabaseConnection.getConnection();
              PreparedStatement ps = con.prepareStatement("SELECT COUNT(*) FROM bosslog_daily WHERE bosstype = ? AND characterid > ?")) {

@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer.BotPartySystem;
 
 import client.Character;
 import client.QuestStatus;
+import config.YamlConfig;
 import net.server.channel.Channel;
 import net.server.world.Party;
 import net.server.world.PartyCharacter;
@@ -85,6 +86,9 @@ public final class ExpeditionBots {
     static volatile Quota quota = (bot, exped) -> ExpeditionBossLog.attemptBoss(bot.getId(),
             exped.getRecruitingMap().getChannelServer().getId(), exped, false);
 
+    /** Expeditions whose leader was already told the Chaos bot quota is spent (once each, not on every NPC step). */
+    private static final java.util.Set<Expedition> quotaTold = ConcurrentHashMap.newKeySet();
+
     /** What decides whether one party bot may join: read off the live characters by {@link #factsOf}. */
     record Facts(boolean bot, boolean member, boolean banned, boolean dead, boolean sameMap, int level, int ownerId,
                  boolean soleRealPlayer, boolean questOk, boolean alt, boolean ownerMember) {
@@ -133,7 +137,40 @@ public final class ExpeditionBots {
             }
             picked.add(bot);
         }
-        return register(leader, exped, picked);
+        boolean quotaRefused = capChaosBots(exped, picked);
+        List<String> joined = register(leader, exped, picked);
+        if (quotaRefused && quotaTold.add(exped)) {
+            leader.dropMessage(6, "[Expedition] " + CHAOS_QUOTA_TEXT);
+        }
+        return joined;
+    }
+
+    /** What the leader reads when the bots' shared daily Chaos Zakum runs are gone. */
+    static final String CHAOS_QUOTA_TEXT = "The bots have used all " + ExpeditionBossLog.CHAOS_ZAKUM_BOT_DAILY_RUNS
+            + " of today's Chaos Zakum runs, so no more bots will join you.";
+
+    /**
+     * Chaos Zakum lets roster bots in {@link ExpeditionBossLog#CHAOS_ZAKUM_BOT_DAILY_RUNS} times a day, all together,
+     * and the log row is written when the run starts. So bots already in this expedition count against what is left,
+     * and the bots picked now are cut to the rest. True when the quota refused any bot (cut now, or spent already).
+     */
+    static boolean capChaosBots(Expedition exped, List<Character> picked) {
+        if (exped.getType() != ExpeditionType.CHAOS_ZAKUM || !YamlConfig.config.server.USE_ENABLE_DAILY_EXPEDITIONS) {
+            return quotaFull.containsValue(exped);
+        }
+        int in = 0;
+        for (Integer id : exped.getMembers().keySet()) {
+            if (BotHelpers.isArtificial(id)) {
+                in++;
+            }
+        }
+        int left = Math.max(0, ExpeditionBossLog.chaosBotEntriesLeft() - in);
+        boolean cut = false;
+        while (picked.size() > left) {
+            picked.remove(picked.size() - 1);
+            cut = true;
+        }
+        return cut || quotaFull.containsValue(exped);
     }
 
     /**
@@ -192,8 +229,7 @@ public final class ExpeditionBots {
         if (channel.getExpedition(type) != null) {
             return Door.ROOM_TAKEN;
         }
-        RebirthBosses.Boss boss = RebirthBosses.Boss.byType(type);
-        String script = boss == null ? null : boss.script;
+        String script = RebirthBosses.scriptFor(type);
         EventManager em = script == null ? null : channel.getEventSM().getEventManager(script);
         if (em == null) {
             log.warn("[Expedition] {} has no event script in this tree, so a bot captain cannot start it", type);
@@ -315,7 +351,10 @@ public final class ExpeditionBots {
             case "level" -> "is level " + level + "; this expedition needs level " + type.getMinLevel()
                     + (type.getMaxLevel() < 255 ? " to " + type.getMaxLevel() : " or higher") + ".";
             case "quest" -> "has not done the quest this expedition needs.";
-            case "quota" -> "has no entries left for this boss today.";
+            case "quota" -> type == ExpeditionType.CHAOS_ZAKUM
+                    ? "cannot come: the bots have used all " + ExpeditionBossLog.CHAOS_ZAKUM_BOT_DAILY_RUNS
+                            + " of today's Chaos Zakum runs."
+                    : "has no entries left for this boss today.";
             case "busy" -> "is busy and cannot follow you right now.";
             default -> "cannot join (" + why + ").";
         };
@@ -408,6 +447,7 @@ public final class ExpeditionBots {
         }
         ExpeditionHold.release(exped);
         quotaFull.values().removeIf(e -> e == exped);
+        quotaTold.remove(exped);
         busy.values().removeIf(e -> e == exped);
     }
 
