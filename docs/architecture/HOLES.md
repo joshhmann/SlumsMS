@@ -9,7 +9,13 @@ the citation of record.
 > an index to an item id, `UseCashItemHandler.java:771`), #6 (boot `System.exit(0)`, `Server.java:1004`). The release gate
 > weakness (ops/safety-guards) was verified and fixed in 1.6.4 (b323, 5011fc88c). CORRECTED: "`@botme` is dead on live"
 > is wrong: live `config.yaml` has `OWNED_ALTS_ENABLED: true`, and the 1.6.4 conf now states it too. The rest are leads
-> for 1.6.5 (book card n16).
+> for 1.7.0 (1.6.5 was folded into 1.7.0; plan: `docs/plans/1.7.0-stabilization.md`).
+>
+> **Also confirmed Nov 5 (Codex proposal, re-checked by Claude):** broken #4 (buyback flag set before items are granted,
+> `TransactionService.java:108-123`); `!saveall` reports success unconditionally (`SaveAllCommand.java:39-48`); the client
+> QA runner loses events that share a batch (`tools/qa-runner/qarunner.py:381-389,476-494`); "b240 town EXP" is HELP_FRIEND
+> mapping mob level -1 to 1 (`TrainingBot.java:1085`, gate `:2140`); `deploy-test` writes `DEPLOYED_COMMIT` before the
+> boot is proven and a boot timeout does not fail it (`tools/ops/deploy-test:115-123`).
 
 State words, used exactly as the subsystem files use them:
 
