@@ -108,10 +108,9 @@ class SiteBuildTest(unittest.TestCase):
         self.assertIn("There is no 1.6.1", page)
         self.assertIn("became part of this patch", page)
 
-    def test_163_notes_are_the_newest_and_quote_the_desk(self):
-        """w23: 1.6.3 (Nov 2) is the newest release, and its page says the owner's NX desk sentence: SlumsBank quotes
+    def test_163_notes_quote_the_desk(self):
+        """w23: 1.6.3 (Nov 2) is a release, and its page says the owner's NX desk sentence: SlumsBank quotes
         a buy and a sell price around a rate that drifts with trading, in place of 1.6.2's NX order book."""
-        self.assertEqual(self.rels[0]["version"], "1.6.3")
         with open(os.path.join(self.out, "patch-notes", "1.6.3", "index.html"), encoding="utf-8") as f:
             page = f.read()
         self.assertIn("SlumsBank sets buy and sell prices around a rate that drifts slowly with what players and bots "
@@ -120,6 +119,18 @@ class SiteBuildTest(unittest.TestCase):
         # the final candidate's two additions (Coordinator, 2026-11-02 05:15 UTC)
         self.assertIn("The Power Elixir ticker reads PELIXIR on the exchange", flat)
         self.assertIn("Regulars in town no longer greet you with", flat)
+
+    def test_164_notes_are_the_newest_and_cover_the_exchange_items(self):
+        """1.6.4 is the newest release; its page names the item exchange, the 150M cap and the wedding fix, and no
+        game-company words."""
+        self.assertEqual(self.rels[0]["version"], "1.6.4")
+        with open(os.path.join(self.out, "patch-notes", "1.6.4", "index.html"), encoding="utf-8") as f:
+            flat = " ".join(f.read().split())
+        self.assertIn("150,000,000 mesos per account per day", flat)
+        self.assertIn("Every scroll, use item and etc item has a ticker", flat)
+        self.assertIn("The wedding NPCs load again", flat)
+        for bad in ("MapleStory", "Nexon", "Wizet", "GMS", "v83", "MapleRoot"):
+            self.assertNotIn(bad, flat)
 
     def test_wiki_notes_are_stripped(self):
         for name in self.guide:
