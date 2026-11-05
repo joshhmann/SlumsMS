@@ -94,7 +94,7 @@ td.id{font:500 12.5px var(--mono);white-space:nowrap}
       <div class="ticket"><div class="tid">P1-A2</div><h4>Action ledger and the HELP_FRIEND slice</h4><div class="dep">Needs: P1-A1</div><ul><li>Positive case <code>bl-hf-ok</code> passes on TEST</li><li>Town case <code>bl-hf-town</code>: 0 EXP, a reason given, personality unchanged</li><li>Nothing outside the ledger can end an action (architecture test)</li><li>24 h soak: no stuck or double-ended attempts</li></ul></div>
       <div class="ticket"><div class="tid">P1-Q1</div><h4>Client QA runner keeps every event</h4><div class="dep">Needs: the 1.6.4 baseline (runs alongside)</div><ul><li>Two signals in one batch: both waits succeed</li><li>An unrelated event survives for a later wait</li><li>One run on the Windows test VM records both</li></ul></div>
     </div>
-    <p style="margin-top:10px">The P0 safety batch runs alongside from day one. It is off the critical path, but every P0 item must close before release.</p>
+    <p style="margin-top:10px">P0 safety work runs in parallel with the bot and QA work from day one. Every P0 item is a mandatory release blocker.</p>
   </section>
 
   <section id="found">
@@ -350,5 +350,5 @@ stateDiagram-v2
     <p>Source documents: <code>docs/plans/1.7.0/README.md</code> with A (architecture RFC), B (dependency map), C (tickets), D (QA and capabilities), E (readiness), F (decisions), plus <code>docs/plans/1.7.0-stabilization.md</code>, all on branch <code>plan-1.7.0</code>.</p>
   </section>
 
-  <p class="foot">Planning only. Every live change still needs the owner's go. Updated Nov 5 2026.</p>
+  <p class="foot">A snapshot of the locked plan, not a progress tracker. Once 1.7.0 starts, this page will be generated from the release book and QA evidence. The A–F documents remain the engineering source of truth. Every live change still needs the owner's go. Updated Nov 5 2026.</p>
 </div>
