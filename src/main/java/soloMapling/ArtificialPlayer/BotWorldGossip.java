@@ -332,9 +332,7 @@ public final class BotWorldGossip implements EventSubscriber {
         News best = null;
         double bestWeight = 0;
         for (News n : recent(now)) {
-            int hops = n.hopsOf(tellerId, now);
-            if (hops < 0 || hops + 1 > BotMemory.MAX_HOPS || n.whoId == listenerId || n.whoId == tellerId
-                    || n.witnesses.contains(listenerId) || n.told.containsKey(listenerId) || n.told.size() >= TOLD_CAP) {
+            if (!passable(n, tellerId, listenerId, now)) {
                 continue;
             }
             double w = freshness(now - n.at) * (0.5 + rng.nextDouble());
@@ -347,6 +345,29 @@ public final class BotWorldGossip implements EventSubscriber {
             return null;
         }
         return tell(best, tellerId, listenerId, now) ? best : null;
+    }
+
+    /**
+     * 1.6.4 feature-health: whether {@link #pass} could tell {@code listener} anything, without telling it. SHARE_INFO
+     * is only picked when this holds, so the act does not end as "nothing new to tell".
+     */
+    public static boolean canPass(int tellerId, int listenerId, long now) {
+        if (!enabled() || tellerId == listenerId) {
+            return false;
+        }
+        for (News n : recent(now)) {
+            if (passable(n, tellerId, listenerId, now)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The teller knows it, within the hop limit, and the listener neither is in it, saw it nor was told it. */
+    private static boolean passable(News n, int tellerId, int listenerId, long now) {
+        int hops = n.hopsOf(tellerId, now);
+        return hops >= 0 && hops + 1 <= BotMemory.MAX_HOPS && n.whoId != listenerId && n.whoId != tellerId
+                && !n.witnesses.contains(listenerId) && !n.told.containsKey(listenerId) && n.told.size() < TOLD_CAP;
     }
 
     /**

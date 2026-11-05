@@ -92,7 +92,7 @@ public final class GameSocialFlows implements SocialFlows {
 
     /** Whether {@code teller} holds a story {@code listener} would keep (negative ones only for a rumor). */
     private static boolean sharable(int tellerId, int listenerId, long now, boolean rumor) {
-        if (!rumor && BotWorldGossip.enabled() && !BotWorldGossip.recent(now).isEmpty()) {
+        if (!rumor && BotWorldGossip.canPass(tellerId, listenerId, now)) {
             return true;
         }
         for (BotGossip.Heard h : BotGossip.heard(tellerId, now)) {
