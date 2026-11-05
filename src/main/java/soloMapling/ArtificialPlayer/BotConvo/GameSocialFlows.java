@@ -57,7 +57,10 @@ public final class GameSocialFlows implements SocialFlows {
                 case INVITE: {
                     LfgParty.State sa = LfgParty.stateOf(a, now);
                     LfgParty.State sb = LfgParty.stateOf(b, now);
-                    return free(sa) && free(sb) ? null : "one of them is partied or busy";
+                    if (!free(sa) || !free(sb)) {
+                        return "one of them is partied or busy";
+                    }
+                    return BotTalk.anInviteToMake(a, now) ? null : "nothing to invite them to";
                 }
                 case SHARE_INFO:
                     return sharable(actorId, targetId, now, false) ? null : "nothing to tell";

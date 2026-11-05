@@ -522,6 +522,36 @@ public final class BotTalk {
         return starts.size() < max;
     }
 
+    /**
+     * 1.6.4 feature-health: whether {@link WorldSense#offers} could make a PARTY or COME_ALONG offer at all, read
+     * without reserving anything (no LFG plan, no budget slot). The social INVITE act checks it first: without it two
+     * in three invites on TEST picked the act and then found "nothing to invite them to" (the shared duo budget full,
+     * no PQ lobby for the level, no town trip).
+     */
+    static boolean anInviteToMake(Character a, long now) {
+        LfgParty.State sa;
+        try {
+            sa = LfgParty.stateOf(a, now);
+        } catch (RuntimeException | LinkageError e) {
+            return false;
+        }
+        LifeRuntime la = lifeOf(a.getId());
+        int town = la == null ? 0 : la.townDestination();
+        boolean trip = town > 0 && town != a.getMapId() && LifeTowns.isTownMap(town) && la.commitBlocker(now) == null;
+        return anInviteToMake(sa, LfgParty.lobbyFor(a.getLevel()) != null, duoPartyRoom(now), trip);
+    }
+
+    /** The rule behind {@link #anInviteToMake(Character, long)}: a free bot with a PQ lobby or a duo slot, or a town trip. */
+    static boolean anInviteToMake(LfgParty.State sa, boolean lobby, boolean duoRoom, boolean townTrip) {
+        boolean free = !sa.partied() && !sa.busy() && !sa.afk() && !sa.shop() && !sa.owned();
+        return free && (sa.canTrip() && lobby || duoRoom) || townTrip;
+    }
+
+    /** Whether the shared plain-party budget has a slot now (a peek: nothing is taken). */
+    static boolean duoPartyRoom(long now) {
+        return budget(plainParties, now, TimeUnit.MINUTES.toMillis(10), (int) num("partiesPer10Min", 6));
+    }
+
     static boolean near(Character a, Character b, int dx, int dy) {
         java.awt.Point pa = a.getPosition();
         java.awt.Point pb = b.getPosition();
@@ -1506,6 +1536,10 @@ public final class BotTalk {
 
     static Long nextTalkAtForTest(long mapKey) {
         return nextTalkAt.get(mapKey);
+    }
+
+    static Deque<Long> plainPartiesForTest() {
+        return plainParties;
     }
 
     static void resetForTest() {
