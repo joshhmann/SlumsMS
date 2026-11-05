@@ -326,7 +326,7 @@ byte tests silently degrade to their no-exe variants (or disappear, for inlink).
 
 | Part | State | Evidence |
 |---|---|---|
-| `mobattackfix` | **working** for the site it patches; **partial** as a b251 closure | byte-checked, decision table covers the whole HRESULT neighbourhood, and the branch it redirects to is proven to be a state callers handle (`src/mobattackfix_patch.h:38-42`); but no real-client proof is recorded, the server still blocks 211080100 (`map-routing.tsv:93`), and `3e640f1`'s own fix was shown insufficient on its first QA run (`68caea7` body: "the 3e640f1 cave did not catch it") |
+| `mobattackfix` | **working** for the site it patches; **partial** as a b251 closure | byte-checked, decision table covers the whole HRESULT neighbourhood, and the branch it redirects to is proven to be a state callers handle (`src/mobattackfix_patch.h:38-42`); but no real-client proof is recorded, the server still blocks 211080100 (`src/main/resources/soloMapling/map-routing.tsv:93`), and `3e640f1`'s own fix was shown insufficient on its first QA run (`68caea7` body: "the 3e640f1 cave did not catch it") |
 | `mapobj_guard` | **working** for 272000000's `acc10` case | QA trace 2026-11-04 07:38:30Z recorded in `src/mapobj_guard.h:15`, `a1e48df` message; `timeTemple/crack` still has no stock sibling and stays skipped by design (`210fb6c` body) |
 | `inlink_guard` | **working** | native test proves the pre-fix throw and the guarded behaviour (`tests/inlink_guard_test.cpp:138-168`); b103 was a live rc12 crash (`src/inlink_guard.h:8-12`) |
 | `meleerange` | **working** | reproduced twice on TEST 2026-10-26 with a `crash.log` stack (`src/meleerange_patch.h:8-18`); the guard converts the throw to an empty rect |

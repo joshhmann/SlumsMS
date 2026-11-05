@@ -51,36 +51,36 @@ named as the model (`docs/sessions/EXTERNAL-AGENTS.md:197`):
 
 1. **Build the wanted node in Python.** Art comes from `assets/` (`assets/colorprism/`, `assets/dailycheckin/UI.wz`,
    `assets/monsterbook/*.png`, `assets/worldmap/grandis-link.png`) or from the stock image itself
-   (`add_time_temple_art.py:41` copies `pillar/<n>` → `pillar_old/<n>`).
-2. **Pin the stock node by hash.** `add_maker_skill.py:35-39` holds the three stock skill hashes and
+   (`/root/work/client/src-164-data/tools/wz/add_time_temple_art.py:41` copies `pillar/<n>` → `pillar_old/<n>`).
+2. **Pin the stock node by hash.** `/root/work/client/src-164-data/tools/wz/add_maker_skill.py:35-39` holds the three stock skill hashes and
    `stock_nodes()` exits `stock {img}/skill/{sid} is not the GMS v83 node` (`:47`) on any drift;
-   `add_worldmap_link.py:48` (`check_stock`) pins the stock links `{0:WorldMap144, 1:WorldMap179}`, the BaseImg
+   `/root/work/client/src-164-data/tools/wz/add_worldmap_link.py:48` (`check_stock`) pins the stock links `{0:WorldMap144, 1:WorldMap179}`, the BaseImg
    origin `(320,235)` and `WorldMap180`'s parent.
 3. **Snapshot every image's `semantic_hash` before touching anything.** `before = {p: semantic_hash(wz.image(p))
-   for p, _ in wz.images()}` (`add_maker_skill.py:74`, `add_time_temple_art.py:59`, `add_mob_attack_type.py:155`,
-   `add_monster_book.py:230`). `semantic_hash` is sha256 of `semantic()`: it drops the `'key'`/`'zlib'` encoding
+   for p, _ in wz.images()}` (`/root/work/client/src-164-data/tools/wz/add_maker_skill.py:74`, `/root/work/client/src-164-data/tools/wz/add_time_temple_art.py:59`, `/root/work/client/src-164-data/tools/wz/add_mob_attack_type.py:155`,
+   `/root/work/client/src-164-data/tools/wz/add_monster_book.py:230`). `semantic_hash` is sha256 of `semantic()`: it drops the `'key'`/`'zlib'` encoding
    noise, replaces raw bytes with `{sha256,size}` and adds a `pixels` hash for canvases
    (`tools/wz/native_wz.py:378`, `:392`) — so two encodings of the same image compare equal.
 4. **Round-trip check.** `write_img` → `parse_img` → `semantic_hash(reparsed) != semantic_hash(node)` →
-   `sys.exit('... does not round-trip')` (`add_color_prism.py:110`, `add_time_temple_art.py:68`,
-   `add_mob_attack_type.py:168-169`, `add_monster_book.py:253-254`).
+   `sys.exit('... does not round-trip')` (`/root/work/client/src-164-data/tools/wz/add_color_prism.py:110`, `/root/work/client/src-164-data/tools/wz/add_time_temple_art.py:68`,
+   `/root/work/client/src-164-data/tools/wz/add_mob_attack_type.py:168-169`, `/root/work/client/src-164-data/tools/wz/add_monster_book.py:253-254`).
 5. **Write to a temp file, never in place.** `wz.put_image(path, blob, replace=...)`, `wz.save(tmp)` with
    `tmp = tempfile.mkstemp(suffix='.wz', dir=CUSTOM.parent)`; `Archive.save()` refuses to overwrite its input
    (`tools/wz/native_wz.py:526` "Never overwrite an input WZ") and re-checks directory/image layout drift
    (`:552`, `:570`). Images that were not touched are written back from the original bytes (`Archive.raw`,
    `:491`), which is why an edit does not re-encode the other 672 images.
 6. **Semantic check that every *other* image is unchanged, then atomic replace.** Re-open the temp file and compare:
-   - `add_maker_skill.py:105-109` `changed` (every `before` path not in `targets`), `wrong` (landed hash),
+   - `/root/work/client/src-164-data/tools/wz/add_maker_skill.py:105-109` `changed` (every `before` path not in `targets`), `wrong` (landed hash),
      `set(after)-set(before)-targets` — any non-empty → `os.unlink(tmp)` + exit. `os.replace(tmp, CUSTOM)` `:110`.
    - `add_time_temple_art.py`/`set_lkc_tooltip.py`/`add_worldmap_link.py`: `changed or set(after)-set(before)-{IMG} or after.get(IMG)
-     != hash` (`add_time_temple_art.py:76-79`, `set_lkc_tooltip.py:75-78`, `add_worldmap_link.py:96-99`).
-   - `add_monster_book.py:263-286`: per-image loop, dropped `Mob/` images must really be gone (`:270-272`),
+     != hash` (`/root/work/client/src-164-data/tools/wz/add_time_temple_art.py:76-79`, `/root/work/client/src-164-data/tools/wz/set_lkc_tooltip.py:75-78`, `/root/work/client/src-164-data/tools/wz/add_worldmap_link.py:96-99`).
+   - `/root/work/client/src-164-data/tools/wz/add_monster_book.py:263-286`: per-image loop, dropped `Mob/` images must really be gone (`:270-272`),
      targets must land, and the *pre-existing* `UIWindowEx.img` children are compared one by one (`:280-286`).
-   - `add_color_prism.py:117-130` / `add_daily_checkin_art.py:71-84`: for the image it extends, only the new node is
+   - `/root/work/client/src-164-data/tools/wz/add_color_prism.py:117-130` / `/root/work/client/src-164-data/tools/wz/add_daily_checkin_art.py:71-84`: for the image it extends, only the new node is
      excluded from the child-by-child comparison; everything else must hash equal.
-   - Final step prints the new file sha256 (`add_color_prism.py:132-134`).
+   - Final step prints the new file sha256 (`/root/work/client/src-164-data/tools/wz/add_color_prism.py:132-134`).
 7. `--check` on every tool re-runs steps 1–3 and exits 1 with a one-line reason instead of writing
-   (`add_color_prism.py:99-101`, `add_maker_skill.py:82-84`, `add_monster_book.py:245-249`, …). It is the
+   (`/root/work/client/src-164-data/tools/wz/add_color_prism.py:99-101`, `/root/work/client/src-164-data/tools/wz/add_maker_skill.py:82-84`, `/root/work/client/src-164-data/tools/wz/add_monster_book.py:245-249`, …). It is the
    pre-release gate; nothing in CI calls it.
 
 `tools/wz/native_wz.py:1-3` is vendored unchanged from the BunsMS release tooling (`tools/wz_release/native_wz.py`),
@@ -210,10 +210,10 @@ readers — but they still degrade gracefully when the node is absent (table abo
 4. **Only leaf/value additions and *absent* sub-folders cross into a stock image.** A sub-folder stock already has
    is left to merge one level down; one it lacks is added whole (`src/resman.cpp:92-101`).
 5. **Every Custom.wz edit is semantically verified against every other image before the file is replaced**
-   (`add_maker_skill.py:105-109` and the per-tool variants); the replace is `os.replace` on a temp file in the same
+   (`/root/work/client/src-164-data/tools/wz/add_maker_skill.py:105-109` and the per-tool variants); the replace is `os.replace` on a temp file in the same
    directory, so a crash mid-run leaves the old file intact.
-6. **Stock nodes are pinned by hash** where reading them is the point (`add_maker_skill.py:35-39`,
-   `add_worldmap_link.py:48-60`, `set_lkc_tooltip.py:39-47`) — a refreshed Data package fails the tool instead of
+6. **Stock nodes are pinned by hash** where reading them is the point (`/root/work/client/src-164-data/tools/wz/add_maker_skill.py:35-39`,
+   `/root/work/client/src-164-data/tools/wz/add_worldmap_link.py:48-60`, `/root/work/client/src-164-data/tools/wz/set_lkc_tooltip.py:39-47`) — a refreshed Data package fails the tool instead of
    silently baking the wrong art.
 7. **`native_wz` fails closed**: no fallback nodes, no repairs, refuses to write over its input
    (`tools/wz/native_wz.py:4-11`, `:526`).
@@ -298,7 +298,7 @@ future version of the tool forgets to carry would be dropped silently. It is cor
 only the 32 glyph canvases), but it violates invariant 5 and would not notice.
 
 `NEW-FINDING:` `tools/wz/add_damage_glyphs.py` needs `--stock-basiceff` on **every** run, including `--check`, and
-`add_time_temple_art.py:53` needs `--stock`; there is no recorded path or hash for those stock inputs anywhere in the
+`/root/work/client/src-164-data/tools/wz/add_time_temple_art.py:53` needs `--stock`; there is no recorded path or hash for those stock inputs anywhere in the
 repo, so a `--check` run cannot be reproduced from repo contents alone.
 
 `NEW-FINDING:` `tools/wz/test_add_mob_attack_type.py` is not registered in `tests/CMakeLists.txt` and no script runs
@@ -309,7 +309,7 @@ stale overlay in a runtime package; the only hash of the overlay is the one `too
 stow time.
 
 `NEW-FINDING:` `tools/wz/add_mob_attack_type.py` removes **every** `Mob/` image that is not in the wanted set
-(`:157`), and `add_monster_book.py:238` removes all `Mob/` images unconditionally. The two tools therefore keep
+(`:157`), and `/root/work/client/src-164-data/tools/wz/add_monster_book.py:238` removes all `Mob/` images unconditionally. The two tools therefore keep
 deleting each other's domain unless run in the order monster-book → attack-type: `add_mob_attack_type.py` would drop
 nothing of the book (it owns all `Mob/`), but a later `add_monster_book.py` run wipes all 662 attack-type images and
 the b251 fix silently disappears from the file.
@@ -336,7 +336,7 @@ runs in CI, so "the file is up to date" is only ever known by a human running `-
 
 ## Open questions
 
-1. Does `resman.cpp:140` throw, return null, or silently mount an empty package when `Custom.wz` is missing? Marked
+1. Does `/root/work/client/src-164-data/src/resman.cpp:140` throw, return null, or silently mount an empty package when `Custom.wz` is missing? Marked
    UNVERIFIED in `docs/research-121-crash-report.md:156`; nothing in the repo settles it.
 2. Does `this->Add(name, value, false)` with `bNoReplace=false` really *overwrite* an existing stock value, or only
    add? `src/customwz_policy.h:10-11` asserts overwrite; the guidebook's book-page test

@@ -25,7 +25,7 @@ A literal grep **undercounts**: several switch families are built from data, so 
 
 | Family | Where the name comes from | Resolved at |
 |---|---|---|
-| `slums.mechanics.<row>` (57 rows: 29 boss, 28 party quest) | the row's own YAML: `flag: slums.mechanics.<row>` (e.g. src/main/java/soloMapling/mechanics/content/nwill.yaml:31, zakumpq.yaml:26, bossrush0.yaml:21) | `Mechanics.enabled(content)` → `Boolean.getBoolean(content.flag())` (src/main/java/soloMapling/mechanics/Mechanics.java:200, :211) |
+| `slums.mechanics.<row>` (57 rows: 29 boss, 28 party quest) | the row's own YAML: `flag: slums.mechanics.<row>` (e.g. src/main/java/soloMapling/mechanics/content/nwill.yaml:31, src/main/java/soloMapling/mechanics/content/zakumpq.yaml:26, src/main/java/soloMapling/mechanics/content/bossrush0.yaml:21) | `Mechanics.enabled(content)` → `Boolean.getBoolean(content.flag())` (src/main/java/soloMapling/mechanics/Mechanics.java:200, :211) |
 | `slums.exchange.<key>` | an options table parsed in `ExchangeConfig` (src/main/java/soloMapling/Economy/exchange/ExchangeConfig.java:38-94) | same |
 | `slums.exchange.traders.*` (`pct`, `count`, `nx`, `nx.perBotHour`, `nx.worldHour`) | documented in the class header (src/main/java/soloMapling/Economy/exchange/volatility/MarketConfig.java:9-20) | same |
 | `slums.bottalk.<topic>` | topic list (src/main/java/soloMapling/ArtificialPlayer/BotConvo/BotTalk.java:162-166) | same |
@@ -40,18 +40,18 @@ Source: `UNIT_EDITS` in docs/release/1.6.4.conf:271 — one sed replacement that
 
 | Area | Flags (live values) | Reader |
 |---|---|---|
-| bots, brain, chatter | `slums.bottalk=true`, `slums.crews=true`, `solomapling.convo.planner=true`, `slums.scroll.ev=true` | BotTalk.java:162, BotCrews.java:67, ConvoSwitches.java:33, BotScrolling.java:234 |
-| bots, support | `slums.bots.apvariants=true` + `.fromSlot=auto`, `slums.bots.partysupport=true`, `slums.bots.famerequest=true`, `slums.bots.magicguard=true`, `slums.killcalib=true` | BotSupportSwitches.java:25,55,29,33,37; KillCalibration.java:40 |
-| bots, progression | `solomapling.jobErrand=true`, `solomapling.botSkillBooks=true`, `slums.botquests.enabled=true`, `slums.temple.enabled=true`, `slums.gear.dexless=true`, `slums.grind.gearFirst=true`, `slums.gear.optimizer=pareto` | JobErrand.java:48, BotSkillBooks.java:43, BotQuests.java:63, TempleOfTime.java:48, BotProgression.java:223, GearFirstAdvisor.java:42, BotGear.java:70 |
-| bots, supply/inventory | `slums.junk.sort=true` | JunkSort.java:42 |
-| bots, navigation | `bot.nav.swimWallJump=true`, `bot.nav.blockedPosWatchdog=true`, `slums.navTrace=true` | NavPortSwitches.java:23,28; NavTrace.java:39 |
-| bots, social/bonds | `slums.bonds=true` | RelationView.java:31 |
-| companions | `slums.alts.lanes=true`, `slums.ownedalts.marry=true`, `slums.marriage.expbonus=true` | CompanionSwitches.java:45, OwnedAltWedding.java:23, MarriageExpBonus.java:13 |
-| economy, exchange | `slums.exchange=true`, `.startHalted=true`, `.houseAccount=15`, `.traders=true`, `.traders.pct=35`, `.traders.nx=true`, `.traders.nx.worldHour=5000`, `.catalog=scrolls,use,etc`, `.itemMaker=true`, `.items.sellCapMesosPerDay=20000000`, `.desk=true` | ExchangeConfig.java:38, ExchangeService.java:93, ExchangeLimits.java:26-29, MarketConfig.java, DeskConfig.java:23 |
-| economy, crafting/economy extras | `slums.forge.coreexchange=true`, `slums.gear.bridge=true`, `solomapling.economy.maker.botBatch=true` | WeaponCoreExchange.java:11, NormalGearBridge.java:15, no literal hit (dynamic) |
-| mechanics | `slums.mechanics=true`, `.lobby=true`, `.boss=true`, `.opq .lpq .hpq .cafepq .ludimazepq .piratepq .treasurepq .dellibattle .magatiapq .magatiapqz .ellinpq .cwkpq .bossrush .zakumpq .guildquest .nwill .nlucid .nverus .ndarknell=true`, `slums.chaos.zakum=true`, `slums.bossfight.revivepause=true` | Mechanics.java:20, KpqLobby.java:40, Mechanics.java:34-92, RevivePause.java:25; row flags via YAML |
-| achievements | `slums.achievements=true` | Achievements.java:18 |
-| site / ops | `slums.inspect=true`, `.port=8098`, `.secretFile=` (path only), `solomapling.reportsFile=` (path only), `slums.maps.routing=true` | BotInspectApi.java:60-62, ReportStore.java:115, MapRouting.java:50 |
+| bots, brain, chatter | `slums.bottalk=true`, `slums.crews=true`, `solomapling.convo.planner=true`, `slums.scroll.ev=true` | src/main/java/soloMapling/ArtificialPlayer/BotConvo/BotTalk.java:162, src/main/java/soloMapling/ArtificialPlayer/BotAffinitySystem/BotCrews.java:67, src/main/java/soloMapling/ArtificialPlayer/BotConvo/ConvoSwitches.java:33, src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:234 |
+| bots, support | `slums.bots.apvariants=true` + `.fromSlot=auto`, `slums.bots.partysupport=true`, `slums.bots.famerequest=true`, `slums.bots.magicguard=true`, `slums.killcalib=true` | src/main/java/soloMapling/ArtificialPlayer/BotSupportSwitches.java:25,55,29,33,37; src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/KillCalibration.java:40 |
+| bots, progression | `solomapling.jobErrand=true`, `solomapling.botSkillBooks=true`, `slums.botquests.enabled=true`, `slums.temple.enabled=true`, `slums.gear.dexless=true`, `slums.grind.gearFirst=true`, `slums.gear.optimizer=pareto` | src/main/java/soloMapling/ArtificialPlayer/BotProgressionSystem/JobErrand.java:48, src/main/java/soloMapling/ArtificialPlayer/BotProgressionSystem/BotSkillBooks.java:43, src/main/java/soloMapling/ArtificialPlayer/BotQuestSystem/BotQuests.java:63, src/main/java/soloMapling/ArtificialPlayer/BotQuestSystem/TempleOfTime.java:48, src/main/java/soloMapling/ArtificialPlayer/BotProgressionSystem/BotProgression.java:223, src/main/java/soloMapling/ArtificialPlayer/BotGrindSystem/GearFirstAdvisor.java:42, src/main/java/soloMapling/ArtificialPlayer/BotGearSystem/BotGear.java:70 |
+| bots, supply/inventory | `slums.junk.sort=true` | src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/JunkSort.java:42 |
+| bots, navigation | `bot.nav.swimWallJump=true`, `bot.nav.blockedPosWatchdog=true`, `slums.navTrace=true` | src/main/java/soloMapling/ArtificialPlayer/GCMoveSystem/NavPortSwitches.java:23,28; src/main/java/soloMapling/ArtificialPlayer/GCMoveSystem/NavTrace.java:39 |
+| bots, social/bonds | `slums.bonds=true` | src/main/java/soloMapling/ArtificialPlayer/RelationView.java:31 |
+| companions | `slums.alts.lanes=true`, `slums.ownedalts.marry=true`, `slums.marriage.expbonus=true` | src/main/java/soloMapling/ArtificialPlayer/BotPartySystem/CompanionSwitches.java:45, src/main/java/soloMapling/companions/OwnedAltWedding.java:23, src/main/java/soloMapling/companions/MarriageExpBonus.java:13 |
+| economy, exchange | `slums.exchange=true`, `.startHalted=true`, `.houseAccount=15`, `.traders=true`, `.traders.pct=35`, `.traders.nx=true`, `.traders.nx.worldHour=5000`, `.catalog=scrolls,use,etc`, `.itemMaker=true`, `.items.sellCapMesosPerDay=20000000`, `.desk=true` | src/main/java/soloMapling/Economy/exchange/ExchangeConfig.java:38, src/main/java/soloMapling/Economy/exchange/ExchangeService.java:93, src/main/java/soloMapling/Economy/exchange/ExchangeLimits.java:26-29, MarketConfig.java, src/main/java/soloMapling/Economy/exchange/DeskConfig.java:23 |
+| economy, crafting/economy extras | `slums.forge.coreexchange=true`, `slums.gear.bridge=true`, `solomapling.economy.maker.botBatch=true` | src/main/java/soloMapling/crafting/WeaponCoreExchange.java:11, src/main/java/soloMapling/crafting/NormalGearBridge.java:15, no literal hit (dynamic) |
+| mechanics | `slums.mechanics=true`, `.lobby=true`, `.boss=true`, `.opq .lpq .hpq .cafepq .ludimazepq .piratepq .treasurepq .dellibattle .magatiapq .magatiapqz .ellinpq .cwkpq .bossrush .zakumpq .guildquest .nwill .nlucid .nverus .ndarknell=true`, `slums.chaos.zakum=true`, `slums.bossfight.revivepause=true` | src/main/java/soloMapling/mechanics/Mechanics.java:20, src/main/java/soloMapling/mechanics/KpqLobby.java:40, src/main/java/soloMapling/mechanics/Mechanics.java:34-92, src/main/java/soloMapling/mechanics/RevivePause.java:25; row flags via YAML |
+| achievements | `slums.achievements=true` | src/main/java/soloMapling/achievements/Achievements.java:18 |
+| site / ops | `slums.inspect=true`, `.port=8098`, `.secretFile=` (path only), `solomapling.reportsFile=` (path only), `slums.maps.routing=true` | src/main/java/soloMapling/inspect/BotInspectApi.java:60-62, src/main/java/server/reports/ReportStore.java:115, src/main/java/server/maps/MapRouting.java:50 |
 
 Notably **absent** from the live set: `-Dwz-path` (so live uses the default data location), `-Dslums.qa` and
 `-Dslums.autoqa` (live has neither, so `!qa`/`!autoqa` are never registered — docs/ops/qa-suite.md), and
@@ -75,7 +75,7 @@ on, so the file argues with itself about whether `@bonds` is live.
 ## What a switch does not cover
 
 - A flag does not add its own guard to the data it reads: `-Dslums.mechanics.opq=true` arms rows only if
-  `-Dslums.mechanics=true` is also set (Mechanics.java:200), and a row whose `flag:` line is missing stays inert.
+  `-Dslums.mechanics=true` is also set (src/main/java/soloMapling/mechanics/Mechanics.java:200), and a row whose `flag:` line is missing stays inert.
 - Unknown `-D` names are silently ignored (unlike `config.yaml` keys) — a typo in the unit is invisible.
   **NEW-FINDING:** no code compares the live `-D` set against the flags the jar knows, so a misspelled or retired flag
   cannot be detected after a restart; the only signal is a feature that quietly stays off.

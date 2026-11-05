@@ -34,7 +34,7 @@ tiers, scam caps and the never-AI rule are not reachable from a bias
 | `!qa bl-4` | `LifeProfileProof.run` (profile survives a social session + reload) | src/main/java/soloMapling/qa/GameQaWorld.java:1728 |
 | `!qa lr-1` | `GameQaWorld.learningStage` (30 KS turn a plastic Socializer) | src/main/java/soloMapling/qa/GameQaWorld.java:1590 |
 | Metrics file | `reportIfDue` writes `data/autoqa/bot-life.json` | src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifeRuntime.java:883 |
-| Mode switch | last act of each bot-type tick | src/main/java/soloMapling/ArtificialPlayer/BotTypes/TrainingBot.java:670, SocialBot.java:219, TownWandererBot.java:162 |
+| Mode switch | last act of each bot-type tick | src/main/java/soloMapling/ArtificialPlayer/BotTypes/TrainingBot.java:670, src/main/java/soloMapling/ArtificialPlayer/BotTypes/SocialBot.java:219, src/main/java/soloMapling/ArtificialPlayer/BotTypes/TownWandererBot.java:162 |
 
 ## How it works
 

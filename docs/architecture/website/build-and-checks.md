@@ -4,10 +4,10 @@
 
 `tools/site/build.py` renders the whole website — home, news, guides, Slums Street, the market, World and the admin
 shell — into a plain folder of static files, then `tools/site/check.py` re-reads that folder the way a stranger would
-before anything is published: when a rule breaks the build fails and the previously published folder is left exactly
-as it was (`tools/site/build.py:134-141`, `:169-172`). It is standard-library Python with no runtime to speak of — the
-site itself has no database, no PHP and no Node (`docs/site/DEPLOY.md:1-3`). The same code path rebuilds one section
-inside the live folder, so the checks also gate the two unattended timers (`tools/site/slums-site-market.timer:7-10`).
+before anything is published: when a rule breaks, the build fails and the previously published folder is left exactly
+as it was (`tools/site/build.py:134-141`, `:169-172`). It is standard-library Python — the site itself has no
+database, no PHP and no Node (`docs/site/DEPLOY.md:1-3`). The same code path rebuilds one section inside the live
+folder, so these checks also gate the two unattended timers (`tools/site/slums-site-market.timer:7-10`).
 
 ## Entry points
 
@@ -24,38 +24,38 @@ inside the live folder, so the checks also gate the two unattended timers (`tool
 
 ## How it works
 
-1. **Arguments.** `main()` (`tools/site/build.py:232`) parses `--out --tar --no-tar --private --section --hs-data
-   --market-data --dashboard-web --world --site-data --nx {off,mock,on}` (`:234-245`), sets the module globals and
-   `market.NX_DESK` (`:247-250`), and picks the defaults `dist/site-private` / `dist/site` (`:251`).
-2. **Staging folder.** `build()` (`:148`) deletes any old tarball first (`:154-155`), then builds into
-   `<out>.new-<pid>` (`:156-158`) — never into the published folder (audit W2, `:149-151`).
-3. **Assets and stamp.** `copy_assets()` (`:88-96`) copies `docs/site/assets` wholesale, writes the one generated file
+1. **Arguments and staging.** `main()` (`tools/site/build.py:232`) parses `--out --tar --no-tar --private --section
+   --hs-data --market-data --dashboard-web --world --site-data --nx {off,mock,on}` (`:234-245`), sets the module
+   globals and `market.NX_DESK` (`:247-250`), and picks `dist/site-private` / `dist/site` (`:251`). `build()` (`:148`)
+   deletes any old tarball (`:154-155`) and builds into `<out>.new-<pid>` (`:156-158`), never into the published
+   folder (audit W2, `:149-151`).
+2. **Assets and stamp.** `copy_assets()` (`:88-96`) copies `docs/site/assets` wholesale, writes the one generated file
    `assets/build.json` carrying `{"site": site_version()}`, copies `docs/site/secret/` only for a private build, and
    always copies `docs/site/robots.txt`. `site_version()` (`:72-85`) reads `DEPLOYED_COMMIT` at the repo root (the
    build box has no git), else `git rev-parse --short HEAD`, else `None`.
-4. **Releases.** `notes.releases()` (`tools/site/sections/notes.py:173-179`) parses every `docs/site/releases/*.md`,
-   refuses an empty directory, and sorts newest-first; pages are written by `notes.build()` (`:182-207`).
-5. **Context.** `set_context()` (`tools/site/build.py:99-107`) fills `common.BUILT` with the optional sections that
-   this build has, sets the megaphone rail to the three newest releases, and prepends market rail lines when the market
-   is being built.
-6. **Sections.** `build_section()` (`:110-131`) dispatches to one module per section — `notes.build`, `guide.build`,
+3. **Releases and context.** `notes.releases()` (`tools/site/sections/notes.py:173-179`) parses every
+   `docs/site/releases/*.md`, refuses an empty directory and sorts newest-first; `notes.build()` (`:182-207`) writes
+   the pages. `set_context()` (`tools/site/build.py:99-107`) then fills `common.BUILT` with the optional sections this
+   build has, sets the megaphone rail to the three newest releases, and prepends market rail lines when the market is
+   being built.
+4. **Sections.** `build_section()` (`:110-131`) dispatches to one module per section — `notes.build`, `guide.build`,
    `database.build`, `market.build`, `admin.build`, `world.build`, and `pages.build_home` plus the four small pages —
    and raises `SystemExit(f"unknown section {name!r}")` for anything else (`:131`). `sections_for()` (`:144-145`) is
    always `notes, guide, pages`, then `world` only with `--world`, then `database, market, admin` only with `--private`.
-7. **Clean URLs.** `common.clean_links()` (`tools/site/common.py:180-191`) rewrites every relative `.html` link so
-   pages say `market/exchange`, not `market/exchange.html` (`common.py:167-170`); nginx serves `x.html` for `x`
+5. **Clean URLs.** `common.clean_links()` (`tools/site/common.py:180-191`) rewrites every relative `.html` link so
+   pages say `market/exchange`, not `market/exchange.html` (`tools/site/common.py:167-170`); nginx serves `x.html` for `x`
    (`tools/site/slums-login.nginx.conf:87`).
-8. **Check.** `finish()` (`:134-141`) runs `check.check_all()`; each problem is printed as `FAIL <problem>` on stderr
+6. **Check.** `finish()` (`:134-141`) runs `check.check_all()`; each problem is printed as `FAIL <problem>` on stderr
    and the build raises `SystemExit("site check failed with N problem(s): the published site was left as it was,
    nothing was packed")`.
-9. **Swap and pack.** Only on success: `out` → `<out>.old-<pid>`, `<out>.new-<pid>` → `out`, stale folder removed
+7. **Swap and pack.** Only on success: `out` → `<out>.old-<pid>`, `<out>.new-<pid>` → `out`, stale folder removed
    (`:169-172`). `make_tar()` (`:215-229`) writes `slums-site/…` with `uid=gid=0`, `uname=gname="root"`, modes `0755`
    dirs / `0644` files, and sorted directory and file order.
-10. **One section.** `rebuild_section()` (`:178-212`) needs an existing `index.html` (`:180-181`), builds into
-    `out/.stage-<folder>` (`:194-197`), swaps the folder in with two renames (`:199-203`), then runs the same check
-    limited to that folder (`:205-206`); a failing check removes the new folder and restores `.old-<folder>`
-    (`:207-211`). `pages` has no folder, so it is built in place (`:187-191`).
-11. **Stand-alone check and preview.** `check_all()` (`tools/site/check.py:285-292`) is `check_forbidden +
+8. **One section.** `rebuild_section()` (`:178-212`) needs an existing `index.html` (`:180-181`), builds into
+   `out/.stage-<folder>` (`:194-197`), swaps the folder in with two renames (`:199-203`), then runs the same check
+   limited to that folder (`:205-206`); a failing check removes the new folder and restores `.old-<folder>`
+   (`:207-211`). `pages` has no folder, so it is built in place (`:187-191`).
+9. **Stand-alone check and preview.** `check_all()` (`tools/site/check.py:285-292`) is `check_forbidden +
     check_links + check_noindex`, plus `check_top` for a private build, or `check_private` for a public one; a
     one-section rebuild passes `only` and gets neither of the last two. `Handler.do_GET`
     (`tools/site/preview.py:60-71`) answers `/api/login/me`, refuses every other `/api/` with 503, gates
@@ -66,13 +66,13 @@ inside the live folder, so the checks also gate the two unattended timers (`tool
 
 | Check | Refuses | Because | Where |
 |---|---|---|---|
-| `check_forbidden` | 30 literals: LAN addresses, the test ports `:8489 :7585 :3309 :8485`, `/opt/ /srv/ /root/ /etc/`, "access key", "htpasswd", the patch site's name and host, QA tooling ("AutoQa", "!qa", "owner check"), and the base game's names plus `v83` | a private build must not leak infrastructure or the commercial game's branding | check.py:22-31, scanning :132-159 |
-| `check_forbidden` patterns | 5 regexes: `.164`, "on/host/port 164", "164 box", any email, any IPv4 | the server host may appear only as game data ("Lv. 164", item 1640001) | check.py:34-42, :154-158 |
-| `WORD_OK` / `ALLOW` / `GAME_TEXT` | three narrow exceptions: the word "password" in 14 sign-in and dashboard files, one literal on one patch-notes page, and two quest names | without them the check would ban the site's own wording | check.py:45-48, :51-84, :139-147 |
-| `check_links` | external URLs, root-relative links, links leaving the folder, broken links, missing `#fragment` | the site must work at any mount point and load nothing from elsewhere | check.py:189-229 |
-| `check_private` / `check_top` | a `street/ database/ market/ secret/ admin/` folder or link in a public build (`check_private`) / an unknown top-level folder in a private build (`check_top`) | the guarded sections need the sign-in, and a stray dump must never be published | check.py:233-264 |
-| `check_noindex` | a missing `robots.txt` without `Disallow: /`, or any page without the `noindex` tag in its first 4096 bytes | friends-only site | check.py:267-282 |
-| `check_all` | runs the above in the order forbidden → links → noindex → (top \| private) | a private build gets `check_top` instead of `check_private`; a one-section rebuild gets neither | check.py:285-292 |
+| `check_forbidden` | 30 literals: LAN addresses, the test ports `:8489 :7585 :3309 :8485`, `/opt/ /srv/ /root/ /etc/`, "access key", "htpasswd", the patch site's name and host, QA tooling ("AutoQa", "!qa", "owner check"), and the base game's names plus `v83` | a private build must not leak infrastructure or the commercial game's branding | tools/site/check.py:22-31, scanning :132-159 |
+| `check_forbidden` patterns | 5 regexes: `.164`, "on/host/port 164", "164 box", any email, any IPv4 | the server host may appear only as game data ("Lv. 164", item 1640001) | tools/site/check.py:34-42, :154-158 |
+| `WORD_OK` / `ALLOW` / `GAME_TEXT` | three narrow exceptions: the word "password" in 14 sign-in and dashboard files, one literal on one patch-notes page, and two quest names | without them the check would ban the site's own wording | tools/site/check.py:45-48, :51-84, :139-147 |
+| `check_links` | external URLs, root-relative links, links leaving the folder, broken links, missing `#fragment` | the site must work at any mount point and load nothing from elsewhere | tools/site/check.py:189-229 |
+| `check_private` / `check_top` | a `street/ database/ market/ secret/ admin/` folder or link in a public build (`check_private`) / an unknown top-level folder in a private build (`check_top`) | the guarded sections need the sign-in, and a stray dump must never be published | tools/site/check.py:233-264 |
+| `check_noindex` | a missing `robots.txt` without `Disallow: /`, or any page without the `noindex` tag in its first 4096 bytes | friends-only site | tools/site/check.py:267-282 |
+| `check_all` | runs the above in the order forbidden → links → noindex → (top \| private) | a private build gets `check_top` instead of `check_private`; a one-section rebuild gets neither | tools/site/check.py:285-292 |
 
 ## Data
 
@@ -85,27 +85,23 @@ inside the live folder, so the checks also gate the two unattended timers (`tool
 | Market | `market.build` (`sections/market.py:1092`) | `market/` + `market/search-index.json` (`:558`), `summary.json`, `untradeable.json` |
 | World | `world.build` (`sections/world.py:754`) | `world/` + `online.json`, `hot.json` (`:742`), `traders.json` (`:751`) |
 | Admin shell | `admin.build` (`sections/admin.py:213-239`) | `admin/index.html`, `app.html`, `bots.html`, `invites.html`, `reports.html` |
-| Site stamp | `copy_assets` (`tools/site/build.py:91-92`) | `assets/build.json` = `{"site": "4e3cdcc96"}` locally |
-| Tarball | `make_tar` (`:215-229`) | `slums-site/index.html`, 219 entries for a public build |
+| Stamp and tarball | `copy_assets` (`tools/site/build.py:91-92`), `make_tar` (`:215-229`) | `assets/build.json` = `{"site": "4e3cdcc96"}` locally; `slums-site/…` in the `.tar.gz` |
 
 Measured at HEAD `4e3cdcc96`: a public build is 219 files (16 guide pages, 10 releases); a `--private --world` build is
 31,911 files / 230 MB (`street/` 31,481, `assets/` 185, `market/` 135, `secret/` 50, `world/` 17, `admin/` 9), with
-`street/icons/items` 4,971 — the count `docs/site/DEPLOY.md:124-127` says to verify before publishing. Inputs that must
-exist first: `docs/site/releases/*.md` (`notes.py:176-177` stops without them), `docs/wiki/index.html`
+`street/icons/items` 4,971 — the count `docs/site/DEPLOY.md:124-127` says to verify before publishing. Required
+inputs: `docs/site/releases/*.md` (`sections/notes.py:176-177` stops without them), `docs/wiki/index.html`
 (`sections/guide.py:100-101`), `data/site/hiddenstreet/*.json` (`sections/dbdata.py:184-192`),
-`cache/site-icons/manifest.json` (`sections/database.py:101-105`), and the market and World exports, refused rather than
-half-read (`sections/market.py:48-55`, `sections/world.py:50-55`).
+`cache/site-icons/manifest.json` (`sections/database.py:101-105`), plus the market and World exports, refused rather
+than half-read (`sections/market.py:48-55`, `sections/world.py:50-55`).
 
 ## Switches
 
 | Switch | Effect | Default | Where |
 |---|---|---|---|
-| `--out` | output folder | `dist/site`, `dist/site-private` with `--private` | tools/site/build.py:251 |
-| `--tar` / `--no-tar` | write the `.tar.gz` or not | on; `dist/slums-site[-private].tar.gz` | tools/site/build.py:256-257 |
+| `--out` / `--tar` / `--no-tar` | output folder, and whether to pack `dist/slums-site[-private].tar.gz` | `dist/site`, `dist/site-private`; packing on | tools/site/build.py:251, :256-257 |
 | `--private` / `--world` / `--section` | build the guarded sections, the World pages, or rebuild one section in place | all off | tools/site/build.py:64-65, :252-255 |
-| `--hs-data` / `SLUMS_HS_DATA` | Slums Street data folder | `data/site/hiddenstreet` | tools/site/sections/dbdata.py:21 |
-| `--market-data` / `SLUMS_MARKET_DATA` | market export folder | `cache/market-sample` | tools/site/sections/market.py:29 |
-| `--site-data` / `SLUMS_SITE_DATA` | World export folder | `cache/site-sample` | tools/site/sections/world.py:31 |
+| `--hs-data` / `--market-data` / `--site-data` (env `SLUMS_HS_DATA`, `SLUMS_MARKET_DATA`, `SLUMS_SITE_DATA`) | the Slums Street dataset, the market export and the World export | `data/site/hiddenstreet`, `cache/market-sample`, `cache/site-sample` | tools/site/sections/dbdata.py:21, tools/site/sections/market.py:29, tools/site/sections/world.py:31 |
 | `--dashboard-web` | staff dashboard source | `tools/dashboard/web` | tools/site/sections/admin.py:213 |
 | `--nx` / `SLUMS_MARKET_NX_DESK` | exchange desk mode off/mock/on | `off` | tools/site/build.py:245, tools/site/slums-site-market.service:13 |
 | `DEPLOYED_COMMIT` | version stamped into `assets/build.json` | git short HEAD | tools/site/build.py:72-85 |
@@ -118,13 +114,13 @@ half-read (`sections/market.py:48-55`, `sections/world.py:50-55`).
 |---|---|---|
 | Player-written text is escaped before it reaches HTML | `layout()` splices `body` in unescaped, so every section must escape; a megaphone is the one string an outsider writes into a page | `tools/site/common.py:109-111`; `esc(s, quote=True)` first in `inline()` (`:149-151`); `world.text()` (`sections/world.py:237-241`); `market.seller()` (`sections/market.py:220`); tested `tools/site/test_site.py:1105-1110`, `:469` |
 | Game-written text can never fail a rebuild | one player name must not leave every page stale | `check.scrub()` (`tools/site/check.py:90-108`), called by `world.load` (`sections/world.py:58`) |
-| No absolute local path in output | pages must not leak `/root/…` or `/srv/…` | `FORBIDDEN` `/opt/ /srv/ /root/ /etc/` (`check.py:22-31`) + root-relative link refusal (`check.py:210`); measured zero in a 31,911-file private build |
-| No external request of any kind | the site "loads nothing from elsewhere" | `check.py:205-208` |
+| No absolute local path in output | pages must not leak `/root/…` or `/srv/…` | `FORBIDDEN` `/opt/ /srv/ /root/ /etc/` (`tools/site/check.py:22-31`) + root-relative link refusal (`tools/site/check.py:210`); measured zero in a 31,911-file private build |
+| No external request of any kind | the site "loads nothing from elsewhere" | `tools/site/check.py:205-208` |
 | Deterministic output for the same inputs | section rebuilds must reproduce identical bytes | tested `tools/site/test_site.py:270-278`; two builds at HEAD were hash-identical (219/219 files), but the tarball is not — `make_tar` keeps each file's mtime (`tools/site/build.py:218-222`), so payloads matched while 35 entry mtimes and the gzip header mtime differed |
 | A full build never touches the published folder until the check passes | a visitor must never see a half-built site | `tools/site/build.py:156-172`; `tools/site/test_build_safety.py:31-45`. The `--section` folder path stages too (`:192-211`), but the `pages` branch writes in place (`:187-191`, see Known issues) |
-| Private sections never reach a public build | `/street/`, `/market/` are sign-in guarded | `check_private` (`check.py:236-248`); ordering at `check.py:285-292`; `tools/site/test_site.py:258-262` |
-| Search engines stay out | friends-only site | `robots.txt` + `noindex` in the first 4096 bytes (`check.py:270-282`); `tools/site/test_site.py:76-81` |
-| Every clean URL resolves | links say `money`, files are `money.html` | `check_links` resolves `target + ".html"` (`check.py:212-217`) and nginx mirrors it (`slums-login.nginx.conf:87`) |
+| Private sections never reach a public build | `/street/`, `/market/` are sign-in guarded | `check_private` (`tools/site/check.py:236-248`); ordering at `tools/site/check.py:285-292`; `tools/site/test_site.py:258-262` |
+| Search engines stay out | friends-only site | `robots.txt` + `noindex` in the first 4096 bytes (`tools/site/check.py:270-282`); `tools/site/test_site.py:76-81` |
+| Every clean URL resolves | links say `money`, files are `money.html` | `check_links` resolves `target + ".html"` (`tools/site/check.py:212-217`) and nginx mirrors it (`slums-login.nginx.conf:87`) |
 
 ## Origin
 
@@ -153,23 +149,21 @@ Alpine for the live parts, Flask for the services) is `docs/site/FRAMEWORK.md:1-
 | `tools/site/test_site.py` | one real build in `setUpClass` (`:17-27`): pages exist, no leftover `{{` (`:96-101`), robots + noindex (`:76-81`), megaphone rail (`:83-90`), both checks empty (`:92-94`), tarball contents (`:177`), nav hides private sections (`:250-268`), one-section rebuild byte-identical (`:270-280`), failed swap rolls back with no dot dirs (`:282-301`), icon tokens (`:332-341`), `ScrubTest` (`:1276-1285`) |
 | `tools/site/test_build_safety.py` | failed check keeps the published site, removes the stale tarball and leaves no `.new-` folder (`:31-45`); a good build replaces the site (`:42-46`); an unknown top-level folder fails a private build (`:51-65`); truncated JSON, `[]`, a row without `player_side`, and bad times are refused with a message, never a traceback (`:94-131`) |
 | `tools/site/test_clean_urls.py` | `clean_links` output exactly (`:26`) and that `check_links` follows clean URLs (`:37`) |
-| `tools/site/test_vendor.py` | the vendored Alpine file's sha256 is pinned and nothing unpinned sits in `vendor/` |
-| `tools/site/test_deploy.py` | the deploy shell scripts run against stubbed `git`/`ssh`/`rsync`; no absolute redirects in nginx |
+| `tools/site/test_vendor.py` / `test_deploy.py` | the vendored Alpine file's sha256 is pinned and nothing unpinned sits in `vendor/`; the deploy shell scripts run against stubbed `git`/`ssh`/`rsync`, and nginx has no absolute redirects |
 | `tools/site/test_guide_163.py`, `test_guide_spell_traces.py`, `test_help_details.py`, `test_login.py`, `test_market_app.py`, `test_market_service.py`, `test_exchange_desk.py`, `test_admin.py`, `test_report.py`, `test_download_pass.py` | one section or service each |
 
 **Not covered:** `tools/site/preview.py` has no test at all (no `test_*.py` imports it); `icons.py` is only exercised
-indirectly through note icon tokens (`test_site.py:332-341`); nothing asserts the tarball is reproducible; the
-`pages` rebuild branch (`build.py:187-191`) has no rollback test; `srcset` references are unchecked by `check_links`.
+through note icon tokens (`tools/site/test_site.py:332-341`); nothing asserts the tarball is reproducible; the `pages` rebuild
+branch (`docs/wiki/build.py:187-191`) has no rollback test; `srcset` references are unchecked.
 
 ## Known issues
 
-- **W2 — fixed.** A full build staged beside `--out` and swapped only after the check (`tools/site/build.py:156-172`);
-  test `tools/site/test_build_safety.py:31-45`.
+- **W2 — fixed.** Staging beside `--out` and swapping only after the check (`tools/site/build.py:156-172`); test
+  `tools/site/test_build_safety.py:31-45`. **W11 — partial:** report limits still key on raw `X-Forwarded-For`
+  (`docs/tickets/165-website-audit-1-6-2.md:32`), waiting on the owner's front-proxy answer; not build-related.
 - **W3 — open, and already stale.** The card says `docs/site/releases/` "still ends at `1.6.0.md`"
   (`docs/tickets/165-website-audit-1-6-2.md:24`); the folder now holds 1.5.0–1.5.6, 1.6.0, 1.6.2 and 1.6.3 and the
   home page advertises 1.6.3. What is genuinely missing is 1.6.1 (never released separately) and 1.6.4.
-- **W11 — partial.** Per-address report limits still key on the raw `X-Forwarded-For`
-  (`docs/tickets/165-website-audit-1-6-2.md:32`); waits on the owner's front-proxy answer. Not build-related.
 - **NEW-FINDING:** `rebuild_section("pages", …)` writes into the live folder before checking and does not roll back
   (`tools/site/build.py:187-191`). Measured: after injecting `<a href="nowhere">`, the check failed and the published
   `index.html` kept the broken link.
@@ -178,7 +172,7 @@ indirectly through note icon tokens (`test_site.py:332-341`); nothing asserts th
   (`tools/site/slums-login.nginx.conf:87`) — all 12 clean links on `guide/` are dead in preview.
 - **NEW-FINDING:** `check_links` reads only `href`/`src` (`tools/site/check.py:162-196`), so `srcset`, `<style>` `url()`
   in HTML and a web manifest can point at a missing file and still pass (`tools/site/common.py:100` would need it).
-- **NEW-FINDING:** doc drift — `build.py:179` and the comment at `:192-193` say "every 15 minutes"; both timers run
+- **NEW-FINDING:** doc drift — `docs/wiki/build.py:179` and the comment at `:192-193` say "every 15 minutes"; both timers run
   every 2 minutes (`tools/site/slums-site-market.timer:10`).
 - **NEW-FINDING:** `check_noindex` leaves `robots.txt` unclosed (`tools/site/check.py:275`), a `ResourceWarning` in the
   suite; and `tools/site/test_site.py:1272-1273` calls `unittest.main()` mid-file, so `ScrubTest` (`:1276`) and
@@ -186,22 +180,21 @@ indirectly through note icon tokens (`test_site.py:332-341`); nothing asserts th
 
 ## State
 
-**working.** At HEAD `4e3cdcc96` a public build and a `--private --world` build both end in "check passed"
-(31,911 files, 105.7 s); two builds of the same input are byte-identical across 219 files; 293 unit tests pass; the
+**working.** At HEAD `4e3cdcc96` both a public build and a `--private --world` build end in "check passed" (31,911
+files, 105.7 s); two builds of the same input are byte-identical across 219 files; 293 unit tests pass; the
 failed-build and failed-section paths are covered (`tools/site/test_build_safety.py:31-65`,
-`tools/site/test_site.py:282-301`). Soft spot: the preview is a convenience harness, not a copy of nginx (Known
-issues), so "it looked fine in preview" is not evidence a clean URL works.
+`tools/site/test_site.py:282-301`). Soft spot: the preview is a convenience harness, not a copy of nginx, so "it
+looked fine in preview" is not evidence a clean URL works.
 
 ## Open questions
 
-- Is `DEPLOYED_COMMIT` always present on the build box? `site_version()` falls back to git and then to `null`
-  (`tools/site/build.py:72-85`), and nothing in `check.py` refuses a `null` stamp — the report service would then
-  record releases as "None".
-- Should the preview serve clean URLs (a tiny `try_files` equivalent in `preview.py:71`) or should `DEPLOY.md:18`'s
-  `python3 -m http.server` recipe be retired in favour of it? Today the docs name both.
+- Is `DEPLOYED_COMMIT` always present on the build box? `site_version()` falls back to git, then `null`
+  (`tools/site/build.py:72-85`), and nothing in `check.py` refuses a `null` stamp, so the report service could stamp
+  releases as "None".
+- Should the preview serve clean URLs (a tiny `try_files` equivalent in `tools/site/preview.py:71`), or should
+  `DEPLOY.md:18`'s `python3 -m http.server` recipe be retired in its favour? Today the docs name both.
 - `tools/site/slums-market.service:25` points `SLUMS_MARKET_ITEMS` at `/srv/slums-site/street/search-index.json` while
   `tools/site/test_market_service.py:33` notes live's unit still names `database/search-index.json`; which unit is
   deployed after the `fddf475fc` move is not visible from this repo.
-- `docs/site/DEPLOY.md:124-127` depends on an operator counting `street/icons/items` by hand before every publish. Was
-  a check (e.g. "refuse a build whose icon count is 0") ever considered, or is the count deliberately left to the
-  human?
+- `docs/site/DEPLOY.md:124-127` relies on an operator counting `street/icons/items` by hand before every publish. Was a
+  check ("refuse a build whose icon count is 0") ever considered, or is the count deliberately left to the human?

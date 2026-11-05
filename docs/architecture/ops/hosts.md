@@ -21,7 +21,66 @@ and which hops cross a trust boundary — so that a tool, a script or an agent c
 | `slumsms-monitor check <target> [--dry-run]` | any host with the monitor | one target's checks (`deploy/monitor/slumsms-monitor@.service:7`) |
 | `bash /opt/mapleroot-deployments/v<ver>/deploy.sh` | 164, owner-run | live unit `slumsms` (`deploy/v1.4.1/deploy.sh:40,48-50`) |
 
+**Listening ports.** Every port below is named by a repo file; none of them was probed for this page.
+
+| Port | Service | Host | Named at |
+|---|---|---|---|
+| 8485 | live game login | 164 | `src/main/java/net/server/Server.java:1018` (default), `deploy/monitor/targets/live.conf:4` |
+| 7585-7592 | live channels, world slot 0 | 164 | `src/main/java/net/server/channel/Channel.java:64`, `src/test/java/net/server/channel/ChannelPortTest.java:11-12` |
+| 8489 | TEST game login | mapletest | `tools/ops/client-mcp-win/src/testhost.py:27`, `AGENTS.md:66` |
+| 7985-7989 (or -7992) | TEST channels | mapletest | `AGENTS.md:66` vs `docs/ops/lxc125-architecture.md:194` |
+| 3309 | live DB container `buns-clean-db-1` | 164 | `docs/ops/lxc125-architecture.md:191`, `AGENTS.md:19` |
+| 3307 (loopback) | TEST DB `mapleroot-integration-db` | mapletest | `docs/ops/lxc125-architecture.md:190`, `deploy/backup/slumsms-restore-drill:35` |
+| 8090 | patch feed nginx | 164 | `docs/ops/lxc125-architecture.md:100` |
+| 8091 | staff dashboard (template the TEST site was made from) | TEST | `deploy/dashboard/slumsms-dashboard.nginx.conf:17` |
+| 8096 | live staff dashboard, LAN-only | 164 | `deploy/dashboard/slums-dashboard-live.nginx.conf:11,15-16` |
+| 8098 | bot inspect API, loopback bind only | whichever game host | `docs/release/1.6.4.conf:271`, `src/main/java/soloMapling/inspect/BotInspectApi.java:61,110-111` |
+| 8186 (live) / 8196 (TEST) | site auth API, loopback | 164 / mapletest | `docs/release/1.6.4.conf:229`, `src/main/java/soloMapling/site/auth/SiteAuthApi.java:155`, `docs/architecture/launcher/site-and-account.md:155` |
+| 8092 | public site nginx | 164 | `docs/HANDOFF.md:130-134` |
+| 8192 | TEST site nginx | mapletest | `AGENTS.md:53` |
+| 8094 / 8095 / 8093+8097 | site login / market / report services, loopback | 164 | `docs/architecture/website/deploy.md:20-22` |
+| 8194 / 8195 / 8193+8197 | the same three, TEST | mapletest | `docs/architecture/website/deploy.md:27` |
+| 8479, 8285-8292 | transient dashboard-test server | 164 | `docs/ops/lxc125-cleanup-review.md:37`, `docs/ops/lxc125-architecture.md:195` |
+| 8095 | `qwen9b` chat model | 192.168.0.17 | `tools/chatbank/README.md:25`, `tools/chatbank/units/qwen9b-8095.service:22` |
+| 8900 / 8910 / 8913 | Decide classifier / tone / r7 model | 192.168.0.17 | `tools/chatbank/units/decide-8910.service:18`, `docs/release/1.6.4.conf:202` |
+| 8599 | mock webhook, tests only | 187 | `deploy/monitor/README.md:182` |
+
+8095 is used twice: by `qwen9b` on 192.168.0.17 and by the live market service on 164 (`docs/architecture/website/deploy.md:21`).
+Different hosts, so nothing collides — but "8095" alone does not identify a service.
+
 ## How it works
+
+**Topology.** One row per machine; "reads it from the repo" names the file that points there.
+
+| Host | Role | Units | Ports | Data dir | Read by (file:line) |
+|---|---|---|---|---|---|
+| 187 `openclaw` | agent workstation: checkouts, builds, all ops/release tooling | none (no server) | none | `/root/work`, `/root/work/qa-runs` | `AGENTS.md:51`, `tools/qa-runner/qarunner.py:44` |
+| 164 LXC 125 `maplestory` | live game, live DB, patch feed, deploy staging, live dashboard, public site | `slumsms.service`, `slumsms-monitor@live.timer`, `slumsms-status@live.timer`, `slumsms-news@live.timer`, `slumsms-announce@live.timer`, `slumsms-backup.service/.timer`, `slumsms-backup-rotate.service/.timer`, `slumsms-restore-drill.service/.timer`, `slumsms-nav-bake.service/.timer`, `slumsms-nav-stuck-report.service/.timer`, `slumsms-dashboard-maps.service/.timer`, `slumsms-site-avatars.service/.timer`, `slumsms-dashboard-extras@live.timer` (not installed yet) | 8485, 7585+, 3309, 8090, 8092, 8096, 8098, 8186 | `/opt/mapleroot/MapleRoot Full Repack/Server`, `/opt/mapleroot/backups/nightly`, `/opt/mapleroot-deployments`, `/srv/slums-patch`, `/srv/slums-site`, `/srv/slums-dashboard/data` | `AGENTS.md:52,64-67`, `deploy/monitor/targets/live.conf:3-8`, `tools/release/lib.sh:4`, `deploy/backup/install.sh:57-60` |
+| mapletest 192.168.0.111 | TEST game, TEST DB, TEST site, TEST dashboard, TEST mirror units | `slums-persistence-test` (transient), `slumsms-monitor@persistence-test.timer`, `slumsms-dashboard-maps-test.service/.timer`, `slumsms-site-avatars-test.service/.timer`, `slumsms-dashboard-extras@dashboard-test.timer` | 8489, 7985+, 3307, 8192, 8091, 8194-8197 | `/opt/mapleroot-dev/persistence-test/Server`, `/opt/mapleroot-dev/solomapling-test/mysql`, `/srv/slums-dashboard-test/data` | `AGENTS.md:53,58-60`, `tools/ops/deploy-test:21-25`, `deploy/monitor/targets/persistence-test.conf:3-8` |
+| Silvia 192.168.0.186 | owner's Windows desktop: builds the client DLL + launcher exe | none | none | `Z:\MSv83\SlumsMS-dev` (read-write area only) | `AGENTS.md:54`, `docs/ops/lxc125-architecture.md:12` |
+| 192.168.0.17 | GPU box: chat model, classifier, tone | `qwen9b-8095`, `decide-8900`, `decide-8910`, `decide-8913` | 8095, 8900, 8910, 8913 | not in this repo | `docs/release/1.6.4.conf:202`, `tools/chatbank/README.md:25` |
+| Caddy (owner's) | public TLS front door | none in repo | 443 → 8485 / 8090 / 8092 | not in this repo | `docs/ops/lxc125-architecture.md:15`, `docs/HANDOFF.md:130-134` |
+
+**Trust boundaries.**
+
+1. **Live is the owner's** — `AGENTS.md:16-24` forbids any write to the live unit, DB, folder or patch feed without an
+   explicit per-action "go"; reading (logs, files, SELECT) is allowed with player-privacy rules (`:21-24`).
+2. **TEST is agent-reachable.** 187 → mapletest is the only routine SSH hop for agents, through one allowlist
+   (`tools/ops/client-mcp-win/src/testhost.py:23`) with its own key (`:26`).
+3. **The live DB is 164-only, port 3309** (`AGENTS.md:19`); the dump/restore path never writes to it
+   (`deploy/backup/slumsms-restore-drill:6,35,225-226`) and the drill's ledger read is SELECT-only (`:154`).
+4. **Keys live on the hosts, not in the repo**: patch key on 164, Tauri signing key on the build desktop, cloud LLM keys
+   per host, monitor webhooks on 164 (`AGENTS.md:28-33`). Two nginx htpasswords are reused across boxes —
+   the live dashboard authenticates against TEST's file (`deploy/dashboard/slums-dashboard-live.nginx.conf:19`).
+5. **Everything routable is behind nginx or the game port.** Site/auth/inspect services bind loopback
+   (`SiteAuthApi.java:155`, `BotInspectApi.java:110-111`); the live dashboard adds a LAN allow-list plus basic auth
+   (`deploy/dashboard/slums-dashboard-live.nginx.conf:15-18`).
+6. **The release path defaults to live.** `tools/release/lib.sh:4` points at 164, so a mistyped `stage`/`rehearse` writes
+   to the live box's staging tree — the boundary there is procedural (owner runs it), not enforced by a host check.
+7. **Agents may reach 192.168.0.17** for chat/classifier calls (`docs/release/1.6.4.conf:202`) but that box is not
+   managed from this repo — only the unit files under `tools/chatbank/units/` describe it.
+
+**Flow.** How a change travels from 187 to a running server.
 
 1. **Workstation 187 builds.** Git checkouts live under `/root/work`, Maven and node build the jar and launcher
    (`AGENTS.md:51`); nothing on 187 is a server.
@@ -45,7 +104,7 @@ and which hops cross a trust boundary — so that a tool, a script or an agent c
    `deploy/nav/slumsms-nav-bake.service:14`), the test twins point at the TEST Server dir
    (`deploy/dashboard/slumsms-dashboard-maps-test.service:8`).
 7. **nginx fronts the web surfaces.** Patch feed :8090, TEST dashboard :8091, live dashboard :8096, public site :8092,
-   TEST site :8192 — each bound in a repo file (ports table below). The live dashboard site allows `192.168.0.0/24`
+   TEST site :8192 — each bound in a repo file (see the ports table above). The live dashboard site allows `192.168.0.0/24`
    and denies the rest (`deploy/dashboard/slums-dashboard-live.nginx.conf:15-16`).
 8. **Loopback services stay loopback.** The site auth API binds `InetAddress.getLoopbackAddress()`
    (`src/main/java/soloMapling/site/auth/SiteAuthApi.java:155`) and logs "listening on 127.0.0.1"
@@ -84,7 +143,7 @@ Secret material, named by path only: `/root/slums-patch-access-key.txt`, `/root/
 
 | Switch | Home | Default | Effect |
 |---|---|---|---|
-| `SLUMS_TEST_HOST` | `testhost.py:21` | `192.168.0.111` (`:24`) | which TEST box the ops/QA tools reach |
+| `SLUMS_TEST_HOST` | `tools/ops/client-mcp-win/src/testhost.py:21` | `192.168.0.111` (`:24`) | which TEST box the ops/QA tools reach |
 | `SLUMS_HOST` | `install-live-dashboard:23` | `root@192.168.0.164` | dashboard install target |
 | `RELEASE_HOST` | `tools/release/lib.sh:4` | `root@192.168.0.164` | stage/rehearse/release target — **live by default** |
 | `DEPLOY_ROOT` | `tools/release/lib.sh:5` | `/opt/mapleroot-deployments` | deploy tree on that host |
@@ -92,13 +151,13 @@ Secret material, named by path only: `/root/slums-patch-access-key.txt`, `/root/
 | `TEST_DB_PORT` | `deploy/backup/slumsms-restore-drill:35` | `3307` | drill target DSN |
 | `SLUMSMS_MONITOR_STATE_DIR` / `_LOG_DIR` | `deploy/monitor/slumsms-monitor:45-46` | `/var/lib/slumsms-monitor`, `/var/log/slumsms-monitor` | monitor paths |
 | `AUTOQA_LOCAL_DIR` | `tools/ops/autoqa-run` (local mode) | unset | run the queue locally in tests |
-| `-Dmapleroot.login-port` / `.channel-base-port` | `Server.java:1018`, `Channel.java:64` | 8485 / 7585 | the ports the guard checks |
+| `-Dmapleroot.login-port` / `.channel-base-port` | `src/main/java/net/server/Server.java:1018`, `src/main/java/net/server/channel/Channel.java:64` | 8485 / 7585 | the ports the guard checks |
 
 ## Invariants
 
 - Only two hosts may be named as TEST: the allowlist is `TEST_HOSTS` (`tools/ops/client-mcp-win/src/testhost.py:23`), and
   every reader goes through it (`:7-12`).
-- 8489 is TEST's login port, 8485 is live's; `port()` refuses the live port (`testhost.py:27-28`, asserted at
+- 8489 is TEST's login port, 8485 is live's; `port()` refuses the live port (`tools/ops/client-mcp-win/src/testhost.py:27-28`, asserted at
   `tools/ops/client-mcp-win/tests/test_qatools.py:285-295`).
 - A TEST tool may not be pointed at a live path: `case "$SRV" in *"/opt/mapleroot/"*|*"Full Repack"*)` exits 1
   (`tools/ops/deploy-test:42`).
@@ -106,7 +165,7 @@ Secret material, named by path only: `/root/slums-patch-access-key.txt`, `/root/
   (`deploy/v1.4.1/rehearse.sh:44`).
 - The restore drill never restores into live: schema is `mapleroot_drill_<date>` on `127.0.0.1:3307`
   (`deploy/backup/slumsms-restore-drill:6,35`) and it refuses a config still naming `:3309` (`:225-226`).
-- QA event emission is disabled on the live box by port and DB-port detection (`QaEventFeed.java:76-77`).
+- QA event emission is disabled on the live box by port and DB-port detection (`src/main/java/soloMapling/inspect/QaEventFeed.java:76-77`).
 - The live dashboard is LAN-only plus basic auth (`deploy/dashboard/slums-dashboard-live.nginx.conf:15-19`), and its
   installer re-checks with `nginx -t` before reloading (`tools/ops/install-live-dashboard:16-17`).
 - `feature-health` refuses a live host without `--live-readonly` (`tools/ops/feature-health:32-33,146-147`).
@@ -182,7 +241,7 @@ Secret material, named by path only: `/root/slums-patch-access-key.txt`, `/root/
 
 **Working, with stale documentation.** The mechanism is real and tested offline: the TEST allowlist is one module with
 tests (`tools/ops/client-mcp-win/tests/test_qatools.py:285-295`), the live path guard exists (`tools/ops/deploy-test:42`),
-the loopback binds are in code (`SiteAuthApi.java:155`, `BotInspectApi.java:110-111`). What is not verifiable from this
+the loopback binds are in code (`src/main/java/soloMapling/site/auth/SiteAuthApi.java:155`, `src/main/java/soloMapling/inspect/BotInspectApi.java:110-111`). What is not verifiable from this
 repo is the deployed state of any host — which units are enabled, which ports actually answer, and whether the TEST
 dashboard is on mapletest or 164.
 

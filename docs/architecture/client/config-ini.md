@@ -112,16 +112,16 @@ is read once per process.
 | Key | Default | Read by | when | Effect | Written by |
 |---|---|---|---|---|---|
 | `jumpkeydown` | `false` | `src/midair.cpp:16-17` — **strict**: only `true` (any case) or `1`; `yes`/`on` are rejected (`:17`) | hook (`src/hook.h:258`, always compiled, `src/CMakeLists.txt:24`) | 6 NOPs at `MidAir::kKeydownAirExit`, after a stock-byte check (`src/midair.cpp:19-25`); keydown attacks may start in the air. TEST only (`src/midair.cpp:2`) | nobody (not a launcher option) |
-| `nobulb` | `true` | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:616-618` | hook (inih) | `PatchNop(0x00A08D5B, 5)` — no quest lightbulb popup | launcher `nobulb` (`game_options.rs:74-75`) |
+| `nobulb` | `true` | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:616-618` | hook (inih) | `PatchNop(0x00A08D5B, 5)` — no quest lightbulb popup | launcher `nobulb` (`/root/work/launcher-165-server/tauri/core/src/game_options.rs:74-75`) |
 | `customcolor` | `true` | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:620-624` | hook (inih) | orange name/level and skill text: `WriteValue(0x0098B70C+1, 0xFFFF5D00)`, `WriteByte(0x008c4944+1, 25)`, `WriteByte(0x008AA6CB+1, 25)` | launcher `customcolor` (`:76-77`) |
-| `moveattack` | absent (= `true`) | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:631-641` → `integration::ResolveMoveAttackSettings` (`src/attackstop_patch.h:109-116`) | hook (inih) | **legacy**; only a fallback for `attackjump` and `chargemove`. Read, never written | launcher reads it, never writes or removes it (`game_options.rs:96-97`, `:503-524`) |
-| `attackwalk` | `false` | same (`src/attackstop_patch.h:112`) | hook (inih) | keeps walk input during attacks — patch `0x009CBFB0`, 1 byte `7E`→`EB` (`attackstop_patch.h:45-53`). Never follows `moveattack` | launcher `attackwalk` (`game_options.rs:78-79`) |
+| `moveattack` | absent (= `true`) | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:631-641` → `integration::ResolveMoveAttackSettings` (`src/attackstop_patch.h:109-116`) | hook (inih) | **legacy**; only a fallback for `attackjump` and `chargemove`. Read, never written | launcher reads it, never writes or removes it (`/root/work/launcher-165-server/tauri/core/src/game_options.rs:96-97`, `:503-524`) |
+| `attackwalk` | `false` | same (`src/attackstop_patch.h:112`) | hook (inih) | keeps walk input during attacks — patch `0x009CBFB0`, 1 byte `7E`→`EB` (`/root/work/client/src-164-data/src/attackstop_patch.h:45-53`). Never follows `moveattack` | launcher `attackwalk` (`/root/work/launcher-165-server/tauri/core/src/game_options.rs:78-79`) |
 | `attackjump` | `true` (= `moveattack` when absent) | `src/attackstop_patch.h:113` | hook (inih) | jump during attacks — `0x0094C3BB`, 6 bytes `0F 8F 12 01 00 00`→6×`90` | launcher `attackjump` (`:80-81`) |
 | `chargemove` | `true` (= `moveattack` when absent) | `src/attackstop_patch.h:114` | hook (inih) | move while charging keydown skills — `0x0095F97A`, 2 bytes `7F 2C`→`EB 59` | launcher `chargemove` (`:82-83`) |
 | `jumpshoot` | `true` | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:643-647` | hook (inih) | `E9` + rel32 at `0x009539FA` → `0x00953A11` (`TryDoingShootAttack`) | launcher `jumpshoot` (`:86-87`) |
 | `jumpmagic` | `true` | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:649-653` | hook (inih) | `E9` + rel32 at `0x009559E5` → `0x00955A20` | launcher `jumpmagic` (`:88-89`) |
 | `enablewinkey` | `true` | `/root/work/client/src-164-data/mapleroot/ijl15/YourStuff.h:655` | hook (inih) | `Hook_CWvsApp__EnableWinkey` — Windows key works in game | launcher `winkey` (`:72-73`) |
-| `doubletapjump` | `false` | `src/bounce.cpp:231` (`ReadIniBool`, `:135-139`) | hook (`src/hook.h:293`, `MAPLEROOT_INTEGRATION`) | second jump press in the air uses the Ninja Bounce skill; off = nothing installed (`bounce.cpp:234`) | launcher `doubletapjump` (`:84-85`), read as `Reader::Profile` |
+| `doubletapjump` | `false` | `src/bounce.cpp:231` (`ReadIniBool`, `:135-139`) | hook (`src/hook.h:293`, `MAPLEROOT_INTEGRATION`) | second jump press in the air uses the Ninja Bounce skill; off = nothing installed (`/root/work/client/src-164-data/src/bounce.cpp:234`) | launcher `doubletapjump` (`:84-85`), read as `Reader::Profile` |
 | `invresize` | `true` | `src/invresize.cpp:548-552` (`EnabledInConfig`), used `:677` | hook (`src/hook.h:265`, `MAPLEROOT_INV_RESIZE`) | drag-resize the item inventory 4-16 × 3-14; false logs "Inventory resize: off in config.ini … stock window kept" (`:678`) | launcher: not an option; the key is left alone |
 | `lowdefensepenalty` | `false` (fix on) | `src/mobdamage.cpp:34-38` | hook (`src/hook.h:273`) | `true` keeps the stock rule (low defence adds damage); false installs the cave at `0x0079328D` | nobody (not a launcher option) |
 | `mobattackfix` | `true` (fix on) | `src/mobattackfix.cpp:60-64` | hook (`src/hook.h:283`) | `false` keeps the stock `E_POINTER` throw; true tolerates it at `0x0067FE33` (b251) | nobody (not a launcher option) |
@@ -143,7 +143,7 @@ Both are logged once: `weathersway: config [weather] sway=%d ropesway=%d` (`src/
 
 | Key | Default | Read by | when | Effect | Written by |
 |---|---|---|---|---|---|
-| `borderless` | `false` | `src/system.cpp:306` via `ReadGraphicsSwitch` (`:68-72`) + `WindowPolicy::IniTrue` (`src/window_policy.h:27-31`) | attach | `WS_POPUP`, client-sized, centred on the monitor (`src/system.cpp:99-120,187`, `PlaceBorderless` `:75-90`); the frame the game restores on a resolution change is stripped again | launcher `borderless` (`game_options.rs:90-91`), `Reader::Profile` |
+| `borderless` | `false` | `src/system.cpp:306` via `ReadGraphicsSwitch` (`:68-72`) + `WindowPolicy::IniTrue` (`src/window_policy.h:27-31`) | attach | `WS_POPUP`, client-sized, centred on the monitor (`src/system.cpp:99-120,187`, `PlaceBorderless` `:75-90`); the frame the game restores on a resolution change is stripped again | launcher `borderless` (`/root/work/launcher-165-server/tauri/core/src/game_options.rs:90-91`), `Reader::Profile` |
 | `dpiaware` | `false` | `src/system.cpp:307-310` | attach | `SetProcessDPIAware()` before any window — pixel-for-pixel on a scaled display | launcher `dpiaware` (`:92-93`) |
 | `d3d9host` | `true` | `src/d3d9host.cpp:297` | attach | detours `Direct3DCreate9`, logs adapters to `integration.log`, hosts the ImGui overlay; false logs "D3D9: host off" (`:298`) and returns before reading `adapterfallback`/`settingswindow`/`uitour` | nobody |
 | `adapterfallback` | `true` | `src/d3d9host.cpp:301` | attach, only when `d3d9host` is on | retry `CreateDevice` on the other adapters, then software vertex processing (`src/d3d9host_policy.h`) | nobody |
@@ -278,7 +278,7 @@ player-owned rule; `tauri/core/src/game_options.rs:1-17,379-400` states the byte
 | `src/mobattackfix.cpp` | **custom** | `3e640f1 2026-11-04 "Rose Garden 211080100 no longer closes the client (b251)"` |
 | `src/attackdiag.cpp` | **custom** | `34c1c28 2026-10-21 "Log the other characters' attacks the client drops, with the reason"` |
 | `src/hud_native.cpp`, `src/uilayout.cpp` | **custom** | `2ee0ead 2026-10-25`, `0247c3e 2026-10-25` |
-| launcher `tauri/core/src/game_config.rs`, `game_options.rs` | **custom** (launcher repo) | `merge_server` was added for the 2026-11-05 RC/TEST server move; the comment at `game_config.rs:116-119` records that 1.6.4 and older never touched an existing `config.ini` |
+| launcher `tauri/core/src/game_config.rs`, `game_options.rs` | **custom** (launcher repo) | `merge_server` was added for the 2026-11-05 RC/TEST server move; the comment at `/root/work/launcher-165-server/tauri/core/src/game_config.rs:116-119` records that 1.6.4 and older never touched an existing `config.ini` |
 
 Baseline for "ours": the client history begins at `joshhmann/kaentake 2a43a01e…` (`docs/PROVENANCE.md:3`).
 
@@ -358,7 +358,7 @@ of the 12 options (no `borderless`/`dpiaware`) and gives `doubletapjump` as "on"
 launcher table are `false` (`tauri/core/src/game_options.rs:84`). Two lines above the player-owned rule the same README
 still asserts "The launcher does not rewrite client INIs" (`/root/work/client/src-164-data/README.md:59`) and "installed once and never overwritten"
 (`:58`), both contradicted by `merge_server` (`tauri/core/src/game_config.rs:120-128`) writing `[config] host`/`port`
-into an existing file. The module doc explains the change (`game_config.rs:114-119`, owner decision 2026-11-05); the
+into an existing file. The module doc explains the change (`/root/work/launcher-165-server/tauri/core/src/game_config.rs:114-119`, owner decision 2026-11-05); the
 README sentences were not updated.
 
 ## State

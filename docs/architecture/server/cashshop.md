@@ -119,13 +119,13 @@ catalogue tool; nothing in `src/main/java` calls it.
 
 | Column | Meaning |
 |---|---|
-| `itemId` | item id AND the key: one row per item, no serial number (`CashShopCatalog.java:20-33`, `byItemId` `:103`) |
+| `itemId` | item id AND the key: one row per item, no serial number (`src/main/java/server/cashshop/CashShopCatalog.java:20-33`, `byItemId` `:103`) |
 | `price` | NX credit charged for one purchase; 300..31,500 in the shipped file, and no row is free (`CashShopCatalogShippedTest` asserts `price() > 0`) |
 | `count` | stack size delivered per purchase; 1..35 in the file, loader caps it at `Short.MAX_VALUE` (`:175`) |
 | `tab` | client tab: 2 = Equip, 3 = Other, 5 = Setup, 6 = Pet (`CashShopWindowPackets.category` writes it as a byte) |
-| `category` | category inside the tab; `bucket()` is `(tab<<8)\|category` (`CashShopCatalog.java:65-67`) |
+| `category` | category inside the tab; `bucket()` is `(tab<<8)\|category` (`src/main/java/server/cashshop/CashShopCatalog.java:65-67`) |
 | `period` | days before expiry, 0 = permanent; only two rows are non-zero (`5211048` 7 days `:8913`, `5211060` 1 day `:8914`) |
-| `gender` | 0 male / 1 female / 2 both — display only; the purchase gate goes by item id (`CashShopCatalog.java:44-47`, `ItemConstants.getEquipGender` `:418-424`) |
+| `gender` | 0 male / 1 female / 2 both — display only; the purchase gate goes by item id (`src/main/java/server/cashshop/CashShopCatalog.java:44-47`, `ItemConstants.getEquipGender` `:418-424`) |
 | `name` | optional; when empty the loader falls back to `String.wz` (`:196-200`) |
 
 Shipped distribution: 2/0 Hat 1792, 2/1 Face 243, 2/2 Eye 128, 2/3 Overall 1292, 2/4 Top 399, 2/5 Bottom 291,
@@ -135,13 +135,13 @@ Shipped distribution: 2/0 Hat 1792, 2/1 Face 243, 2/2 Eye 128, 2/3 Overall 1292,
 Per tab: tab 2 = 6766 rows (ids 1000000..1702941), tab 3 = 68 (5071000..5390006), tab 5 = 2575 (1902008..9114000),
 tab 6 = 1288 (1802000..5380000). Gender column: 530 male, 645 female, 9522 both.
 
-Service rows are never delivered as items (`CashShopServices.isService`, `CashShopServices.java:45-47`):
+Service rows are never delivered as items (`CashShopServices.isService`, `src/main/java/server/cashshop/CashShopServices.java:45-47`):
 `5430000` Extra Character Slot Coupon at `cashshop/catalog.tsv:9439`, and `9111000`-`9114000` (+8 slots for
 Equip/Use/Set-up/Etc) at `:9442-9445`. Storage +8 (`9110000`) is deliberately not sold (`cashshop/catalog.tsv:11-13`).
 
 ### Runtime views
 
-`CashShopCatalog` holds four `volatile` snapshots (`CashShopCatalog.java:76-79`): `all` (file order), `byItemId`,
+`CashShopCatalog` holds four `volatile` snapshots (`src/main/java/server/cashshop/CashShopCatalog.java:76-79`): `all` (file order), `byItemId`,
 `byBucket` (per-bucket `List.copyOf`, sorted keys), `index`; `lastLoad` is the last `LoadStats`
 (`rows, categories, unusable, duplicates, malformed, loaded` + `rejected()`, `:84-89`).
 
@@ -149,15 +149,15 @@ Equip/Use/Set-up/Etc) at `:9442-9445`. Storage +8 (`9110000`) is deliberately no
 
 `accounts.nxCredit`, `accounts.maplePoint`, `accounts.nxPrepaid` (`src/main/java/server/CashShop.java:286`, `:511`);
 `accounts.characterslots` for the extra-character-slot grant (`src/main/java/client/Client.java:1528-1545`);
-`rings` rows for partner rings (`CashShopPartnerRings.java:400`, delete at `:434`); `pets` rows created by
-`Pet.createPet`; `gifts` for stock-stage gifting (`CashShop.java:443-455`); `nxcoupons` for schedules
-(`Server.java:668`); `wishlists` and the cash locker tables via the item factory (`CashShop.java:297-305`, `:311-313`).
+`rings` rows for partner rings (`src/main/java/server/cashshop/CashShopPartnerRings.java:400`, delete at `:434`); `pets` rows created by
+`Pet.createPet`; `gifts` for stock-stage gifting (`src/main/java/server/CashShop.java:443-455`); `nxcoupons` for schedules
+(`src/main/java/net/server/Server.java:668`); `wishlists` and the cash locker tables via the item factory (`src/main/java/server/CashShop.java:297-305`, `:311-313`).
 
 ### Generator tooling
 
 `tools/cashshop/` builds the file: `build_catalog.py` (307 lines), `catalog_rules.py` (325), `lint_catalog.py` (158),
 `wzindex.py` (218), `coupon_schedule.py` (102), `overrides.yaml` (90), `featured.tsv` (329), `catalog_header.txt` (18,
-prepended to the TSV), `test_coupon_schedule.py` (151). `catalog_rules.py:22-34` holds the category table; the `NEVER`
+prepended to the TSV), `test_coupon_schedule.py` (151). `tools/cashshop/catalog_rules.py:22-34` holds the category table; the `NEVER`
 list (`:108-118`) excludes e.g. `5222000` Cash Shop Surprise, `5400000-5401999` name change/transfer and
 `5070000-5070999` cheap megaphones.
 
@@ -165,17 +165,17 @@ list (`:108-118`) excludes e.g. `5222000` Cash Shop Surprise, `5400000-5401999` 
 
 | Switch | Where | Default | Effect |
 |---|---|---|---|
-| `-Dcashshop.window.enabled` | `src/main/java/net/server/Server.java:1036`, `EnterCashShopHandler.java:41`, `CashShopWindowHandler.java:44`, `src/test/java/server/cashshop/CashShopButtonTest.java:19` | absent = false (`Boolean.getBoolean`) | true = the custom window and the TSV catalogue; false = stock NPC 9010004 stage. The catalogue is not even loaded when false (`Server.java:1036`) |
-| `-Dcashshop-path` | `CashShopCatalog.java:91` | `./cashshop` | directory holding `catalog.tsv` |
-| `USE_SUPPLY_RATE_COUPONS` | `src/main/java/config/ServerConfig.java:298`, example `config.example.yaml:205` | example `true` | false hides `5211xxx`/`5360xxx` from the listing (`CashShopServices.java:68-69`, `CashShopWindowHandler.java:83`) and refuses their purchase (`CashShopServices.java:91-94`) |
-| `USE_JOINT_CASHSHOP_INVENTORY` | `ServerConfig.java:370`, example `:278` | example `false` | chooses a shared `CASH_OVERALL` locker vs per-job lockers (`CashShop.java:269-283`); stock stage only |
-| `USE_ENFORCE_ITEM_SUGGESTION` | `ServerConfig.java:336`, example `:241` | example `false` | stock path only: when false, `addCashItemBought` records the sale (`CashShop.java:366-371`) |
-| `USE_CLEAR_OUTDATED_COUPONS` | `ServerConfig.java:371`, example `:279` | example `true` | `Server.java:639` cleanup of expired coupon items |
-| `USE_ANNOUNCE_NX_COUPON_LOOT` | `ServerConfig.java:367`, example `:275` | example `false` | NX card pickup hint (`Character.java:2570-2573`) |
-| `USE_STACK_COUPON_RATES` | `ServerConfig.java:466`, example `:383` | example `false` | `@coupons` text only (`CouponsCommand.java:65`) |
-| `ALLOW_CASHSHOP_NAME_CHANGE` | `ServerConfig.java:372`, example `:280` | example `true` | `TransferNameHandler.java:51` |
-| `ALLOW_CASHSHOP_WORLD_TRANSFER` | `ServerConfig.java:373`, example `:281` | example `true` | `TransferWorldHandler.java:50` |
-| `ENABLE_PIC` | `ServerConfig.java:33`, example `:67` | example `true` | unrelated to purchases; named here only because it is the same block of cash-shop-ish keys |
+| `-Dcashshop.window.enabled` | `src/main/java/net/server/Server.java:1036`, `src/main/java/net/server/channel/handlers/EnterCashShopHandler.java:41`, `src/main/java/net/server/channel/handlers/CashShopWindowHandler.java:44`, `src/test/java/server/cashshop/CashShopButtonTest.java:19` | absent = false (`Boolean.getBoolean`) | true = the custom window and the TSV catalogue; false = stock NPC 9010004 stage. The catalogue is not even loaded when false (`src/main/java/net/server/Server.java:1036`) |
+| `-Dcashshop-path` | `src/main/java/server/cashshop/CashShopCatalog.java:91` | `./cashshop` | directory holding `catalog.tsv` |
+| `USE_SUPPLY_RATE_COUPONS` | `src/main/java/config/ServerConfig.java:298`, example `config.example.yaml:205` | example `true` | false hides `5211xxx`/`5360xxx` from the listing (`src/main/java/server/cashshop/CashShopServices.java:68-69`, `src/main/java/net/server/channel/handlers/CashShopWindowHandler.java:83`) and refuses their purchase (`src/main/java/server/cashshop/CashShopServices.java:91-94`) |
+| `USE_JOINT_CASHSHOP_INVENTORY` | `src/main/java/config/ServerConfig.java:370`, example `:278` | example `false` | chooses a shared `CASH_OVERALL` locker vs per-job lockers (`src/main/java/server/CashShop.java:269-283`); stock stage only |
+| `USE_ENFORCE_ITEM_SUGGESTION` | `src/main/java/config/ServerConfig.java:336`, example `:241` | example `false` | stock path only: when false, `addCashItemBought` records the sale (`src/main/java/server/CashShop.java:366-371`) |
+| `USE_CLEAR_OUTDATED_COUPONS` | `src/main/java/config/ServerConfig.java:371`, example `:279` | example `true` | `src/main/java/net/server/Server.java:639` cleanup of expired coupon items |
+| `USE_ANNOUNCE_NX_COUPON_LOOT` | `src/main/java/config/ServerConfig.java:367`, example `:275` | example `false` | NX card pickup hint (`src/main/java/client/Character.java:2570-2573`) |
+| `USE_STACK_COUPON_RATES` | `src/main/java/config/ServerConfig.java:466`, example `:383` | example `false` | `@coupons` text only (`src/main/java/client/command/commands/gm0/CouponsCommand.java:65`) |
+| `ALLOW_CASHSHOP_NAME_CHANGE` | `src/main/java/config/ServerConfig.java:372`, example `:280` | example `true` | `src/main/java/net/server/channel/handlers/TransferNameHandler.java:51` |
+| `ALLOW_CASHSHOP_WORLD_TRANSFER` | `src/main/java/config/ServerConfig.java:373`, example `:281` | example `true` | `src/main/java/net/server/channel/handlers/TransferWorldHandler.java:50` |
+| `ENABLE_PIC` | `src/main/java/config/ServerConfig.java:33`, example `:67` | example `true` | unrelated to purchases; named here only because it is the same block of cash-shop-ish keys |
 
 Live: `docs/release/1.6.4.conf` carries no `cashshop.window` and no cash-shop config key; its `UNIT_EDITS`
 (`:271`) has 69 `-D` flags, none of them `cashshop.window.enabled`, and it only ships the data file via
@@ -186,22 +186,22 @@ maintained outside this repo; whether that unit still passes it cannot be proven
 
 ## Invariants
 
-- One row per item id; the id is the buy key, there are no serial numbers (`CashShopCatalog.java:20-33`).
-- Readers never see a half-built catalogue: every view is swapped as an immutable copy (`CashShopCatalog.java:237-254`).
+- One row per item id; the id is the buy key, there are no serial numbers (`src/main/java/server/cashshop/CashShopCatalog.java:20-33`).
+- Readers never see a half-built catalogue: every view is swapped as an immutable copy (`src/main/java/server/cashshop/CashShopCatalog.java:237-254`).
 - A missing or unreadable file never empties a running shop (`:124-138`, `:226-230`).
-- Nothing is mutated before phase 4, and nothing is debited before phase 5 (`CashShopWindowPurchase.java:203`, `:245`,
+- Nothing is mutated before phase 4, and nothing is debited before phase 5 (`src/main/java/server/cashshop/CashShopWindowPurchase.java:203`, `:245`,
   `:257`, `:351`): every refusal after delivery starts is undone by the delivery scope
-  (`CashShopCartDelivery.java:51-60`).
-- A cart costs the sum of its rows, computed in `long` (`CashShopWindowPurchase.java:249-251`), and is charged exactly
+  (`src/main/java/server/cashshop/CashShopCartDelivery.java:51-60`).
+- A cart costs the sum of its rows, computed in `long` (`src/main/java/server/cashshop/CashShopWindowPurchase.java:249-251`), and is charged exactly
   once (`:352`).
 - Pets always need their own CASH slot; the space check over-reserves rather than under-reserves
-  (`CashShopWindowPurchase.java:300-311`).
+  (`src/main/java/server/cashshop/CashShopWindowPurchase.java:300-311`).
 - Slot expansion caps: 96 slots per tab (`src/main/java/client/Character.java:10880-10883`), 15 character slots
-  (`src/main/java/client/Client.java:1514`), both re-checked at grant time (`CashShopWindowPurchase.java:144`, `:153`).
+  (`src/main/java/client/Client.java:1514`), both re-checked at grant time (`src/main/java/server/cashshop/CashShopWindowPurchase.java:144`, `:153`).
 - Partner rings are all-or-nothing across two characters: pair rows deleted if either side fails
-  (`CashShopPartnerRings.java:342-346`), monitors always taken lower-id-first (`:282-288`).
+  (`src/main/java/server/cashshop/CashShopPartnerRings.java:342-346`), monitors always taken lower-id-first (`:282-288`).
 - Gender is enforced on the id digit rule, not on the catalogue `gender` column
-  (`ItemConstants.java:418-430`, `CashShopServices.java:96-99`).
+  (`src/main/java/constants/inventory/ItemConstants.java:418-430`, `src/main/java/server/cashshop/CashShopServices.java:96-99`).
 
 ## Origin
 
@@ -210,10 +210,10 @@ maintained outside this repo; whether that unit still passes it cannot be proven
 | `src/main/java/server/cashshop/*` (7 files) | **custom** | `git log --follow` on `CashShopWindowPurchase.java` shows `03d13cb21` baseline then `b40e5c651`, `ea0185a31`, `7efeb2ca4`, `447672bbf`, `fb0169ec8`, `dc950eda5`; `/root/workspace/cosmicms/src/main/java/server/cashshop` does not exist |
 | `cashshop/catalog.tsv` | **custom** | same recipe; commits `03d13cb21`, `b40e5c651`, `ea0185a31`, `7efeb2ca4`, `11898a01c`; no `cashshop/` dir upstream |
 | `src/main/java/server/CashShop.java` | **modified** (base file) | `diff -q` against `/root/workspace/cosmicms/...` differs; `tools/cosmicdiff/classifications.json:187-190` marks `CashShop.getItemsSize` as `UPSTREAM-NEW`, i.e. the file is base and upstream moved on |
-| `src/main/java/net/server/channel/handlers/EnterCashShopHandler.java` | **modified** | `classifications.json:133-139` classes `java-short:` and `java-shrunk:` both `DELIBERATE`, why "SlumsMS cash shop window" |
+| `src/main/java/net/server/channel/handlers/EnterCashShopHandler.java` | **modified** | `tools/cosmicdiff/classifications.json:133-139` classes `java-short:` and `java-shrunk:` both `DELIBERATE`, why "SlumsMS cash shop window" |
 | `tools/cashshop/*` | **custom** | no upstream counterpart; generated-file header at `cashshop/catalog.tsv:1-2` |
 
-Repo docs call the work "1.4.0 cash shop" (`classifications.json:136`) and the catalogue tool
+Repo docs call the work "1.4.0 cash shop" (`tools/cosmicdiff/classifications.json:136`) and the catalogue tool
 `cashshop-catalog-tool` (`docs/tickets/52-marriage-and-rings.md:6`).
 
 ## Tests and QA
@@ -249,7 +249,7 @@ has no test because it has no caller (see below).
 |---|---|---|
 | b297 (S2, Server) | Cash items `5070000` / `5073000` / `5074000` are consumed without effect | `/root/work/STATUS-1.6.4.md:47`; `docs/tickets/182-server-code-audit-1-6-4.md:58`; the tool's `NEVER` list drops `5070000-5070999` and the `5073xxx`/`5074xxx` families (`tools/cashshop/catalog_rules.py:118`), so the shipped file lists only `5071000` (`cashshop/catalog.tsv:6803`) and `5072000` (`:6804`) — the card is about the items, not about them being sold |
 | b290 (S2) | Vega's Spell level-based roll replaces the fed scroll: paid-item loss at level 15+ | `/root/work/STATUS-1.6.4.md:40`; `5251000-5251003` wedding tickets are in the catalogue (`docs/tickets/52-marriage-and-rings.md:20`) |
-| NEW-FINDING | The cash-shop stage cannot open at all in this fork: `CashShop.open(boolean)` (`src/main/java/server/CashShop.java:377`) is called once, always with `false` (`src/main/java/net/server/channel/handlers/ChangeMapHandler.java:194`), and `CashShopButtonTest.java:33` asserts `open(true)` is never called. So everything behind `isOpened()` is dead: `CashOperationHandler.java:68` always refuses, and with it the gift writers at `:134`, `:335`, `:395`. The one caller of `CashShop.loadGifts()` in the base (`/root/workspace/cosmicms/src/main/java/net/server/channel/handlers/EnterCashShopHandler.java:83`) is gone here, so `gifts` rows are neither written nor read in production — the table is orphaned, and the window's own ring flow works around it on purpose (`src/main/java/server/cashshop/CashShopPartnerRings.java:36-38`). No card, no test notices. |
+| NEW-FINDING | The cash-shop stage cannot open at all in this fork: `CashShop.open(boolean)` (`src/main/java/server/CashShop.java:377`) is called once, always with `false` (`src/main/java/net/server/channel/handlers/ChangeMapHandler.java:194`), and `src/test/java/server/cashshop/CashShopButtonTest.java:33` asserts `open(true)` is never called. So everything behind `isOpened()` is dead: `src/main/java/net/server/channel/handlers/CashOperationHandler.java:68` always refuses, and with it the gift writers at `:134`, `:335`, `:395`. The one caller of `CashShop.loadGifts()` in the base (`/root/workspace/cosmicms/src/main/java/net/server/channel/handlers/EnterCashShopHandler.java:83`) is gone here, so `gifts` rows are neither written nor read in production — the table is orphaned, and the window's own ring flow works around it on purpose (`src/main/java/server/cashshop/CashShopPartnerRings.java:36-38`). No card, no test notices. |
 | NEW-FINDING | `CashShop.gift` inserts with `INSERT INTO \`gifts\` VALUES (DEFAULT, ?, ?, ?, ?, ?)` (`src/main/java/server/CashShop.java:443-455`), which depends on the physical column order of the live table; any column added out of order silently shifts `sn`/`ringid`. |
 | NEW-FINDING | The window path deliberately skips `World.addCashItemBought` (`src/main/java/server/cashshop/CashShopWindowPurchase.java:28-40`), so the "suggested items" counters (`src/main/java/net/server/world/World.java:1409`) never see window sales; the comment says this is on purpose, but no switch exposes it. |
 | NEW-FINDING | `CouponSchedule.fromWz` (`src/main/java/server/cashshop/CouponSchedule.java:30`) has no production caller — only the Python tool mirrors its rules, so a WZ-only schedule change cannot reach the server without an `nxcoupons` row. |
@@ -259,8 +259,8 @@ has no test because it has no caller (see below).
 **partial.** The catalogue loader, purchase/cart engine, services, rollback scope and partner rings are exercised by
 52 JUnit tests including a shipped-file assertion that every row loads
 (`src/test/java/server/cashshop/CashShopCatalogShippedTest.java:31-60`), and the loader/relaunch path is used by
-`!reloadcashshop` (`ReloadCashShopCommand.java:21-31`). What is not proven: the client-facing flow end to end (AutoQA
-marks the ring purchase manual, `AutoQaCatalog.java:657-662`), the flag's presence on live (absent from
+`!reloadcashshop` (`src/main/java/client/command/commands/gm3/ReloadCashShopCommand.java:21-31`). What is not proven: the client-facing flow end to end (AutoQA
+marks the ring purchase manual, `src/main/java/soloMapling/autoqa/AutoQaCatalog.java:657-662`), the flag's presence on live (absent from
 `docs/release/1.6.4.conf:271`; the example unit has it, `deploy/slumsms.service.example:11`), and gift delivery,
 which is dead code today (NEW-FINDING above).
 

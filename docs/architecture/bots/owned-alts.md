@@ -96,7 +96,7 @@ First failing reason wins (`src/main/java/soloMapling/companions/OwnedAltGate.ja
 
 | Order | Stance set | Reply pool | line |
 |---|---|---|---|
-| follow | `FOLLOW` | "ok", "omw" | `OwnedAltOrders.java:25,70-78` |
+| follow | `FOLLOW` | "ok", "omw" | `src/main/java/soloMapling/companions/OwnedAltOrders.java:25,70-78` |
 | stay | `STAY` | "staying put" | `:26` |
 | move here | `MOVE_HERE` | "ok heading over" | `:27` |
 | sentry / grind | `SENTRY` | "k, holding here" | `:28,66` |
@@ -111,7 +111,7 @@ Chat commands reach this only through the shared parser: `BotCommandParser` verb
 2. `backend.load` builds a `BotClient`, `Character.loadCharFromDB`, `setPlayer`, `markOwnedAlt`, resets party/MPC, `setWorldRates`/`updateCouponRates` (`src/main/java/soloMapling/companions/OwnedAltBackend.java:39-58`).
 3. `backend.attach` (`:60-83`): refuses a channel change or an instance owner, forces/creates a party with the owner as leader and < 6 members, `setMap`+`groundedSpawn`+`standingStance`, adds to channel/world/map, `Party.joinParty`, then `GCMovement.follow(alt, owner)`.
 4. `entry.state = ACTIVE` (`:245`), then `backend.started` → `OwnedAltCompanion.start()` (`src/main/java/soloMapling/companions/OwnedAltBackend.java:104-106`).
-5. `finish(id, login)` (`:315`): `closing` (holds the driver, no tick inside the save window — `OwnedAltBackend.java:112-114`), `leaveEvent`, `ExpeditionDoor.leaveExpedition`, `save`, `detach`. Failure → `SAVING`→`FAILED`, `SAVE_TRIES` 3, self-retry `RETRY_MS` 30 s, then `giveUp` (`:386`); a `FAILED` mark blocks login until `!alts clear <id>` (`clearFailed` `:407`).
+5. `finish(id, login)` (`:315`): `closing` (holds the driver, no tick inside the save window — `src/main/java/soloMapling/companions/OwnedAltBackend.java:112-114`), `leaveEvent`, `ExpeditionDoor.leaveExpedition`, `save`, `detach`. Failure → `SAVING`→`FAILED`, `SAVE_TRIES` 3, self-retry `RETRY_MS` 30 s, then `giveUp` (`:386`); a `FAILED` mark blocks login until `!alts clear <id>` (`clearFailed` `:407`).
 6. `detach` (`:116-130`): `forget` → `GCMovement.disable` → `setDisconnectedFromChannelWorld` → `leaveInstanceQuietly` → `leaveParty` → `map.removePlayer` → channel/world `removePlayer` → `logOff` → `empty(true)`.
 7. Channel change `ownerChangingChannel` (`:467`), arrival `ownerArrived` (`:501`), party changes `onPartyChange` (`:518`), `@botme here` `bringHere` (`:555`).
 
@@ -139,7 +139,7 @@ Chat commands reach this only through the shared parser: `BotCommandParser` verb
 | Switch | Default | Live 1.6.4 (`docs/release/1.6.4.conf`) |
 |---|---|---|
 | `OWNED_ALTS_ENABLED` (config.yaml) | `false` (`src/main/java/config/ServerConfig.java:103`) | **not in `SERVER_SET`** (`docs/release/1.6.4.conf:207-214`); set by live `config.yaml` (`docs/release/1.6.0.conf:34`) — see NEW-FINDING |
-| `OWNED_ALTS_SUMMON_ENABLED` | `true` (`ServerConfig.java:107`) | `true` (`docs/release/1.6.4.conf:208`) |
+| `OWNED_ALTS_SUMMON_ENABLED` | `true` (`src/main/java/config/ServerConfig.java:107`) | `true` (`docs/release/1.6.4.conf:208`) |
 | `COMPANION_ORDERS_ENABLED` | `false` (`:111`) | `true` (`:209`) |
 | `COMPANION_TRADES_ENABLED` | `false` (`:113`) | `true` (`:210`) |
 | `COMPANION_UPGRADES_ENABLED` | `false` (`:115`) | `true` (`:211`) — broken for sibling-only offers, b285 |
@@ -156,7 +156,7 @@ Chat commands reach this only through the shared parser: `BotCommandParser` verb
 
 All six `ServerConfig` companion switches are read on use through `CompanionSwitches` (`src/main/java/soloMapling/ArtificialPlayer/BotPartySystem/CompanionSwitches.java:18-59`), so a TEST config edit takes effect on the next order. `Server` logs `ownedAltSwitchesLine()` at boot (`src/main/java/net/server/Server.java:1026-1031`).
 
-`-D` rather than config keys is deliberate: an unknown `config.yaml` key stops the server booting (`CompanionSwitches.java:38-42`, same note `src/main/java/soloMapling/companions/OwnedAltInvite.java:53-59`).
+`-D` rather than config keys is deliberate: an unknown `config.yaml` key stops the server booting (`src/main/java/soloMapling/ArtificialPlayer/BotPartySystem/CompanionSwitches.java:38-42`, same note `src/main/java/soloMapling/companions/OwnedAltInvite.java:53-59`).
 
 **LIVE verdict: ON, with the master switch sourced from `config.yaml` and not from the 1.6.4 conf — the conf's own commentary is stale (`docs/release/1.6.4.conf:253-255` says marry/expbonus are "NOT in UNIT_EDITS") against the owner note at `:268` ("bonds, alt weddings and the marriage EXP bonus ON") and the unit line at `:271`/`:172-173`.**
 
@@ -166,12 +166,12 @@ TEST: unknown — `start-test.sh` is not in this repo.
 
 1. One instance per character: `entries.containsKey(id)` or `backend.online(id)` refuses the summon (`src/main/java/soloMapling/companions/OwnedAltService.java:207-208`).
 2. An alt belongs to exactly one owner on one account: `markOwnedAlt` throws `IllegalArgumentException("Invalid alt identity")` otherwise (`src/main/java/client/Character.java:743-750`).
-3. `CAP = 5` companions per owner, alts and bot friends counted together (`OwnedAltService.java:17`, `:212-213`).
-4. An alt never leaves its owner's map, never fights in a town, never fights more than 6 alts per map (`OwnedAltGate.java:94-111`).
+3. `CAP = 5` companions per owner, alts and bot friends counted together (`src/main/java/soloMapling/companions/OwnedAltService.java:17`, `:212-213`).
+4. An alt never leaves its owner's map, never fights in a town, never fights more than 6 alts per map (`src/main/java/soloMapling/companions/OwnedAltGate.java:94-111`).
 5. An alt never hits a stranger's mob: `driverMayFace` = `withinLeash && mayHit && engaged` (`src/main/java/soloMapling/companions/OwnedAltCombat.java:211-215`).
 6. No tick inside the save window: `closing` calls `OwnedAltCompanion.hold` (`src/main/java/soloMapling/companions/OwnedAltBackend.java:112-114`).
-7. A closing or failed alt earns no marriage bonus and takes no proposal (`MarriageExpBonus.java:39-41`, `OwnedAltWedding.java:48-50`).
-8. Attach/save/detach run outside the service monitor so the 200 ms driver never waits on I/O (`OwnedAltService.java:233-236` comment, `:245`).
+7. A closing or failed alt earns no marriage bonus and takes no proposal (`src/main/java/soloMapling/companions/MarriageExpBonus.java:39-41`, `src/main/java/soloMapling/companions/OwnedAltWedding.java:48-50`).
+8. Attach/save/detach run outside the service monitor so the 200 ms driver never waits on I/O (`src/main/java/soloMapling/companions/OwnedAltService.java:233-236` comment, `:245`).
 9. A save that fails 3 times frees the slot instead of blocking it forever, and login clears a stale `FAILED` mark (`:323-334`, `:386`).
 10. An alt is never in the population registry (`src/main/java/soloMapling/ArtificialPlayer/BotMessagingSystem/CharacterStorage.java:20-22`; `src/main/java/soloMapling/ArtificialPlayer/BotRoster.java:337`).
 

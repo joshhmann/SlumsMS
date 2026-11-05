@@ -62,8 +62,8 @@ combat-adjacent scope hints only because of the name.
 
 `AttackCapture` runs in every attack handler *after* parsing and before any gate
 (`src/main/java/net/server/channel/handlers/CloseRangeDamageHandler.java:56`,
-`RangedAttackHandler.java:63`, `MagicDamageHandler.java:52`, `TouchMonsterDamageHandler.java:36`,
-`SummonDamageHandler.java:101`, `SpecialMoveHandler.java:77`); it is a no-op unless `-Dslums.attackcapture=true` and
+`src/main/java/net/server/channel/handlers/RangedAttackHandler.java:63`, `src/main/java/net/server/channel/handlers/MagicDamageHandler.java:52`, `src/main/java/net/server/channel/handlers/TouchMonsterDamageHandler.java:36`,
+`src/main/java/net/server/channel/handlers/SummonDamageHandler.java:101`, `src/main/java/net/server/channel/handlers/SpecialMoveHandler.java:77`); it is a no-op unless `-Dslums.attackcapture=true` and
 the character is a non-bot GM of level ≥ 2 (`src/main/java/soloMapling/server/AttackCapture.java:48-49`, `:78`).
 
 ## How it works
@@ -93,7 +93,7 @@ the character is a non-bot GM of level ≥ 2 (`src/main/java/soloMapling/server/
    `markCritical` `:864` (`:896` sets the sign bit).
 4. **Handler-specific side work.** The concrete handler broadcasts the attack
    (`chr.broadcastAttackMessage(pkt, true)`, e.g. `src/main/java/net/server/channel/handlers/CloseRangeDamageHandler.java:77`,
-   `RangedAttackHandler.java:220`, `MagicDamageHandler.java:73`) *before* the hit lands, so the animation shows even if
+   `src/main/java/net/server/channel/handlers/RangedAttackHandler.java:220`, `src/main/java/net/server/channel/handlers/MagicDamageHandler.java:73`) *before* the hit lands, so the animation shows even if
    `applyAttack` then refuses.
 5. **`applyAttack` gates** (`src/main/java/net/server/channel/handlers/AbstractDealDamageHandler.java:107`):
    ownership-restricted map `:109`; banned `:117`; skill effect null → `enableActions` + return `:122-125`;
@@ -212,13 +212,13 @@ the character is a non-bot GM of level ≥ 2 (`src/main/java/soloMapling/server/
 | Switch | Type | Default | Read at | Effect here |
 |---|---|---|---|---|
 | `USE_AUTOBAN` | `config.yaml` (`src/main/java/config/ServerConfig.java:325`) | `false` (`config.example.yaml:230`) | `src/main/java/client/autoban/AutobanFactory.java:96`, `:109` | master switch for the `DAMAGE_HACK`/`MPCON`/`MOB_COUNT`/`DISTANCE_HACK` points and alerts raised throughout this subsystem. Off ⇒ those are log/point only |
-| `USE_AUTOBAN_LOG` | `ServerConfig.java:326` | `true` (`config.example.yaml:231`) | `src/main/java/client/autoban/AutobanFactory.java:102` | writes the autoban log lines |
-| `USE_DEBUG` | `ServerConfig.java:293` | `false` (`config.example.yaml:200`) | `src/main/java/server/life/Monster.java:467` | prints `Hitted MOB <id>, OID <oid>` per hit |
-| `USE_DEADLY_DOJO` | `ServerConfig.java:554` | `true` (`config.example.yaml:473`) | `TakeDamageHandler.java:201` | when false, deadly attacks inside Dojo deal 0 damage and burn no MP |
-| `DOJO_ENERGY_ATK` | `ServerConfig.java:555` | `100` (`config.example.yaml:474`) | `CloseRangeDamageHandler.java:69-72`, `RangedAttackHandler.java:73-76`, `MagicDamageHandler.java:62-65` | energy gained per attack that lands |
-| `DOJO_ENERGY_DMG` | `ServerConfig.java:556` | `20` (`config.example.yaml:475`) | `TakeDamageHandler.java:289` | energy gained per hit taken |
-| `USE_ULTRA_THREE_SNAILS` | `ServerConfig.java:454` | `false` (`config.example.yaml:371`) | `AbstractDealDamageHandler.java:424` | lets Three Snails damage scale with shells instead of a fixed line |
-| `USE_FAST_REUSE_HERO_WILL` | `ServerConfig.java:458` | `false` (`config.example.yaml:375`) | `SpecialMoveHandler.java:103` | divides Hero's Will cooldown by 60 |
+| `USE_AUTOBAN_LOG` | `src/main/java/config/ServerConfig.java:326` | `true` (`config.example.yaml:231`) | `src/main/java/client/autoban/AutobanFactory.java:102` | writes the autoban log lines |
+| `USE_DEBUG` | `src/main/java/config/ServerConfig.java:293` | `false` (`config.example.yaml:200`) | `src/main/java/server/life/Monster.java:467` | prints `Hitted MOB <id>, OID <oid>` per hit |
+| `USE_DEADLY_DOJO` | `src/main/java/config/ServerConfig.java:554` | `true` (`config.example.yaml:473`) | `src/main/java/net/server/channel/handlers/TakeDamageHandler.java:201` | when false, deadly attacks inside Dojo deal 0 damage and burn no MP |
+| `DOJO_ENERGY_ATK` | `src/main/java/config/ServerConfig.java:555` | `100` (`config.example.yaml:474`) | `src/main/java/net/server/channel/handlers/CloseRangeDamageHandler.java:69-72`, `src/main/java/net/server/channel/handlers/RangedAttackHandler.java:73-76`, `src/main/java/net/server/channel/handlers/MagicDamageHandler.java:62-65` | energy gained per attack that lands |
+| `DOJO_ENERGY_DMG` | `src/main/java/config/ServerConfig.java:556` | `20` (`config.example.yaml:475`) | `src/main/java/net/server/channel/handlers/TakeDamageHandler.java:289` | energy gained per hit taken |
+| `USE_ULTRA_THREE_SNAILS` | `src/main/java/config/ServerConfig.java:454` | `false` (`config.example.yaml:371`) | `src/main/java/net/server/channel/handlers/AbstractDealDamageHandler.java:424` | lets Three Snails damage scale with shells instead of a fixed line |
+| `USE_FAST_REUSE_HERO_WILL` | `src/main/java/config/ServerConfig.java:458` | `false` (`config.example.yaml:375`) | `src/main/java/net/server/channel/handlers/SpecialMoveHandler.java:103` | divides Hero's Will cooldown by 60 |
 | `-Dslums.attackcapture` | system property | off | `src/main/java/soloMapling/server/AttackCapture.java:48`, `:59` | logs GM attack/cast/summon packets to `logs/attack-capture.tsv`; because `QaSuite.isEnabled()` ORs it in (`src/main/java/soloMapling/qa/QaSuite.java:33`, `:77-78`) it also turns on every QA log hook (`docs/architecture/server/commands.md:148-149`, `docs/architecture/server/qa-and-autoqa.md:251`). Live passes neither this nor `-Dslums.qa` |
 | `-Dslums.chaos.zakum` | system property | off | `src/main/java/constants/id/MobId.java:40` | chaos Zakum altar ids; feeds `shieldingArms` and therefore `bossDamageBlocked` |
 
@@ -232,26 +232,26 @@ values are unknown.
 - **A monster's HP never goes below zero while it is alive.** `applyAndGetHpDamage` applies
   `Math.min(curHp, delta)` (`src/main/java/server/life/Monster.java:370`), so overkill is dropped and
   `takenDamage` records real damage only. `hp == -1` is reserved for "removed from the map"
-  (`Monster.java:388-390`), which is why `removeKilledMonsterObject` treats `hp < 0` as already-removed
+  (`src/main/java/server/life/Monster.java:388-390`), which is why `removeKilledMonsterObject` treats `hp < 0` as already-removed
   (`src/main/java/server/maps/MapleMap.java:1712-1714`).
-- **A monster dies once.** `Monster.damage` returns early when `!isAlive()` (`Monster.java:417-418`) and
-  `killMonster` is idempotent through `removeKilledMonsterObject` (`MapleMap.java:1712`).
+- **A monster dies once.** `Monster.damage` returns early when `!isAlive()` (`src/main/java/server/life/Monster.java:417-418`) and
+  `killMonster` is idempotent through `removeKilledMonsterObject` (`src/main/java/server/maps/MapleMap.java:1712`).
 - **Client damage numbers are advisory.** Every line is re-clamped against a server-side estimate
-  (`AbstractDealDamageHandler.java:844-857`, `:886-892` for negatives; `SummonDamageHandler.java:119`;
-  `MobDamageMobHandler.java:63-71`), and a hit on an immune mob is `1` per line
-  (`AbstractDealDamageHandler.java:252`, `:256`).
+  (`src/main/java/net/server/channel/handlers/AbstractDealDamageHandler.java:844-857`, `:886-892` for negatives; `src/main/java/net/server/channel/handlers/SummonDamageHandler.java:119`;
+  `src/main/java/net/server/channel/handlers/MobDamageMobHandler.java:63-71`), and a hit on an immune mob is `1` per line
+  (`src/main/java/net/server/channel/handlers/AbstractDealDamageHandler.java:252`, `:256`).
 - **A negative damage line is a miss, never a crit.** `clientDamage` maps any negative input to `0`
-  (`AbstractDealDamageHandler.java:886-892`); the crit encoding (`markCritical` `:896`) is applied only to positive
+  (`src/main/java/net/server/channel/handlers/AbstractDealDamageHandler.java:886-892`); the crit encoding (`markCritical` `:896`) is applied only to positive
   lines, so decoding with `eachd += Integer.MAX_VALUE` (`:273-275`) can only ever recover a number the server itself
   flagged.
 - **No MP, no damage.** `applyAttack` refuses before any HP write when `getMp() < getMpCon()`
-  (`AbstractDealDamageHandler.java:128-132`), and a party Heal the caster cannot pay for heals nobody
+  (`src/main/java/net/server/channel/handlers/AbstractDealDamageHandler.java:128-132`), and a party Heal the caster cannot pay for heals nobody
   (`src/main/java/server/StatEffect.java:896-901`). This is b295's invariant and is covered by
   `src/test/java/net/server/channel/handlers/AttackWithoutMpTest.java` and
   `src/test/java/server/StatEffectHealAffordTest.java`.
 - **EXP is a share of recorded damage, not of the killing blow.** `expPerDmg = mobExp / maxHpPlusHeal`
-  (`Monster.java:750-752`), split over `takenDamage` (`:725-748`); the "killer" only decides the event credit and the looter
-  (`MapleMap.java:1789`, `Monster.java:1001`).
+  (`src/main/java/server/life/Monster.java:750-752`), split over `takenDamage` (`:725-748`); the "killer" only decides the event credit and the looter
+  (`src/main/java/server/maps/MapleMap.java:1789`, `src/main/java/server/life/Monster.java:1001`).
 - **A player's HP can only be zeroed through the stat pool**, never by direct field writes from a handler;
   `safeAddHP` clamps to `1` (`src/main/java/client/AbstractCharacterObject.java:501-507`) while `addMPHP` /
   `addHP` can kill. Death is decided in one place, `hpChangeAction` (`src/main/java/client/Character.java:10585-10594`).
@@ -278,23 +278,23 @@ values are unknown.
   config); no player-visible effect."
 - `java-method-missing:…/AbstractDealDamageHandler.java::*` = UPSTREAM-NEW — Cosmic split Meso Explosion into
   `parseMesoExplosion`/`removeExplodedMesos` on 2024-08-20, after the fork; ours keeps the older inline parse
-  (`AbstractDealDamageHandler.java:177`, `:563`) "which is functional".
+  (`src/main/java/net/server/channel/handlers/AbstractDealDamageHandler.java:177`, `:563`) "which is functional".
 - `manual:…/AbstractDealDamageHandler.java::parseDamage` = RESTORED — "parseDamage had lost Cosmic's crit flag (sign
   bit on a damage line judged a crit…). Restored the flag only: Cosmic's fixed 195,000-200,000 Snipe damage stays
   dropped (MapleRoot uses the client's Snipe damage). A miss is never flagged."
 - `java-commented-lines:…/MagicDamageHandler.java` and `…/RangedAttackHandler.java` = DELIBERATE — the attack
   broadcast goes through MapleRoot's `chr.broadcastAttackMessage` instead of a map broadcast
-  (`MagicDamageHandler.java:73`, `RangedAttackHandler.java:220`).
+  (`src/main/java/net/server/channel/handlers/MagicDamageHandler.java:73`, `src/main/java/net/server/channel/handlers/RangedAttackHandler.java:220`).
 - `java-commented:…/SummonDamageHandler.java::L113` = RESTORED — summon hits above `calcMaxDamage` are clamped again
-  with the `DAMAGE_HACK` alert and the "Possible exploit" log line (`SummonDamageHandler.java:113-121`); risk noted:
+  with the `DAMAGE_HACK` alert and the "Possible exploit" log line (`src/main/java/net/server/channel/handlers/SummonDamageHandler.java:113-121`); risk noted:
   "a MapleRoot custom summon or stat bonus the formula does not know about would see its hits cut".
 - `java-commented:…/TakeDamageHandler.java::L172` = RESTORED — Mana Reflection bounces `x%` again with the cap of a
-  fifth of the mob's max HP, computed in longs (`TakeDamageHandler.java:303-308`); bosses immune `:173`.
+  fifth of the mob's max HP, computed in longs (`src/main/java/net/server/channel/handlers/TakeDamageHandler.java:303-308`); bosses immune `:173`.
 - `java-commented:…/TakeDamageHandler.java::L258` = DELIBERATE — "Meso Guard costs no mesos… Owner decision
   2026-10-21: KEEP the repack's way." The cost is back in the tree (`:263-272`), so this classification is stale
   relative to `7e791455a`.
 - `java-commented-lines:…/TakeDamageHandler.java` = DELIBERATE — the `decreaseBattleshipHp` call stays out
-  (`TakeDamageHandler.java:274-276`; `docs/tickets/68-mapleroot-vs-cosmic-audit.md` records the owner decision).
+  (`src/main/java/net/server/channel/handlers/TakeDamageHandler.java:274-276`; `docs/tickets/68-mapleroot-vs-cosmic-audit.md` records the owner decision).
 
 ## Tests and QA
 
@@ -335,29 +335,29 @@ mob's EXP.
   ancestor of HEAD, with both fail-before tests present; the status file (exported 2026-11-04 17:26 UTC) still lists it
   as triaged/unclaimed, so the card is open administratively, not technically.
 - **Cosmic-diff classification drift** — `tools/cosmicdiff/classifications.json` marks `TakeDamageHandler.java::L258`
-  (Meso Guard) DELIBERATE "costs no mesos", but `7e791455a` restored the cost (`TakeDamageHandler.java:263-272`). The
+  (Meso Guard) DELIBERATE "costs no mesos", but `7e791455a` restored the cost (`src/main/java/net/server/channel/handlers/TakeDamageHandler.java:263-272`). The
   classification no longer describes the code.
-- **Battleship HP is deliberately gone** — `TakeDamageHandler.java:274-276` keeps `decreaseBattleshipHp` commented and
+- **Battleship HP is deliberately gone** — `src/main/java/net/server/channel/handlers/TakeDamageHandler.java:274-276` keeps `decreaseBattleshipHp` commented and
   `Character.decreaseBattleshipHp` no longer exists; recorded in `docs/tickets/68-mapleroot-vs-cosmic-audit.md` and
   `docs/release/cosmic-diff-1.4.1.md:99`.
 - **Adjacent, not this subsystem** — ticket 68's open issue #1: the `inExpedition` flag shared by
-  `UseItemHandler.java:55`, `:106-118` and `ChangeMapHandler.java:146-153` makes one player's potion heal the whole
+  `src/main/java/net/server/channel/handlers/UseItemHandler.java:55`, `:106-118` and `src/main/java/net/server/channel/handlers/ChangeMapHandler.java:146-153` makes one player's potion heal the whole
   Zakum map and never resets on death. It makes incoming damage survivable in a way `TakeDamageHandler`'s maths does
   not account for.
-- **NEW-FINDING: `MobDamageMobFriendlyHandler.java:79-91` kills the friendly twice.** `map.killFriendlies(monster)`
-  runs `killMonster` → `removeKilledMonsterObject` → `disposeMapObject` (`MapleMap.java:1710-1727`,
-  `Monster.java:388-390`), which decrements `spawnedMonstersOnMap`, calls `removeMapObject` and sets `hp = -1`;
+- **NEW-FINDING: `src/main/java/net/server/channel/handlers/MobDamageMobFriendlyHandler.java:79-91` kills the friendly twice.** `map.killFriendlies(monster)`
+  runs `killMonster` → `removeKilledMonsterObject` → `disposeMapObject` (`src/main/java/server/maps/MapleMap.java:1710-1727`,
+  `src/main/java/server/life/Monster.java:388-390`), which decrements `spawnedMonstersOnMap`, calls `removeMapObject` and sets `hp = -1`;
   `applyAndGetHpDamage(damage, false)` then runs at `:87` on an object whose HP is already `-1`, returns `0`, and the
   following `remainingHp <= 0` branch calls `map.removeMapObject(monster)` a second time `:89-91`.
-- **NEW-FINDING: `MonsterBombHandler.java:41-52` never checks HP or ownership.** Any client can send `MONSTER_BOMB`
+- **NEW-FINDING: `src/main/java/net/server/channel/handlers/MonsterBombHandler.java:41-52` never checks HP or ownership.** Any client can send `MONSTER_BOMB`
   with the OID of a Darkstar bomb mob on its own map and the mob is removed (`dispatchMonsterKilled(false)` `:49`,
   kill broadcast `:50`, `removeMapObject(oid)` `:51`) without damage, EXP or drops. There is no position, distance or "the bomb actually went
   off" check, unlike `FieldDamageMobHandler`'s cap.
 - **NEW-FINDING: the damage-line-count check is dead.**
-  `AbstractDealDamageHandler.java:168-173` keeps the `attackCount != attack.numDamage` guard commented out under
+  `src/main/java/net/server/channel/handlers/AbstractDealDamageHandler.java:168-173` keeps the `attackCount != attack.numDamage` guard commented out under
   `//WTF IS THIS F3,1`, so nothing verifies that a skill declaring N attack lines actually delivered N — a client can
   send fewer or more lines within the ceiling and the missing lines simply count as misses.
-- **NEW-FINDING: `MagicDamageHandler.java:63` reads `+ +YamlConfig.config.server.DOJO_ENERGY_ATK`** — a doubled unary
+- **NEW-FINDING: `src/main/java/net/server/channel/handlers/MagicDamageHandler.java:63` reads `+ +YamlConfig.config.server.DOJO_ENERGY_ATK`** — a doubled unary
   plus (harmless to the compiler, but it is the only place in the codebase where it appears and hides a careless
   edit).
 
@@ -365,9 +365,9 @@ mob's EXP.
 
 **working** for the two main paths, **partial** for the satellite routes.
 
-Evidence: the attack funnel is wired end to end in code (`AbstractDealDamageHandler.java:534` → `:107` → `:470` →
-`MapleMap.java:1633` → `Monster.java:412` → `:461` → `:360`), the incoming path likewise
-(`TakeDamageHandler.java:63` → `:277` → `AbstractCharacterObject.java:539` → `Character.java:10585` → `:8998`), and
+Evidence: the attack funnel is wired end to end in code (`src/main/java/net/server/channel/handlers/AbstractDealDamageHandler.java:534` → `:107` → `:470` →
+`src/main/java/server/maps/MapleMap.java:1633` → `src/main/java/server/life/Monster.java:412` → `:461` → `:360`), the incoming path likewise
+(`src/main/java/net/server/channel/handlers/TakeDamageHandler.java:63` → `:277` → `src/main/java/client/AbstractCharacterObject.java:539` → `src/main/java/client/Character.java:10585` → `:8998`), and
 eight unit tests pin exactly the seven behaviours the repack had broken: MP gate (two tests), crit flag, negative
 damage lines, summon clamp, venom status, Mana Reflection and Meso Guard. The mob-death NPE seen in 1.6.4 round 11 is fixed in
 `src/main/java/server/life/Monster.java:907-914` (`warnMissingRevive`), with the revive itself at `:936-996`.
@@ -391,5 +391,5 @@ the known issues above include two trust holes (`MonsterBombHandler`, the dead l
   export reads.
 - `Monster.damage`'s `stayAlive` flag: `MapleMap.damageMonster` always passes `false`
   (`src/main/java/server/maps/MapleMap.java:1645`), and only `applyAndGetHpDamage(Integer.MAX_VALUE, false)` /
-  `heal` reach it otherwise. No caller passes `true`, so the `curHp--` branch at `Monster.java:367-368` looks
+  `heal` reach it otherwise. No caller passes `true`, so the `curHp--` branch at `src/main/java/server/life/Monster.java:367-368` looks
   unreachable; whether it is intended for a future "leave at 1 HP" mechanic is undetermined.

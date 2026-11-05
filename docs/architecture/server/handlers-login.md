@@ -42,25 +42,25 @@ Dispatch is one place: `Client.channelRead` looks the opcode up, then calls `han
 `handlePacket` (src/main/java/client/Client.java:210-221); a `Throwable` from a handler is logged ("Error in packet
 handler {}") and swallowed (src/main/java/client/Client.java:222-227). The default `validateState` is `c.isLoggedIn()`
 (src/main/java/net/AbstractPacketHandler.java:29-31); login-phase handlers override it to `!c.isLoggedIn()` (for example
-src/main/java/net/server/handlers/login/LoginPasswordHandler.java:50-52, ClientBuildStampHandler.java:20-22,
-AcceptToSHandler.java:14-16, RelogRequestHandler.java:31-33).
+src/main/java/net/server/handlers/login/LoginPasswordHandler.java:50-52, src/main/java/net/server/handlers/login/ClientBuildStampHandler.java:20-22,
+src/main/java/net/server/handlers/login/AcceptToSHandler.java:14-16, src/main/java/net/server/handlers/login/RelogRequestHandler.java:31-33).
 
 ## How it works
 
 1. **Connection.** `Server` reads the port once (`Integer.getInteger("mapleroot.login-port", 8485)`,
-   src/main/java/net/server/Server.java:1018) and starts the login listener (Server.java:1019-1021). On accept,
+   src/main/java/net/server/Server.java:1018) and starts the login listener (src/main/java/net/server/Server.java:1019-1021). On accept,
    `LoginServerInitializer.initChannel` creates a `Client` bound to `LoginServer.WORLD_ID = -1`,
    `CHANNEL_ID = -1` (src/main/java/net/netty/LoginServer.java:10-11) with a fresh session id
    (src/main/java/net/netty/LoginServerInitializer.java:18-21), seeds the per-IP "last account" cache
-   (LoginServerInitializer.java:22 → Client.java:1380-1404) and refuses the socket outright when the per-IP login limit
-   is hit (`canStartLoginSession`, LoginServerInitializer.java:24-27 → SessionCoordinator.canStartLoginSession,
+   (src/main/java/net/netty/LoginServerInitializer.java:22 → src/main/java/client/Client.java:1380-1404) and refuses the socket outright when the per-IP login limit
+   is hit (`canStartLoginSession`, src/main/java/net/netty/LoginServerInitializer.java:24-27 → SessionCoordinator.canStartLoginSession,
    src/main/java/net/server/coordinator/session/SessionCoordinator.java:127-141, using `LOGIN_MAX_SESSIONS_PER_IP` and
    `LOGIN_MAX_CONNECTS_PER_IP` / `LOGIN_CONNECT_WINDOW_SECONDS`).
 2. **Build stamp.** Before the password packet the client sends `CLIENT_BUILD_STAMP`; `ClientBuildStampHandler.parse`
    validates format ∈ {1,2}, a non-negative build, a ≤40-char release string and the caps word for format 2
    (src/main/java/net/server/handlers/login/ClientBuildStampHandler.java:38-68) and stores it on the client
    (`Client.setClientStamp`, src/main/java/client/Client.java:1285). A malformed stamp is silently dropped, which makes
-   the client look like build 0 (ClientBuildStampHandler.java:26-29).
+   the client look like build 0 (src/main/java/net/server/handlers/login/ClientBuildStampHandler.java:26-29).
 3. **Server status.** `ServerStatusRequestHandler` answers with the world's capacity band
    (`World.getWorldCapacityStatus`: 2 = full, 1 = ≥80 % of `channels × CHANNEL_LOAD`, 0 = free) or 2 when the world does
    not exist (src/main/java/net/server/handlers/login/ServerStatusRequestHandler.java:34-42,
@@ -70,36 +70,36 @@ AcceptToSHandler.java:14-16, RelogRequestHandler.java:31-33).
    ticket 41 removed the hardcoded world 0 — `selectWorld(homeWorldId)` at :61).
 5. **Password.** `LoginPasswordHandler` reads login/password, skips 6 bytes and builds the `Hwid` from the next 4
    (src/main/java/net/server/handlers/login/LoginPasswordHandler.java:63-70), then calls
-   `Client.login(login, pwd, hwid, false)` (LoginPasswordHandler.java:71). That method:
+   `Client.login(login, pwd, hwid, false)` (src/main/java/net/server/handlers/login/LoginPasswordHandler.java:71). That method:
    counts the attempt and closes the session past 4 (src/main/java/client/Client.java:699-705); selects
    `id, password, gender, banned, pin, pic, characterslots, tos, ip, language` from `accounts` by name
-   (Client.java:708-710); returns 3 for a banned account (Client.java:731-733); maps
+   (src/main/java/client/Client.java:708-710); returns 3 for a banned account (src/main/java/client/Client.java:731-733); maps
    `AccountPasswords.check` to `23`/`-23` (ToS not accepted, legacy hash) / `0` / `-10` (bcrypt migration due) / `4`
-   (wrong password) (Client.java:735-743, src/main/java/client/AccountPasswords.java:42-60); and only then turns a
-   verified result into `7` "already logged in" via `alreadyLoggedInCheck` (Client.java:747, :791-796). On 0 or 4 it
+   (wrong password) (src/main/java/client/Client.java:735-743, src/main/java/client/AccountPasswords.java:42-60); and only then turns a
+   verified result into `7` "already logged in" via `alreadyLoggedInCheck` (src/main/java/client/Client.java:747, :791-796). On 0 or 4 it
    asks the session coordinator for permission and maps the refusal to a login-failed code
-   (Client.java:759-784: `REMOTE_LOGGEDIN`→17, `REMOTE_REACHED_LIMIT`→13, `REMOTE_PROCESSING`→10,
+   (src/main/java/client/Client.java:759-784: `REMOTE_LOGGEDIN`→17, `REMOTE_REACHED_LIMIT`→13, `REMOTE_PROCESSING`→10,
    `MANY_ACCOUNT_ATTEMPTS`→16, other→8).
 6. **Build gate.** With a verified password (0/7/23/-23/-10) `ClientVersionGate.refuseIfOutdated` runs *before* the
    already-logged-in kick and before automatic registration (src/main/java/net/server/handlers/login/LoginPasswordHandler.java:72-77).
-   The gate refuses a QA-caps build unless `-Dslums.client.allowQa` is set (ClientVersionGate.java:100-108), then a
-   build below `MIN_CLIENT_BUILD` with no GM bypass (ClientVersionGate.java:109-122); both paths send a
+   The gate refuses a QA-caps build unless `-Dslums.client.allowQa` is set (src/main/java/net/server/handlers/login/ClientVersionGate.java:100-108), then a
+   build below `MIN_CLIENT_BUILD` with no GM bypass (src/main/java/net/server/handlers/login/ClientVersionGate.java:109-122); both paths send a
    `serverNotice` + `getLoginFailed(1)` and close the login session.
 7. **Automatic registration.** When `AUTOMATIC_REGISTER` is on and the account does not exist (`loginok == 5`), the
    handler re-runs the gate with GM level forced to 0, asks `AutoRegisterGuard.check` (password length, reserved name,
-   per-IP cooldown, optional per-IP cap) (LoginPasswordHandler.java:78-88; AutoRegisterGuard.java:52-83), inserts
+   per-IP cooldown, optional per-IP cap) (src/main/java/net/server/handlers/login/LoginPasswordHandler.java:78-88; src/main/java/net/server/handlers/login/AutoRegisterGuard.java:52-83), inserts
    `accounts (name, password, birthday, tempban)` with `AccountPasswords.hashForNewAccount`
-   (LoginPasswordHandler.java:89-95; AccountPasswords.java:63-65), records the IP, fires the Discord webhook and then
-   re-runs `c.login` in the `finally` (LoginPasswordHandler.java:101-114).
+   (src/main/java/net/server/handlers/login/LoginPasswordHandler.java:89-95; src/main/java/client/AccountPasswords.java:63-65), records the IP, fires the Discord webhook and then
+   re-runs `c.login` in the `finally` (src/main/java/net/server/handlers/login/LoginPasswordHandler.java:101-114).
 8. **Already-logged-in kick.** `loginok == 7` clears `accounts.loggedin`, walks every world for the account's
-   characters (ticket 41, LoginPasswordHandler.java:132), removes them from channel and map and disconnects the old
-   session, then closes the stale login client found through `Server.getConnectedClient` (LoginPasswordHandler.java:117-156,
+   characters (ticket 41, src/main/java/net/server/handlers/login/LoginPasswordHandler.java:132), removes them from channel and map and disconnects the old
+   session, then closes the stale login client found through `Server.getConnectedClient` (src/main/java/net/server/handlers/login/LoginPasswordHandler.java:117-156,
    src/main/java/net/server/Server.java:214-225).
-9. **Bans and finish.** Bcrypt migration (LoginPasswordHandler.java:165-176), banned IP/MAC → 3, tempban → temp-ban
+9. **Bans and finish.** Bcrypt migration (src/main/java/net/server/handlers/login/LoginPasswordHandler.java:165-176), banned IP/MAC → 3, tempban → temp-ban
    packet, `loginok == 3` → permanent-ban packet, any other non-zero → `getLoginFailed` + `closeLoginSession`
-   (LoginPasswordHandler.java:178-196). Success requires `c.finishLogin() == 0` (LoginPasswordHandler.java:197-202 →
-   Client.java:616-629), which writes `LOGIN_LOGGEDIN` and then sends `getAuthSuccess`, registers the 10-minute login
-   idle entry and the account→client map (LoginPasswordHandler.java:223-227, Server.java:2024-2031, :214-219).
+   (src/main/java/net/server/handlers/login/LoginPasswordHandler.java:178-196). Success requires `c.finishLogin() == 0` (src/main/java/net/server/handlers/login/LoginPasswordHandler.java:197-202 →
+   src/main/java/client/Client.java:616-629), which writes `LOGIN_LOGGEDIN` and then sends `getAuthSuccess`, registers the 10-minute login
+   idle entry and the account→client map (src/main/java/net/server/handlers/login/LoginPasswordHandler.java:223-227, src/main/java/net/server/Server.java:2024-2031, :214-219).
 10. **ToS.** When `tos == 0` the login result is 23/-23 and the client shows the terms; `ACCEPT_TOS` →
     `AcceptToSHandler` requires exactly one byte `1`, calls `Client.acceptToS`, then `finishLogin` and re-sends
     `getAuthSuccess` (src/main/java/net/server/handlers/login/AcceptToSHandler.java:19-29).
@@ -123,8 +123,8 @@ AcceptToSHandler.java:14-16, RelogRequestHandler.java:31-33).
     `SessionCoordinator.attemptGameSession`, requires `Server.haveCharacterEntry`, sets the world from
     `getCharacterWorld`, refuses a full world and a missing socket, then `unregisterLoginState` +
     `setCharacterOnSessionTransitionState(charId)` and sends `getServerIP(addr, port, charId)`
-    (src/main/java/net/server/handlers/login/CharSelectedHandler.java:53-109; Server.java:1978-1992 records the
-    IP→charId hand-off, Client.java:1180-1185 sets `LOGIN_SERVER_TRANSITION` and remembers the build stamp in
+    (src/main/java/net/server/handlers/login/CharSelectedHandler.java:53-109; src/main/java/net/server/Server.java:1978-1992 records the
+    IP→charId hand-off, src/main/java/client/Client.java:1180-1185 sets `LOGIN_SERVER_TRANSITION` and remembers the build stamp in
     `ClientStampCarry`).
 14. **Character select with PIC.** `CHAR_SELECT_WITH_PIC` reads the PIC *first*, then charId (:32-34), checks bans and
     character ownership before the PIC, and only on `checkPic` success does the attempt/socket/transition sequence,
@@ -132,7 +132,7 @@ AcceptToSHandler.java:14-16, RelogRequestHandler.java:31-33).
     `REGISTER_PIC` and the two view-all variants repeat the same shape; `RegisterPicHandler` stores the PIC only when
     the account has none and closes the session otherwise (src/main/java/net/server/handlers/login/RegisterPicHandler.java:51-95).
     View-all variants pick a random channel in the character's world instead of the requested one
-    (ViewAllCharSelectedHandler.java:98-104, ViewAllCharSelectedWithPicHandler.java:72-73).
+    (src/main/java/net/server/handlers/login/ViewAllCharSelectedHandler.java:98-104, src/main/java/net/server/handlers/login/ViewAllCharSelectedWithPicHandler.java:72-73).
 15. **PlayerLoggedin (channel socket).** The client connects to the advertised port and sends `PLAYER_LOGGEDIN` with the
     character id. `PlayerLoggedinHandler` takes the per-account lock, resolves world/channel (channel 1 as fallback),
     takes the HWID from the login-session cache for newcomers/owned alts or from the existing character
@@ -162,12 +162,12 @@ Login-guard summary:
 | PIC | `Client.checkPic` (off/bypass short-circuit, 5 tries, bypass entry) | src/main/java/client/Client.java:680-695 |
 | PIC mode advertised to the client | `PacketCreator.getAuthSuccess` / `getCharList` | src/main/java/tools/PacketCreator.java:705, :889 |
 | PIN | `Client.checkPin` | src/main/java/client/Client.java:647-662 |
-| PIN prompts/registration | `AfterLoginHandler`, `RegisterPinHandler` | src/main/java/net/server/handlers/login/AfterLoginHandler.java:33-63, RegisterPinHandler.java:35-49 |
-| Build stamp / min build | `ClientVersionGate` + `ClientBuildStampHandler` | src/main/java/net/server/handlers/login/ClientVersionGate.java:100-123, ClientBuildStampHandler.java:20-69 |
+| PIN prompts/registration | `AfterLoginHandler`, `RegisterPinHandler` | src/main/java/net/server/handlers/login/AfterLoginHandler.java:33-63, src/main/java/net/server/handlers/login/RegisterPinHandler.java:35-49 |
+| Build stamp / min build | `ClientVersionGate` + `ClientBuildStampHandler` | src/main/java/net/server/handlers/login/ClientVersionGate.java:100-123, src/main/java/net/server/handlers/login/ClientBuildStampHandler.java:20-69 |
 | QA client build | `ClientVersionGate.qaBuildRefused` (`-Dslums.client.allowQa`) | src/main/java/net/server/handlers/login/ClientVersionGate.java:81-83, :100-108 |
 | Per-IP login connection cap | `SessionCoordinator.canStartLoginSession` | src/main/java/net/server/coordinator/session/SessionCoordinator.java:127-141 |
 | Multi-client / HWID association | `SessionCoordinator.attemptLoginSession` / `attemptGameSession` | src/main/java/net/server/coordinator/session/SessionCoordinator.java:167-238 |
-| Banned IP / MAC / HWID | `LoginPasswordHandler` (IP/MAC) and the select handlers (MAC/HWID) | src/main/java/net/server/handlers/login/LoginPasswordHandler.java:178-181, CharSelectedHandler.java:77-80 |
+| Banned IP / MAC / HWID | `LoginPasswordHandler` (IP/MAC) and the select handlers (MAC/HWID) | src/main/java/net/server/handlers/login/LoginPasswordHandler.java:178-181, src/main/java/net/server/handlers/login/CharSelectedHandler.java:77-80 |
 | Character belongs to the account / IP→charId hand-off | `Server.haveCharacterEntry`, `Server.validateCharacteridInTransition` | src/main/java/net/server/Server.java:1518-1526, :1978-1992 (switch `USE_IP_VALIDATION`) |
 | Login idle timeout (10 min) | `Server.registerLoginState` + `disconnectIdlesOnLoginState` | src/main/java/net/server/Server.java:2024-2041, :2042-2069 |
 
@@ -179,14 +179,14 @@ Login-guard summary:
 | `accounts.ip` as "last address seen" | also the counter source for the per-IP registration cap | src/main/java/net/server/handlers/login/AutoRegisterGuard.java:103-112 |
 | `worldtransfers` | pending/cooldown row per character | src/main/java/net/server/channel/handlers/TransferWorldHandler.java:59-72 |
 | `SessionCoordinator.onlineClients` | accountId → `Client` | src/main/java/net/server/coordinator/session/SessionCoordinator.java:62, :108-121 |
-| `SessionCoordinator.onlineRemoteHwids` | set of HWIDs currently in a session | SessionCoordinator.java:63, :184-191, :218-229 |
-| `SessionCoordinator.hostHwidCache` | remote host (and bare remote address) → `Hwid` | SessionCoordinator.java:65, :202-203, :314-322 |
-| `SessionCoordinator.loginLimiter` | remote address → open sessions/connect timestamps | SessionCoordinator.java:64, :127-141 |
+| `SessionCoordinator.onlineRemoteHwids` | set of HWIDs currently in a session | src/main/java/net/server/coordinator/session/SessionCoordinator.java:63, :184-191, :218-229 |
+| `SessionCoordinator.hostHwidCache` | remote host (and bare remote address) → `Hwid` | src/main/java/net/server/coordinator/session/SessionCoordinator.java:65, :202-203, :314-322 |
+| `SessionCoordinator.loginLimiter` | remote address → open sessions/connect timestamps | src/main/java/net/server/coordinator/session/SessionCoordinator.java:64, :127-141 |
 | `LoginStorage.loginHistory` | accountId → list of attempt instants | src/main/java/net/server/coordinator/login/LoginStorage.java:37-53 |
 | `LoginBypassCoordinator.loginBypass` | (Hwid, accId) → (picAllowed, expiry) | src/main/java/net/server/coordinator/login/LoginBypassCoordinator.java:49-75 |
 | `Server.connectedClients` | account name → login `Client` | src/main/java/net/server/Server.java:214-225 |
-| `Server.transitioningChars` | remote host → charId awaiting the channel socket | Server.java:1967-2022 |
-| `Server.inLoginState` | `Client` → expiry (now + 600000) | Server.java:2024-2041 |
+| `Server.transitioningChars` | remote host → charId awaiting the channel socket | src/main/java/net/server/Server.java:1967-2022 |
+| `Server.inLoginState` | `Client` → expiry (now + 600000) | src/main/java/net/server/Server.java:2024-2041 |
 | `ClientStampCarry.pending` | charId → build stamp across the socket hop | src/main/java/net/server/coordinator/session/ClientStampCarry.java:24-43 |
 
 Packets the login server sends: `LOGIN_STATUS` (`getAuthSuccess` src/main/java/tools/PacketCreator.java:680-708,
@@ -200,26 +200,26 @@ Packets the login server sends: `LOGIN_STATUS` (`getAuthSuccess` src/main/java/t
 |---|---|---|---|
 | `ENABLE_PIN` (config.yaml) | none declared in `ServerConfig` → yaml value | turns the PIN prompt and `checkPin` on | src/main/java/config/ServerConfig.java:34, src/main/java/client/Client.java:648 |
 | `ENABLE_PIC` (config.yaml) | none declared | turns PIC registration/ask on | src/main/java/config/ServerConfig.java:33, src/main/java/client/Client.java:681 |
-| `BYPASS_PIC_EXPIRATION` / `BYPASS_PIN_EXPIRATION` (config.yaml, minutes) | none declared | how long a successful check skips the next prompt; 0 = never register | ServerConfig.java:36-37, LoginBypassCoordinator.java:62-74 |
-| `AUTOMATIC_REGISTER` (config.yaml) | none declared | account is created on a first login instead of returning "not registered" | ServerConfig.java:39, LoginPasswordHandler.java:78 |
-| `AUTO_REGISTER_MIN_PASSWORD_LENGTH` | 6 | minimum password for auto-registration | ServerConfig.java:42, AutoRegisterGuard.java:63 |
-| `AUTO_REGISTER_MAX_ACCOUNTS_PER_IP` | 0 (no cap; owner 2026-10-26 chose any number per IP) | per-IP account cap | ServerConfig.java:43-44, AutoRegisterGuard.java:73-80 |
-| `AUTO_REGISTER_IP_COOLDOWN_MINUTES` | 1 | gap between new accounts from one address | ServerConfig.java:44, AutoRegisterGuard.java:69-72 |
-| `MIN_CLIENT_BUILD` (config.yaml) | 0 in `ServerConfig` (gate off) | build gate; clients without a stamp count as 0 | ServerConfig.java:61, ClientVersionGate.java:47-53 |
-| `CLIENT_UPDATE_MESSAGE` | "Your game is out of date: open the SlumsMS launcher to update." | notice text sent with the silent refusal | ServerConfig.java:62, ClientVersionGate.java:67-70 |
-| `MIN_CLIENT_BUILD_GM_BYPASS` | false | GM characters (highest `characters.gm` on the account) may log in on an old build | ServerConfig.java:64, ClientVersionGate.java:113-125 |
-| `-Dslums.client.allowQa=true` | false | accepts the QA client build (caps bit 31) | ClientVersionGate.java:37-41, :96 |
-| `BCRYPT_MIGRATION` (config.yaml) | none declared | rehashes a legacy password to bcrypt at login (`loginok -10/-23`) | ServerConfig.java:71, LoginPasswordHandler.java:165-176, AccountPasswords.java:63-65 |
-| `DETERRED_MULTICLIENT` (config.yaml) | none declared | when off, `attemptLoginSession`/`attemptGameSession` accept everything and just record the HWID | ServerConfig.java:73, SessionCoordinator.java:168-171, :201-205 |
-| `MAX_ALLOWED_ACCOUNT_HWID` | none declared | how many distinct HWIDs may use one account | ServerConfig.java:78, SessionCoordinator.java:85 |
-| `MAX_ACCOUNT_LOGIN_ATTEMPT` / `LOGIN_ATTEMPT_DURATION` | none declared | per-account attempt budget in `LoginStorage` | ServerConfig.java:79-80, LoginStorage.java:39-53 |
-| `LOGIN_MAX_SESSIONS_PER_IP` | 8 | open login sessions per address | ServerConfig.java:83, SessionCoordinator.java:131-133 |
-| `LOGIN_MAX_CONNECTS_PER_IP` | 30 | new login connections per address per window | ServerConfig.java:85, SessionCoordinator.java:131-133 |
-| `LOGIN_CONNECT_WINDOW_SECONDS` | 60 | window in seconds | ServerConfig.java:86, SessionCoordinator.java:133 |
-| `LANHOST` / `LOCALHOST` | none declared | the address handed to LAN/local clients instead of the configured one | ServerConfig.java:90-91, Server.java:352-371 |
-| `USE_IP_VALIDATION` (config.yaml) | none declared | when false the IP→charId hand-off check always passes | ServerConfig.java:299, Server.java:1978-1992 |
-| `ALLOW_CASHSHOP_WORLD_TRANSFER` | none declared | world transfer availability | ServerConfig.java:373, TransferWorldHandler.java:50 |
-| `WORLD_TRANSFER_COOLDOWN` | `NAME_CHANGE_COOLDOWN` (30 days) | cooldown between transfers | ServerConfig.java:416, TransferWorldHandler.java:68 |
+| `BYPASS_PIC_EXPIRATION` / `BYPASS_PIN_EXPIRATION` (config.yaml, minutes) | none declared | how long a successful check skips the next prompt; 0 = never register | src/main/java/config/ServerConfig.java:36-37, src/main/java/net/server/coordinator/login/LoginBypassCoordinator.java:62-74 |
+| `AUTOMATIC_REGISTER` (config.yaml) | none declared | account is created on a first login instead of returning "not registered" | src/main/java/config/ServerConfig.java:39, src/main/java/net/server/handlers/login/LoginPasswordHandler.java:78 |
+| `AUTO_REGISTER_MIN_PASSWORD_LENGTH` | 6 | minimum password for auto-registration | src/main/java/config/ServerConfig.java:42, src/main/java/net/server/handlers/login/AutoRegisterGuard.java:63 |
+| `AUTO_REGISTER_MAX_ACCOUNTS_PER_IP` | 0 (no cap; owner 2026-10-26 chose any number per IP) | per-IP account cap | src/main/java/config/ServerConfig.java:43-44, src/main/java/net/server/handlers/login/AutoRegisterGuard.java:73-80 |
+| `AUTO_REGISTER_IP_COOLDOWN_MINUTES` | 1 | gap between new accounts from one address | src/main/java/config/ServerConfig.java:44, src/main/java/net/server/handlers/login/AutoRegisterGuard.java:69-72 |
+| `MIN_CLIENT_BUILD` (config.yaml) | 0 in `ServerConfig` (gate off) | build gate; clients without a stamp count as 0 | src/main/java/config/ServerConfig.java:61, src/main/java/net/server/handlers/login/ClientVersionGate.java:47-53 |
+| `CLIENT_UPDATE_MESSAGE` | "Your game is out of date: open the SlumsMS launcher to update." | notice text sent with the silent refusal | src/main/java/config/ServerConfig.java:62, src/main/java/net/server/handlers/login/ClientVersionGate.java:67-70 |
+| `MIN_CLIENT_BUILD_GM_BYPASS` | false | GM characters (highest `characters.gm` on the account) may log in on an old build | src/main/java/config/ServerConfig.java:64, src/main/java/net/server/handlers/login/ClientVersionGate.java:113-125 |
+| `-Dslums.client.allowQa=true` | false | accepts the QA client build (caps bit 31) | src/main/java/net/server/handlers/login/ClientVersionGate.java:37-41, :96 |
+| `BCRYPT_MIGRATION` (config.yaml) | none declared | rehashes a legacy password to bcrypt at login (`loginok -10/-23`) | src/main/java/config/ServerConfig.java:71, src/main/java/net/server/handlers/login/LoginPasswordHandler.java:165-176, src/main/java/client/AccountPasswords.java:63-65 |
+| `DETERRED_MULTICLIENT` (config.yaml) | none declared | when off, `attemptLoginSession`/`attemptGameSession` accept everything and just record the HWID | src/main/java/config/ServerConfig.java:73, src/main/java/net/server/coordinator/session/SessionCoordinator.java:168-171, :201-205 |
+| `MAX_ALLOWED_ACCOUNT_HWID` | none declared | how many distinct HWIDs may use one account | src/main/java/config/ServerConfig.java:78, src/main/java/net/server/coordinator/session/SessionCoordinator.java:85 |
+| `MAX_ACCOUNT_LOGIN_ATTEMPT` / `LOGIN_ATTEMPT_DURATION` | none declared | per-account attempt budget in `LoginStorage` | src/main/java/config/ServerConfig.java:79-80, src/main/java/net/server/coordinator/login/LoginStorage.java:39-53 |
+| `LOGIN_MAX_SESSIONS_PER_IP` | 8 | open login sessions per address | src/main/java/config/ServerConfig.java:83, src/main/java/net/server/coordinator/session/SessionCoordinator.java:131-133 |
+| `LOGIN_MAX_CONNECTS_PER_IP` | 30 | new login connections per address per window | src/main/java/config/ServerConfig.java:85, src/main/java/net/server/coordinator/session/SessionCoordinator.java:131-133 |
+| `LOGIN_CONNECT_WINDOW_SECONDS` | 60 | window in seconds | src/main/java/config/ServerConfig.java:86, src/main/java/net/server/coordinator/session/SessionCoordinator.java:133 |
+| `LANHOST` / `LOCALHOST` | none declared | the address handed to LAN/local clients instead of the configured one | src/main/java/config/ServerConfig.java:90-91, src/main/java/net/server/Server.java:352-371 |
+| `USE_IP_VALIDATION` (config.yaml) | none declared | when false the IP→charId hand-off check always passes | src/main/java/config/ServerConfig.java:299, src/main/java/net/server/Server.java:1978-1992 |
+| `ALLOW_CASHSHOP_WORLD_TRANSFER` | none declared | world transfer availability | src/main/java/config/ServerConfig.java:373, src/main/java/net/server/channel/handlers/TransferWorldHandler.java:50 |
+| `WORLD_TRANSFER_COOLDOWN` | `NAME_CHANGE_COOLDOWN` (30 days) | cooldown between transfers | src/main/java/config/ServerConfig.java:416, src/main/java/net/server/channel/handlers/TransferWorldHandler.java:68 |
 | `-Dmapleroot.login-port` | 8485 | login listener port | src/main/java/net/server/Server.java:1018 |
 
 Live (docs/release/1.6.4.conf) sets `MIN_CLIENT_BUILD=10740` (:284, with an owner note dated 2026-11-05 ~09:30 UTC that
@@ -232,21 +232,21 @@ those values are not in this repo. TEST's `start-test.sh` lives elsewhere, so TE
 
 - A handler only runs for the state its `validateState` allows; login-phase handlers require `!isLoggedIn()`, the
   channel hand-off handler also requires `!isLoggedIn()` (src/main/java/client/Client.java:217,
-  src/main/java/net/AbstractPacketHandler.java:29-31, PlayerLoggedinHandler.java:93-95).
-- `LOGIN_LOGGEDIN` (2) is written in exactly two places on the login path: `Client.finishLogin` (Client.java:623) and
-  `PlayerLoggedinHandler` after the transition check (PlayerLoggedinHandler.java:208). `updateLoginState(2)` also
-  overwrites any other online client for that account (Client.java:896-898 → SessionCoordinator.java:108-121).
-- The "already logged in" answer (7) is only produced after the password matched (Client.java:791-796).
-- A `LOGIN_SERVER_TRANSITION` older than 30 s is treated as not logged in and reset (Client.java:941-948).
+  src/main/java/net/AbstractPacketHandler.java:29-31, src/main/java/net/server/channel/handlers/PlayerLoggedinHandler.java:93-95).
+- `LOGIN_LOGGEDIN` (2) is written in exactly two places on the login path: `Client.finishLogin` (src/main/java/client/Client.java:623) and
+  `PlayerLoggedinHandler` after the transition check (src/main/java/net/server/channel/handlers/PlayerLoggedinHandler.java:208). `updateLoginState(2)` also
+  overwrites any other online client for that account (src/main/java/client/Client.java:896-898 → src/main/java/net/server/coordinator/session/SessionCoordinator.java:108-121).
+- The "already logged in" answer (7) is only produced after the password matched (src/main/java/client/Client.java:791-796).
+- A `LOGIN_SERVER_TRANSITION` older than 30 s is treated as not logged in and reset (src/main/java/client/Client.java:941-948).
 - Client-supplied world ids are ignored on select: the world comes from `Server.getCharacterWorld` and the character
   must belong to the account (`haveCharacterEntry`) before any socket is sent
-  (CharSelectedHandler.java:83-88, ViewAllCharSelectedHandler.java:56, :85-90).
+  (src/main/java/net/server/handlers/login/CharSelectedHandler.java:83-88, src/main/java/net/server/handlers/login/ViewAllCharSelectedHandler.java:56, :85-90).
 - The channel socket must present the same charId the login socket registered for that remote host
-  (`validateCharacteridInTransition`, Server.java:1978-1992), and `PlayerLoggedinHandler` requires the account row to
-  still say `LOGIN_SERVER_TRANSITION` (PlayerLoggedinHandler.java:195-207).
-- The build stamp survives the socket hop through `ClientStampCarry` (Client.java:1180-1185,
-  PlayerLoggedinHandler.java:147).
-- A character list is capped at 60 entries (ViewAllCharHandler.java:35).
+  (`validateCharacteridInTransition`, src/main/java/net/server/Server.java:1978-1992), and `PlayerLoggedinHandler` requires the account row to
+  still say `LOGIN_SERVER_TRANSITION` (src/main/java/net/server/channel/handlers/PlayerLoggedinHandler.java:195-207).
+- The build stamp survives the socket hop through `ClientStampCarry` (src/main/java/client/Client.java:1180-1185,
+  src/main/java/net/server/channel/handlers/PlayerLoggedinHandler.java:147).
+- A character list is capped at 60 entries (src/main/java/net/server/handlers/login/ViewAllCharHandler.java:35).
 
 ## Origin
 
@@ -257,7 +257,7 @@ those values are not in this repo. TEST's `start-test.sh` lives elsewhere, so TE
 | `PlayerLoggedinHandler` | modified | 108 diff lines: owned-alt login lease, stamp restore, ticket-41 world handling |
 | `ServerlistRequestHandler` | modified | 26 diff lines: extracted `serverListPackets`, home-world preselection (ticket 41) |
 | `ViewAllCharHandler` | modified | 6 diff lines |
-| `CreateCharHandler` / `DeleteCharHandler` | modified | 56 / 12 diff lines (item whitelist; ticket 189 marriage block at DeleteCharHandler.java:42-45, :66-69) |
+| `CreateCharHandler` / `DeleteCharHandler` | modified | 56 / 12 diff lines (item whitelist; ticket 189 marriage block at src/main/java/net/server/handlers/login/DeleteCharHandler.java:42-45, :66-69) |
 | `TransferWorldHandler` | modified | 8 diff lines |
 | `PacketProcessor` | modified | 182 diff lines (handler table rebuilt) |
 | `AutoRegisterGuard`, `ClientBuildStampHandler`, `ClientVersionGate` | custom | absent from the upstream tree |
@@ -281,8 +281,8 @@ Oldest commits for the package: `git log --follow` on src/main/java/net/server/h
 | src/test/java/net/server/handlers/login/CreateCharLookTest.java | creation look validation |
 
 Auto-QA: `t-vg-1` "An old client is told to update" (probe `clientGate`, auto)
-(src/main/java/soloMapling/autoqa/AutoQaCatalog.java:777-779), `t-ch-1` channel split (AutoQaCatalog.java:780-781) and
-the manual `t-cc-1` character-creation check on the login screen (AutoQaCatalog.java:775). No `!qa` scenario under
+(src/main/java/soloMapling/autoqa/AutoQaCatalog.java:777-779), `t-ch-1` channel split (src/main/java/soloMapling/autoqa/AutoQaCatalog.java:780-781) and
+the manual `t-cc-1` character-creation check on the login screen (src/main/java/soloMapling/autoqa/AutoQaCatalog.java:775). No `!qa` scenario under
 src/main/java/soloMapling/qa drives a login.
 
 Not covered: nothing exercises the real login packet sequence end to end — no test opens a login socket, sends
@@ -308,10 +308,10 @@ miss) is untested; `LoginBypassCoordinator` has no test at all, which is why the
   src/main/java/net/server/coordinator/session/Hwid.java:5): `unregisterLoginBypassEntry` never removes anything, so
   `!enableauth` (src/main/java/client/command/commands/gm0/EnableAuthCommand.java:39) cannot clear a bypass.
 - NEW-FINDING: src/main/java/net/server/Server.java:355 calls `getIP(world, channel).split(":")` *outside* the
-  `try` at :362-366, and `getIP` (Server.java:342-350) returns `null` when the world has no entry for that channel,
+  `try` at :362-366, and `getIP` (src/main/java/net/server/Server.java:342-350) returns `null` when the world has no entry for that channel,
   so selecting such a channel throws a `NullPointerException` the try/catch cannot see. The three callers only
   null-check the returned array
-  (CharSelectedHandler.java:95-99, CharSelectedWithPicHandler.java:70-74, ViewAllCharSelectedHandler.java:106-110), so
+  (src/main/java/net/server/handlers/login/CharSelectedHandler.java:95-99, src/main/java/net/server/handlers/login/CharSelectedWithPicHandler.java:70-74, src/main/java/net/server/handlers/login/ViewAllCharSelectedHandler.java:106-110), so
   the exception surfaces as the generic "Error in packet handler" log in src/main/java/client/Client.java:222-227.
 - NEW-FINDING: src/main/java/net/server/coordinator/session/SessionCoordinator.java:278-281 makes `closeSession`
   null-safe only in appearance: `fetchInTransitionSessionClient` returns `null` when the host has no game-session HWID
@@ -319,7 +319,7 @@ miss) is untested; `LoginBypassCoordinator` has no test at all, which is why the
   latent, not live.
 - NEW-FINDING: src/main/java/client/Client.java:1385-1394 still selects `autologin`/`autoch`/`autochar` into fields that
   no login decision reads. Dead columns kept after the 1.5.1 autologin removal; either delete the query columns or the
-  comment at LoginPasswordHandler.java:162-163 becomes misleading.
+  comment at src/main/java/net/server/handlers/login/LoginPasswordHandler.java:162-163 becomes misleading.
 
 ## State
 
@@ -337,6 +337,6 @@ here for TEST's configuration, so "working" is a statement about the code, not a
   `-Dslums.client.allowQa=true` today, which docs/qa/client-scripts/README.md:64, :244 says it needs.
 - Which `MIN_CLIENT_BUILD` actually goes up: 10721 (conf header, /root/work/OWNER-DECISIONS.md:43) or 10740 (conf :284).
 - Whether `DETERRED_MULTICLIENT` is on anywhere: with it off, both the HWID ban checks and
-  `MAX_ALLOWED_ACCOUNT_HWID` are bypassed (SessionCoordinator.java:168-171, :201-205).
+  `MAX_ALLOWED_ACCOUNT_HWID` are bypassed (src/main/java/net/server/coordinator/session/SessionCoordinator.java:168-171, :201-205).
 - Whether `Pair`'s `getClass` key comparison is intentional; if it is, the only caller of
   `unregisterLoginBypassEntry` is dead code and should be removed with the method.

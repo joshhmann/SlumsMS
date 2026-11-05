@@ -251,10 +251,10 @@ manual and explicitly notes that a headless player sends no movement packets (`:
 `!qa` scenarios: `mv-1` (`src/main/java/soloMapling/qa/QaScenarios.java:1088`) measures how far a GM's own client
 slides during an attack, fed by the re-parse in `MovePlayerHandler` through `MoveTrace.move`
 (`src/main/java/soloMapling/qa/MoveTrace.java:37`, `:67`) and logged under `QaLog.Topic.SLIDE`
-(`src/main/java/soloMapling/qa/QaLog.java:42`); `pe-1` (`QaScenarios.java:883`) times map entries through
+(`src/main/java/soloMapling/qa/QaLog.java:42`); `pe-1` (`src/main/java/soloMapling/qa/QaScenarios.java:883`) times map entries through
 `MapEntryMeter.begin`/`placed` (`src/main/java/soloMapling/qa/MapEntryMeter.java:111`, `:127`, topic `MAP_ENTRY`,
-`QaLog.java:43`). Routing reroutes are logged as `MAPROUTE` under `Topic.MAP_CHANGE`
-(`src/main/java/server/maps/MapRouting.java:262`, `QaLog.java:69`).
+`src/main/java/soloMapling/qa/QaLog.java:43`). Routing reroutes are logged as `MAPROUTE` under `Topic.MAP_CHANGE`
+(`src/main/java/server/maps/MapRouting.java:262`, `src/main/java/soloMapling/qa/QaLog.java:69`).
 
 Not covered: nothing tests `MovePlayerHandler`, `MoveLifeHandler`, `AbstractMovementPacketHandler`,
 `MoveSummonHandler`, `MoveDragonHandler`, `ChangeMapSpecialHandler` or `PlayerMapTransitionHandler` directly; the only
@@ -287,7 +287,7 @@ parse, store and rebroadcast, monsters are controller-gated (`src/main/java/net/
 and the map-change latch is exception-safe (`src/main/java/client/Character.java:1845-1850`). Evidence for "working"
 on the routing half is a covered test suite plus a live switch (`src/test/java/server/maps/MapRoutingWarpTest.java`,
 `docs/release/1.6.4.conf:271`). It is **partial**, not working, because: (a) `isAttack`/`isSkill` are always true
-(`MoveLifeHandler.java:181`), so monster skill/attack gating is decorative; (b) there is no movement anti-cheat at all
+(`src/main/java/net/server/channel/handlers/MoveLifeHandler.java:181`), so monster skill/attack gating is decorative; (b) there is no movement anti-cheat at all
 yet the autoban enums for it exist; (c) the Rose Garden crash (b251) is contained by routing, not fixed, and boss
 portals (b274) still do not reach the server; (d) no test exercises any movement handler. Nothing here was run or
 deployed for this review — no build, no server, no repro.
@@ -295,11 +295,11 @@ deployed for this review — no build, no server, no repro.
 ## Open questions
 
 - Whether the client actually emits fragment commands 2, 14, 18-20 and 22 on this build, and whether the 4-byte
-  wobble + 2-byte foothold layout in `updatePosition` (`AbstractMovementPacketHandler.java:183-184`) matches it; only
+  wobble + 2-byte foothold layout in `updatePosition` (`src/main/java/net/server/channel/handlers/AbstractMovementPacketHandler.java:183-184`) matches it; only
   a packet capture would settle the divergence from upstream's 6-byte skip.
 - Whether `USE_MAXRANGE: true` (broadcasting movement, damage and spawns to the whole map) is deliberate on live or a
   leftover default; it directly sets how much movement traffic each client receives.
-- When `portal.getPortalStatus() == false` matters in practice (`ChangeMapHandler.java:154-158` sends
+- When `portal.getPortalStatus() == false` matters in practice (`src/main/java/net/server/channel/handlers/ChangeMapHandler.java:154-158` sends
   `blockedMessage(1)`): the flag is set false only for an event's `join00` while the event has not started
   (`src/main/java/server/maps/MapleMap.java:3031-3033`) and back to true by the event itself (`src/main/java/server/events/gm/Fitness.java:58`,
   `src/main/java/server/events/gm/Ola.java:56`, `src/main/java/server/events/gm/OxQuiz.java:95`) or by `MapMonitor`

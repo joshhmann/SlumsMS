@@ -44,7 +44,7 @@ The end-to-end path, mp/ammo low to back at the grind:
 
 Buy order inside `BotShopping.shop` (src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/BotShopping.java:290-321):
 ammo essential stack, `ceil(mpGoal/3)`, `ceil(hpGoal/3)`; then the full kit to `ammoGoal`, `mpGoal`, `hpGoal`; then
-`BotAmmo.syncStats`. Recharging is separate (BotShopping.java:436-480): own stacks whose watk is at least the shop's
+`BotAmmo.syncStats`. Recharging is separate (src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/BotShopping.java:436-480): own stacks whose watk is at least the shop's
 best are topped up to `slotMax`, cheapest first, then the best ammo on sale is bought to the goal.
 
 ## Data
@@ -113,12 +113,12 @@ Thresholds:
 
 - A bot never gets items it did not pay for: `buy` checks `canHold`, then `spendMeso`, then `grantItem`, refunding on a
   failed grant (src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/BotShopping.java:529-545); `recharge`
-  refunds the same way (BotShopping.java:462-480).
+  refunds the same way (src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/BotShopping.java:462-480).
 - A purchase costs the counter's price, never a bot price: rechargeables use `SupplyData.get().price(itemId, qty)`,
-  everything else the listing price (BotShopping.java:493-524), matching
+  everything else the listing price (src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/BotShopping.java:493-524), matching
   src/main/java/server/ItemInformationProvider.java:498-511.
 - A rechargeable is bought as one whole `slotMax` stack and priced once for the stack
-  (src/main/java/server/Shop.java:108-117; BotShopping.java:493-524).
+  (src/main/java/server/Shop.java:108-117; src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/BotShopping.java:493-524).
 - Buying is map-local: `siteFor(bot)` only returns a heading when the bot stands on that site's map
   (src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/BotShopping.java:208-212).
 - A town stop never leaves with its restock undone: `doDecide` calls `finishResupply` first
@@ -128,7 +128,7 @@ Thresholds:
   the life trip (src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/BotSupplies.java:87-103, read at
   src/main/java/soloMapling/ArtificialPlayer/BotTypes/TrainingBot.java:2494).
 - No ammo in town means melee, not another trip: `meleeWithoutAmmo` forces `shortage` to `NONE` and
-  `shouldRetryAmmoTrip` to false until ammo appears (BotSupplies.java:62-69, :183-190).
+  `shouldRetryAmmoTrip` to false until ammo appears (src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/BotSupplies.java:62-69, :183-190).
 - The life brain reads supply state read-only: it must not call `shortage()`, "which changes the ammo-fallback state"
   (src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifeRuntime.java:447).
 - A RESTOCK request cannot start from the wrong thread or a busy bot: `isStartingHere`, `freeForLifeActivity`,
@@ -149,7 +149,7 @@ Thresholds:
 | `BotShopping`, `ShopCatalog`, `StarterStash`, `BotResupply`, `BotSupplies` | custom | oldest `9aa10cff7 2026-10-19 Buy potions and ammo at real NPC shops, and give bots a one-time starter stash` |
 | `RestockTripExecutor` | custom | oldest `97c74c095 2026-10-24 Require accepted bot work before exposing an action fact` |
 | `BotBagRoom` | custom | oldest `921f4a852 2026-10-25 Let bots with a full bag sell junk in town, and give bots 96-slot tabs` |
-| `JunkSort` | modified upstream derivation | oldest `3c91e2da7 2026-10-30 Junk sorting and reserve rules ... (ticket 162 part 4)`; header cites nutnnut/Cosmic AGPL-3.0 ports (JunkSort.java:22-34) |
+| `JunkSort` | modified upstream derivation | oldest `3c91e2da7 2026-10-30 Junk sorting and reserve rules ... (ticket 162 part 4)`; header cites nutnnut/Cosmic AGPL-3.0 ports (src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/JunkSort.java:22-34) |
 | `SupplyShare` | custom | oldest `59e3eaad1 2026-10-30 Give alts and party bot friends the companion orders, trades, upgrades and supply sharing` |
 
 Evidence from `git log --follow --format='%h %ad %s' --date=short -- <path> | tail -3`. HEAD for this review:
@@ -191,7 +191,7 @@ path.
 
 - b289 (S1, live): throwing-star sell-back minted mesos - a 9,999 Subi stack bought for 500 sold back for 10,249. Fixed
   on the buy side by charging the whole-stack `getPrice` (src/main/java/server/Shop.java:108-117,
-  src/main/java/server/ItemInformationProvider.java:498-511); `BotShopPriceParityTest.java:144` is the guard.
+  src/main/java/server/ItemInformationProvider.java:498-511); `src/test/java/soloMapling/ArtificialPlayer/BotSupplySystem/BotShopPriceParityTest.java:144` is the guard.
 - b284 (S3): auto-QA at 10 lanes gives false failures (8 of 22). `t-cb-3`/`t-bl-1..3` are in the affected run.
 - b276 (S4): a bot's map-scoped PLAN/ROUTE lines never reach the GM QA feed, which is where
   `LIFE DECISION ... selected=RESTOCK` is read during triage.

@@ -20,7 +20,7 @@ is the POST_BUILD copies plus the release tooling that lives in the *server* rep
 | CMake project | `CMakeLists.txt:1-40` | `project(SlumsMS)`, C++17, includes `cmake/BuildStamp.cmake`, `add_subdirectory(external)`, optional `mapleroot`, `src`, and `tests` |
 | Release build script | `scripts/build.ps1:1-19` | deps verify → submodules → VS detection → configure → build → ctest |
 | Dependency verifier | `scripts/prepare-dependencies.ps1:1-13` | SHA-256 of the four `dependencies.json` files; extracts the CppWinRT nupkg |
-| Presets | `CMakePresets.json:8-35` | `debug-win32` / `release-win32`, both `Visual Studio 17 2022` + `Win32`, both `binaryDir ${sourceDir}/build` |
+| Presets | `/root/work/client/src-164-data/CMakePresets.json:8-35` | `debug-win32` / `release-win32`, both `Visual Studio 17 2022` + `Win32`, both `binaryDir ${sourceDir}/build` |
 | Build-stamp module | `cmake/BuildStamp.cmake:1-49` | reads `VERSION`, computes `SLUMS_BUILD_NUMBER`, validates overrides |
 | CI | `.github/workflows/build.yml:1-21` | `windows-2022`, runs `./scripts/build.ps1`, uploads artifacts (paths stale, see Known issues) |
 | External deps | `external/CMakeLists.txt:1-24` | Detours (static), WzLib (`add_subdirectory`), FreeType 2.13.3 (`EXCLUDE_FROM_ALL`) |
@@ -37,7 +37,7 @@ on the owner's Windows box; the in-repo equivalent is `scripts/build.ps1:11`.
 
 `scripts/build.ps1` in order:
 
-1. **Dependencies.** `prepare-dependencies.ps1:3-8` reads `dependencies.json`, `throw`s `Missing dependency: <name>` or
+1. **Dependencies.** `/root/work/client/src-164-data/scripts/prepare-dependencies.ps1:3-8` reads `dependencies.json`, `throw`s `Missing dependency: <name>` or
    `Dependency hash mismatch: <name>` (lower-cased SHA-256 compare at `:7`), then `:9-13` extracts
    `vendor/Microsoft.Windows.CppWinRT.2.0.210806.1.nupkg` into `vendor/packages/…` when that folder is absent.
 2. **Submodules.** `git submodule update --init --recursive` (`scripts/build.ps1:5`); failure throws
@@ -86,10 +86,10 @@ Inside configure, `cmake/BuildStamp.cmake` computes the login stamp:
 
 | Item | Pin / value | Where |
 |---|---|---|
-| `vendor/Microsoft.Windows.CppWinRT.2.0.210806.1.nupkg` | sha256 `6b6f3b24…f16a0`, 632773 B | `dependencies.json:2-5` |
-| `mapleroot/ijl15/discord_game_sdk.dll.lib` | sha256 `e7b4529a…f025fc`, 2358 B | `dependencies.json:6-9` |
-| `mapleroot/ijl15/discord_game_sdk.dll` | sha256 `d8e7d9fe…d30cdf`, 3154744 B | `dependencies.json:10-13` |
-| `vendor/ijl15/ijl15.dll` | sha256 `41d37bfb…a5f3a1`, 352256 B | `dependencies.json:14-17` |
+| `vendor/Microsoft.Windows.CppWinRT.2.0.210806.1.nupkg` | sha256 `6b6f3b24…f16a0`, 632773 B | `/root/work/client/src-164-data/dependencies.json:2-5` |
+| `mapleroot/ijl15/discord_game_sdk.dll.lib` | sha256 `e7b4529a…f025fc`, 2358 B | `/root/work/client/src-164-data/dependencies.json:6-9` |
+| `mapleroot/ijl15/discord_game_sdk.dll` | sha256 `d8e7d9fe…d30cdf`, 3154744 B | `/root/work/client/src-164-data/dependencies.json:10-13` |
+| `vendor/ijl15/ijl15.dll` | sha256 `41d37bfb…a5f3a1`, 352256 B | `/root/work/client/src-164-data/dependencies.json:14-17` |
 | `external/Detours` | commit `9764cebcb1a75940e68fa83d6730ffaf0f669401`, `https://github.com/microsoft/Detours.git` | `.gitmodules:1-3` |
 | `external/WzLib` | commit `098795e27ea388beff147c5f89c7bff09af398ea`, `https://github.com/iw2d/WzLib.git`, **branch `v83_DX8to9`** | `.gitmodules:4-7` |
 | `external/freetype` | commit `42608f77f20749dd6ddc9e0536788eaad70ea4b5` (tag `VER-2-13-3`), FTL/GPLv2 | `.gitmodules:8-10`, `docs/PROVENANCE.md:19` |
@@ -167,7 +167,7 @@ There is no legacy-key fallback in this subsystem — no CMake option or cache v
 | # | Invariant | Evidence |
 |---|---|---|
 | 1 | Submodules must be initialised before configure | `CMakeLists.txt:29`, `scripts/build.ps1:5-6`, `AGENTS.md:169-170` |
-| 2 | The four `dependencies.json` files must hash exactly; a mismatch stops the build before configure | `prepare-dependencies.ps1:6-7` |
+| 2 | The four `dependencies.json` files must hash exactly; a mismatch stops the build before configure | `/root/work/client/src-164-data/scripts/prepare-dependencies.ps1:6-7` |
 | 3 | `VERSION` must match `X.Y.Z[-tag]`, minor ≤ 98, patch ≤ 9 | `cmake/BuildStamp.cmake:16-24` |
 | 4 | `SLUMS_BUILD_NUMBER` must fit both 32 bits and 16 bits (VERSIONINFO) | `cmake/BuildStamp.cmake:39-41`, `src/CMakeLists.txt:38-40` |
 | 5 | `SLUMS_RELEASE` ≤ 40 chars, `[0-9A-Za-z._+-]` only | `cmake/BuildStamp.cmake:42-48` |
@@ -193,7 +193,7 @@ There is no legacy-key fallback in this subsystem — no CMake option or cache v
 | `mapleroot/CMakeLists.txt` | **custom** | `f1b64a6` 2026-10-19 creates it; comment at `:1-3` records that the companion used to ship as a separate `ijl15.dll` proxy |
 | `release/baseline.json`, `release/build-verification.json` | **custom** | `6119130` 2026-10-18, `d82253c` 2026-10-18 (pin asset inputs) |
 | `.github/workflows/build.yml` | **custom** | `6119130` 2026-10-18 only |
-| `vendor/ijl15/ijl15.dll` | **third-party binary** (Intel JPEG library) | `dependencies.json:14-17`; copied next to `slums.dll` at `src/CMakeLists.txt:125-130` |
+| `vendor/ijl15/ijl15.dll` | **third-party binary** (Intel JPEG library) | `/root/work/client/src-164-data/dependencies.json:14-17`; copied next to `slums.dll` at `src/CMakeLists.txt:125-130` |
 | `vendor/…CppWinRT…nupkg` | **third-party binary**, effectively unused by CMake | only `mapleroot/ijl15/ijl15.vcxproj:3,338` imports it, and that project is no longer built (`scripts/build.ps1` has no MSBuild step since `f1b64a6`) |
 
 Historical detail: at checkpoint `6119130`, `scripts/build.ps1` was 22 lines, built `mapleroot/ijl15/ijl15.vcxproj` with
@@ -303,7 +303,7 @@ proves nothing about the shipped DLL.
 `ctest --test-dir`, which needs CMake ≥ 3.20. A CMake 3.14–3.19 user passes the declared floor and then fails at the
 test step with an unknown-argument error.
 
-`NEW-FINDING:` `dependencies.json:2-5` pins and `prepare-dependencies.ps1:9-13` extracts the CppWinRT nupkg, but no
+`NEW-FINDING:` `/root/work/client/src-164-data/dependencies.json:2-5` pins and `/root/work/client/src-164-data/scripts/prepare-dependencies.ps1:9-13` extracts the CppWinRT nupkg, but no
 CMake target consumes it — the only importer is `mapleroot/ijl15/ijl15.vcxproj:3,338`, and `scripts/build.ps1` stopped
 building that project in `f1b64a6`. The 632 KB package is verified, extracted and then unused.
 

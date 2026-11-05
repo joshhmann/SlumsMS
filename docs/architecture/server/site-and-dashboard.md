@@ -29,28 +29,28 @@ Off-process entry points: `deploy/site/slumsms-site-avatars.service` (runs `solo
 
 ### 2. `PublicSiteExport` — the public site files
 
-1. `PublicSiteExport.startIfEnabled()` (`src/main/java/soloMapling/site/PublicSiteExport.java:89`) resolves the output directory — `-Dslums.site.dir`, else `Server/data/site` when a `./Server` directory exists, else `data/site` (`PublicSiteExport.java:80-87`).
-2. It flips recording on in the two in-memory collectors: `SiteFeed.setRecording(true)` and `SiteMobKills.setRecording(true)` (`PublicSiteExport.java:96-97`). Before that point the hooks fire but store nothing.
-3. Unless `-Dslums.site.mobKills.noDb=true`, it restores 7 days of hourly kill buckets from MySQL and schedules a flush every 300 s (`PublicSiteExport.java:98-102`, `SiteMobKills.restore` at `SiteMobKills.java:183`, `SiteMobKills.flush` at `SiteMobKills.java:217`).
-4. `seedSafely()` reads the last `feed.json` back into the rings so a restart does not empty the feed (`PublicSiteExport.java:103,219`, `SiteFeed.seed` at `SiteFeed.java:504`).
-5. Three `scheduleWithFixedDelay` tasks run on one daemon thread named `site-export` (`PublicSiteExport.java:94,105-107`): `worldSafely` every 60 s after 30 s, `feedSafely` every 120 s after 45 s, `boardsSafely` every 900 s after 120 s.
-6. Each task goes through `safely(what, Supplier)` (`PublicSiteExport.java:243`), which counts failures and logs a warning at most every 15 minutes (`WARN_EVERY_MS`, `PublicSiteExport.java:65`); a failure in one file never stops the schedule.
-7. `writeFeed()` (`PublicSiteExport.java:297`) builds `SiteFeed.file(SiteFeed.snapshot(now), now)` and hands it to `AtomicFiles.writeJson`. `snapshot()` (`SiteFeed.java:458`) drops items past their keep window (7 days; megaphones 24 h), sorts newest first, caps at `LIMIT=200` and megaphones at `MEGAPHONE_MAX=80` (`SiteFeed.java:98,102-104`).
-8. `writeWorld()` (`PublicSiteExport.java:302`) calls `SiteWorld.file(...)` (`SiteWorld.java:83`) with online counts, the event headline, running events, and two kill tables from `SiteMobKills.top` (`SiteMobKills.java:143`).
-9. `writeBoards()` (`PublicSiteExport.java:320`) calls `SiteLeaderboards.file(...)` (`SiteLeaderboards.java:104`) with the player/guild/boss/trade rows read by `ServerSources.boards()` (`PublicSiteExport.java:431`).
-10. `forceExport()` (`PublicSiteExport.java:142`) runs `all()` — feed, world, leaderboards in that order (`PublicSiteExport.java:269-273`) — on the exporter thread if running, else on a one-shot daemon thread; it works even when the switch is off, which is what `!qa sf-1` relies on (`src/main/java/soloMapling/qa/SiteScenarios.java:33`).
+1. `PublicSiteExport.startIfEnabled()` (`src/main/java/soloMapling/site/PublicSiteExport.java:89`) resolves the output directory — `-Dslums.site.dir`, else `Server/data/site` when a `./Server` directory exists, else `data/site` (`src/main/java/soloMapling/site/PublicSiteExport.java:80-87`).
+2. It flips recording on in the two in-memory collectors: `SiteFeed.setRecording(true)` and `SiteMobKills.setRecording(true)` (`src/main/java/soloMapling/site/PublicSiteExport.java:96-97`). Before that point the hooks fire but store nothing.
+3. Unless `-Dslums.site.mobKills.noDb=true`, it restores 7 days of hourly kill buckets from MySQL and schedules a flush every 300 s (`src/main/java/soloMapling/site/PublicSiteExport.java:98-102`, `SiteMobKills.restore` at `src/main/java/soloMapling/site/SiteMobKills.java:183`, `SiteMobKills.flush` at `src/main/java/soloMapling/site/SiteMobKills.java:217`).
+4. `seedSafely()` reads the last `feed.json` back into the rings so a restart does not empty the feed (`src/main/java/soloMapling/site/PublicSiteExport.java:103,219`, `SiteFeed.seed` at `src/main/java/soloMapling/site/SiteFeed.java:504`).
+5. Three `scheduleWithFixedDelay` tasks run on one daemon thread named `site-export` (`src/main/java/soloMapling/site/PublicSiteExport.java:94,105-107`): `worldSafely` every 60 s after 30 s, `feedSafely` every 120 s after 45 s, `boardsSafely` every 900 s after 120 s.
+6. Each task goes through `safely(what, Supplier)` (`src/main/java/soloMapling/site/PublicSiteExport.java:243`), which counts failures and logs a warning at most every 15 minutes (`WARN_EVERY_MS`, `src/main/java/soloMapling/site/PublicSiteExport.java:65`); a failure in one file never stops the schedule.
+7. `writeFeed()` (`src/main/java/soloMapling/site/PublicSiteExport.java:297`) builds `SiteFeed.file(SiteFeed.snapshot(now), now)` and hands it to `AtomicFiles.writeJson`. `snapshot()` (`src/main/java/soloMapling/site/SiteFeed.java:458`) drops items past their keep window (7 days; megaphones 24 h), sorts newest first, caps at `LIMIT=200` and megaphones at `MEGAPHONE_MAX=80` (`src/main/java/soloMapling/site/SiteFeed.java:98,102-104`).
+8. `writeWorld()` (`src/main/java/soloMapling/site/PublicSiteExport.java:302`) calls `SiteWorld.file(...)` (`src/main/java/soloMapling/site/SiteWorld.java:83`) with online counts, the event headline, running events, and two kill tables from `SiteMobKills.top` (`src/main/java/soloMapling/site/SiteMobKills.java:143`).
+9. `writeBoards()` (`src/main/java/soloMapling/site/PublicSiteExport.java:320`) calls `SiteLeaderboards.file(...)` (`src/main/java/soloMapling/site/SiteLeaderboards.java:104`) with the player/guild/boss/trade rows read by `ServerSources.boards()` (`src/main/java/soloMapling/site/PublicSiteExport.java:431`).
+10. `forceExport()` (`src/main/java/soloMapling/site/PublicSiteExport.java:142`) runs `all()` — feed, world, leaderboards in that order (`src/main/java/soloMapling/site/PublicSiteExport.java:269-273`) — on the exporter thread if running, else on a one-shot daemon thread; it works even when the switch is off, which is what `!qa sf-1` relies on (`src/main/java/soloMapling/qa/SiteScenarios.java:33`).
 
 ### 3. `TradeRatings` — the only always-on writer
 
-`TradeRatings.start()` (`src/main/java/soloMapling/site/TradeRatings.java:113`) schedules `flushSafely` every 60 s on a daemon thread named `trade-ratings`. `completed`/`fellThrough` (`TradeRatings.java:60,72`) accumulate into a `ConcurrentHashMap<Integer, long[2]>` capped at `MAX_PENDING=50_000` (`TradeRatings.java:39,98`); `flush` writes one batched upsert per row (`TradeRatings.java:35`). `shutdown()` drains once more with a 5 s await (`TradeRatings.java:144`). The public-facing view (`privateFile`, `TradeRatings.java:203`) is not written to the site folder: `PublicSiteExport.tradeRatingsFile` (`PublicSiteExport.java:171`) hands it to `GameBoardWorld.tradeRatings` (`src/main/java/soloMapling/Economy/board/GameBoardWorld.java:139`), which `SiteBoard` writes into its outbox (`src/main/java/soloMapling/Economy/board/SiteBoard.java:391-396`).
+`TradeRatings.start()` (`src/main/java/soloMapling/site/TradeRatings.java:113`) schedules `flushSafely` every 60 s on a daemon thread named `trade-ratings`. `completed`/`fellThrough` (`src/main/java/soloMapling/site/TradeRatings.java:60,72`) accumulate into a `ConcurrentHashMap<Integer, long[2]>` capped at `MAX_PENDING=50_000` (`src/main/java/soloMapling/site/TradeRatings.java:39,98`); `flush` writes one batched upsert per row (`src/main/java/soloMapling/site/TradeRatings.java:35`). `shutdown()` drains once more with a 5 s await (`src/main/java/soloMapling/site/TradeRatings.java:144`). The public-facing view (`privateFile`, `src/main/java/soloMapling/site/TradeRatings.java:203`) is not written to the site folder: `PublicSiteExport.tradeRatingsFile` (`src/main/java/soloMapling/site/PublicSiteExport.java:171`) hands it to `GameBoardWorld.tradeRatings` (`src/main/java/soloMapling/Economy/board/GameBoardWorld.java:139`), which `SiteBoard` writes into its outbox (`src/main/java/soloMapling/Economy/board/SiteBoard.java:391-396`).
 
 ### 4. `DashboardExporter` — live.json and the series
 
-1. `DashboardExporter.startIfEnabled()` (`src/main/java/soloMapling/dashboard/DashboardExporter.java:59`) reads `-Dsolomapling.dashboard.dir` (default `reports/dashboard`, `DashboardExporter.java:64`) and `-Dsolomapling.dashboard.periodSeconds` (default 60, floored at 15, `DashboardExporter.java:65`).
-2. `scheduleWithFixedDelay(runner::runSafely, 10, period, SECONDS)` on daemon thread `dashboard-export` at minimum priority (`DashboardExporter.java:69-77`).
-3. `runOnce(now)` (`DashboardExporter.java:165`) reads bots once (`ServerSources.bots`, `src/main/java/soloMapling/dashboard/ServerSources.java:42`), feeds them to the economy model (`DerivedEconomy.observe`, `src/main/java/soloMapling/dashboard/DerivedEconomy.java:37`), and builds the snapshot (`LiveSnapshot.build`, `src/main/java/soloMapling/dashboard/LiveSnapshot.java:54`).
-4. It then attaches `chat` (`DashboardExporter.java:174`), the `ch` series point (`:176`), `accounts` re-read at most every 5 min (`:177-183`, `ACCOUNTS_EVERY_MS` at `DashboardExporter.java:44`), `social` in a try/catch so one failing read leaves the rest (`:185-190`), `wealthIndex` (`:191`), `switches` (`:193`, `EffectiveSwitches.snapshot` at `src/main/java/soloMapling/dashboard/EffectiveSwitches.java:30`), optional `scrollPrices` (`:194-197`) and `exportMs` (`:198`).
-5. `live.json` is written atomically (`DashboardExporter.java:199`, `AtomicFiles.writeJson` at `src/main/java/soloMapling/dashboard/AtomicFiles.java:21`), `calibration.json` when kill calibration is on (`:200-203`), and the series point is added (`:205`); every fifth run or a day roll saves `series/<day>.json` and `days.json` (`:206-209`, `SeriesStore.save`/`writeIndex` at `src/main/java/soloMapling/dashboard/SeriesStore.java:67,93`).
+1. `DashboardExporter.startIfEnabled()` (`src/main/java/soloMapling/dashboard/DashboardExporter.java:59`) reads `-Dsolomapling.dashboard.dir` (default `reports/dashboard`, `src/main/java/soloMapling/dashboard/DashboardExporter.java:64`) and `-Dsolomapling.dashboard.periodSeconds` (default 60, floored at 15, `src/main/java/soloMapling/dashboard/DashboardExporter.java:65`).
+2. `scheduleWithFixedDelay(runner::runSafely, 10, period, SECONDS)` on daemon thread `dashboard-export` at minimum priority (`src/main/java/soloMapling/dashboard/DashboardExporter.java:69-77`).
+3. `runOnce(now)` (`src/main/java/soloMapling/dashboard/DashboardExporter.java:165`) reads bots once (`ServerSources.bots`, `src/main/java/soloMapling/dashboard/ServerSources.java:42`), feeds them to the economy model (`DerivedEconomy.observe`, `src/main/java/soloMapling/dashboard/DerivedEconomy.java:37`), and builds the snapshot (`LiveSnapshot.build`, `src/main/java/soloMapling/dashboard/LiveSnapshot.java:54`).
+4. It then attaches `chat` (`src/main/java/soloMapling/dashboard/DashboardExporter.java:174`), the `ch` series point (`:176`), `accounts` re-read at most every 5 min (`:177-183`, `ACCOUNTS_EVERY_MS` at `src/main/java/soloMapling/dashboard/DashboardExporter.java:44`), `social` in a try/catch so one failing read leaves the rest (`:185-190`), `wealthIndex` (`:191`), `switches` (`:193`, `EffectiveSwitches.snapshot` at `src/main/java/soloMapling/dashboard/EffectiveSwitches.java:30`), optional `scrollPrices` (`:194-197`) and `exportMs` (`:198`).
+5. `live.json` is written atomically (`src/main/java/soloMapling/dashboard/DashboardExporter.java:199`, `AtomicFiles.writeJson` at `src/main/java/soloMapling/dashboard/AtomicFiles.java:21`), `calibration.json` when kill calibration is on (`:200-203`), and the series point is added (`:205`); every fifth run or a day roll saves `series/<day>.json` and `days.json` (`:206-209`, `SeriesStore.save`/`writeIndex` at `src/main/java/soloMapling/dashboard/SeriesStore.java:67,93`).
 
 ### 5. `SiteAuthApi` — request/response
 
@@ -59,10 +59,10 @@ Off-process entry points: `deploy/site/slumsms-site-avatars.service` (runs `solo
 3. `serve()` reads at most `MAX_BODY+1 = 4097` bytes (`:37,189`), calls `handle(method, path, authHeader, body)` (`:190`) and always answers `application/json` + `Cache-Control: no-store` (`:196-197`). A runtime failure becomes `500 UNAVAILABLE` (`:191-193`).
 4. `handle()` checks `MessageDigest.isEqual` against the secret header `X-Slums-Auth` (`:36,291`) and answers `401 UNAUTHORIZED` before any routing (`:204-206`).
 5. `route()` (`:215`) rejects unknown paths with `404 NOT_FOUND`, non-POST with `405`, a null or oversized body with `413`, unparsable JSON with `400` (`:216-229`). Known paths: `/signup`, `/verify`, `/reset/request|status|complete` (`RESET_PATHS`, `:290`), `/invite/create|list|cancel` (`INVITE_PATHS`, `:292`), `/exchange/approve` (`:251`).
-6. `/signup` and `/verify` call `SiteAccounts.signup`/`verify` (`src/main/java/soloMapling/site/auth/SiteAccounts.java:167,221`); success also notifies the exchange (`SiteAuthApi.java:244-246`). A rate-limited result answers HTTP 429, every other result 200 (`:247`).
-7. `/exchange/approve` (`SiteAuthApi.java:262`) requires `account_id > 0` and a token matching `[0-9a-f]{8,64}` (`:265`), re-checks the password, verifies it belongs to that account, then calls the exchange; the doc at `:253-261` lists the answers and states the password and token are never logged.
-8. `/reset/complete` additionally sets `revoke_sessions: true` in its answer (`SiteAuthApi.java:346`); `ResetStore.Jdbc` marks the request `used` and updates `accounts.password` (`src/main/java/soloMapling/site/auth/ResetStore.java:73,75`).
-9. Response bodies are built by `body(SiteAccounts.Result)` (`SiteAuthApi.java:360-376`): success `{ok:true, account_id, account, gm, gm_level, characters}`, failure `{ok:false, error, rule?}`; transport-level errors use `error(status, code)` (`:378-383`).
+6. `/signup` and `/verify` call `SiteAccounts.signup`/`verify` (`src/main/java/soloMapling/site/auth/SiteAccounts.java:167,221`); success also notifies the exchange (`src/main/java/soloMapling/site/auth/SiteAuthApi.java:244-246`). A rate-limited result answers HTTP 429, every other result 200 (`:247`).
+7. `/exchange/approve` (`src/main/java/soloMapling/site/auth/SiteAuthApi.java:262`) requires `account_id > 0` and a token matching `[0-9a-f]{8,64}` (`:265`), re-checks the password, verifies it belongs to that account, then calls the exchange; the doc at `:253-261` lists the answers and states the password and token are never logged.
+8. `/reset/complete` additionally sets `revoke_sessions: true` in its answer (`src/main/java/soloMapling/site/auth/SiteAuthApi.java:346`); `ResetStore.Jdbc` marks the request `used` and updates `accounts.password` (`src/main/java/soloMapling/site/auth/ResetStore.java:73,75`).
+9. Response bodies are built by `body(SiteAccounts.Result)` (`src/main/java/soloMapling/site/auth/SiteAuthApi.java:360-376`): success `{ok:true, account_id, account, gm, gm_level, characters}`, failure `{ok:false, error, rule?}`; transport-level errors use `error(status, code)` (`:378-383`).
 
 ### 6. `BotInspectApi` and `QaEventFeed`
 
@@ -72,7 +72,7 @@ Off-process entry points: `deploy/site/slumsms-site-avatars.service` (runs `solo
 
 ### 7. `AvatarExport` — the site's avatar images
 
-`AvatarExport.main` (`src/main/java/soloMapling/site/avatar/AvatarExport.java:101`) is a batch job, not a server thread. `run()` (`:112`) reads the exported `leaderboards.json`, resolves the looks of the names it lists (`names()` at `:162`), renders one PNG per distinct look key (`AvatarRenderer.SIZE=96`, `src/main/java/soloMapling/site/avatar/AvatarRenderer.java:23`), writes `avatars/index.json` (`AvatarExport.java:155-156`) and prunes PNGs no longer referenced and older than `--keep-days` (default 7) (`:157`, `prune` at `:212`).
+`AvatarExport.main` (`src/main/java/soloMapling/site/avatar/AvatarExport.java:101`) is a batch job, not a server thread. `run()` (`:112`) reads the exported `leaderboards.json`, resolves the looks of the names it lists (`names()` at `:162`), renders one PNG per distinct look key (`AvatarRenderer.SIZE=96`, `src/main/java/soloMapling/site/avatar/AvatarRenderer.java:23`), writes `avatars/index.json` (`src/main/java/soloMapling/site/avatar/AvatarExport.java:155-156`) and prunes PNGs no longer referenced and older than `--keep-days` (default 7) (`:157`, `prune` at `:212`).
 
 ### 8. `DashboardMapExport` and the extras script
 
@@ -81,9 +81,9 @@ Off-process entry points: `deploy/site/slumsms-site-avatars.service` (runs `solo
 ### 9. Reports: `@bug`, `@idea`, the client log upload
 
 1. `ReportBugCommand.report` (`src/main/java/client/command/commands/gm0/ReportBugCommand.java:87`) validates length against `ReportStore.MIN_LENGTH=5` / `BUG_MAX_LENGTH=500` / `MAX_LENGTH=2000` (`src/main/java/server/reports/ReportStore.java:60-63`).
-2. For a bug it builds the context lazily — the supplier is only invoked after the rate-limit checks pass (`ReportBugCommand.java:106-107`) — capped at `BugContext.MAX_BYTES=64 KiB` (`src/main/java/server/reports/BugContext.java:41,379`).
-3. `ReportStore.submit` (`ReportStore.java:205`) rate-limits per account (3 per 10 min, 20 a day) and globally (60 an hour, 300 a day) before building the context (`:66-70,218-224`), then hands the line to the single writer thread; the writer takes an exclusive POSIX lock, re-reads the tail for the last id, writes `context/<ref>.json`, appends one JSON line and `force(true)`s it (`:228-256`). A force failure only warns, because telling the player "failed" would make them file it twice (`:256`).
-4. `BugLogUploadHandler.handle` (`src/main/java/net/server/channel/handlers/BugLogUploadHandler.java:27`) validates the nonce (`BugClientLogs.parse`, `src/main/java/server/reports/BugClientLogs.java:100`), scrubs the text, and merges it into the report context (`BugClientLogs.toContext`, `:147`). Uploads need the client cap bit `CAPS_LOG_UPLOAD = 1<<1` (`BugClientLogs.java:40,68`).
+2. For a bug it builds the context lazily — the supplier is only invoked after the rate-limit checks pass (`src/main/java/client/command/commands/gm0/ReportBugCommand.java:106-107`) — capped at `BugContext.MAX_BYTES=64 KiB` (`src/main/java/server/reports/BugContext.java:41,379`).
+3. `ReportStore.submit` (`src/main/java/server/reports/ReportStore.java:205`) rate-limits per account (3 per 10 min, 20 a day) and globally (60 an hour, 300 a day) before building the context (`:66-70,218-224`), then hands the line to the single writer thread; the writer takes an exclusive POSIX lock, re-reads the tail for the last id, writes `context/<ref>.json`, appends one JSON line and `force(true)`s it (`:228-256`). A force failure only warns, because telling the player "failed" would make them file it twice (`:256`).
+4. `BugLogUploadHandler.handle` (`src/main/java/net/server/channel/handlers/BugLogUploadHandler.java:27`) validates the nonce (`BugClientLogs.parse`, `src/main/java/server/reports/BugClientLogs.java:100`), scrubs the text, and merges it into the report context (`BugClientLogs.toContext`, `:147`). Uploads need the client cap bit `CAPS_LOG_UPLOAD = 1<<1` (`src/main/java/server/reports/BugClientLogs.java:40,68`).
 5. `WarnLogRing.install()` (`src/main/java/server/reports/WarnLogRing.java:56`) attaches a log4j appender to the root logger holding the last `CAPACITY=500` WARN/ERROR lines (`:27`), which `linesFor` filters at report time (`:121`).
 
 ## Data
@@ -92,18 +92,18 @@ Off-process entry points: `deploy/site/slumsms-site-avatars.service` (runs `solo
 
 | File | Writer | Cadence | Consumer |
 |---|---|---|---|
-| `<site>/feed.json` | `PublicSiteExport.writeFeed` (`PublicSiteExport.java:297`) | 120 s + forced by `!qa sf-1` | website; re-seeded at boot by `SiteFeed.seed` (`SiteFeed.java:504`) |
-| `<site>/leaderboards.json` | `PublicSiteExport.writeBoards` (`:320`) | 900 s | website, and `AvatarExport` (`AvatarExport.java:166`) |
+| `<site>/feed.json` | `PublicSiteExport.writeFeed` (`src/main/java/soloMapling/site/PublicSiteExport.java:297`) | 120 s + forced by `!qa sf-1` | website; re-seeded at boot by `SiteFeed.seed` (`src/main/java/soloMapling/site/SiteFeed.java:504`) |
+| `<site>/leaderboards.json` | `PublicSiteExport.writeBoards` (`:320`) | 900 s | website, and `AvatarExport` (`src/main/java/soloMapling/site/avatar/AvatarExport.java:166`) |
 | `<site>/world.json` | `PublicSiteExport.writeWorld` (`:302`) | 60 s | website |
-| `<site>/avatars/<key>.png`, `avatars/index.json` | `AvatarExport.run` (`AvatarExport.java:112`) | 15 min timer (`deploy/site/slumsms-site-avatars.timer:6`) | website |
-| `trade-ratings.json` (board outbox) | `SiteBoard` via `PublicSiteExport.tradeRatingsFile` (`PublicSiteExport.java:171`, `SiteBoard.java:391-396`) | 15 min board cycle (`SiteBoard.java:63,127`) | site board service |
-| `<dashboard>/live.json` | `DashboardExporter.runOnce` (`DashboardExporter.java:199`) | `periodSeconds`, default 60 | dashboard web app (`tools/dashboard/web/app.js:822`) |
+| `<site>/avatars/<key>.png`, `avatars/index.json` | `AvatarExport.run` (`src/main/java/soloMapling/site/avatar/AvatarExport.java:112`) | 15 min timer (`deploy/site/slumsms-site-avatars.timer:6`) | website |
+| `trade-ratings.json` (board outbox) | `SiteBoard` via `PublicSiteExport.tradeRatingsFile` (`src/main/java/soloMapling/site/PublicSiteExport.java:171`, `src/main/java/soloMapling/Economy/board/SiteBoard.java:391-396`) | 15 min board cycle (`src/main/java/soloMapling/Economy/board/SiteBoard.java:63,127`) | site board service |
+| `<dashboard>/live.json` | `DashboardExporter.runOnce` (`src/main/java/soloMapling/dashboard/DashboardExporter.java:199`) | `periodSeconds`, default 60 | dashboard web app (`tools/dashboard/web/app.js:822`) |
 | `<dashboard>/calibration.json` | same (`:200-203`) | same, only when `KillCalibration.enabled()` | dashboard |
-| `<dashboard>/series/<day>.json`, `<dashboard>/daily/<day>.json`, `days.json` | `SeriesStore` (`SeriesStore.java:67,73,93`) | every 5th run + day roll | dashboard (`tools/dashboard/web/app.js:555`) |
-| `<dashboard>/nav/*` | `DashboardMapExport` (`DashboardMapExport.java:134-425`), `slums-dashboard-extras` (`:263`) | hourly at `:40` (`deploy/dashboard/slumsms-dashboard-maps.timer:7`) | dashboard map view |
-| `<reports>/reports.jsonl` + `context/<ref>.json` | `ReportStore` (`ReportStore.java:205`) | on submit | site `report_service.py` (shared file, exclusive lock) |
-| MySQL `site_mob_kills` | `SiteMobKills.flush` (`SiteMobKills.java:217`) | 300 s | the same server after a restart |
-| MySQL `traderatings` | `TradeRatings.flush` (`TradeRatings.java:155`) | 60 s + shutdown | `ServerSources` SQL and the site |
+| `<dashboard>/series/<day>.json`, `<dashboard>/daily/<day>.json`, `days.json` | `SeriesStore` (`src/main/java/soloMapling/dashboard/SeriesStore.java:67,73,93`) | every 5th run + day roll | dashboard (`tools/dashboard/web/app.js:555`) |
+| `<dashboard>/nav/*` | `DashboardMapExport` (`src/main/java/soloMapling/dashboard/DashboardMapExport.java:134-425`), `slums-dashboard-extras` (`:263`) | hourly at `:40` (`deploy/dashboard/slumsms-dashboard-maps.timer:7`) | dashboard map view |
+| `<reports>/reports.jsonl` + `context/<ref>.json` | `ReportStore` (`src/main/java/server/reports/ReportStore.java:205`) | on submit | site `report_service.py` (shared file, exclusive lock) |
+| MySQL `site_mob_kills` | `SiteMobKills.flush` (`src/main/java/soloMapling/site/SiteMobKills.java:217`) | 300 s | the same server after a restart |
+| MySQL `traderatings` | `TradeRatings.flush` (`src/main/java/soloMapling/site/TradeRatings.java:155`) | 60 s + shutdown | `ServerSources` SQL and the site |
 
 ### Database objects
 
@@ -114,43 +114,43 @@ Off-process entry points: `deploy/site/slumsms-site-avatars.service` (runs `solo
 - `AccountsExport` selects only names, timestamps, the first 4 characters of an invite code and counts; the class doc at `src/main/java/soloMapling/dashboard/AccountsExport.java:25-35` states "Never a password, hash, IP, email or full code", and the `REAL` predicate at `:47-48` excludes `SMBotBase`, `autoqa%` and bot character ids. `invite` is truncated at `CODE_PREFIX=4` plus an ellipsis (`:40,124`).
 - `BugPrivacy.SENSITIVE` (`src/main/java/server/reports/BugPrivacy.java:16-24`) blocks any server log line mentioning passwords, tokens, salt, hashes, e-mail, IP, MAC, session ids, cookies, `api key`, `account name`, `login X`, IPv4/IPv6 or 32+ hex; `serverLineAllowed` (`:27-29`) is the gate.
 - `BugPrivacy.scrubClientText` (`:46`) drops whole client lines matching `DROP_CLIENT_LINE` to `"[line removed]"` (`:31`), rewrites Windows user paths to `$1<user>`, `name=value` pairs to `<redacted>`, and IPs/MACs/e-mails to `<ip>`/`<mac>`/`<email>`; a player's own account name (3+ chars) becomes `<account>`.
-- `SiteFeed.isPublic` (`src/main/java/soloMapling/site/SiteFeed.java:147-148`) keeps GMs, synthetic clients and names starting `autoqa` out of every feed item; `SiteLeaderboards.file` applies the same test to players and guilds (`SiteLeaderboards.java:71-73,114-116`).
+- `SiteFeed.isPublic` (`src/main/java/soloMapling/site/SiteFeed.java:147-148`) keeps GMs, synthetic clients and names starting `autoqa` out of every feed item; `SiteLeaderboards.file` applies the same test to players and guilds (`src/main/java/soloMapling/site/SiteLeaderboards.java:71-73,114-116`).
 - `SiteFileShape.FORBIDDEN_KEYS` (`src/main/java/soloMapling/site/SiteFileShape.java:17`) fails the shape check if any site file contains `characterid`, `botid`, `is_bot`, `email`, `ip`, `hwid`, `mac`, `password` or any key starting `account` (`:112`).
-- `ReportStore` writes its file `rw-r-----` and directory `rwxr-x---` (`ReportStore.java:80-81,303-319`); `EffectiveSwitches` hides names containing `secret`, `key`, `pass`, `token` and drops values that look like paths (`EffectiveSwitches.java:23,53,87`).
+- `ReportStore` writes its file `rw-r-----` and directory `rwxr-x---` (`src/main/java/server/reports/ReportStore.java:80-81,303-319`); `EffectiveSwitches` hides names containing `secret`, `key`, `pass`, `token` and drops values that look like paths (`src/main/java/soloMapling/dashboard/EffectiveSwitches.java:23,53,87`).
 
 ## Switches
 
 | Switch | Type | Default | Effect | Live |
 |---|---|---|---|---|
-| `slums.site.export` | `-D` | off | starts `PublicSiteExport` (`PublicSiteExport.java:58,76`) | on (`docs/release/1.6.4.conf:230`) |
-| `slums.site.dir` | `-D` | `Server/data/site` or `data/site` (`PublicSiteExport.java:80`) | site output folder | not set in `1.6.4.conf` |
-| `slums.site.mobKills.noDb` | `-D` | off | skips restore/flush of `site_mob_kills` (`PublicSiteExport.java:99`) | not set |
-| `solomapling.dashboard` | `-D` | off | starts `DashboardExporter` (`DashboardExporter.java:36,54`) | not in `1.6.4.conf` (was `docs/release/1.6.0.conf:78`) |
-| `solomapling.dashboard.dir` | `-D` | `reports/dashboard` (`DashboardExporter.java:64`) | dashboard output folder | `1.6.0.conf:78` only |
-| `solomapling.dashboard.periodSeconds` | `-D` | 60, min 15 (`DashboardExporter.java:65`) | snapshot cadence | `1.6.0.conf:78` only |
-| `slums.auth.port` | `-D` | unset = off (`SiteAuthApi.java:106`) | site auth listener | 8186 (`docs/release/1.6.4.conf:229`) |
-| `slums.auth.secretFile` | `-D` | empty → off (needs ≥16 chars, `SiteAuthApi.java:38,111`) | shared secret | `/etc/slums-auth/secret` (`1.6.4.conf:229`) |
-| `slums.auth.revoked` / `slums.weblogin.dir` | `-D` | `revoked.txt` beside the latter (`SiteAccounts.java:116`) | sign-in revocation list | `/var/lib/slums-login/revoked.txt` (`1.6.4.conf:229`) |
-| `slums.inspect` + `slums.inspect.port` | `-D` | off (`BotInspectApi.java:60-61,104`) | bot inspect API | `1.6.2.conf:253-254` suggests `true` / 8098 |
-| `slums.inspect.secretFile` | `-D` | empty → off (`BotInspectApi.java:62,210-216`) | inspect secret | `1.6.2.conf:255` |
-| `slums.inspect.bind` | `-D` | loopback (`BotInspectApi.java:63,169`) | bind address | not set |
-| `slums.qa.feed` | `-D` | off; refused on live (`QaEventFeed.java:60,110,154-166`) | QA event feed on the inspect listener | off, TEST: unknown |
-| `solomapling.reportsFile` | `-D` | `data/reports/reports.jsonl` with a warning (`ReportStore.java:115-119`) | report JSONL path | `/var/lib/slums-feedback/reports.jsonl` (`1.6.4.conf:271`) |
-| `AUTO_REGISTER_MIN_PASSWORD_LENGTH` | `config.yaml` (`config/ServerConfig.java:42`) | 6 | minimum password for a site sign-up (`SiteAccounts.java:156`) | value unknown (config not read) |
-| `AUTO_REGISTER_IP_COOLDOWN_MINUTES` | `config.yaml` (`config/ServerConfig.java:44`) | 1 | sign-up cooldown per IP hash (`SiteAccounts.java:167`) | value unknown |
-| `BCRYPT_MIGRATION` | `config.yaml` (`config/ServerConfig.java:71`) | false | upgrades a legacy hash on successful sign-in (`SiteAccounts.java:259`) | value unknown |
+| `slums.site.export` | `-D` | off | starts `PublicSiteExport` (`src/main/java/soloMapling/site/PublicSiteExport.java:58,76`) | on (`docs/release/1.6.4.conf:230`) |
+| `slums.site.dir` | `-D` | `Server/data/site` or `data/site` (`src/main/java/soloMapling/site/PublicSiteExport.java:80`) | site output folder | not set in `1.6.4.conf` |
+| `slums.site.mobKills.noDb` | `-D` | off | skips restore/flush of `site_mob_kills` (`src/main/java/soloMapling/site/PublicSiteExport.java:99`) | not set |
+| `solomapling.dashboard` | `-D` | off | starts `DashboardExporter` (`src/main/java/soloMapling/dashboard/DashboardExporter.java:36,54`) | not in `1.6.4.conf` (was `docs/release/1.6.0.conf:78`) |
+| `solomapling.dashboard.dir` | `-D` | `reports/dashboard` (`src/main/java/soloMapling/dashboard/DashboardExporter.java:64`) | dashboard output folder | `1.6.0.conf:78` only |
+| `solomapling.dashboard.periodSeconds` | `-D` | 60, min 15 (`src/main/java/soloMapling/dashboard/DashboardExporter.java:65`) | snapshot cadence | `1.6.0.conf:78` only |
+| `slums.auth.port` | `-D` | unset = off (`src/main/java/soloMapling/site/auth/SiteAuthApi.java:106`) | site auth listener | 8186 (`docs/release/1.6.4.conf:229`) |
+| `slums.auth.secretFile` | `-D` | empty → off (needs ≥16 chars, `src/main/java/soloMapling/site/auth/SiteAuthApi.java:38,111`) | shared secret | `/etc/slums-auth/secret` (`1.6.4.conf:229`) |
+| `slums.auth.revoked` / `slums.weblogin.dir` | `-D` | `revoked.txt` beside the latter (`src/main/java/soloMapling/site/auth/SiteAccounts.java:116`) | sign-in revocation list | `/var/lib/slums-login/revoked.txt` (`1.6.4.conf:229`) |
+| `slums.inspect` + `slums.inspect.port` | `-D` | off (`src/main/java/soloMapling/inspect/BotInspectApi.java:60-61,104`) | bot inspect API | `1.6.2.conf:253-254` suggests `true` / 8098 |
+| `slums.inspect.secretFile` | `-D` | empty → off (`src/main/java/soloMapling/inspect/BotInspectApi.java:62,210-216`) | inspect secret | `1.6.2.conf:255` |
+| `slums.inspect.bind` | `-D` | loopback (`src/main/java/soloMapling/inspect/BotInspectApi.java:63,169`) | bind address | not set |
+| `slums.qa.feed` | `-D` | off; refused on live (`src/main/java/soloMapling/inspect/QaEventFeed.java:60,110,154-166`) | QA event feed on the inspect listener | off, TEST: unknown |
+| `solomapling.reportsFile` | `-D` | `data/reports/reports.jsonl` with a warning (`src/main/java/server/reports/ReportStore.java:115-119`) | report JSONL path | `/var/lib/slums-feedback/reports.jsonl` (`1.6.4.conf:271`) |
+| `AUTO_REGISTER_MIN_PASSWORD_LENGTH` | `config.yaml` (`config/ServerConfig.java:42`) | 6 | minimum password for a site sign-up (`src/main/java/soloMapling/site/auth/SiteAccounts.java:156`) | value unknown (config not read) |
+| `AUTO_REGISTER_IP_COOLDOWN_MINUTES` | `config.yaml` (`config/ServerConfig.java:44`) | 1 | sign-up cooldown per IP hash (`src/main/java/soloMapling/site/auth/SiteAccounts.java:167`) | value unknown |
+| `BCRYPT_MIGRATION` | `config.yaml` (`config/ServerConfig.java:71`) | false | upgrades a legacy hash on successful sign-in (`src/main/java/soloMapling/site/auth/SiteAccounts.java:259`) | value unknown |
 
 TEST's `start-test.sh` is on another host and was not read, so every TEST column above is unknown rather than guessed.
 
 ## Invariants
 
-- Site and dashboard writers never take the game lock, never send a packet and never load a map: `PublicSiteExport.ServerSources` queries MySQL and world collections only (`PublicSiteExport.java:330`), `DashboardMapExport` skips a map whose file already exists (`DashboardMapExport.java:306`), and `BotInspectApi.GameSources.map` reads only already-loaded `MapFactory` entries (`BotInspectApi.java:321`).
-- A writer failure must never affect the game: every scheduled task logs and continues (`PublicSiteExport.java:243`, `DashboardExporter.java:147`), and both `startIfEnabled` methods swallow a startup `RuntimeException` with "the game is unaffected" (`PublicSiteExport.java:113`, `DashboardExporter.java:80`).
+- Site and dashboard writers never take the game lock, never send a packet and never load a map: `PublicSiteExport.ServerSources` queries MySQL and world collections only (`src/main/java/soloMapling/site/PublicSiteExport.java:330`), `DashboardMapExport` skips a map whose file already exists (`src/main/java/soloMapling/dashboard/DashboardMapExport.java:306`), and `BotInspectApi.GameSources.map` reads only already-loaded `MapFactory` entries (`src/main/java/soloMapling/inspect/BotInspectApi.java:321`).
+- A writer failure must never affect the game: every scheduled task logs and continues (`src/main/java/soloMapling/site/PublicSiteExport.java:243`, `src/main/java/soloMapling/dashboard/DashboardExporter.java:147`), and both `startIfEnabled` methods swallow a startup `RuntimeException` with "the game is unaffected" (`src/main/java/soloMapling/site/PublicSiteExport.java:113`, `src/main/java/soloMapling/dashboard/DashboardExporter.java:80`).
 - Output is published atomically: a temp file in the same directory, `rw-r--r--`, `ATOMIC_MOVE` with `REPLACE_EXISTING`, non-atomic fallback (`src/main/java/soloMapling/dashboard/AtomicFiles.java:33-38`).
-- Nothing private reaches a site file: GM/synthetic/`autoqa` characters are filtered at the collector (`SiteFeed.java:147`), and `SiteFileShape.shape` is the machine check that no forbidden key slipped in (`SiteFileShape.java:25,37,110-112`).
-- The two HTTP APIs bind loopback only and compare the secret in constant time (`SiteAuthApi.java:153,291`; `BotInspectApi.java:189-197,291`), and both answer `Cache-Control: no-store`.
-- The report file is append-only and shared with the site, so every append takes an exclusive lock over one channel and re-reads the tail for the next id (`ReportStore.java:232-235`); closing any descriptor drops a POSIX lock, hence the single channel (`:232-233`).
-- Public feeds never carry killer/player ids, only names (`SiteFileShape.java:17`); images are keyed by look hash, not by id (`AvatarExport.java:127`, `AvatarLook.cacheKey` at `src/main/java/soloMapling/site/avatar/AvatarLook.java:67`).
+- Nothing private reaches a site file: GM/synthetic/`autoqa` characters are filtered at the collector (`src/main/java/soloMapling/site/SiteFeed.java:147`), and `SiteFileShape.shape` is the machine check that no forbidden key slipped in (`src/main/java/soloMapling/site/SiteFileShape.java:25,37,110-112`).
+- The two HTTP APIs bind loopback only and compare the secret in constant time (`src/main/java/soloMapling/site/auth/SiteAuthApi.java:153,291`; `src/main/java/soloMapling/inspect/BotInspectApi.java:189-197,291`), and both answer `Cache-Control: no-store`.
+- The report file is append-only and shared with the site, so every append takes an exclusive lock over one channel and re-reads the tail for the next id (`src/main/java/server/reports/ReportStore.java:232-235`); closing any descriptor drops a POSIX lock, hence the single channel (`:232-233`).
+- Public feeds never carry killer/player ids, only names (`src/main/java/soloMapling/site/SiteFileShape.java:17`); images are keyed by look hash, not by id (`src/main/java/soloMapling/site/avatar/AvatarExport.java:127`, `AvatarLook.cacheKey` at `src/main/java/soloMapling/site/avatar/AvatarLook.java:67`).
 
 ## Origin
 
@@ -173,9 +173,9 @@ Baseline for "ours vs upstream" is `03d13cb21 "Establish deployable MapleRoot se
 | Unit tests | `src/test/java/soloMapling/inspect/`: `BotInspectApiTest`, `InspectViewsTest`, `QaEventFeedTest` |
 | Unit tests | `src/test/java/server/reports/`: `ReportStoreTest`, `ReportCommandTest`, `BugsCommandTest`, `BugContextTest`, `BugClientLogsTest`, `BugPrivacyTest`, `PlayerTrailTest`, `WarnLogRingTest` |
 | auto-QA | `t-sf-1` forced site export (`src/main/java/soloMapling/autoqa/AutoQaCatalog.java:1134`), `t-bd-1` site board (`:1142`), `t-au-1` invite→signup→signin→reset (`:1248`), `t-iv-1`/`t-iv-2` invites (`:1373,1377`), `t-br-1` `@bug` (`:1401`), `t-nv-3` inspect API (`:1545`) |
-| `!qa` | `sf-1` only (`src/main/java/soloMapling/qa/SiteScenarios.java:31`), registered at `src/main/java/soloMapling/qa/QaScenarios.java:106`; it parses each of `PublicSiteExport.FILES` and runs `SiteFileShape.shape` on it (`SiteScenarios.java:67-80`) |
+| `!qa` | `sf-1` only (`src/main/java/soloMapling/qa/SiteScenarios.java:31`), registered at `src/main/java/soloMapling/qa/QaScenarios.java:106`; it parses each of `PublicSiteExport.FILES` and runs `SiteFileShape.shape` on it (`src/main/java/soloMapling/qa/SiteScenarios.java:67-80`) |
 
-Not covered: no test drives `DashboardMapExport` or the Python `slums-dashboard-extras`; no test asserts the avatar job's pruning; `AvatarExport` has only the renderer unit test; `WarnLogRing` has no test for the loggers that bypass it (chat, trades, BotLog); no test checks that `PublicSiteExport`'s 300 s mob-kill flush survives a real MySQL failure beyond the two catches in `restore` (`SiteMobKills.java:183-215`); `QaEventFeed.liveReason` has unit coverage but its real live guard is not exercised on live.
+Not covered: no test drives `DashboardMapExport` or the Python `slums-dashboard-extras`; no test asserts the avatar job's pruning; `AvatarExport` has only the renderer unit test; `WarnLogRing` has no test for the loggers that bypass it (chat, trades, BotLog); no test checks that `PublicSiteExport`'s 300 s mob-kill flush survives a real MySQL failure beyond the two catches in `restore` (`src/main/java/soloMapling/site/SiteMobKills.java:183-215`); `QaEventFeed.liveReason` has unit coverage but its real live guard is not exercised on live.
 
 ## Known issues
 
@@ -190,18 +190,18 @@ Not covered: no test drives `DashboardMapExport` or the Python `slums-dashboard-
 
 | Area | State | Evidence |
 |---|---|---|
-| Site export (`PublicSiteExport`, `SiteFeed`, `SiteWorld`, `SiteLeaderboards`) | working | unit tests + auto-QA `t-sf-1` (`AutoQaCatalog.java:1134`) + live switch on (`docs/release/1.6.4.conf:230`) |
-| `SiteMobKills` split | working | migration 056 applied in the 1.6.2 line, `counted`/`estimated` emitted (`SiteWorld.java:176-177`), `SiteMobKillsTest` present |
-| `TradeRatings` | working | `TradeRatingsTest`, always-on boot call `Server.java:1042`, migration 035 |
+| Site export (`PublicSiteExport`, `SiteFeed`, `SiteWorld`, `SiteLeaderboards`) | working | unit tests + auto-QA `t-sf-1` (`src/main/java/soloMapling/autoqa/AutoQaCatalog.java:1134`) + live switch on (`docs/release/1.6.4.conf:230`) |
+| `SiteMobKills` split | working | migration 056 applied in the 1.6.2 line, `counted`/`estimated` emitted (`src/main/java/soloMapling/site/SiteWorld.java:176-177`), `SiteMobKillsTest` present |
+| `TradeRatings` | working | `TradeRatingsTest`, always-on boot call `src/main/java/net/server/Server.java:1042`, migration 035 |
 | `AvatarExport` | partial | only `AvatarRendererTest`; the job itself has no test and only runs from a systemd timer |
-| Dashboard exporter | working | `DashboardExporterTest`, `SeriesStoreHistoryTest`, live cycle logic in `runOnce` (`DashboardExporter.java:165-210`) |
-| Dashboard map export | unknown | no test; `MAP_FORMAT="f3"` (`DashboardMapExport.java:100`) and the incremental skip at `:306` are unverified here |
+| Dashboard exporter | working | `DashboardExporterTest`, `SeriesStoreHistoryTest`, live cycle logic in `runOnce` (`src/main/java/soloMapling/dashboard/DashboardExporter.java:165-210`) |
+| Dashboard map export | unknown | no test; `MAP_FORMAT="f3"` (`src/main/java/soloMapling/dashboard/DashboardMapExport.java:100`) and the incremental skip at `:306` are unverified here |
 | Site auth API | working | `SiteAuthApiTest`, `SiteAuthExchangeTest`, `SiteAuthQaTest`, auto-QA `t-au-1`; live port 8186 |
 | Password resets | partial | server half tested (`PasswordResetsTest`), site pages per `docs/tickets/107-password-reset-requests.md` |
 | Bot inspect API | working | `BotInspectApiTest`, auto-QA `t-nv-3`; off by default, live flag only suggested (`docs/release/1.6.2.conf:253-255`) |
 | QA event feed | partial | `QaEventFeedTest`, refused on live by design; b276 open |
 | `@bug`/`@idea` reports | working | `ReportStoreTest`, `ReportCommandTest`, `BugContextTest`, `BugPrivacyTest`, auto-QA `t-br-1`, live `-Dsolomapling.reportsFile` (`1.6.4.conf:271`) |
-| Client log upload | partial | code and `BugClientLogsTest` exist, but no client sets `CAPS_LOG_UPLOAD` (`BugClientLogs.java:68`, `docs/tickets/131-bug-reports.md`) |
+| Client log upload | partial | code and `BugClientLogsTest` exist, but no client sets `CAPS_LOG_UPLOAD` (`src/main/java/server/reports/BugClientLogs.java:68`, `docs/tickets/131-bug-reports.md`) |
 
 ## Open questions
 

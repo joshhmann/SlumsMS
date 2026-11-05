@@ -43,40 +43,40 @@ because they gate the swing (`BotBuffDriver`, `BotPartySupport`, `BotDeaths`).
 
 | # | Phase | Action | File:line |
 |---|---|---|---|
-| 1 | Gate | `attack()`: null bot/map -> miss "bot or map is null"; `!force && now < nextAttackByBot` -> miss "on cooldown" | BotAttackDriver.java:278-286 |
-| 2 | Weapon sanity | `BotWeapons.ensureFittingWeapon(bot)` hands a fitting weapon when a job changed or the bot holds an undrawable one | BotAttackDriver.java:288-289; src/main/java/soloMapling/ArtificialPlayer/BotDecoratorSystem/BotWeapons.java:105-125 |
-| 3 | Resolve kit | `BotAttackConfig.resolve(job, weapon, ownedSkills)` -> `JobAttacks(single, aoe, ultimate, extras)` | BotAttackDriver.java:291; BotAttackConfig.java:296-308 |
-| 4 | Slot check | Forced choice with no such slot -> "has no single-target attack" / "no AoE attack" / "no ultimate attack"; all null -> "no attack for job X / weapon Y" | BotAttackDriver.java:300-311 |
-| 5 | Target | `nearestMob`; null -> "no targetable mobs within 700px (none, or all on a separate ledge)" | BotAttackDriver.java:313-316, :929 |
-| 6 | Turn first | AUTO + human: `turnsFirst` returns a "turning to face 'X'" miss and sets `nextAttackByBot` now+120..300 ms, so the swing lands on the next tick after the turn packet | BotAttackDriver.java:318-321, :789-804 |
-| 7 | Face | `faceTarget` -> `GCMovement.face` when GC movement is on, else `MovementCommands.botFaceTowardsPoint`; 15 px deadzone | BotAttackDriver.java:772-783 |
-| 8 | Attack choice | Ultimate off its long cooldown -> `packAttack = ultimate`, else the sustained AoE; human path measures mobs in reach, boss flag, sloppiness, optional damage floors, then `BotSkillChoice.choose(...)` | BotAttackDriver.java:340-367 |
-| 9 | Extra rotation | `readyExtra` (WZ cooltime, `everyMs`, combo cost, MP affordable, mob in reach) overrides the choice for AUTO non-heal | BotAttackDriver.java:383-390, :556-583 |
-| 10 | Combo charge | `BotComboOrbs.mustCharge` -> charge with `comboCharger` (own single, or Slash Blast / Power Strike) | BotAttackDriver.java:393-396, :499-517 |
-| 11 | Supply | `SwingSupply.prepare` refuses unpayable MP / missing ammo and substitutes a plain swing with a `fallback` string | BotAttackDriver.java:400-402; src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/SwingSupply.java:59-102 |
-| 12 | Plan | `shadowDoubled` lines, then `BotSwingPlan.of(profile, level, weaponId, facingLeft, linesHint, speedInfusion)` | BotAttackDriver.java:405-411, :514-517; BotSwingPlan.java:83-129 |
-| 13 | Reach | `reachAs`: if the plan fell back to a plain swing, re-test reach with `basicSwing`; `cap(mobsInReach, plan.maxMobs())`; heal filters `undeadOnly`; empty -> `reachDiagnostic` + fallback | BotAttackDriver.java:410-419, :637-708, :990 |
-| 14 | Roll | `BotDamage.swing(...)` then `swing.roll(mob, lines)` per mob; crit lines encoded negative; `reported` sums decoded lines | BotAttackDriver.java:432-442; BotDamage.java:397-444 |
-| 15 | Strike | `BotAttackEffects.strike(plan, hits, projectile, hitDelayMs, nextHits, onRelease)` sends the packet(s) and applies damage | BotAttackDriver.java:444-452; BotAttackEffects.java:127-146 |
-| 16 | Bookkeeping | `BotAranCombo.afterStrike`, QA `ATTACK` line, `supply.commit`, `BotComboOrbs.afterStrike`, `nextAttackByBot = now + plan.busyMs(profile.cooldownMs)`, `startCooltime` (WZ cooltime), extra interval, ultimate cooldown | BotAttackDriver.java:453-491, :595 |
-| 17 | Report | `AttackResult.hit(label, reported, killed, skillId)`; `botAttack` wraps it with `BotAttackStats.record` and `BotPerformanceMonitor.recordCombatDamage` | BotAttackDriver.java:486-491, :134-143 |
+| 1 | Gate | `attack()`: null bot/map -> miss "bot or map is null"; `!force && now < nextAttackByBot` -> miss "on cooldown" | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:278-286 |
+| 2 | Weapon sanity | `BotWeapons.ensureFittingWeapon(bot)` hands a fitting weapon when a job changed or the bot holds an undrawable one | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:288-289; src/main/java/soloMapling/ArtificialPlayer/BotDecoratorSystem/BotWeapons.java:105-125 |
+| 3 | Resolve kit | `BotAttackConfig.resolve(job, weapon, ownedSkills)` -> `JobAttacks(single, aoe, ultimate, extras)` | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:291; src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackConfig.java:296-308 |
+| 4 | Slot check | Forced choice with no such slot -> "has no single-target attack" / "no AoE attack" / "no ultimate attack"; all null -> "no attack for job X / weapon Y" | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:300-311 |
+| 5 | Target | `nearestMob`; null -> "no targetable mobs within 700px (none, or all on a separate ledge)" | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:313-316, :929 |
+| 6 | Turn first | AUTO + human: `turnsFirst` returns a "turning to face 'X'" miss and sets `nextAttackByBot` now+120..300 ms, so the swing lands on the next tick after the turn packet | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:318-321, :789-804 |
+| 7 | Face | `faceTarget` -> `GCMovement.face` when GC movement is on, else `MovementCommands.botFaceTowardsPoint`; 15 px deadzone | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:772-783 |
+| 8 | Attack choice | Ultimate off its long cooldown -> `packAttack = ultimate`, else the sustained AoE; human path measures mobs in reach, boss flag, sloppiness, optional damage floors, then `BotSkillChoice.choose(...)` | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:340-367 |
+| 9 | Extra rotation | `readyExtra` (WZ cooltime, `everyMs`, combo cost, MP affordable, mob in reach) overrides the choice for AUTO non-heal | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:383-390, :556-583 |
+| 10 | Combo charge | `BotComboOrbs.mustCharge` -> charge with `comboCharger` (own single, or Slash Blast / Power Strike) | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:393-396, :499-517 |
+| 11 | Supply | `SwingSupply.prepare` refuses unpayable MP / missing ammo and substitutes a plain swing with a `fallback` string | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:400-402; src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/SwingSupply.java:59-102 |
+| 12 | Plan | `shadowDoubled` lines, then `BotSwingPlan.of(profile, level, weaponId, facingLeft, linesHint, speedInfusion)` | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:405-411, :514-517; src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotSwingPlan.java:83-129 |
+| 13 | Reach | `reachAs`: if the plan fell back to a plain swing, re-test reach with `basicSwing`; `cap(mobsInReach, plan.maxMobs())`; heal filters `undeadOnly`; empty -> `reachDiagnostic` + fallback | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:410-419, :637-708, :990 |
+| 14 | Roll | `BotDamage.swing(...)` then `swing.roll(mob, lines)` per mob; crit lines encoded negative; `reported` sums decoded lines | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:432-442; src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotDamage.java:397-444 |
+| 15 | Strike | `BotAttackEffects.strike(plan, hits, projectile, hitDelayMs, nextHits, onRelease)` sends the packet(s) and applies damage | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:444-452; src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackEffects.java:127-146 |
+| 16 | Bookkeeping | `BotAranCombo.afterStrike`, QA `ATTACK` line, `supply.commit`, `BotComboOrbs.afterStrike`, `nextAttackByBot = now + plan.busyMs(profile.cooldownMs)`, `startCooltime` (WZ cooltime), extra interval, ultimate cooldown | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:453-491, :595 |
+| 17 | Report | `AttackResult.hit(label, reported, killed, skillId)`; `botAttack` wraps it with `BotAttackStats.record` and `BotPerformanceMonitor.recordCombatDamage` | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:486-491, :134-143 |
 
 ### Skill and pose selection
 
 | Attack kind | How the skill is chosen | How the pose/route is chosen | File:line |
 |---|---|---|---|
-| AUTO pack vs single | `BotSkillChoice.choose`: boss -> single; `inReach >= max(1, aoeMinMobs)` (default 3) -> AoE; sloppy roll -> the other; class without an AoE -> single; class without a single -> AoE | — | BotSkillChoice.java:43-66; BotAttackDriver.java:355-367 |
-| Floor variant (1.6.4 boss lane) | 9-arg `choose`: if the unchosen attack's guaranteed floor is higher, switch — always on a boss, on ordinary mobs only when the chosen floor <= `FLOOR_HIT` (1.0) | — | BotSkillChoice.java:77-96, :17-29 |
-| Per-job kit | `BotAttackConfig` static table (single/aoe/ultimate + extras) by lineage, or `resolveOwned` picking the highest owned skill per role | — | BotAttackConfig.java:117-197, :285-343 |
-| Melee swing pose | — | `BotAttackData.actionFor` -> `BotSkillActions.poseCodes` (skill's own pose); else `BotClientPoses.plainPoses(route, attackType, skillType3)`; special cases Brandish 63/64, Paladin Blast 71 | BotAttackData.java:65-97; BotSkillActions.java:112-200 |
-| Ranged / magic pose | — | `T2` / `T3` rows of `BotClientPoses`, indexed `[attackType-1][skillType3?1:0]`; a RANGED skill on a non-shooting weapon falls back to the plain pose unless the exe's `SHOOT_WITHOUT_WEAPON` allows it | BotClientPoses.java:39-60, :146-165; BotSwingPlan.java:93-99 |
-| Non-drawable skill | — | `BotSwingPlan.of` rewrites to skillId 0 + level 0 + the weapon's plain pose when `BotSkillActions.weaponFits` is false or the pose lookup fails | BotSwingPlan.java:91-99 |
-| Melee range guard | — | `BotMeleeRange.hasRange(skill, level, weaponId, pose)`; a miss is rewritten to a plain pose (or dropped) and logged `GUARD melee without a range` | src/main/java/soloMapling/server/BotAttackPackets.java:35-57; BotMeleeRange.java:55-78 |
-| Thrown stars | — | `ThrowingStarSelector`: picked once from the bot's level band and cached on `BotSM.chosenStarId`; claw only | ThrowingStarSelector.java:37-84 |
-| Aran combo | — | `BotAranCombo`: orbs from `Aran.COMBO_ABILITY`, 6 s decay, capped 30 000; `comboCharger` substitutes a charge swing when a finisher needs orbs | BotAranCombo.java:19-59; BotAttackDriver.java:393-396 |
-| Attack cadence | — | `BotAttackTiming.swingMs` = pose length from `bot-action-delays.tsv`, speed-scaled and rounded up to the 30 ms update step; keydown skills stream 25 shots at 120 ms | BotAttackTiming.java:67-102; BotSwingPlan.java:56-71, :103-105 |
-| Reach box | — | `reachBox`: WZ `StatEffect.getAttackBox` when available; RANGED/MAGIC always the profile box; surround test on symmetry; otherwise `clipForward` + `coverBody` (feet + 25 px back margin) | BotAttackDriver.java:684-728 |
-| Who may be hit | — | `mayTarget` = `botMayTarget` (not `TRANSPARENT_ITEM`, not friendly) && per-bot filter or `KsManners.mayHit` | BotAttackDriver.java:826-845, :817-821 |
+| AUTO pack vs single | `BotSkillChoice.choose`: boss -> single; `inReach >= max(1, aoeMinMobs)` (default 3) -> AoE; sloppy roll -> the other; class without an AoE -> single; class without a single -> AoE | — | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotSkillChoice.java:43-66; src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:355-367 |
+| Floor variant (1.6.4 boss lane) | 9-arg `choose`: if the unchosen attack's guaranteed floor is higher, switch — always on a boss, on ordinary mobs only when the chosen floor <= `FLOOR_HIT` (1.0) | — | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotSkillChoice.java:77-96, :17-29 |
+| Per-job kit | `BotAttackConfig` static table (single/aoe/ultimate + extras) by lineage, or `resolveOwned` picking the highest owned skill per role | — | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackConfig.java:117-197, :285-343 |
+| Melee swing pose | — | `BotAttackData.actionFor` -> `BotSkillActions.poseCodes` (skill's own pose); else `BotClientPoses.plainPoses(route, attackType, skillType3)`; special cases Brandish 63/64, Paladin Blast 71 | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackData.java:65-97; src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotSkillActions.java:112-200 |
+| Ranged / magic pose | — | `T2` / `T3` rows of `BotClientPoses`, indexed `[attackType-1][skillType3?1:0]`; a RANGED skill on a non-shooting weapon falls back to the plain pose unless the exe's `SHOOT_WITHOUT_WEAPON` allows it | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotClientPoses.java:39-60, :146-165; src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotSwingPlan.java:93-99 |
+| Non-drawable skill | — | `BotSwingPlan.of` rewrites to skillId 0 + level 0 + the weapon's plain pose when `BotSkillActions.weaponFits` is false or the pose lookup fails | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotSwingPlan.java:91-99 |
+| Melee range guard | — | `BotMeleeRange.hasRange(skill, level, weaponId, pose)`; a miss is rewritten to a plain pose (or dropped) and logged `GUARD melee without a range` | src/main/java/soloMapling/server/BotAttackPackets.java:35-57; src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotMeleeRange.java:55-78 |
+| Thrown stars | — | `ThrowingStarSelector`: picked once from the bot's level band and cached on `BotSM.chosenStarId`; claw only | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/ThrowingStarSelector.java:37-84 |
+| Aran combo | — | `BotAranCombo`: orbs from `Aran.COMBO_ABILITY`, 6 s decay, capped 30 000; `comboCharger` substitutes a charge swing when a finisher needs orbs | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAranCombo.java:19-59; src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:393-396 |
+| Attack cadence | — | `BotAttackTiming.swingMs` = pose length from `bot-action-delays.tsv`, speed-scaled and rounded up to the 30 ms update step; keydown skills stream 25 shots at 120 ms | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackTiming.java:67-102; src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotSwingPlan.java:56-71, :103-105 |
+| Reach box | — | `reachBox`: WZ `StatEffect.getAttackBox` when available; RANGED/MAGIC always the profile box; surround test on symmetry; otherwise `clipForward` + `coverBody` (feet + 25 px back margin) | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:684-728 |
+| Who may be hit | — | `mayTarget` = `botMayTarget` (not `TRANSPARENT_ITEM`, not friendly) && per-bot filter or `KsManners.mayHit` | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:826-845, :817-821 |
 
 ### Keydown / multi-shot path
 
@@ -89,53 +89,53 @@ loot from a corpse) and when no mob is in reach (src/main/java/soloMapling/Artif
 
 - `BotBuffDriver.maintain(bot, lateMaxMs, pay)` schedules each due buff `cast × 750 ms` apart, adds late jitter and an
   8 % chance to forget a buff for 15-45 s, pays only party buffs for population bots (`Pay.PARTY_BUFFS`) and all buffs
-  for owned alts (`Pay.ALL`) (BotBuffDriver.java:54-113).
+  for owned alts (`Pay.ALL`) (src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotBuffDriver.java:54-113).
 - `BotPartySupport.tick` fires only under `BotSupportSwitches.partySupport()` and when the bot is partied with a
   player; heals a member below 60 % (4 s gap) and drinks pots (3 s gap); a heal calls
   `BotAttackDriver.holdAttacks(now + 900 ms)` so the bot does not swing through the cast
-  (BotPartySupport.java:47-58, :172-209, :383).
+  (src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotPartySupport.java:47-58, :172-209, :383).
 - `BotDeaths` rolls mortality per bot and per world; `IMMORTAL_SWITCH = "slums.bots.immortal"` restores the pre-1.6.4
-  unconditional protection (BotDeaths.java:38-44, :67-78).
+  unconditional protection (src/main/java/soloMapling/ArtificialPlayer/BotCombatSystem/BotDeaths.java:38-44, :67-78).
 
 ## Data
 
 | Store | Shape | Lifetime | File:line |
 |---|---|---|---|
-| `nextAttackByBot` | botId -> epoch-ms gate | until `clearBot` | BotAttackDriver.java:50, :202-218 |
-| `nextUltimateByBot` | botId -> epoch-ms, `FULL_MAP_ULTIMATE_COOLDOWN_MS = 25_000` | until `clearBot` | BotAttackDriver.java:58-59 |
-| `skillReadyByBot` | botId -> skillId -> ready epoch-ms (WZ `getCooldown`) | until `clearBot` | BotAttackDriver.java:64, :595 |
-| `extraUsedByBot` | botId -> skillId -> last-used epoch-ms | until `clearBot` | BotAttackDriver.java:67, :477-484 |
-| `lastSwingAtByBot`, `qaLastSwingByBot` | QA cadence + last swing record, ATTACK topic only | until `clearBot` | BotAttackDriver.java:71-90 |
-| `targetFilters` | botId -> `Predicate<Monster>` (owned alts, ticket 13) | until `setTargetFilter(id, null)` | BotAttackDriver.java:92, :817-821 |
-| `BotAttackStats` | 60 s per-bot tally: cooldown/swings/kills/bySkill/misses | per window | BotAttackStats.java:24-95 |
-| `OffscreenCombat` rates | per bot+map kill/EXP pace, `MAX_KILLS_PER_MIN = 30`, EXP at 1/3 pace (`solomapling.offscreenExpPace`) | cached | OffscreenCombat.java:39-50, :81-123 |
-| `KillCalibration` | kill-rate calibration bands, `DECAY = 0.995`, `BAND = 10` | keyed | KillCalibration.java:40-49 |
-| `BotAttackProfile` | immutable recipe: route, numAttacked, numDamage, reachX/Y, cooldownMs, hitDelayMs, speed, skillId/level, heldSkill | static table | BotAttackProfile.java:12-31, :66-114 |
-| `BotClientPoses` exe tables | T1/T2/T3 pose rows, KEYDOWN / KEEPS_KEYDOWN_POSE / NO_ACTION_CHECK / SHOOT_NO_BULLET / SHOOT_WITHOUT_WEAPON sets | static, read from `Character.wz` Weapon info | BotClientPoses.java:39-60, :130-209 |
-| `bot-action-delays.tsv` | 162 client action codes -> total ms at speed 6 | resource | BotAttackTiming.java:42-49, :120-148 |
-| `bot-melee-ranges.tsv` | skill/level and afterimage -> allowed pose names | resource | BotMeleeRange.java:33, :137 |
+| `nextAttackByBot` | botId -> epoch-ms gate | until `clearBot` | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:50, :202-218 |
+| `nextUltimateByBot` | botId -> epoch-ms, `FULL_MAP_ULTIMATE_COOLDOWN_MS = 25_000` | until `clearBot` | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:58-59 |
+| `skillReadyByBot` | botId -> skillId -> ready epoch-ms (WZ `getCooldown`) | until `clearBot` | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:64, :595 |
+| `extraUsedByBot` | botId -> skillId -> last-used epoch-ms | until `clearBot` | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:67, :477-484 |
+| `lastSwingAtByBot`, `qaLastSwingByBot` | QA cadence + last swing record, ATTACK topic only | until `clearBot` | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:71-90 |
+| `targetFilters` | botId -> `Predicate<Monster>` (owned alts, ticket 13) | until `setTargetFilter(id, null)` | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:92, :817-821 |
+| `BotAttackStats` | 60 s per-bot tally: cooldown/swings/kills/bySkill/misses | per window | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackStats.java:24-95 |
+| `OffscreenCombat` rates | per bot+map kill/EXP pace, `MAX_KILLS_PER_MIN = 30`, EXP at 1/3 pace (`solomapling.offscreenExpPace`) | cached | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/OffscreenCombat.java:39-50, :81-123 |
+| `KillCalibration` | kill-rate calibration bands, `DECAY = 0.995`, `BAND = 10` | keyed | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/KillCalibration.java:40-49 |
+| `BotAttackProfile` | immutable recipe: route, numAttacked, numDamage, reachX/Y, cooldownMs, hitDelayMs, speed, skillId/level, heldSkill | static table | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackProfile.java:12-31, :66-114 |
+| `BotClientPoses` exe tables | T1/T2/T3 pose rows, KEYDOWN / KEEPS_KEYDOWN_POSE / NO_ACTION_CHECK / SHOOT_NO_BULLET / SHOOT_WITHOUT_WEAPON sets | static, read from `Character.wz` Weapon info | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotClientPoses.java:39-60, :130-209 |
+| `bot-action-delays.tsv` | 162 client action codes -> total ms at speed 6 | resource | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackTiming.java:42-49, :120-148 |
+| `bot-melee-ranges.tsv` | skill/level and afterimage -> allowed pose names | resource | src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotMeleeRange.java:33, :137 |
 | Attack capture TSV | `logs/attack-capture.tsv`, one row per real-player attack, 28 columns | append-only | src/main/java/soloMapling/server/AttackCapture.java:51-60, :315-330 |
 
 ## Switches
 
 | Switch | Default | Meaning | Live (docs/release/1.6.4.conf:271) |
 |---|---|---|---|
-| `-Dslums.botattacktiming` | `true` (BotAttackTiming.java:56-58) | pose-length cadence instead of fixed profile cooldowns | absent -> ON |
-| `-Dslums.botswingclock` | `true` (BotSwingClock.java:56-58) | arm a due tick exactly at swing end | absent -> ON |
-| `-Dslums.bossfight.damagefloor` | `false` (BotSkillChoice.java:17-29) | weigh guaranteed damage floors when choosing AoE vs single | absent -> OFF |
-| `-Dslums.bots.immortal` | `false` (BotDeaths.java:67-71) | TEST switch: bots never die | absent; conf:92 documents it as TEST-only |
-| `-Dslums.bots.partysupport` | config `BOT_PARTY_SUPPORT` (BotSupportSwitches.java:28) | party heal / pot ticking | present -> ON |
-| `-Dslums.bots.magicguard` | config (BotSupportSwitches.java:36) | Magic Guard handling | present -> ON |
-| `-Dslums.killcalib` | `false` (KillCalibration.java:40, :107) | kill-rate calibration | present -> ON |
-| `-Dslums.attackcapture` | `false` (AttackCapture.java:48, :59) | write real-player attacks to TSV; also gates `!botshowcase`, `!classtest`, `!botground` | absent -> OFF (TEST only by design, AttackCapture.java:34) |
+| `-Dslums.botattacktiming` | `true` (src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackTiming.java:56-58) | pose-length cadence instead of fixed profile cooldowns | absent -> ON |
+| `-Dslums.botswingclock` | `true` (src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotSwingClock.java:56-58) | arm a due tick exactly at swing end | absent -> ON |
+| `-Dslums.bossfight.damagefloor` | `false` (src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotSkillChoice.java:17-29) | weigh guaranteed damage floors when choosing AoE vs single | absent -> OFF |
+| `-Dslums.bots.immortal` | `false` (src/main/java/soloMapling/ArtificialPlayer/BotCombatSystem/BotDeaths.java:67-71) | TEST switch: bots never die | absent; conf:92 documents it as TEST-only |
+| `-Dslums.bots.partysupport` | config `BOT_PARTY_SUPPORT` (src/main/java/soloMapling/ArtificialPlayer/BotSupportSwitches.java:28) | party heal / pot ticking | present -> ON |
+| `-Dslums.bots.magicguard` | config (src/main/java/soloMapling/ArtificialPlayer/BotSupportSwitches.java:36) | Magic Guard handling | present -> ON |
+| `-Dslums.killcalib` | `false` (src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/KillCalibration.java:40, :107) | kill-rate calibration | present -> ON |
+| `-Dslums.attackcapture` | `false` (src/main/java/soloMapling/server/AttackCapture.java:48, :59) | write real-player attacks to TSV; also gates `!botshowcase`, `!classtest`, `!botground` | absent -> OFF (TEST only by design, src/main/java/soloMapling/server/AttackCapture.java:34) |
 | `BOT_COMBAT_HUMAN` | `true` (src/main/java/config/ServerConfig.java:266-276) | human choice rules vs the old "2+ mobs" rule | config default |
 | `BOT_COMBAT_AOE_MIN_MOBS` | `3` | mobs in reach to pick AoE | config default |
 | `BOT_COMBAT_SLOPPINESS` | `1.0` | scales `BotHabits.sloppyNow()` | config default |
 | `BOT_COMBAT_DEATHS` | `true` | mortality (gated by `human()`) | config default |
 | `BOT_KS_MANNERS` | `true` | `KsManners.mayHit` filter | config default |
 | `BOT_SPREAD` | `true` | bots keep apart | config default |
-| `-Dsolomapling.offscreenExpPace` | `1/3` (OffscreenCombat.java:49-50) | offscreen EXP pace (owner decision 2026-10-19) | absent -> 1/3 |
-| `-Dslums.botcombat` overrides | `human|aoe|sloppy|deaths|manners|spread` (BotCombatTuning.java:91-104) | live tuning via `!botcombat set` | runtime |
+| `-Dsolomapling.offscreenExpPace` | `1/3` (src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/OffscreenCombat.java:49-50) | offscreen EXP pace (owner decision 2026-10-19) | absent -> 1/3 |
+| `-Dslums.botcombat` overrides | `human|aoe|sloppy|deaths|manners|spread` (src/main/java/soloMapling/ArtificialPlayer/BotCombatSystem/BotCombatTuning.java:91-104) | live tuning via `!botcombat set` | runtime |
 
 ## Invariants
 
@@ -143,21 +143,21 @@ loot from a corpse) and when no mob is in reach (src/main/java/soloMapling/Artif
    `BotMeleeRange.hasRange` and rewrites to a plain pose (or drops the packet) — a viewer's client closes otherwise
    (src/main/java/soloMapling/server/BotAttackPackets.java:35-57).
 2. **A skill the equipped weapon cannot draw is never sent as that skill.** `BotSwingPlan.of` demotes to skillId 0
-   (BotSwingPlan.java:91-99); `BotWeapons.UNDRAWABLE` keeps 13 weapon ids off bots (BotWeapons.java:105-112).
+   (src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotSwingPlan.java:91-99); `BotWeapons.UNDRAWABLE` keeps 13 weapon ids off bots (src/main/java/soloMapling/ArtificialPlayer/BotDecoratorSystem/BotWeapons.java:105-112).
 3. **Lines never exceed 15 and mobs never exceed the skill's `mobCount`.** `MAX_LINES = 15`
-   (BotAttackDriver.java:521), `BotSwingPlan` caps `maxMobs`/`lines` from `BotClientPoses.counts`
-   (BotSwingPlan.java:110-121).
+   (src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:521), `BotSwingPlan` caps `maxMobs`/`lines` from `BotClientPoses.counts`
+   (src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotSwingPlan.java:110-121).
 4. **Crit is encoded negative, never as a flag.** `encodeCritLine`/`decodeDamageLine` are exact inverses; the
-   server's own parse decodes yellow crits (BotAttackData.java:117-133).
+   server's own parse decodes yellow crits (src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackData.java:117-133).
 5. **Big Bang must carry charge 1080.** `magicChargeFor` returns -1 for a Big Bang packet and the viewer over-reads
-   and crashes (BotAttackData.java:101-115).
+   and crashes (src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackData.java:101-115).
 6. **A bot's `getClient().getPlayer()` is null** — every system here works from the `Character`; bot ids are
    >= 1,000,000,000 and packets to bots go nowhere.
-7. **A hold dies with its bot.** `holdKeydown` releases on `!bot.isAlive()` (BotAttackEffects.java:148-175).
+7. **A hold dies with its bot.** `holdKeydown` releases on `!bot.isAlive()` (src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackEffects.java:148-175).
 8. **Re-attack is throttled per bot and cleared on despawn.** `nextAttackByBot` + `clearBot` releasing 7 maps and
-   5 sub-system caches (BotAttackDriver.java:202-218).
+   5 sub-system caches (src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:202-218).
 9. **Party heal holds attacks.** `holdAttacks` merges with `Math::max` so a longer hold is never shortened
-   (BotAttackDriver.java:183-185); `releasedEarly` merges with `Math::min` (:191-193).
+   (src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:183-185); `releasedEarly` merges with `Math::min` (:191-193).
 
 ## Origin
 
@@ -165,9 +165,9 @@ loot from a corpse) and when no mob is in reach (src/main/java/soloMapling/Artif
 
 - BotAttackDriver: oldest commit `03d13cb21 2026-10-18 "Establish deployable MapleRoot server baseline"`, latest
   `1512c08a6 2026-10-19 "Merge the SoloMapling persistence fork onto the live baseline"`. Header credits the
-  targeting/route-dispatch model to GreenCatMS bot combat (BotAttackDriver.java:38-39); `BotAttackData` body-action ids
-  are lifted from GreenCatMS `BotAttackDataProvider.BODY_ACTION_ID_OVERRIDES` (BotAttackData.java:15-16);
-  `BotAttackProfile` credits the attack-plan concept to GreenCatMS (BotAttackProfile.java:4-6).
+  targeting/route-dispatch model to GreenCatMS bot combat (src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:38-39); `BotAttackData` body-action ids
+  are lifted from GreenCatMS `BotAttackDataProvider.BODY_ACTION_ID_OVERRIDES` (src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackData.java:15-16);
+  `BotAttackProfile` credits the attack-plan concept to GreenCatMS (src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackProfile.java:4-6).
 - BotClientPoses: `d1548912c 2026-10-21 "Check every bot attack against the client's own rules, and send it as a
   player would"`, then `6ca8830ab 2026-10-21 "Time bot attacks from the client's pose lengths, not fixed cooldowns"`.
 - BotAttackPackets / BotMeleeRange: `999fe5cac 2026-10-26 "Stop gun bots' idle show-off swing from closing viewers'
@@ -178,7 +178,7 @@ loot from a corpse) and when no mob is in reach (src/main/java/soloMapling/Artif
 - BotSwingClock: `7f6aa759a 2026-10-22`. AttackCapture: `911398693 2026-10-19 "Capture a real client's attacks on the
   test server for bot alignment"`.
 - `ThrowingStarSelector` says so explicitly: "Ours (SoloMapling), not a GreenCatMS port"
-  (ThrowingStarSelector.java:16-18).
+  (src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/ThrowingStarSelector.java:16-18).
 
 ## Tests and QA
 
@@ -236,7 +236,7 @@ live client (`BotAttackExportTest` only writes the export); the `!bot attack` GM
   inherits the previous bot's `swings`/`damageTotal` counters.
 - **NEW-FINDING:** src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackDriver.java:472 — the gate is
   set from `plan.busyMs(profile.cooldownMs)`, which for `plan.shots() > 1` is `holdMs()` = shots × 120 ms
-  (BotSwingPlan.java:65-67) and so ignores `profile.hitDelayMs`; the hit application scheduled by
+  (src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotSwingPlan.java:65-67) and so ignores `profile.hitDelayMs`; the hit application scheduled by
   `BotAttackEffects.strike` (:444-452) can still be pending when the next swing is allowed.
 - **NEW-FINDING:** src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotMeleeRange.java:55-58 — `hasRange`
   returns true for any weapon whose WZ `afterImage` is empty, i.e. the guard silently trusts WZ data that a custom
@@ -258,12 +258,12 @@ live client (`BotAttackExportTest` only writes the export); the `!bot attack` GM
 
 ## Open questions
 
-1. `BotClientPosesTest` is cited in a source comment (BotClientPoses.java:20) but absent — was it folded into
+1. `BotClientPosesTest` is cited in a source comment (src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotClientPoses.java:20) but absent — was it folded into
    `BotAttackClientValidityTest`, or is the exe-fixture test considered a superset by intent?
 2. The 250 ms `TrainingBot` ticker and `BotSwingClock` coexist; `BotSwingPacingPerfTest` asserts no extra ticks, but
-   nothing asserts that `pacedCombatTick`'s `GCMovement.isMapObserved` gate (TrainingBot.java:282-290) never starves
+   nothing asserts that `pacedCombatTick`'s `GCMovement.isMapObserved` gate (src/main/java/soloMapling/ArtificialPlayer/BotTypes/TrainingBot.java:282-290) never starves
    an observed map.
-3. `BotAttackConfig` holds ~80 hand-written job rows (BotAttackConfig.java:117-197); is there a fixture that asserts
+3. `BotAttackConfig` holds ~80 hand-written job rows (src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackConfig.java:117-197); is there a fixture that asserts
    every job a bot can spawn with has a non-null kit, or is that only caught by the live showcase (`bk-1`)?
-4. `AttackCapture` is TEST-only by design (AttackCapture.java:34) but gates the `!botshowcase` and `!classtest`
-   commands (CommandsExecutor.java:372-375); should those commands be registered independently of capture?
+4. `AttackCapture` is TEST-only by design (src/main/java/soloMapling/server/AttackCapture.java:34) but gates the `!botshowcase` and `!classtest`
+   commands (src/main/java/client/command/CommandsExecutor.java:372-375); should those commands be registered independently of capture?

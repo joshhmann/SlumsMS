@@ -172,7 +172,7 @@ Row keys read by `readContent` (src/main/java/soloMapling/mechanics/StageData.ja
 (required), `kind` (required enum `PQ|BOSS|JQ|EXPEDITION`), `eventScript`, `recruitMap` (0), `exitMap` (0), `minPlayers`
 (1), `maxPlayers` (6), `minLevel` (1), `maxLevel` (200), `timeLimitMinutes` (0), `sources`, `stages`, `flag`,
 `entryNpc` (0), plus the optional `tiers`, `afterClear`, `composition`, `queue` blocks. A row's `maxLevel` of 255 appears
-in zakum.yaml:22.
+in src/main/java/soloMapling/mechanics/content/zakum.yaml:22.
 
 Stage keys read by `readStage` (src/main/java/soloMapling/mechanics/StageData.java:377+): `stage`, `map`, `name`, `npc`,
 `solver`, `roles`, `answers`, `objectives`, `positions`, `items`, `phases`, `combos`, `mobs`, `nextPortal`,
@@ -180,8 +180,8 @@ Stage keys read by `readStage` (src/main/java/soloMapling/mechanics/StageData.ja
 `branches`. The `Stage` record carries exactly those fields (src/main/java/soloMapling/mechanics/MechanicsModel.java:330-336).
 
 Only four rows declare difficulty tiers (`tiers:`) — kpq, lpq, opq, hpq; only `guildquest.yaml` declares `queue:` and
-`composition:` (`guildquest.yaml:45-50`, :51-56); kpq and guildquest declare `afterClear:`
-(`kpq.yaml:1-60`). Everything else is a plain stage list.
+`composition:` (`src/main/java/soloMapling/mechanics/content/guildquest.yaml:45-50`, :51-56); kpq and guildquest declare `afterClear:`
+(`src/main/java/soloMapling/mechanics/content/kpq.yaml:1-60`). Everything else is a plain stage list.
 
 ### Runtime state (not durable)
 
@@ -203,24 +203,24 @@ for `mechanics` returns nothing), and the `SERVER_SET` block of docs/release/1.6
 
 | Switch | Default | Read at | What it does |
 |---|---|---|---|
-| `slums.mechanics` | off | Mechanics.java:20, :131 | the master switch; gates the hook, the lobbies, the GM command and every non-boss row |
-| `slums.mechanics.boss` | off | Mechanics.java:27, :176 | arms the 29 `kind: BOSS` rows (docs/release/1.6.4.conf:47) |
-| `slums.mechanics.<row-flag>` | off | Mechanics.java:196, :207 | per-family row switch; 20 distinct flags over 32 rows (opq, lpq, hpq, cafepq, ludimazepq, piratepq, treasurepq, dellibattle, magatiapq, magatiapqz, ellinpq, cwkpq, bossrush, zakumpq, guildquest, nwill, nlucid, nverus, ndarknell) — docs/release/1.6.4.conf:48-52 |
-| `slums.chaos.zakum` | off | row flag on zakum-chaos.yaml; also read by autoqa (AutoQaCatalog.java:2220) and qa/BossRunScenarios.java:135 | the Chaos Zakum row (docs/release/1.6.4.conf:53) |
-| `slums.bossfight.revivepause` | **off** in code, **on** in the release conf | RevivePause.java:25, :37 | a boss run pauses for a lost member instead of failing; with it off a bot death ends the run (docs/release/1.6.4.conf:54-62) |
-| `slums.bossfight.revivepause.ms` | 5 min (`DEFAULT_WINDOW_MS`, RevivePause.java:27) | RevivePause.java:26, :43 | pause window; per-row override `….ms.<row id>` |
-| `slums.mechanics.lobby` | off | KpqLobby.java:40, :64 | the 1.6.1 Kerning lobby (live since 1.6.1) |
-| `slums.mechanics.lobbyRuns` | 2 | KpqLobby.java:68 | cap on concurrent bot-only lobby runs world-wide |
-| `slums.mechanics.<row>.lobby` | off | ContentLobby.java:69-76 | per-row PQ lobby; also `slums.mechanics.<row>.runs` (default 1, ContentLobby.java:79-82) |
-| `slums.mechanics.tiers` | off | TierScaling.java:45, :54 | scales a room to a difficulty tier; off = WZ numbers byte for byte |
-| `slums.mechanics.tier` | NORMAL | TierScaling.java:48, :62 | requested tier when tiers are on |
-| `slums.mechanics.realruns` | unset = unlimited (-1) | Mechanics.java:109, :140-149 | cap on concurrent bot-only real runs; negative/blank = nothing counted, nothing refused |
-| `slums.mechanics.simruns` | 8 | Mechanics.java:116-117 | simulated-run cap |
-| `slums.mechanics.simfloor` | 5 | Mechanics.java:123-124 | real samples below which a key is never simulated |
-| `slums.mechanics.chatter` | on | Mechanics.java:101, :136 | bots say a win/loss line after a run (RunChatter.java:25-33) |
-| `slums.mechanics.dir` | `src/main/java/soloMapling/mechanics/content` | Mechanics.java:125-126 | stage-data folder override |
-| `slums.bossfight.deathcount` (+ `.cap`, default 10; per-boss `.cap.<type>`) | off | ExpeditionDeathCount.java:33-36, :57 | charge a death against an expedition budget; owned alts are not charged (:115) |
-| `slums.mechanics.amoriapq.botcount` | off (TEST only) | Mechanics.java:81 | Amoria PQ counts a bot as a party member; no amoriapq.yaml row exists |
+| `slums.mechanics` | off | src/main/java/soloMapling/mechanics/Mechanics.java:20, :131 | the master switch; gates the hook, the lobbies, the GM command and every non-boss row |
+| `slums.mechanics.boss` | off | src/main/java/soloMapling/mechanics/Mechanics.java:27, :176 | arms the 29 `kind: BOSS` rows (docs/release/1.6.4.conf:47) |
+| `slums.mechanics.<row-flag>` | off | src/main/java/soloMapling/mechanics/Mechanics.java:196, :207 | per-family row switch; 20 distinct flags over 32 rows (opq, lpq, hpq, cafepq, ludimazepq, piratepq, treasurepq, dellibattle, magatiapq, magatiapqz, ellinpq, cwkpq, bossrush, zakumpq, guildquest, nwill, nlucid, nverus, ndarknell) — docs/release/1.6.4.conf:48-52 |
+| `slums.chaos.zakum` | off | row flag on zakum-chaos.yaml; also read by autoqa (src/main/java/soloMapling/autoqa/AutoQaCatalog.java:2220) and qa/BossRunScenarios.java:135 | the Chaos Zakum row (docs/release/1.6.4.conf:53) |
+| `slums.bossfight.revivepause` | **off** in code, **on** in the release conf | src/main/java/soloMapling/mechanics/RevivePause.java:25, :37 | a boss run pauses for a lost member instead of failing; with it off a bot death ends the run (docs/release/1.6.4.conf:54-62) |
+| `slums.bossfight.revivepause.ms` | 5 min (`DEFAULT_WINDOW_MS`, src/main/java/soloMapling/mechanics/RevivePause.java:27) | src/main/java/soloMapling/mechanics/RevivePause.java:26, :43 | pause window; per-row override `….ms.<row id>` |
+| `slums.mechanics.lobby` | off | src/main/java/soloMapling/mechanics/KpqLobby.java:40, :64 | the 1.6.1 Kerning lobby (live since 1.6.1) |
+| `slums.mechanics.lobbyRuns` | 2 | src/main/java/soloMapling/mechanics/KpqLobby.java:68 | cap on concurrent bot-only lobby runs world-wide |
+| `slums.mechanics.<row>.lobby` | off | src/main/java/soloMapling/mechanics/ContentLobby.java:69-76 | per-row PQ lobby; also `slums.mechanics.<row>.runs` (default 1, src/main/java/soloMapling/mechanics/ContentLobby.java:79-82) |
+| `slums.mechanics.tiers` | off | src/main/java/soloMapling/mechanics/TierScaling.java:45, :54 | scales a room to a difficulty tier; off = WZ numbers byte for byte |
+| `slums.mechanics.tier` | NORMAL | src/main/java/soloMapling/mechanics/TierScaling.java:48, :62 | requested tier when tiers are on |
+| `slums.mechanics.realruns` | unset = unlimited (-1) | src/main/java/soloMapling/mechanics/Mechanics.java:109, :140-149 | cap on concurrent bot-only real runs; negative/blank = nothing counted, nothing refused |
+| `slums.mechanics.simruns` | 8 | src/main/java/soloMapling/mechanics/Mechanics.java:116-117 | simulated-run cap |
+| `slums.mechanics.simfloor` | 5 | src/main/java/soloMapling/mechanics/Mechanics.java:123-124 | real samples below which a key is never simulated |
+| `slums.mechanics.chatter` | on | src/main/java/soloMapling/mechanics/Mechanics.java:101, :136 | bots say a win/loss line after a run (src/main/java/soloMapling/mechanics/RunChatter.java:25-33) |
+| `slums.mechanics.dir` | `src/main/java/soloMapling/mechanics/content` | src/main/java/soloMapling/mechanics/Mechanics.java:125-126 | stage-data folder override |
+| `slums.bossfight.deathcount` (+ `.cap`, default 10; per-boss `.cap.<type>`) | off | src/main/java/soloMapling/mechanics/ExpeditionDeathCount.java:33-36, :57 | charge a death against an expedition budget; owned alts are not charged (:115) |
+| `slums.mechanics.amoriapq.botcount` | off (TEST only) | src/main/java/soloMapling/mechanics/Mechanics.java:81 | Amoria PQ counts a bot as a party member; no amoriapq.yaml row exists |
 | `slums.exped.botcaptain` / `slums.exped.altfollow` | on | documented in docs/tickets/130-bots-play-mechanics.md (expedition policy table) | bot may captain an expedition; an owned alt follows its owner into one |
 
 **Live vs TEST.** The live set is `UNIT_EDITS` in docs/release/1.6.4.conf:271: it carries `-Dslums.mechanics=true`,
@@ -245,7 +245,7 @@ every `.<row>.lobby`, `.bots.immortal` (TEST only), `.bossfight.deathcount`, `.a
   reason instead of starting (src/main/java/soloMapling/mechanics/Orchestrator.java:139-150).
 - **A row that asks something of the party cannot be played by a party lacking it.** `compositionProblem` ends the run
   (src/main/java/soloMapling/mechanics/Orchestrator.java:151-158; the Guild Quest junior seat is the only user today,
-  guildquest.yaml:51-56), and `QueueStaging` seats a fitting bot before registering rather than starting short
+  src/main/java/soloMapling/mechanics/content/guildquest.yaml:51-56), and `QueueStaging` seats a fitting bot before registering rather than starting short
   (src/main/java/soloMapling/mechanics/QueueStaging.java:180-205).
 - **A real player is planned around, never steered.** `tick` skips every non-bot member in the solver loop
   (src/main/java/soloMapling/mechanics/Orchestrator.java:350-353) and only prompts the human leader
@@ -267,8 +267,8 @@ every `.<row>.lobby`, `.bots.immortal` (TEST only), `.bossfight.deathcount`, `.a
 - **A bot lobby yields a channel to a real party** (src/main/java/soloMapling/mechanics/KpqLobby.java:286-300).
 - **With the switches off, nothing changes for a player.** The hook returns null immediately
   (src/main/java/soloMapling/mechanics/MechanicsRuns.java:535-537), `TierScaling.applyTo` is never reached
-  (MechanicsRuns.java:425-430), and `KpqStaging.stage` refuses with "mechanics is off (start the server with
-  -Dslums.mechanics=true)" (KpqStaging.java:185-187).
+  (src/main/java/soloMapling/mechanics/MechanicsRuns.java:425-430), and `KpqStaging.stage` refuses with "mechanics is off (start the server with
+  -Dslums.mechanics=true)" (src/main/java/soloMapling/mechanics/KpqStaging.java:185-187).
 
 ## Origin
 
@@ -349,11 +349,11 @@ Defects and limits recorded in /root/work/PQ-UNFINISHED-REPORT.md:
   while stage 5 is `magatia-climb` and drives the climb; the header is stale by one commit
   (/root/work/PQ-UNFINISHED-REPORT.md:110-125).
 - Guild Quest's drop data is seed-only and the live table is unverified: a missing row costs the stage a `Wait` naming
-  the item rather than a silent stall (guildquest.yaml:18-21).
+  the item rather than a silent stall (src/main/java/soloMapling/mechanics/content/guildquest.yaml:18-21).
 
 NEW-FINDING: src/main/java/soloMapling/mechanics/QueueStaging.java (331 lines, added 1f7271226 2026-11-03) has no
 production caller — the only references in `src/main/java` are its own file, and the sole users are
-`src/test/java/soloMapling/mechanics/QueueStagingTest.java`. Its javadoc (QueueStaging.java:20-47) describes it as the
+`src/test/java/soloMapling/mechanics/QueueStagingTest.java`. Its javadoc (src/main/java/soloMapling/mechanics/QueueStaging.java:20-47) describes it as the
 way a `queue:` row is started, and `guildquest.yaml` is the only row with a `queue:` block, so the guild-quest lane is
 reachable in 1.6.4 only through the passive `onQueueInstanceStarted` watch. Either the entry point was not wired or the
 class is a scaffold; as it stands the "starts a queue row the way its door NPC does" path is untested against a server.

@@ -134,12 +134,12 @@ opens a socket (`grep GetPrivateProfile|ReadSwitch` in `src/crash_report.cpp`, `
 
 17. Player types `@bug <text>` → `ReportBugCommand.report` (`src/main/java/client/command/commands/gm0/ReportBugCommand.java:108`),
     `ReportStore.submit` assigns id+ref under the file lock (`src/main/java/server/reports/ReportStore.java:228-259`),
-    the reply `Thanks! Bug #B-.. sent.` goes out (`ReportBugCommand.java:125`), and for `type=="bug"` the server calls
-    `BugClientLogs.get().request(c, player, r.ref(), now)` (`ReportBugCommand.java:126-128`).
+    the reply `Thanks! Bug #B-.. sent.` goes out (`src/main/java/client/command/commands/gm0/ReportBugCommand.java:125`), and for `type=="bug"` the server calls
+    `BugClientLogs.get().request(c, player, r.ref(), now)` (`src/main/java/client/command/commands/gm0/ReportBugCommand.java:126-128`).
 18. `request` returns immediately unless `supports(c)` — `getClientStampFormat() >= 2 && (caps & 0x2) != 0`
-    (`BugClientLogs.java:66-69`, `:73`) — and for bots (`:73`). Otherwise it issues a `SecureRandom` nonce
+    (`src/main/java/server/reports/BugClientLogs.java:66-69`, `:73`) — and for bots (`:73`). Otherwise it issues a `SecureRandom` nonce
     (`:79-88`) and sends LP **0x373A `BUG_LOG_REQUEST`**:
-    `short format(1); int nonce; string ref("B-12"); int maxBytes(32768)` (`BugClientLogs.java:90-97`,
+    `short format(1); int nonce; string ref("B-12"); int maxBytes(32768)` (`src/main/java/server/reports/BugClientLogs.java:90-97`,
     opcode at `src/main/java/net/opcodes/SendOpcode.java:33`).
 19. The client **never answers**: no client source contains 0x373A or 0x373B (`grep 0x373A|373A|373B` over
     `src/` = 0 hits; `src/packetdispatcher.cpp:32-99` dispatches 0x3739/0x373D/0x373F and its addon opcodes but has
@@ -157,7 +157,7 @@ opens a socket (`grep GetPrivateProfile|ReadSwitch` in `src/crash_report.cpp`, `
     `BugPrivacy.scrubClientText(raw, accountName)` (`:149`), re-caps to 32 KiB after redaction may have grown lines
     (`:152-155`), and splits the `[name]` header lines into `sections` (`:167-183`).
     `store.updateContext(ref, ctx -> ctx.put("clientLogs", merged))` writes it on the writer thread
-    (`BugLogUploadHandler.java:38-42` → `ReportStore.java:517-536` → `writeContext` at `ReportStore.java:356`).
+    (`src/main/java/net/server/channel/handlers/BugLogUploadHandler.java:38-42` → `src/main/java/server/reports/ReportStore.java:517-536` → `writeContext` at `src/main/java/server/reports/ReportStore.java:356`).
 
 ### F. Privacy rule enforcement (both sides)
 
@@ -165,12 +165,12 @@ opens a socket (`grep GetPrivateProfile|ReadSwitch` in `src/crash_report.cpp`, `
 |---|---|
 | Client: dialog lines dropped whole, `C:\Users\<name>` → `<user>`, IPv4 → `<ip>` before anything is written | `src/crash_scrub.h:49-53`, `:55-61`, `:63-69`; sole call site `src/crash_report.cpp:88` |
 | Server: a *server* log line is dropped whole if it mentions passwords/PIN/PIC/tokens/salts/hashes/e-mail/whispers/IPs(4+6)/remote addr/session/cookie/authorization/api key/account or login names, or carries a ≥ 32-hex string | `src/main/java/server/reports/BugPrivacy.java:16-24` (`SENSITIVE`), `:27-29` (`serverLineAllowed`); the only caller is `src/main/java/server/reports/WarnLogRing.java:125` — a rejected line never enters the ring, so it cannot enter a report |
-| Server: an *uploaded client* line is `[line removed]` when it mentions password/pwd/pin/pic/secret/token/cookie/authorization/api key/serial/license key | `BugPrivacy.java:31-32` (`DROP_CLIENT_LINE`), applied `:52-55` |
-| Server: uploaded text is redacted (not dropped) for `C:\Users\<name>`/`Documents and Settings`, `computer name=`/`hostname:`/`username=`-style pairs, e-mail, MAC, IPv6, IPv4, and the reporter's own account name (quoted, case-insensitive) | `BugPrivacy.java:33-39`, applied `:56-64`; account name at `:62-64` |
-| Server: control characters except `\n`/`\t` stripped from uploaded text | `BugPrivacy.java:65` |
-| Explicit non-secret: the slums.dll sha256 is kept on purpose | `BugPrivacy.java:41-45` (javadoc); asserted at `src/test/java/server/reports/BugPrivacyTest.java:68` |
+| Server: an *uploaded client* line is `[line removed]` when it mentions password/pwd/pin/pic/secret/token/cookie/authorization/api key/serial/license key | `src/main/java/server/reports/BugPrivacy.java:31-32` (`DROP_CLIENT_LINE`), applied `:52-55` |
+| Server: uploaded text is redacted (not dropped) for `C:\Users\<name>`/`Documents and Settings`, `computer name=`/`hostname:`/`username=`-style pairs, e-mail, MAC, IPv6, IPv4, and the reporter's own account name (quoted, case-insensitive) | `src/main/java/server/reports/BugPrivacy.java:33-39`, applied `:56-64`; account name at `:62-64` |
+| Server: control characters except `\n`/`\t` stripped from uploaded text | `src/main/java/server/reports/BugPrivacy.java:65` |
+| Explicit non-secret: the slums.dll sha256 is kept on purpose | `src/main/java/server/reports/BugPrivacy.java:41-45` (javadoc); asserted at `src/test/java/server/reports/BugPrivacyTest.java:68` |
 
-Note the asymmetry: the server trusts nothing the client did (`BugClientLogs.java:36-37`, "the text is scrubbed again
+Note the asymmetry: the server trusts nothing the client did (`src/main/java/server/reports/BugClientLogs.java:36-37`, "the text is scrubbed again
 here whatever the client did"), while the client's own scrubber is the only thing protecting `LATEST_CRASH.txt` on
 disk — and `crash.log` has no scrubber at all.
 
@@ -181,16 +181,16 @@ disk — and `crash.log` has no scrubber at all.
 | `crash_reports\LATEST_CRASH.txt` | cwd-relative; `SlumsMS crash report` + time + build, headline, advice, details, map/free-MB/last-C++-error, scrubbed tail; named `LATEST_CRASH.tmp` until the rename | `src/crash_report.cpp:144-152` | **nothing** (steps 15-16) |
 | `integration.log` | cwd-relative, `[SlumsMS] <line>` per record | `src/debug.cpp:16-19` | `PutLogTail` `src/crash_report.cpp:53` |
 | `crash.log` | cwd-relative, append; `EXCEPTION pid= thread= code= first_chance=1`, `instruction address= module= offset=`, `memory operation= address=`, `exception_hresult=`, 12 EBP frames, ≤ 20 `stack_code_candidate`; capped 16 per exception class | `src/crash_diagnostics.cpp:50-99` | nothing in either repo |
-| LP 0x373A `BUG_LOG_REQUEST` | `short 1, int nonce, string ref, int maxBytes(32768)` | `BugClientLogs.java:90-97` | no client |
+| LP 0x373A `BUG_LOG_REQUEST` | `short 1, int nonce, string ref, int maxBytes(32768)` | `src/main/java/server/reports/BugClientLogs.java:90-97` | no client |
 | CP 0x373B `BUG_LOG_UPLOAD` | `short 1, int nonce, int totalLength, byte truncated, int length, byte[len]` UTF-8 | no client | `BugClientLogs.parse` `:100-116` |
-| `reports.jsonl` | one line per report, ids shared with the site's form; `-Dsolomapling.reportsFile`, default `data/reports/reports.jsonl` | `ReportStore.java:110-126`, `:247-253` | `!bugs` / `!bug` (`BugsCommand.java:57-101`), the site's report viewer/triage (`docs/tickets/131-bug-reports.md:101`) |
-| `context/<ref>.json` | report context; `clientLogs` object = `{receivedAt, format, totalLength, truncated, bytes, sections{…}}` | `ReportStore.java:238-245`, `BugClientLogs.java:156-163` | `!bug <ref>` shows only `bytes` and `truncated` (`BugsCommand.java:94-96`) and prints the file path (`:100`) |
+| `reports.jsonl` | one line per report, ids shared with the site's form; `-Dsolomapling.reportsFile`, default `data/reports/reports.jsonl` | `src/main/java/server/reports/ReportStore.java:110-126`, `:247-253` | `!bugs` / `!bug` (`src/main/java/client/command/commands/gm2/BugsCommand.java:57-101`), the site's report viewer/triage (`docs/tickets/131-bug-reports.md:101`) |
+| `context/<ref>.json` | report context; `clientLogs` object = `{receivedAt, format, totalLength, truncated, bytes, sections{…}}` | `src/main/java/server/reports/ReportStore.java:238-245`, `src/main/java/server/reports/BugClientLogs.java:156-163` | `!bug <ref>` shows only `bytes` and `truncated` (`src/main/java/client/command/commands/gm2/BugsCommand.java:94-96`) and prints the file path (`:100`) |
 | `crash_reports` dir | created unconditionally | `src/crash_report.cpp:144` | — |
 
 Sizes and constants: `g_report` 24 KiB, `g_tail` 16 KiB (`src/crash_report.cpp:29-31`); 40 log lines (`:72-78`);
 `MAX_BYTES` 32 KiB, `NONCE_TTL_MS` 5 min, `MIN_INTERVAL_MS` 60 s, `CAPS_LOG_UPLOAD` `1<<1`
-(`BugClientLogs.java:40-44`); `MIN_LENGTH` 5, `BUG_MAX_LENGTH` 500, per-account 3/10 min and 20/day, global 60/h and
-300/day (`ReportStore.java:60-70`).
+(`src/main/java/server/reports/BugClientLogs.java:40-44`); `MIN_LENGTH` 5, `BUG_MAX_LENGTH` 500, per-account 3/10 min and 20/day, global 60/h and
+300/day (`src/main/java/server/reports/ReportStore.java:60-70`).
 
 ## Switches
 
@@ -198,8 +198,8 @@ Sizes and constants: `g_report` 24 KiB, `g_tail` 16 KiB (`src/crash_report.cpp:2
 |---|---|---|---|
 | `MAPLEROOT_CRASH_REPORT` (CMake) | `OFF` | `CMakeLists.txt:17`; compiles `crash_report.cpp` + defines the macro at `src/CMakeLists.txt:76-79` | Enables the reporter, `CrashReport_Wrap` in the filter hook (`src/system.cpp:31-34`), the map/C++-HRESULT/data-miss notes (`src/resolution.cpp:123-131`, `src/crash_diagnostics.cpp:32-43`, `src/resman.cpp:39-43`) |
 | `MAPLEROOT_INTEGRATION` (CMake) | `OFF` | `CMakeLists.txt:6`; `src/CMakeLists.txt:117-124`; on in `scripts/build.ps1:11` | The only switch that ships from the build script. Gates `crash_diagnostics.cpp` (VEH, `crash.log`) and the `MessageBoxA/W` dialog logging that the scrubber then has to remove (`src/system.cpp:292-303`) |
-| `-Dsolomapling.reportsFile` (server JVM) | `data/reports/reports.jsonl` | `ReportStore.java:115-120` | Where reports and `context/` live; unset logs a warning (`:116-117`) |
-| caps bit 1 (`CAPS_LOG_UPLOAD`) | no client sets it | server reads it at `BugClientLogs.java:68`; the client computes caps at `src/bypass.cpp:399-419` from `kCapCustomNpcData` only (`src/buildstamp_proto.h:25`) | Gates the whole LP 0x373A request |
+| `-Dsolomapling.reportsFile` (server JVM) | `data/reports/reports.jsonl` | `src/main/java/server/reports/ReportStore.java:115-120` | Where reports and `context/` live; unset logs a warning (`:116-117`) |
+| caps bit 1 (`CAPS_LOG_UPLOAD`) | no client sets it | server reads it at `src/main/java/server/reports/BugClientLogs.java:68`; the client computes caps at `src/bypass.cpp:399-419` from `kCapCustomNpcData` only (`src/buildstamp_proto.h:25`) | Gates the whole LP 0x373A request |
 
 There is **no `config.ini` key** for any of this: `/root/work/client/src-164-data/config.example.ini` has no `[crash]` section and no crash source
 reads an ini. The research note proposed `[crash] report=1`, `[crash] firstchance=1`, `[crash] missingasset=warn`,
@@ -220,9 +220,9 @@ has such a check only for `MAPLEROOT_SHUTDOWN_SMOKE_TEST`).
    (`src/crash_report.cpp:145-152`).
 4. Exactly one report attempt per process exception: `g_inFilter` compare-exchange (`src/crash_report.cpp:156`) and
    `reporting` in the VEH (`src/crash_diagnostics.cpp:44`).
-5. A second scrub happens on the server regardless of the client (`BugClientLogs.java:36-37`, `:149`); a refused
-   upload is logged, never answered (`BugLogUploadHandler.java:34-37`, `BugClientLogs.java:35-36`).
-6. The upload nonce is single-use per character even on failure (`BugClientLogs.java:138`), 5-minute TTL, one upload
+5. A second scrub happens on the server regardless of the client (`src/main/java/server/reports/BugClientLogs.java:36-37`, `:149`); a refused
+   upload is logged, never answered (`src/main/java/net/server/channel/handlers/BugLogUploadHandler.java:34-37`, `src/main/java/server/reports/BugClientLogs.java:35-36`).
+6. The upload nonce is single-use per character even on failure (`src/main/java/server/reports/BugClientLogs.java:138`), 5-minute TTL, one upload
    per minute, ≤ 32 KiB or refused outright (`:112-114`).
 7. `LATEST_CRASH.txt` contains no `C:\Users\<name>`, no `Dialog:` body and no IPv4 address — *only* for text that
    went through `ScrubLine` (`src/crash_scrub.h:43-75`). Module paths are reduced to basenames in the report
@@ -234,7 +234,7 @@ has such a check only for `MAPLEROOT_SHUTDOWN_SMOKE_TEST`).
 |---|---|---|
 | `src/crash_report.cpp/.h`, `src/crash_classify.h`, `src/crash_scrub.h` | **custom** (ours, ticket 121) | `git log --follow -- src/crash_report.cpp` = `3e77cc2 2026-10-28 Scaffold ticket 121: plain-language crash report`, `16521d2 2026-10-28 Crash report: the handler itself…`, `20a09b9 2026-10-28 Crash report: fill in the map, the last C++ error and the missing data path`. `crash_classify.h` and `crash_scrub.h` exist in no earlier commit (`20a09b9` is their first and only touch besides `3e77cc2`) |
 | `src/crash_diagnostics.cpp` | **base/upstream (MapleRoot)** | `git log --follow` = `6119130 2026-10-18 Checkpoint accepted MapleRoot client integration and addons` (the MapleRoot companion import), then `20a09b9` added the `#ifdef MAPLEROOT_CRASH_REPORT` `NoteCxx` block (`src/crash_diagnostics.cpp:32-43`) — i.e. upstream file, modified by us |
-| server `server/reports/BugClientLogs.java`, `BugPrivacy.java`, `net/server/channel/handlers/BugLogUploadHandler.java` | **custom** (ticket 131) | `BugClientLogs.java:22-38`, `BugPrivacy.java:6-10`, `BugLogUploadHandler.java:14-18` all carry the ticket id; design doc `docs/tickets/131-bug-reports.md` |
+| server `server/reports/BugClientLogs.java`, `BugPrivacy.java`, `net/server/channel/handlers/BugLogUploadHandler.java` | **custom** (ticket 131) | `src/main/java/server/reports/BugClientLogs.java:22-38`, `src/main/java/server/reports/BugPrivacy.java:6-10`, `src/main/java/net/server/channel/handlers/BugLogUploadHandler.java:14-18` all carry the ticket id; design doc `docs/tickets/131-bug-reports.md` |
 | `docs/research-121-crash-report.md` | **custom** research note, 2026-10-28, read-only | `docs/research-121-crash-report.md:1-5` |
 
 `docs/PROVENANCE.md` and `docs/KAENTAKE-UPSTREAM.md` do not mention crash handling at all (`grep -i crash` = 0 hits
@@ -281,7 +281,7 @@ then decide how (or whether) the file ever leaves the machine.
   `integration.log` itself is also CWD-relative (`src/debug.cpp:16`), so the two agree only by luck.
 - `NEW-FINDING: src/crash_diagnostics.cpp:23-24` — `crash.log` records the full module path
   (`C:\Users\<name>\…`) and never goes through `CrashScrub`. Any future upload of `crash.log` would need the server
-  scrub to catch it; `BugPrivacy.scrubClientText` would (`BugPrivacy.java:33`, `:56`), `LATEST_CRASH.txt` would not.
+  scrub to catch it; `BugPrivacy.scrubClientText` would (`src/main/java/server/reports/BugPrivacy.java:33`, `:56`), `LATEST_CRASH.txt` would not.
 - `NEW-FINDING: src/crash_scrub.h:49-53` — the dialog rule is a `strstr` over the whole line, so any `integration.log`
   line that merely *contains* `dialog text` is replaced entirely; conversely a dialog logged with another prefix
   (not `Dialog:`) survives. Broad on purpose, but it also means a report can lose the one line that explained the
@@ -290,7 +290,7 @@ then decide how (or whether) the file ever leaves the machine.
   `tests/crash_scrub_test.cpp` / `tests/crash_classify_test.cpp`, which do not exist; the cases live in
   `tests/crash_report_test.cpp`. Dead references mislead the next reader.
 - `NEW-FINDING: src/main/java/server/reports/BugClientLogs.java:40` — client and server disagree about caps bit 1: `BugClientLogs.CAPS_LOG_UPLOAD`
-  is `1<<1` (`BugClientLogs.java:40`) and `BugContext.capsNames` names it `logUpload` (`BugContext.java:151-153`),
+  is `1<<1` (`src/main/java/server/reports/BugClientLogs.java:40`) and `BugContext.capsNames` names it `logUpload` (`src/main/java/server/reports/BugContext.java:151-153`),
   but `ClientDataCaps()` can only ever produce `kCapCustomNpcData` (`src/bypass.cpp:399-419`,
   `src/buildstamp_proto.h:25`). `docs/tickets/131-bug-reports.md:4-5` says so openly ("no client sets that bit yet").
 - `NEW-FINDING: docs/tickets/131-bug-reports.md:184-187` — the server expects a `[crash]` section carrying the tail of
@@ -332,7 +332,7 @@ then decide how (or whether) the file ever leaves the machine.
    asking the player for the file? The header comment (`src/crash_report.cpp:10`) and both launchers disagree.
 4. Should the VEH's `crash.log` be scrubbed and uploaded, or dropped in favour of the already-scrubbed report? Its
    full module paths are the reason `BugPrivacy` has a `USER_PATH` rule in the first place.
-5. `crash_scrub.h:5-7` claims "the launcher scrubs again in Rust before showing or sending". No Rust scrubber exists
+5. `/root/work/client/src-164-data/src/crash_scrub.h:5-7` claims "the launcher scrubs again in Rust before showing or sending". No Rust scrubber exists
    on this line (`/root/work/launcher-160-join`: 0 hits for `LATEST_CRASH`). Was that written against an older
    launcher branch, or is it aspirational?
 6. Should the client-side `[crash]`/`[integration]`/`[build]`/`[display]` sections specified in

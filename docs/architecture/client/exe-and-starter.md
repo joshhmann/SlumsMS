@@ -169,8 +169,8 @@ mapping. Those are compile-time constants or hardcoded.
   `window_borderless_place` (`tests/CMakeLists.txt:162`, `tests/window_policy_test.cpp:15-32`) and
   `d3d9host_adapter_fallback` (`tests/CMakeLists.txt:77`, `tests/d3d9host_policy_test.cpp:36`). Nothing tests
   process creation, injection, the wait, or the exit mapping.
-- **`scripts/build.ps1` checks inputs and compiles, not behaviour.** `prepare-dependencies.ps1:3-8` verifies each
-  `dependencies.json` hash (incl. `vendor/ijl15/ijl15.dll`, `/root/work/client/src-164-data/mapleroot/ijl15/discord_game_sdk.dll`); `build.ps1:5-6`
+- **`scripts/build.ps1` checks inputs and compiles, not behaviour.** `/root/work/client/src-164-data/scripts/prepare-dependencies.ps1:3-8` verifies each
+  `dependencies.json` hash (incl. `vendor/ijl15/ijl15.dll`, `/root/work/client/src-164-data/mapleroot/ijl15/discord_game_sdk.dll`); `/root/work/client/src-164-data/scripts/build.ps1:5-6`
   requires the submodules; `:7-9` requires the VS x86 toolset; `:13-14` configure, `:15-16` build, `:17-18` ctest
   (`Client configuration failed` / `Client build failed` / `Native tests failed`). There is **no staging copy step**
   (any revision): staging is CMake `POST_BUILD` (`src/CMakeLists.txt:125-130,142-146`) into

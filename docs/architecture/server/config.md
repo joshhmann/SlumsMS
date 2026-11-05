@@ -16,7 +16,7 @@ environment variable and is read where it is used, not here.
 | Loader | src/main/java/config/YamlConfig.java:20-31 | `loadConfig()` |
 | File name | src/main/java/config/YamlConfig.java:14 | `CONFIG_FILE_NAME = "config.yaml"`, resolved relative to the JVM's working directory (`Path.of`, line 22) |
 | Second, lenient read | src/main/java/constants/string/CharsetConstants.java:63-75 | `loadCharsetFromConfig()` reads the same file into `StrippedYamlConfig` (87-92) with `setIgnoreUnknownProperties(true)` (65) just to get `server.CHARSET` |
-| Charset decision | src/main/java/constants/string/CharsetConstants.java:32, 77-85 | `CHARSET = loadCharset()` — that charset is then used for the strict read (YamlConfig.java:22) |
+| Charset decision | src/main/java/constants/string/CharsetConstants.java:32, 77-85 | `CHARSET = loadCharset()` — that charset is then used for the strict read (src/main/java/config/YamlConfig.java:22) |
 | World id validation | src/main/java/config/WorldConfigs.java:55-81 | `validate(entries, nameCount)`, called from src/main/java/net/server/Server.java:957 |
 | World lookup | src/main/java/config/WorldConfigs.java:23-49 | `idOf`, `ids`, `forWorld` |
 | Template | config.example.yaml:1-537 | the complete, bootable template; README.md:10 tells operators to copy it |
@@ -30,14 +30,14 @@ environment variable and is read where it is used, not here.
    two-field `StrippedYamlConfig` (67, class at 87-92). Any charset in the file beyond US-ASCII is therefore invisible to
    this pass, which is fine because `CHARSET` is one of the four names in the `Language` enum (35-45); an unknown value logs
    `"Charset {} was not found, defaulting to US-ASCII"` and falls back (47-53).
-2. **Strict read.** `loadConfig()` (YamlConfig.java:20-31) opens the file with `CharsetConstants.CHARSET` (22), calls
+2. **Strict read.** `loadConfig()` (src/main/java/config/YamlConfig.java:20-31) opens the file with `CharsetConstants.CHARSET` (22), calls
    `reader.read(YamlConfig.class)` (23) and closes it (24).
 3. **Unknown key aborts boot.** `YamlConfig` never calls `setIgnoreUnknownProperties`. yamlbeans 1.17's `ReadConfig`
    constructor sets only `autoMerge`/`classTags`/`anchors`, so `ignoreUnknownProperties` stays at its `false` default; an
    unknown key throws `YamlReader$YamlReaderException` with `"Unable to find property '<name>' on class:<type>"`, and
-   `YamlException extends java.io.IOException`, so `catch (IOException e)` at YamlConfig.java:28 catches it and rethrows
+   `YamlException extends java.io.IOException`, so `catch (IOException e)` at src/main/java/config/YamlConfig.java:28 catches it and rethrows
    `RuntimeException("Could not successfully parse config file config.yaml: ...")` (29). From the still-initializing static
-   field at YamlConfig.java:15 the JVM wraps that as `ExceptionInInitializerError`. AGENTS.md:110 states the rule
+   field at src/main/java/config/YamlConfig.java:15 the JVM wraps that as `ExceptionInInitializerError`. AGENTS.md:110 states the rule
    ("**Config is strict:** an unknown key in `config.yaml` aborts boot"). Consequence: a key may only be added to a server
    that already runs a build declaring the field.
 4. **Missing key does NOT abort.** There is no per-key defaulting either: an absent key leaves the field at its JVM default,
@@ -45,23 +45,23 @@ environment variable and is read where it is used, not here.
    the measured consequence (`ITEM_EXPIRE_CHECK` at 0 makes `TimerManager.register` throw inside `MapleMap.addPlayer`, which
    aborts the rest of that login).
 5. **File missing.** `FileNotFoundException` → `RuntimeException("Could not read config file config.yaml: ...")`
-   (YamlConfig.java:26-27). Nothing is caught at the call site; `main` does not wrap `init()`
+   (src/main/java/config/YamlConfig.java:26-27). Nothing is caught at the call site; `main` does not wrap `init()`
    (src/main/java/net/server/Server.java:1156-1159), so the process dies with a stack trace.
 6. **Top-level shape.** `YamlConfig` declares exactly two fields (17-18): `List<WorldConfig> worlds` and
    `ServerConfig server`. Both are wiped out by re-assignment during `read(...)`, so a `server:` block in the file replaces
    the object; a file without `server:` leaves `YamlConfig.config.server == null` and the first `config.server.X` dereference
-   in `init()` NPEs (Server.java:931 is the earliest one).
+   in `init()` NPEs (src/main/java/net/server/Server.java:931 is the earliest one).
 7. **World entries.** yamlbeans binds each `worlds:` list item to `WorldConfig` (src/main/java/config/WorldConfig.java:3-18):
    `id = -1`, `flag = 0`, `server_message = "Welcome!"`, `event_message = ""`, `why_am_i_recommended = ""`, `channels = 1`,
    `exp_rate = 1`, `meso_rate = 1`, `drop_rate = 1`, `boss_drop_rate = 1`, `quest_rate = 1`, `travel_rate = 1`,
-   `fishing_rate = 1`. `id = -1` means "my position in the list" (doc comment at WorldConfig.java:4).
+   `fishing_rate = 1`. `id = -1` means "my position in the list" (doc comment at src/main/java/config/WorldConfig.java:4).
 8. **Validation.** `Server.init()` calls `WorldConfigs.validate(YamlConfig.config.worlds, GameConstants.WORLD_NAMES.length)`
-   at Server.java:957, before any bind. `validate` (WorldConfigs.java:55-81) throws `IllegalStateException` for an absent or
+   at src/main/java/net/server/Server.java:957, before any bind. `validate` (src/main/java/config/WorldConfigs.java:55-81) throws `IllegalStateException` for an absent or
    empty list (57-59), a null entry (63-64), `id < -1` (65-68), `id >= nameCount` (70-72), and a duplicate id (75-78), each
    message naming the offending entry index and the legal range. `nameCount` is 21 (`GameConstants.WORLD_NAMES`,
    src/main/java/constants/game/GameConstants.java:23, Scania..Medere).
-9. **Id, not position, is the key.** `idOf(index, entry)` returns `entry.id >= 0 ? entry.id : index` (WorldConfigs.java:23-25);
-   `Server` stores worlds in a slot-ordered list *and* a by-id map (Server.java:118-122, `registerWorld` 501-517), so a config
+9. **Id, not position, is the key.** `idOf(index, entry)` returns `entry.id >= 0 ? entry.id : index` (src/main/java/config/WorldConfigs.java:23-25);
+   `Server` stores worlds in a slot-ordered list *and* a by-id map (src/main/java/net/server/Server.java:118-122, `registerWorld` 501-517), so a config
    with one entry `id: 1` runs Bera with no world 0 (ticket 41, docs/tickets/41-world-name-bera.md).
 10. **Consumption.** Order matters only in that `init()` reads `SHUTDOWNHOOK` before the pool (931), `TIMEZONE` before the
     pool (938), `WORLDS`/`worlds` at world start (978), and the timer periods in `initializeTimelyTasks` (1081-1102) and
@@ -104,9 +104,9 @@ The four doc-level facts worth carrying:
 
 | Fact | Evidence |
 |---|---|
-| A missing key silently keeps `0`/`false`/`null`; only an **unknown** key aborts | YamlConfig.java:20-31 (no defaulting), config.example.yaml:8-13, AGENTS.md:110 |
+| A missing key silently keeps `0`/`false`/`null`; only an **unknown** key aborts | src/main/java/config/YamlConfig.java:20-31 (no defaulting), config.example.yaml:8-13, AGENTS.md:110 |
 | 13 fields are named where a `0` was measured to break a read site | src/test/java/config/ConfigTemplateCompletenessTest.java:39-54 |
-| World ids are validated (duplicates, range) but `channels = 0` is not — it produces a world with no channels and no message | WorldConfigs.java:55-81 validates ids only; `for (int j = 1; j <= wc.channels; j++)` at Server.java:475 |
+| World ids are validated (duplicates, range) but `channels = 0` is not — it produces a world with no channels and no message | src/main/java/config/WorldConfigs.java:55-81 validates ids only; `for (int j = 1; j <= wc.channels; j++)` at src/main/java/net/server/Server.java:475 |
 | `SPAWN_BOTS_ON_STARTUP` is declared and documented but never read | only occurrence in src/ is src/main/java/config/ServerConfig.java:98; still listed at config.example.yaml:108 and described as unused in docs/release/1.3.0.md:156 |
 
 ## Switches
@@ -115,7 +115,7 @@ The four doc-level facts worth carrying:
 
 | Home | Example | Read by | Failure mode |
 |---|---|---|---|
-| `config.yaml` key → field of `ServerConfig` / `WorldConfig` | `USE_FAMILY_SYSTEM: true` | `YamlConfig` static init (YamlConfig.java:15) | unknown key → abort at class init; missing key → silent `0`/`false`/`null` |
+| `config.yaml` key → field of `ServerConfig` / `WorldConfig` | `USE_FAMILY_SYSTEM: true` | `YamlConfig` static init (src/main/java/config/YamlConfig.java:15) | unknown key → abort at class init; missing key → silent `0`/`false`/`null` |
 | `-D` system property | `-Dslums.mechanics=true` | `System.getProperty` / `Boolean.getBoolean` at the point of use | typo → silently `false`; nothing validates names |
 | Environment variable / external file | `DB_HOST`, `SLUMSMS_REGISTRATION_WEBHOOK`, `SOLOMAPLING_LLM*_API_KEY`, secret files | `System.getenv` (7 call sites in src/main/java) | absent env → the documented fallback (e.g. `DB_HOST` absent = use `config.yaml`) |
 
@@ -126,30 +126,30 @@ The four doc-level facts worth carrying:
 | `mapleroot.login-port` | `8485` (`Integer.getInteger`) | login bind port | src/main/java/net/server/Server.java:1018 |
 | `mapleroot.channel-base-port` | `7585` | channel port base, `base + (ch-1) + slot*100` | src/main/java/net/server/channel/Channel.java:64, 67-69 |
 | `wz-path` | `"wz"` | WZ data directory | src/main/java/provider/wz/WZFiles.java:40-45 |
-| `cashshop.window.enabled` | `false` | load the cash-shop catalog at boot | Server.java:1036 |
-| `weather.enabled` | `false` | per-world `WeatherTask` | World.java:200 |
+| `cashshop.window.enabled` | `false` | load the cash-shop catalog at boot | src/main/java/net/server/Server.java:1036 |
+| `weather.enabled` | `false` | per-world `WeatherTask` | src/main/java/net/server/world/World.java:200 |
 | `solomapling.enabled` | `false` | bot system on at all (also needs `solomapling.template-id` > 0) | src/main/java/soloMapling/server/MapleRootSolo.java:16-25 |
-| `solomapling.template-id` | `0` | the dedicated bot template; 0 makes `templateId()` throw if called | MapleRootSolo.java:19-25 |
-| `solomapling.autopopulate` | `false` | run the seed waves / director at boot | MapleRootSolo.java:51-53 |
+| `solomapling.template-id` | `0` | the dedicated bot template; 0 makes `templateId()` throw if called | src/main/java/soloMapling/server/MapleRootSolo.java:19-25 |
+| `solomapling.autopopulate` | `false` | run the seed waves / director at boot | src/main/java/soloMapling/server/MapleRootSolo.java:51-53 |
 | `solomapling.dashboard` (+ `.dir`) | `false` / `reports/dashboard` | dashboard JSON exporter | src/main/java/soloMapling/dashboard/DashboardExporter.java:36-37, 55, 64 |
 | `slums.market.export` (+ `.dir`) | `false` | website market files | src/main/java/soloMapling/Economy/market/PublicMarketExport.java:70-71, 95 |
 | `slums.site.export` (+ `.dir`) | `false` | website feed/leaderboards | src/main/java/soloMapling/site/PublicSiteExport.java:58-59, 77 |
-| `slums.site.mobKills.noDb` | `false` | skip the DB read for the mob-kill feed | PublicSiteExport.java:99, 120 |
+| `slums.site.mobKills.noDb` | `false` | skip the DB read for the mob-kill feed | src/main/java/soloMapling/site/PublicSiteExport.java:99, 120 |
 | `slums.board` | `false` | site board + price alerts | src/main/java/soloMapling/Economy/board/SiteBoard.java:54, 79 |
-| `slums.exchange` (+ `startHalted`, `houseAccount`, `traders`, `traders.pct`, tickers) | `false` | NX exchange and its traders | src/main/java/soloMapling/Economy/exchange/ExchangeService.java:53-60; `startHalted` at ExchangeService.java:93 |
+| `slums.exchange` (+ `startHalted`, `houseAccount`, `traders`, `traders.pct`, tickers) | `false` | NX exchange and its traders | src/main/java/soloMapling/Economy/exchange/ExchangeService.java:53-60; `startHalted` at src/main/java/soloMapling/Economy/exchange/ExchangeService.java:93 |
 | `slums.auth.port` (+ `slums.auth.secretFile`, `slums.auth.revoked`) | unset | sign-up/sign-in HTTP API on loopback | src/main/java/soloMapling/site/auth/SiteAuthApi.java:106-118 |
 | `slums.inspect.port` (+ `slums.inspect.secretFile`, `slums.inspect.bind`) | unset | read-only bot inspect API | src/main/java/soloMapling/inspect/BotInspectApi.java:61-63, 105-115 |
 | `slums.mechanics` (+ `.boss`, `.opq`, `.lpq`, `.hpq`, `.lobby`, `.chatter`) | off; `.chatter` is the one thing that defaults **on** | boss runs and party-quest automation | src/main/java/soloMapling/mechanics/Mechanics.java:20-44, 131-133, 196-201 |
-| `slums.mechanics.<row>` and `slums.mechanics.<row>.lobby` | unset | one content row / its bot lobby | Mechanics.java:200, src/main/java/soloMapling/mechanics/ContentLobby.java:75, 81 |
+| `slums.mechanics.<row>` and `slums.mechanics.<row>.lobby` | unset | one content row / its bot lobby | src/main/java/soloMapling/mechanics/Mechanics.java:200, src/main/java/soloMapling/mechanics/ContentLobby.java:75, 81 |
 | `slums.gear.optimizer` | `"climb"` | gear-scoring strategy (`pareto` on live) | src/main/java/soloMapling/ArtificialPlayer/BotGearSystem/BotGear.java:70 |
-| `slums.gear.dexless`, `slums.junk.sort`, `slums.grind.gearFirst`, `slums.scroll.ev`, `slums.bonds`, `slums.crews`, `slums.bottalk`, `slums.achievements`, `slums.temple.enabled`, `slums.botquests.enabled`, `slums.chaos.zakum` | `false` | per-feature rollout switches | BotProgression.java:223, JunkSort.java:42, GearFirstAdvisor.java:42, BotScrolling.java:234, RelationView.java:31, src/main/java/soloMapling/autoqa/AutoQaCatalog.java:2220 |
+| `slums.gear.dexless`, `slums.junk.sort`, `slums.grind.gearFirst`, `slums.scroll.ev`, `slums.bonds`, `slums.crews`, `slums.bottalk`, `slums.achievements`, `slums.temple.enabled`, `slums.botquests.enabled`, `slums.chaos.zakum` | `false` | per-feature rollout switches | src/main/java/soloMapling/ArtificialPlayer/BotProgressionSystem/BotProgression.java:223, src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/JunkSort.java:42, src/main/java/soloMapling/ArtificialPlayer/BotGrindSystem/GearFirstAdvisor.java:42, src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:234, src/main/java/soloMapling/ArtificialPlayer/RelationView.java:31, src/main/java/soloMapling/autoqa/AutoQaCatalog.java:2220 |
 | `slums.bots.apvariants` (+ `.fromSlot`), `.partysupport`, `.famerequest`, `.magicguard`, `.merchantpoolstock` | `false` | bot behaviour add-ons | grep of src/main/java (one reader each, named in `docs/architecture/switches.md`) |
 | `slums.family.*` (e.g. `botsOff`, `bondingMin`) | unset | family bot behaviour | src/main/java/soloMapling/ArtificialPlayer/BotFamily.java:92 |
 | `slums.bottalk.<topic>` | unset | one chat topic | src/main/java/soloMapling/ArtificialPlayer/BotConvo/BotTalk.java:162-166 |
 | `slums.shutdown.playerBudgetMs` / `.botBudgetMs` | `60000` each | shutdown phase deadlines | src/main/java/soloMapling/server/ShutdownSaves.java:29, 32 |
 | `slums.db.snapshotConnectTimeoutMs` | `10000` | snapshot connection timeout | src/main/java/tools/DatabaseConnection.java:46, 154, 167 |
 | `slumsms.gm.allowGiving` | `false` | GM-to-player trades and drops | src/main/java/client/GmGiving.java:11, 17 |
-| `polyglot.engine.WarnInterpreterOnly` | **set to `false` by `main`** | silences the Graal warning | Server.java:1157 (not operator-facing) |
+| `polyglot.engine.WarnInterpreterOnly` | **set to `false` by `main`** | silences the Graal warning | src/main/java/net/server/Server.java:1157 (not operator-facing) |
 
 ### Config vs `-D` vs env, and the release pipeline
 
@@ -170,7 +170,7 @@ The four doc-level facts worth carrying:
   though 1.6.3's set it (`OWNED_ALTS_ENABLED=true`, docs/release/1.6.3.conf:113) — with the master at its `false` default
   (src/main/java/config/ServerConfig.java:103) the six summon/companion switches below it do nothing, which is exactly the
   1.6.3 regression the `ownedAltSwitchesLine` javadoc records ("left OWNED_ALTS_ENABLED at its false default, so @botme was
-  not available", ServerConfig.java:122-125). Separately,
+  not available", src/main/java/config/ServerConfig.java:122-125). Separately,
   `DB_CONNECTION_TIMEOUT_MS` is deliberately **not** set (:149-152 explains why: the code default is 30 s and a 10 s pool
   timeout turned busy boot-fill waits into refusals).
 - **`CHANNELS=5`, `CHANNEL_LOAD=125`, `MIN_CLIENT_BUILD=10740`** are separate variables (:277-284), not `SERVER_SET` keys.
@@ -185,8 +185,8 @@ The four doc-level facts worth carrying:
 ## Invariants
 
 1. **Unknown key = boot abort; missing key = silent default.** Both halves are load-bearing and asymmetric
-   (YamlConfig.java:20-31, config.example.yaml:8-13).
-2. **The config is a global mutable singleton** (`YamlConfig.config`, YamlConfig.java:15). Tests mutate fields in place and
+   (src/main/java/config/YamlConfig.java:20-31, config.example.yaml:8-13).
+2. **The config is a global mutable singleton** (`YamlConfig.config`, src/main/java/config/YamlConfig.java:15). Tests mutate fields in place and
    restore them (`AutosaveDuringShutdownTest` @BeforeEach/@AfterEach), which is the only supported pattern.
 3. **Field types are the file's contract.** yamlbeans converts by field type, so `CHANNEL_SIZE: "20"` becomes the int 20 but
    `CHANNEL_SIZE: 20.5` fails the parse; `gen-deploy` mirrors those rules with its regexes
@@ -195,11 +195,11 @@ The four doc-level facts worth carrying:
    src/test/java/config/ConfigTemplateCompletenessTest.java:68-75; an extra key there is reported as "not a ServerConfig
    field (typo, or a removed field)".
 5. **A 0 is not "off".** 13 fields are asserted non-zero in the template because a 0 was measured to break a read site
-   (ConfigTemplateCompletenessTest.java:39-54, :106-110).
-6. **World ids are unique and in `0..20`** (WorldConfigs.java:65-78), verified before any socket binds (Server.java:957).
-7. **`WORLDS` truncates the world list, never extends it** (Server.java:978) — a config with one world and `WORLDS: 5`
+   (src/test/java/config/ConfigTemplateCompletenessTest.java:39-54, :106-110).
+6. **World ids are unique and in `0..20`** (src/main/java/config/WorldConfigs.java:65-78), verified before any socket binds (src/main/java/net/server/Server.java:957).
+7. **`WORLDS` truncates the world list, never extends it** (src/main/java/net/server/Server.java:978) — a config with one world and `WORLDS: 5`
    starts one world and logs a warning.
-8. **Charset is read by a second, lenient parser** (CharsetConstants.java:63-75); adding a key it does not declare is fine,
+8. **Charset is read by a second, lenient parser** (src/main/java/constants/string/CharsetConstants.java:63-75); adding a key it does not declare is fine,
    which is why that reader can survive a file the strict reader would reject.
 
 ## Origin
@@ -240,8 +240,8 @@ by hand or reads the template), and `WorldConfig.channels = 0` is untested.
 |---|---|---|
 | 181 / 273 | The shipped template was 9-10 lines and set 6 of 359 keys, so a fresh install booted with 13 boot-critical fields at 0 (`ITEM_EXPIRE_CHECK` broke the first `MapleMap.addPlayer`, `MAP_VISITED_SIZE` broke the first map change, `MOB_STATUS_AGGRO_INTERVAL` broke the aggro monitor). Fixed on `163-integration` (`fc17b56c4`, `3e451ef3a`) as `config.example.yaml` 537 lines + `ConfigTemplateCompletenessTest`; the ticket stays open only for the forward merge into `release-1.6.4` | docs/tickets/273-config-template-gap.md:3-14, :45-70; /root/work/STATUS-1.6.4.md does not carry the card (no line matches "config template") |
 | b296 | `STARFORCE_BOOST_PERCENTAGE2` was absent from live's config and read 0; live now sets `0.2` via `SERVER_SET` | docs/release/1.6.4.conf:216-217 |
-| 164 | `PARTY_SEARCH_REENTRY_LIMIT` had no initialiser, so an omitted key let a single empty search expire the leader for 77 ticks; now `= 10` at ServerConfig.java:414 | ServerConfig.java:409-414 |
-| NEW-FINDING: docs/release/1.6.4.conf:201-215 | 1.6.4's `SERVER_SET` turns on all six companion/summon switches but drops `OWNED_ALTS_ENABLED`, which 1.6.3's set to `true` (docs/release/1.6.3.conf:113). The master defaults to `false` (ServerConfig.java:103) and the javadoc records that exact configuration as the 1.6.3 failure ("left OWNED_ALTS_ENABLED at its false default, so @botme was not available", ServerConfig.java:122-125), so 1.6.4 ships owned alts disabled again. `OwnedAltSwitchLineTest.theShippedReleaseConfStatesTheMasterSwitch` (:43-51) asserts the master against `docs/release/1.6.3.conf:44`, a hardcoded path that no longer tracks the current release conf, so the test stays green either way | own reading of both confs + the test |
+| 164 | `PARTY_SEARCH_REENTRY_LIMIT` had no initialiser, so an omitted key let a single empty search expire the leader for 77 ticks; now `= 10` at src/main/java/config/ServerConfig.java:414 | src/main/java/config/ServerConfig.java:409-414 |
+| NEW-FINDING: docs/release/1.6.4.conf:201-215 | 1.6.4's `SERVER_SET` turns on all six companion/summon switches but drops `OWNED_ALTS_ENABLED`, which 1.6.3's set to `true` (docs/release/1.6.3.conf:113). The master defaults to `false` (src/main/java/config/ServerConfig.java:103) and the javadoc records that exact configuration as the 1.6.3 failure ("left OWNED_ALTS_ENABLED at its false default, so @botme was not available", src/main/java/config/ServerConfig.java:122-125), so 1.6.4 ships owned alts disabled again. `OwnedAltSwitchLineTest.theShippedReleaseConfStatesTheMasterSwitch` (:43-51) asserts the master against `docs/release/1.6.3.conf:44`, a hardcoded path that no longer tracks the current release conf, so the test stays green either way | own reading of both confs + the test |
 | NEW-FINDING: src/main/java/config/ServerConfig.java:98 | `SPAWN_BOTS_ON_STARTUP` is declared, documented in config.example.yaml:108, described as unused in docs/release/1.3.0.md:156, and read by nothing in src/main/java. An operator who sets it gets silence | own reading (grep: one occurrence in src/) |
 | NEW-FINDING: src/main/java/config/WorldConfigs.java:55-81 | `validate` checks ids and nothing else. `channels: 0` passes and produces a world that starts, logs "Finished loading world", and can never accept a player; `channels: -3` likewise. Only `id` is range-checked | own reading |
 | NEW-FINDING: src/main/java/config/ServerConfig.java:416 | `WORLD_TRANSFER_COOLDOWN = NAME_CHANGE_COOLDOWN` is evaluated once at construction, so a file setting only `NAME_CHANGE_COOLDOWN` silently moves the world-transfer cooldown with it, while a file setting both is order-independent only because yamlbeans writes fields after construction. The intent ("default is same as name change") is a default, not an alias | own reading |
@@ -270,4 +270,4 @@ performed for this review.
   absent (358)? The ticket predicts the completeness test catches whichever way it goes, but the test has to be run
   (docs/tickets/273-config-template-gap.md:110-130).
 - Is `CHARSET` ever non-`US-ASCII` in production? Nothing in either release conf sets it, and the bootstrap read only
-  recognises four names (CharsetConstants.java:35-45); a tool that writes the file in another encoding would be misread.
+  recognises four names (src/main/java/constants/string/CharsetConstants.java:35-45); a tool that writes the file in another encoding would be misread.

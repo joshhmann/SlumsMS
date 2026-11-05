@@ -54,34 +54,34 @@ flowchart TD
    is `>= 0`, else the slot (src/main/java/config/WorldConfigs.java:23) — so a `config.yaml` that lists a single
    `id: 1` boots Bera and never world 0. `new World(id, flag, event_message, exp, drop, bossdrop, meso, quest,
    travel, fishing)` then `new Channel(id, j, bootTime, slot)` for `j = 1..wc.channels`
-   (src/main/java/net/server/Server.java:470-482), then `registerWorld` (Server.java:501-517) which refuses a slot
+   (src/main/java/net/server/Server.java:470-482), then `registerWorld` (src/main/java/net/server/Server.java:501-517) which refuses a slot
    out of order or an id already in use, and `setServerMessage(wc.server_message)`.
 4. **World construction registers the world's timers, not its maps.** The `World` ctor stores rates, seeds
    `runningPartyId` to `1000000001` and `runningMessengerId` to 1 (src/main/java/net/server/world/World.java:180-181),
-   then registers against `TimerManager`: `TimedMapObjectTask` every minute (World.java:207), `MapOwnershipTask`
-   every 20 s (World.java:210), `CharacterHpDecreaseTask` at `MAP_DAMAGE_OVERTIME_INTERVAL`
-   (World.java:215), plus pets, autosave, merchants, weddings, fishing, party search, timeouts. No map is loaded at
+   then registers against `TimerManager`: `TimedMapObjectTask` every minute (src/main/java/net/server/world/World.java:207), `MapOwnershipTask`
+   every 20 s (src/main/java/net/server/world/World.java:210), `CharacterHpDecreaseTask` at `MAP_DAMAGE_OVERTIME_INTERVAL`
+   (src/main/java/net/server/world/World.java:215), plus pets, autosave, merchants, weddings, fishing, party search, timeouts. No map is loaded at
    boot — the cache starts empty.
 5. **Channel construction.** `mapManager = new MapManager(null, world, channel)` (src/main/java/net/server/channel/Channel.java:135),
    `port = channelPort(BASE_PORT, portSlot, channel)` with `basePort + (channel - 1) + (portSlot * 100)`
-   (Channel.java:66-68, :136), `ip = HOST + ":" + port`, then `initServer(port, world, channel)`
-   (Channel.java:144). Event scripts are only loaded when `Server.getInstance().isOnline()`, i.e. on a runtime
-   `addChannel`, not during boot (Channel.java:146-153, comment "postpone event loading to improve boot time").
+   (src/main/java/net/server/channel/Channel.java:66-68, :136), `ip = HOST + ":" + port`, then `initServer(port, world, channel)`
+   (src/main/java/net/server/channel/Channel.java:144). Event scripts are only loaded when `Server.getInstance().isOnline()`, i.e. on a runtime
+   `addChannel`, not during boot (src/main/java/net/server/channel/Channel.java:146-153, comment "postpone event loading to improve boot time").
 6. **Map load is demand-driven and never substitutes a bad map.** `MapManager.getMap` read-locks the cache and on a
    miss calls the `synchronized` `loadMapFromWz` (src/main/java/server/maps/MapManager.java:105-113, :65). That method
    first asks `MapRouting.blocked(mapid)` and returns **null**, logging
    `"map routing: map {} is blocked ({})"`, instead of returning some other map
-   (MapManager.java:72-76); otherwise it calls `MapFactory.loadMapFromWz(mapid, world, channel, event)`
-   (MapManager.java:90) and caches only a non-null result — a null image is never cached, or every later `getMap`
-   would NPE (MapManager.java:92-97). `getMapOrFallback` is the one explicit exception: it substitutes
-   `MapRouting.fallback(mapid)` and warns (MapManager.java:123-131).
+   (src/main/java/server/maps/MapManager.java:72-76); otherwise it calls `MapFactory.loadMapFromWz(mapid, world, channel, event)`
+   (src/main/java/server/maps/MapManager.java:90) and caches only a non-null result — a null image is never cached, or every later `getMap`
+   would NPE (src/main/java/server/maps/MapManager.java:92-97). `getMapOrFallback` is the one explicit exception: it substitutes
+   `MapRouting.fallback(mapid)` and warns (src/main/java/server/maps/MapManager.java:123-131).
 7. **`MapFactory.loadMapFromWz` builds one map.** Resolve `Map/Map<area>/<9-digit>.img` (src/main/java/server/maps/MapFactory.java:154-161),
    follow a `link` node one hop (a second miss logs `"map {} links to {} which has no image, returning no map"`,
-   MapFactory.java:166-171), derive `monsterRate` from `mobRate`, `new MapleMap(...)` (MapFactory.java:178), then
-   portals via `PortalFactory` (MapFactory.java:194), PlayerNPCs from `SELECT * FROM playernpcs WHERE map = ? AND
-   world = ?` (MapFactory.java:288-301), life from WZ (MapFactory.java:309) and from `SELECT * FROM plife WHERE map =
-   ? and world = ?` (MapFactory.java:310), reactors (MapFactory.java:346), `setMobCapacity(fixedMobCapacity, default
-   500)` (MapFactory.java:364) and the map drop range cache (MapFactory.java:386).
+   src/main/java/server/maps/MapFactory.java:166-171), derive `monsterRate` from `mobRate`, `new MapleMap(...)` (src/main/java/server/maps/MapFactory.java:178), then
+   portals via `PortalFactory` (src/main/java/server/maps/MapFactory.java:194), PlayerNPCs from `SELECT * FROM playernpcs WHERE map = ? AND
+   world = ?` (src/main/java/server/maps/MapFactory.java:288-301), life from WZ (src/main/java/server/maps/MapFactory.java:309) and from `SELECT * FROM plife WHERE map =
+   ? and world = ?` (src/main/java/server/maps/MapFactory.java:310), reactors (src/main/java/server/maps/MapFactory.java:346), `setMobCapacity(fixedMobCapacity, default
+   500)` (src/main/java/server/maps/MapFactory.java:364) and the map drop range cache (src/main/java/server/maps/MapFactory.java:386).
 8. **Life becomes spawn points.** `loadLifeRaw` (src/main/java/server/maps/MapFactory.java:134-149): a mob with
    `mobTime == -1` is spawned once immediately and never respawns; everything else goes to `map.addMonsterSpawn(...)`
    and *all* points also to `map.addAllMonsterSpawn(...)` so a reset can rebuild the map. `SpawnPoint.getMonster`
@@ -139,7 +139,7 @@ flowchart TD
 | `MapRouting` | `BLOCKED`, `KIND`, `BY_PORTAL` (key = `(from<<32)` OR-ed with target), `ANY_PORTAL`, `FROM_ANYWHERE`, `FALLBACK` | src/main/java/server/maps/MapRouting.java:66-80 |
 
 Persistent inputs used at map build time: table `plife` (map + world scoped life overrides, src/main/java/server/maps/MapFactory.java:107),
-table `playernpcs` (MapFactory.java:289), and the classpath table `/soloMapling/map-routing.tsv`
+table `playernpcs` (src/main/java/server/maps/MapFactory.java:289), and the classpath table `/soloMapling/map-routing.tsv`
 (src/main/java/server/maps/MapRouting.java:47) — 119 lines, 63 route rows and 49 blocked rows measured in this
 tree; the generator (and the third "mob without an image" class of 229 maps) is described in docs/ops/map-routing.md.
 
@@ -153,18 +153,18 @@ tree; the generator (and the third "mob without an image" class of 229 maps) is 
 | `-Dslums.maps.routing.table` | `/soloMapling/map-routing.tsv` | src/main/java/server/maps/MapRouting.java:49 | overrides the table path (file instead of classpath) |
 | `-Dslums.mobStatOverrides` | `true` | src/main/java/server/life/MobStatOverrides.java:62 | loads `/soloMapling/mob-stat-overrides.tsv` (ticket 81 HP/EXP) |
 | `WORLDS` | `1` (example) | src/main/java/config/ServerConfig.java:21; config.example.yaml:57 | upper bound on started worlds |
-| `WLDLIST_SIZE` | `21` | ServerConfig.java:22; config.example.yaml:58 | hard bound in `initWorld` |
-| `CHANNEL_SIZE` | `20` | ServerConfig.java:23; config.example.yaml:59 | `addChannel` refuses at this count (-2) |
-| `CHANNEL_LOAD` | `100` | ServerConfig.java:24; config.example.yaml:60 | load-bar budget used with the bot weight |
-| `RESPAWN_INTERVAL` | `10000` ms | ServerConfig.java:27; config.example.yaml:62 | respawn tick period |
-| `MAP_ENTRY_TRICKLE` | `true` | ServerConfig.java:137; config.example.yaml:118 | enables deferred entry placement |
-| `BOT_MAP_CAP` | `50` | ServerConfig.java:197; config.example.yaml:142 | bots allowed per (channel, map) |
-| `BOT_MAP_CAP_OVERRIDES` | `""` | ServerConfig.java:199; config.example.yaml:143 | `mapId:cap,...`; `0` = uncapped |
-| `BOT_TOWN_MAP_MAX` | `200` | ServerConfig.java:183; config.example.yaml:138 | raised cap for a town map while town pull is on |
-| `WORLD_EVENT_MAP_MAX` | `200` | ServerConfig.java:203; config.example.yaml:144 | raised cap during a world invasion |
-| `USE_ENABLE_FULL_RESPAWN` | `false` | ServerConfig.java:351; config.example.yaml:258 | spawn-point-count spawn instead of the player-scaled rate |
-| `ITEM_EXPIRE_TIME` / `ITEM_MONITOR_TIME` / `ITEM_EXPIRE_CHECK` / `ITEM_LIMIT_ON_MAP` | `180000` / `300000` / `10000` / `200` | ServerConfig.java:421, :423, :427, :428; config.example.yaml:324, :328, :334, :336 | drop lifetime, map item-monitor period, expiry sweep, per-map drop ceiling |
-| `MAP_DAMAGE_OVERTIME_INTERVAL` / `_COUNT` | `2500` / `2` | ServerConfig.java:430-431; config.example.yaml:340, :342 | map HP decay period and ticks per hit |
+| `WLDLIST_SIZE` | `21` | src/main/java/config/ServerConfig.java:22; config.example.yaml:58 | hard bound in `initWorld` |
+| `CHANNEL_SIZE` | `20` | src/main/java/config/ServerConfig.java:23; config.example.yaml:59 | `addChannel` refuses at this count (-2) |
+| `CHANNEL_LOAD` | `100` | src/main/java/config/ServerConfig.java:24; config.example.yaml:60 | load-bar budget used with the bot weight |
+| `RESPAWN_INTERVAL` | `10000` ms | src/main/java/config/ServerConfig.java:27; config.example.yaml:62 | respawn tick period |
+| `MAP_ENTRY_TRICKLE` | `true` | src/main/java/config/ServerConfig.java:137; config.example.yaml:118 | enables deferred entry placement |
+| `BOT_MAP_CAP` | `50` | src/main/java/config/ServerConfig.java:197; config.example.yaml:142 | bots allowed per (channel, map) |
+| `BOT_MAP_CAP_OVERRIDES` | `""` | src/main/java/config/ServerConfig.java:199; config.example.yaml:143 | `mapId:cap,...`; `0` = uncapped |
+| `BOT_TOWN_MAP_MAX` | `200` | src/main/java/config/ServerConfig.java:183; config.example.yaml:138 | raised cap for a town map while town pull is on |
+| `WORLD_EVENT_MAP_MAX` | `200` | src/main/java/config/ServerConfig.java:203; config.example.yaml:144 | raised cap during a world invasion |
+| `USE_ENABLE_FULL_RESPAWN` | `false` | src/main/java/config/ServerConfig.java:351; config.example.yaml:258 | spawn-point-count spawn instead of the player-scaled rate |
+| `ITEM_EXPIRE_TIME` / `ITEM_MONITOR_TIME` / `ITEM_EXPIRE_CHECK` / `ITEM_LIMIT_ON_MAP` | `180000` / `300000` / `10000` / `200` | src/main/java/config/ServerConfig.java:421, :423, :427, :428; config.example.yaml:324, :328, :334, :336 | drop lifetime, map item-monitor period, expiry sweep, per-map drop ceiling |
+| `MAP_DAMAGE_OVERTIME_INTERVAL` / `_COUNT` | `2500` / `2` | src/main/java/config/ServerConfig.java:430-431; config.example.yaml:340, :342 | map HP decay period and ticks per hit |
 | `worlds[].id` / `channels` / rates | `-1` (slot) / `1` / `1` | src/main/java/config/WorldConfig.java:3-17 | world identity, channel count, exp/drop/meso/quest/travel/fishing multipliers |
 
 Live (docs/release/1.6.4.conf) sets `CHANNELS=5` (:277), `CHANNEL_LOAD=125` (:278) and `MIN_CLIENT_BUILD=10740`
@@ -297,5 +297,5 @@ override path) — it has no test class in this tree.
   comment explains the split.
 - Whether the 229 "mob without an image" maps are meant to be enumerated somewhere for QA (`t-nv-2` only covers the
   bot graph), or if refusing them at generation time is the whole plan.
-- The 60 s ownership idle window (`MapleMap.java:5016`) is a literal; no config key exists for it and no ticket asks
+- The 60 s ownership idle window (`src/main/java/server/maps/MapleMap.java:5016`) is a literal; no config key exists for it and no ticket asks
   for one.

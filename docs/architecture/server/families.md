@@ -167,9 +167,9 @@ Ticket history: docs/tickets/53-family.md. Stock Cosmic shipped six EXP/drop ent
 | Auto-QA | Where | What it proves |
 |---|---|---|
 | t-fy-1 "Family: a bot junior, rep, the EXP / drop entitlements" | src/main/java/soloMapling/autoqa/AutoQaCatalog.java:1307-1309, probe `family` | bot junior joins, rep moves, a self buff is granted |
-| t-fy-2 "Family perks: party, Bonding, 2x / 30 min, real kills, the cap, the reset" | AutoQaCatalog.java:1315-1318, probe `familyPerks` | party/Bonding targeting, the 2× cap, real kills, and that `resetDailyReps` clears today's rep |
-| t-fy-3 "Family Reunion and Summon with a regular junior" | AutoQaCatalog.java:1320-1322, probe `familyTravel` | cross-channel travel bookkeeping |
-| t-fy-4 "A regular asks to be your junior, and Add Junior works" | AutoQaCatalog.java:1324-1326, probe `familyOffer` | the offer flow that exposed the 2026-10-29 race |
+| t-fy-2 "Family perks: party, Bonding, 2x / 30 min, real kills, the cap, the reset" | src/main/java/soloMapling/autoqa/AutoQaCatalog.java:1315-1318, probe `familyPerks` | party/Bonding targeting, the 2× cap, real kills, and that `resetDailyReps` clears today's rep |
+| t-fy-3 "Family Reunion and Summon with a regular junior" | src/main/java/soloMapling/autoqa/AutoQaCatalog.java:1320-1322, probe `familyTravel` | cross-channel travel bookkeeping |
+| t-fy-4 "A regular asks to be your junior, and Add Junior works" | src/main/java/soloMapling/autoqa/AutoQaCatalog.java:1324-1326, probe `familyOffer` | the offer flow that exposed the 2026-10-29 race |
 | `!qa run fy-1` | src/main/java/soloMapling/qa/FamilyScenarios.java:30-76 | manual staging via `FamilyQa.stage`, prints rep and remaining buff minutes; teardown dissolves the family |
 
 Not covered: nothing exercises the **client** side of the family window (entitlement clicks are simulated as raw packets), the reconnect path of a cross-channel Reunion/Summon is unverified on a real client, and no test drives the summoned regular's actual walk-in (docs/tickets/53-family.md:158-169). `FamilyDailyResetTask`'s SQL predicate is only touched by migration ITs, never by a unit test that would notice `lastresettime` never being written.

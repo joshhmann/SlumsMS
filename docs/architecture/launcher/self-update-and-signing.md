@@ -35,16 +35,16 @@ that crate is upstream code we do not modify.
 
 1. Endpoint: `update_manifest_url` joins the channel feed with `tauri/launcher.json`
    (`tauri/core/src/channels.rs:58-62`) — Live `/tauri/launcher.json`, Test `/launcher-test/tauri/launcher.json`, RC
-   `/launcher-rc/tauri/launcher.json` (`channels.rs:36-42`). The 60 s timeout is set on the builder
-   (`launcher.rs:791`).
-2. Credentials for the feed origin: `Authorization: Basic` (`launcher.rs:792-794`) and `X-Slums-Pass`
-   (`launcher.rs:795-796`; header name at `tauri/core/src/http.rs:18`).
+   `/launcher-rc/tauri/launcher.json` (`/root/work/launcher-165-server/tauri/core/src/channels.rs:36-42`). The 60 s timeout is set on the builder
+   (`/root/work/launcher-165-server/tauri/app/src/launcher.rs:791`).
+2. Credentials for the feed origin: `Authorization: Basic` (`/root/work/launcher-165-server/tauri/app/src/launcher.rs:792-794`) and `X-Slums-Pass`
+   (`/root/work/launcher-165-server/tauri/app/src/launcher.rs:795-796`; header name at `tauri/core/src/http.rs:18`).
 3. "Is it an update?" is upstream: `release.version > current_version` (`/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-updater-2.14.0/src/updater.rs:712-720`). Nothing newer →
-   `"Self-update: no newer launcher on this channel."` and the game check proceeds (`launcher.rs:798-801`).
+   `"Self-update: no newer launcher on this channel."` and the game check proceeds (`/root/work/launcher-165-server/tauri/app/src/launcher.rs:798-801`).
 4. Policy re-check in our code: `update_decision` refuses a non-`MAJOR.MINOR.PATCH` version, a lower one, an equal one,
    and a version that already failed this session (`tauri/core/src/selfupdate.rs:31-39`).
 5. Origin pin: `access.same_origin(&update.download_url)` must hold, else
-   `"the update {v} is not on the patch server ({url}); refusing it"` (`launcher.rs:807-810`; `http.rs:104-106`).
+   `"the update {v} is not on the patch server ({url}); refusing it"` (`/root/work/launcher-165-server/tauri/app/src/launcher.rs:807-810`; `/root/work/launcher-165-server/tauri/core/src/http.rs:104-106`).
 6. Download and verify: `update.download(...)` buffers the body and calls `self.verify(&buffer)` before returning
    (`/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-updater-2.14.0/src/updater.rs:881-893`). `verify_signature` decodes the base64 pubkey into a minisign `PublicKey`, decodes the
    base64 signature into a `Signature`, calls `public_key.verify(data, &signature, true)`, and only then reads the
@@ -52,23 +52,23 @@ that crate is upstream code we do not modify.
 7. Version binding: `verify_signed_version` reads `version:` out of the trusted comment (`/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-updater-2.14.0/src/updater.rs:1963-1967`);
    absent plus `requireSignedVersion` → `Error::MissingSignedVersion` (`:1930-1939`); unequal to the announced version
    → `Error::SignedVersionMismatch` (`:1951-1958`).
-8. Shape gate: `looks_like_exe` requires `len > 1024` and an `MZ` prefix on Windows (`selfupdate.rs:42-48`), so a
-   signed-but-wrong artifact is refused again (`launcher.rs:827-829`).
+8. Shape gate: `looks_like_exe` requires `len > 1024` and an `MZ` prefix on Windows (`/root/work/launcher-165-server/tauri/core/src/selfupdate.rs:42-48`), so a
+   signed-but-wrong artifact is refused again (`/root/work/launcher-165-server/tauri/app/src/launcher.rs:827-829`).
 9. Stage: `stage()` writes `.slumsms-launcher-update/stage-<v>/<exe name>` beside the launcher, same volume
-   (`selfupdate.rs:51-62`).
+   (`/root/work/launcher-165-server/tauri/core/src/selfupdate.rs:51-62`).
 10. Swap: `swap_in()` renames the running exe to `rollback/<name>.<from>`, then the staged file into place; if the
-    second rename fails the first is undone (`selfupdate.rs:71-85`).
+    second rename fails the first is undone (`/root/work/launcher-165-server/tauri/core/src/selfupdate.rs:71-85`).
 11. Relaunch: window hidden, `start_and_confirm(…, 90 s)` spawns the new exe with `--self-updated=<v>` and
-    `--update-parent=<pid>`, retrying `ETXTBSY` 20×50 ms (`launcher.rs:833-837`; `selfupdate.rs:114-130`).
+    `--update-parent=<pid>`, retrying `ETXTBSY` 20×50 ms (`/root/work/launcher-165-server/tauri/app/src/launcher.rs:833-837`; `/root/work/launcher-165-server/tauri/core/src/selfupdate.rs:114-130`).
 12. Health: the new process writes `healthy-<v>` (contents: its pid) when its page first becomes ready
-    (`launcher.rs:1148-1154`); `wait_for` polls every 100 ms (`selfupdate.rs:148-166`).
-13. Outcome: marker seen → the old process calls `app.exit(0)` (`launcher.rs:839-843`). New process exited or the
+    (`/root/work/launcher-165-server/tauri/app/src/launcher.rs:1148-1154`); `wait_for` polls every 100 ms (`/root/work/launcher-165-server/tauri/core/src/selfupdate.rs:148-166`).
+13. Outcome: marker seen → the old process calls `app.exit(0)` (`/root/work/launcher-165-server/tauri/app/src/launcher.rs:839-843`). New process exited or the
     deadline passed → it is killed, `Rollback::restore` moves the backup back and keeps the failure as
-    `failed-<v>-<name>` (`selfupdate.rs:132-137`, `:88-103`), the window is shown and that version is skipped for the
-    session (`launcher.rs:844-850`).
+    `failed-<v>-<name>` (`/root/work/launcher-165-server/tauri/core/src/selfupdate.rs:132-137`, `:88-103`), the window is shown and that version is skipped for the
+    session (`/root/work/launcher-165-server/tauri/app/src/launcher.rs:844-850`).
 14. Housekeeping: next start, `cleanup()` deletes `stage-*` at or below the running version, `healthy-*`, `started-*`
     and the Electron leftovers `swap-helper.mjs`/`swap-job.json`, and reports each `failed-*` as
-    `"A launcher update failed and was rolled back: …"` (`selfupdate.rs:169-193`).
+    `"A launcher update failed and was rolled back: …"` (`/root/work/launcher-165-server/tauri/core/src/selfupdate.rs:169-193`).
 
 **Publisher — sign, publish, order.**
 
@@ -92,12 +92,12 @@ that crate is upstream code we do not modify.
 
 | Location | Content | Written when |
 |---|---|---|
-| `<launcher dir>/.slumsms-launcher-update/stage-<v>/` | downloaded exe before the swap | each update (`selfupdate.rs:51-62`) |
-| `…/rollback/<name>.<from>` | previous exe | each swap (`selfupdate.rs:74-79`) |
-| `…/rollback/failed-<v>-<name>` | the build that never became healthy | on rollback (`selfupdate.rs:90-95`) |
-| `…/healthy-<v>` | new process's pid | first page ready (`launcher.rs:1149-1150`) |
-| `…/swap-helper.mjs`, `…/swap-job.json` | Electron-era leftovers | removed by `cleanup` (`selfupdate.rs:178`) |
-| `<feed>/tauri/launcher.json` | version, notes, pub_date, per-platform url + signature | publisher, last (`publish.mjs:531-535`) |
+| `<launcher dir>/.slumsms-launcher-update/stage-<v>/` | downloaded exe before the swap | each update (`/root/work/launcher-165-server/tauri/core/src/selfupdate.rs:51-62`) |
+| `…/rollback/<name>.<from>` | previous exe | each swap (`/root/work/launcher-165-server/tauri/core/src/selfupdate.rs:74-79`) |
+| `…/rollback/failed-<v>-<name>` | the build that never became healthy | on rollback (`/root/work/launcher-165-server/tauri/core/src/selfupdate.rs:90-95`) |
+| `…/healthy-<v>` | new process's pid | first page ready (`/root/work/launcher-165-server/tauri/app/src/launcher.rs:1149-1150`) |
+| `…/swap-helper.mjs`, `…/swap-job.json` | Electron-era leftovers | removed by `cleanup` (`/root/work/launcher-165-server/tauri/core/src/selfupdate.rs:178`) |
+| `<feed>/tauri/launcher.json` | version, notes, pub_date, per-platform url + signature | publisher, last (`/root/work/launcher-165-server/tools/publish.mjs:531-535`) |
 | `<feed>/tauri/<v>/SlumsMS-Launcher.exe` | immutable published exe | publisher, first (`:516-523`) |
 | `<exe>.sig` beside a built exe | base64 of the 4-line minisign text | the signing step |
 | `tauri/app/tauri.conf.json:41` | base64 of the minisign **public** key text | committed constant |
@@ -110,10 +110,10 @@ artifact signature *and* the global signature over signature‖trusted comment (
 `UnexpectedKeyId` when key ids differ (`:357-359`). The conf key decodes to the same key id, a 42-byte `Ed` packet
 (`:288-303`).
 
-Nothing about the update is persisted: `skip_version` is memory only (`launcher.rs:105`, `:232`), and `Settings` has no
+Nothing about the update is persisted: `skip_version` is memory only (`/root/work/launcher-165-server/tauri/app/src/launcher.rs:105`, `:232`), and `Settings` has no
 update field at all (`tauri/core/src/settings.rs:34-60`). **What is signed is the exe bytes plus the trusted comment —
 not the `url` and not the `version` field of `launcher.json`.** That gap is what `requireSignedVersion` closes; the
-plugin's own docs say so (`config.rs:117-134`).
+plugin's own docs say so (`/root/work/launcher-165-server/tauri/core/src/config.rs:117-134`).
 
 ## Switches
 
@@ -122,19 +122,19 @@ plugin's own docs say so (`config.rs:117-134`).
 | `plugins.updater.requireSignedVersion` | `true` (`/root/work/launcher-165-server/tauri/app/tauri.conf.json:42`) | signed version must equal the announced one |
 | `plugins.updater.endpoints` | `[]` (`:43`) | endpoint supplied at runtime, so the feed follows the channel |
 | `plugins.updater.pubkey` | the minisign key (`:41`) | the only trust root in the binary |
-| `--no-self-update` / `SLUMSMS_NO_SELF_UPDATE=1` | off | skips the whole path (`launcher.rs:72`, `:761`) |
-| `--self-test=<dir>` | none | skips self-update (`launcher.rs:60`, `:761`) |
+| `--no-self-update` / `SLUMSMS_NO_SELF_UPDATE=1` | off | skips the whole path (`/root/work/launcher-165-server/tauri/app/src/launcher.rs:72`, `:761`) |
+| `--self-test=<dir>` | none | skips self-update (`/root/work/launcher-165-server/tauri/app/src/launcher.rs:60`, `:761`) |
 | `cfg!(debug_assertions)` | — | debug builds never self-update (`:761`) |
 | `--self-updated=<v>` | none | mislabelled-build guard: `v != VERSION` skips updates this session (`:764-769`) |
 | `--self-update-failed=<v>` | none | merged into `skip` (`:802`); only the legacy Electron helper passes it (`src/self-update-helper.mjs:98,114`) |
-| `--feed-url=`, `--install-dir=`, `--data-dir=` | from settings | passed through to the new process (`launcher.rs:81-96`) |
+| `--feed-url=`, `--install-dir=`, `--data-dir=` | from settings | passed through to the new process (`/root/work/launcher-165-server/tauri/app/src/launcher.rs:81-96`) |
 
 Channels: Live `/srv/slums-patch/` (player key), Test `/launcher-test/`, RC `/launcher-rc/` (dev key only)
 (`AGENTS.md:13-16`); the built-in default feed is `https://slumspatch.asslorde.com/manifest.json`
-(`tauri/launcher.config.json:2`, compiled in via `include_str!` at `launcher.rs:31`). No launcher switch lives in the
+(`tauri/launcher.config.json:2`, compiled in via `include_str!` at `/root/work/launcher-165-server/tauri/app/src/launcher.rs:31`). No launcher switch lives in the
 server's live conf — `docs/release/1.6.4.conf:271` is the server `UNIT_EDITS` line. TEST: unknown (`start-test.sh` is
 on mapletest, not read here). `dangerousInsecureTransportProtocol` is absent, so release builds reject a non-HTTPS
-endpoint (`config.rs:198-217`).
+endpoint (`/root/work/launcher-165-server/tauri/core/src/config.rs:198-217`).
 
 ## Invariants
 
@@ -147,17 +147,17 @@ endpoint (`config.rs:198-217`).
   release record relies on it: "Updater public key is the same as 1.5.2's, so Live 1.5.2 and the Electron hand-over
   can update to it" (`/root/work/launcher-tauri-release/RUNBOOK.md:101-103`).
 - **The signature must be bound to the announced version.** Enforced by the publisher before publishing
-  (`publish.mjs:503`) and by the consumer before the swap — the latter only because `requireSignedVersion` is `true`
+  (`/root/work/launcher-165-server/tools/publish.mjs:503`) and by the consumer before the swap — the latter only because `requireSignedVersion` is `true`
   (`/root/work/launcher-165-server/tauri/app/tauri.conf.json:42` → `/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-updater-2.14.0/src/updater.rs:1934-1939`). Turning it off would let a hostile feed pair a new version number
   with an older, validly signed build.
-- **Never downgrade**, three independent refusals: `selfupdate.rs:34`, `/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-updater-2.14.0/src/updater.rs:714`, `publish.mjs:512-514`.
-- **Key and pass go only to the feed origin.** Checked before the download (`launcher.rs:807-810`); `http.rs:122-134`
+- **Never downgrade**, three independent refusals: `/root/work/launcher-165-server/tauri/core/src/selfupdate.rs:34`, `/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-updater-2.14.0/src/updater.rs:714`, `/root/work/launcher-165-server/tools/publish.mjs:512-514`.
+- **Key and pass go only to the feed origin.** Checked before the download (`/root/work/launcher-165-server/tauri/app/src/launcher.rs:807-810`); `/root/work/launcher-165-server/tauri/core/src/http.rs:122-134`
   drops both headers once a redirect leaves the origin and refuses an HTTPS→HTTP hop (`:129-131`).
-- **The running exe is never overwritten.** It is renamed aside (`selfupdate.rs:79`); the staged file takes its name,
+- **The running exe is never overwritten.** It is renamed aside (`/root/work/launcher-165-server/tauri/core/src/selfupdate.rs:79`); the staged file takes its name,
   and a failed second rename puts the first back (`:80-83`).
-- **A build that never reports healthy is rolled back within 90 s** (`launcher.rs:837`; `selfupdate.rs:148-166`) and
-  skipped for the session (`launcher.rs:848`).
-- **Version directories immutable, manifest written last** (`publish.mjs:516-535`).
+- **A build that never reports healthy is rolled back within 90 s** (`/root/work/launcher-165-server/tauri/app/src/launcher.rs:837`; `/root/work/launcher-165-server/tauri/core/src/selfupdate.rs:148-166`) and
+  skipped for the session (`/root/work/launcher-165-server/tauri/app/src/launcher.rs:848`).
+- **Version directories immutable, manifest written last** (`/root/work/launcher-165-server/tools/publish.mjs:516-535`).
 - **The webview cannot drive the updater**: `tauri/app/capabilities/default.json` grants only
   `core:event:allow-listen`/`allow-unlisten` on window `main`.
 
@@ -206,17 +206,17 @@ window.
 - **b270** (S3, Client): a launcher news load failed because a published `manifest.json` carried no `news[]`.
 - **o04** (Ops, later): move client and launcher builds off Silvia to tarkov2.
 - **NEW-FINDING:** the 60 s timeout applies to `check()` only. `update_from_release` builds the `Update` with
-  `timeout: None` (`/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-updater-2.14.0/src/updater.rs:735`), and `Update::download` honours only that field (`:849-851`), so `launcher.rs:791`
+  `timeout: None` (`/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-updater-2.14.0/src/updater.rs:735`), and `Update::download` honours only that field (`:849-851`), so `/root/work/launcher-165-server/tauri/app/src/launcher.rs:791`
   does not bound the download: a feed that accepts the connection and stalls hangs the check with no deadline.
 - **NEW-FINDING:** the download is buffered with no size cap (`/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-updater-2.14.0/src/updater.rs:881-888`, `buffer.extend(chunk)`), where the
   Electron hand-over capped the same artifact at 64 MiB (`/root/work/launcher-handover/src/handover.mjs:22`). A feed
   serving a large body exhausts memory before the signature is ever checked.
-- **NEW-FINDING:** `--self-update-failed=` is parsed and honoured (`launcher.rs:70`, `:802`) but this launcher never
+- **NEW-FINDING:** `--self-update-failed=` is parsed and honoured (`/root/work/launcher-165-server/tauri/app/src/launcher.rs:70`, `:802`) but this launcher never
   passes it: on a rollback it only sets the in-memory `skip_version` (`:848`). The Electron helper relaunches with the
   flag (`src/self-update-helper.mjs:98,114`); the Tauri path forgets the bad version when the process exits, so the
   next launch re-downloads and re-fails the same build.
 - **NEW-FINDING:** a window exists with no launcher exe. `swap_in` renames the running exe away and only then renames
-  the staged file in (`selfupdate.rs:79-83`); the undo covers the *error* path only. If the machine dies or the process
+  the staged file in (`/root/work/launcher-165-server/tauri/core/src/selfupdate.rs:79-83`); the undo covers the *error* path only. If the machine dies or the process
   is killed between the two renames, the directory has no exe and no start-up code moves
   `rollback/<name>.<from>` back — `cleanup` merely reports `failed-*` entries (`:185-191`).
 

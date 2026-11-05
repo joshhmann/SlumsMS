@@ -12,11 +12,11 @@ supervisor, and every abort path is a `throw` into `main`.
 
 | Entry | Where | What it does |
 |---|---|---|
-| JVM main | src/main/java/net/server/Server.java:1156 | `main(String[])` sets `polyglot.engine.WarnInterpreterOnly=false` (Server.java:1157) and calls `Server.getInstance().init()` (Server.java:1158) |
+| JVM main | src/main/java/net/server/Server.java:1156 | `main(String[])` sets `polyglot.engine.WarnInterpreterOnly=false` (src/main/java/net/server/Server.java:1157) and calls `Server.getInstance().init()` (src/main/java/net/server/Server.java:1158) |
 | Jar manifest | pom.xml:52 | `<mainClass>net.server.Server</mainClass>`, artifact `Cosmic` (pom.xml:7) |
 | Boot method | src/main/java/net/server/Server.java:923 | `public void init()` — the whole cold start, 923-1050 |
 | Shutdown hook | src/main/java/net/server/Server.java:931-933 | `Runtime.getRuntime().addShutdownHook(new Thread(shutdown(false)))`, only when `SHUTDOWNHOOK` |
-| Shutdown body | src/main/java/net/server/Server.java:2075 | `public final Runnable shutdown(final boolean restart)` → `shutdownInternal(restart)` at Server.java:2127 |
+| Shutdown body | src/main/java/net/server/Server.java:2075 | `public final Runnable shutdown(final boolean restart)` → `shutdownInternal(restart)` at src/main/java/net/server/Server.java:2127 |
 | GM shutdown | src/main/java/client/command/commands/gm6/ShutdownCommand.java:78 | `TimerManager.getInstance().schedule(Server.getInstance().shutdown(false), time)` |
 | Client connection gate | src/main/java/client/Client.java:178-183 | `channelActive` closes any socket opened while `!Server.getInstance().isOnline()` |
 
@@ -26,12 +26,12 @@ Cold start, in the order `Server.init()` executes (all line numbers in src/main/
 
 1. **Banner.** `923` `init()` records `Instant beforeInit`; `925` logs `"SlumsMS v{} (MapleStory v{}) starting up."` with
    `ServerConstants.SLUMSMS_VERSION` (`"1.6.4"`, src/main/java/constants/net/ServerConstants.java:10) and
-   `ServerConstants.VERSION` (`83`, ServerConstants.java:8). `926` `server.reports.WarnLogRing.install()` keeps the last
+   `ServerConstants.VERSION` (`83`, src/main/java/constants/net/ServerConstants.java:8). `926` `server.reports.WarnLogRing.install()` keeps the last
    WARN/ERROR lines for `@bug` (ticket 131). `927` `constants.net.BuildInfo.jarSha256()` hashes the jar in the background.
 2. **Shutdown hook.** `931-933` registers the hook only if `YamlConfig.config.server.SHUTDOWNHOOK`. Nothing else in the
    boot depends on it.
 3. **Time zone.** `938` `TimeZone.setDefault(TimeZone.getTimeZone(YamlConfig.config.server.TIMEZONE))`, deliberately before
-   the pool because the MySQL driver fixes each connection's zone when it opens (comment at Server.java:935-937).
+   the pool because the MySQL driver fixes each connection's zone when it opens (comment at src/main/java/net/server/Server.java:935-937).
 4. **Connection pool.** `940-942` `if (!DatabaseConnection.initializeConnectionPool()) throw new
    IllegalStateException("Failed to initiate a connection to the database")`. This is the first hard abort; there is no
    retry and no degraded mode.
@@ -83,10 +83,10 @@ Cold start, in the order `Server.init()` executes (all line numbers in src/main/
     `-Dsolomapling.enabled=true` and `-Dsolomapling.template-id` > 0 (src/main/java/soloMapling/server/MapleRootSolo.java:16-25).
     When enabled it runs `DataFiles.checkAtStartup()`, `EquipMetadataCache.initialize()`, `DesirableEquipList.load()`,
     `BotClientHandler.initHeadlessBotClient()`, `BotShopping.install()`, `SocialGate.startAtBoot()`,
-    `LifeLearning.onCrossing(...)` (MapleRootSolo.java:36-50), logs
-    `"SoloMapling initialized; automatic population: {}"` (MapleRootSolo.java:51) and, with
+    `LifeLearning.onCrossing(...)` (src/main/java/soloMapling/server/MapleRootSolo.java:36-50), logs
+    `"SoloMapling initialized; automatic population: {}"` (src/main/java/soloMapling/server/MapleRootSolo.java:51) and, with
     `-Dsolomapling.autopopulate=true`, schedules `EnvironmentManager.environmentLoadStartup()` 1 s later
-    (MapleRootSolo.java:52-53). That method runs the nine seed waves and then hands the population to the director
+    (src/main/java/soloMapling/server/MapleRootSolo.java:52-53). That method runs the nine seed waves and then hands the population to the director
     (src/main/java/soloMapling/Environment/EnvironmentManager.java:110-212).
 21. **Optional services, in order.** `1038` `DashboardExporter.startIfEnabled()`, `1039`
     `EconomySnapshotService.startNightlyJob()` (unconditional), `1040` `PublicMarketExport.startIfEnabled()`, `1041`
@@ -95,7 +95,7 @@ Cold start, in the order `Server.init()` executes (all line numbers in src/main/
     `1046` `MarketVolatility.startIfEnabled()`, `1047` `SiteBoard.startIfEnabled()`, `1048` `KpqLobby.startIfEnabled()`,
     `1049` `ContentLobby.startIfEnabled()`. Each gate is a `-D` property; see `## Switches`.
 
-**World and channel start.** `initWorld()` (Server.java:452-493) takes the slot as `worlds.size()` under the world lock,
+**World and channel start.** `initWorld()` (src/main/java/net/server/Server.java:452-493) takes the slot as `worlds.size()` under the world lock,
 returns `-1` if that slot is past `WLDLIST_SIZE` or past the list (459), reads `WorldConfig wc = worlds.get(slot)` (466),
 computes `int i = WorldConfigs.idOf(slot, wc)` (467 — the config's `id`, else its position), logs
 `"Starting world {} ({})"`, constructs `new World(i, wc.flag, wc.event_message, wc.exp_rate, wc.drop_rate,
@@ -116,7 +116,7 @@ with `BASE_PORT = Integer.getInteger("mapleroot.channel-base-port", 7585)` (64) 
 `log.warn("Error during channel initialization")` (167-169) — a channel that fails to bind leaves the world up with one
 fewer channel and no abort.
 
-**Recurring tasks registered at boot** (`initializeTimelyTasks`, Server.java:1081-1130):
+**Recurring tasks registered at boot** (`initializeTimelyTasks`, src/main/java/net/server/Server.java:1081-1130):
 
 | Task | Period | Line |
 |---|---|---|
@@ -135,8 +135,8 @@ fewer channel and no abort.
 | `BossLogTask` | 1 day, first after the next day | 1101 (preceded by `ExpeditionBossLog.resetBossLogTable()`, 1100) |
 | JQ-door broadcaster | 1 min poll | 1103-1129, a bare `new Thread` loop, not a `TimerManager` task |
 
-**Shutdown.** `shutdown(false)` is both the hook (Server.java:931) and the `!shutdown` command body
-(ShutdownCommand.java:78). `shutdownInternal` (Server.java:2127-2253) runs:
+**Shutdown.** `shutdown(false)` is both the hook (src/main/java/net/server/Server.java:931) and the `!shutdown` command body
+(src/main/java/client/command/commands/gm6/ShutdownCommand.java:78). `shutdownInternal` (src/main/java/net/server/Server.java:2127-2253) runs:
 
 1. `2129` `if (getWorlds() == null) return;` — second entry is a no-op.
 2. `2135-2137` `for (World w : getWorlds()) w.beginShutdown()`. That sets `shuttingDown` and cancels the hourly
@@ -153,7 +153,7 @@ fewer channel and no abort.
 5. `2189` `for (World w : getWorlds()) w.shutdown()` → each `Channel.shutdown()`
    (src/main/java/net/server/channel/Channel.java:188-214: close merchants, disconnect away players, `players::disconnectAll`,
    dispose event scripts and maps, stop schedules, stop the Netty server), then the world cancels its own timers and runs
-   `players.disconnectAll()` (World.java:2271).
+   `players.disconnectAll()` (src/main/java/net/server/world/World.java:2271).
 6. `2211-2220` `for (Channel ch : allChannels) while (!ch.finishedShutdown()) Thread.sleep(1000)`.
 7. `2224` `EconomySnapshotService.shutdown()`, `2225` `TradeRatings.shutdown()`, `2229`
    `DatabaseConnection.closeSnapshotConnections()` (ticket 174: the roster/store snapshot connections are not Hikari's).
@@ -174,7 +174,7 @@ Budgets: `ShutdownSaves.PLAYER_BUDGET_MS` and `BOT_BUDGET_MS` default to 60 s ea
 | `config.yaml` | read once by the `YamlConfig.config` static initializer (src/main/java/config/YamlConfig.java:15) — see `config.md` |
 | `worlds` / `worldsById` / `channels` | `Server` fields, src/main/java/net/server/Server.java:118-122; filled by `registerWorld` (501-517), cleared by `resetServerWorlds` (585) |
 | `connectedClients` | `Map<String,Client>` keyed by account name, src/main/java/net/server/Server.java:214-226 |
-| `online` / `serverCurrentTime` | Server.java:150-153, `isOnline()` 186-187, `updateCurrentTime()` 166-171 |
+| `online` / `serverCurrentTime` | src/main/java/net/server/Server.java:150-153, `isOnline()` 186-187, `updateCurrentTime()` 166-171 |
 | `StrippedYamlConfig` | second, lenient read of the same file to pick the charset, src/main/java/constants/string/CharsetConstants.java:63-90 |
 | Timers | `TimerManager` singleton, src/main/java/server/TimerManager.java:41-42, thread pool 4 threads named `TimerManager-Worker-N` (63-79) |
 | Worker pool | `ThreadManager` singleton, src/main/java/server/ThreadManager.java:55 |
@@ -189,24 +189,24 @@ not read, so every "TEST" cell is unknown.
 
 | Switch | Type | Default | What it changes | Live |
 |---|---|---|---|---|
-| `SHUTDOWNHOOK` | config (`ServerConfig.java:95`) | `false` (no initialiser) | whether `init()` registers `shutdown(false)` as a JVM hook (Server.java:931) | `config.example.yaml:105` says `true`; the live key is not in `SERVER_SET`, so unknown |
-| `TIMEZONE` | config (`ServerConfig.java:399`) | `null` → `TimeZone.getTimeZone(null)` throws `NullPointerException` inside `init()` | the JVM default zone, set before the pool (Server.java:938) | not in `SERVER_SET`; live config.yaml not readable here |
-| `WORLDS`, `WLDLIST_SIZE` | config (`ServerConfig.java:21-22`) | `0` each | how many `worlds:` entries start (978), and the hard slot ceiling (459) | not in `SERVER_SET` — live keeps whatever its `config.yaml` says |
-| `CHANNEL_SIZE`, `CHANNEL_LOAD`, `CHANNEL_LOCKS` | config (`ServerConfig.java:23-25`) | `0` each | per-channel player capacity / soft load / lock count; `CHANNEL_LOAD` is rejected by `SERVER_SET` (`tools/release/gen-deploy:63`) and set by `set-release-config --channel-load` instead | `docs/release/1.6.4.conf:277-278` `CHANNELS=5`, `CHANNEL_LOAD=125` |
-| `UPDATE_INTERVAL`, `PURGING_INTERVAL`, `RESPAWN_INTERVAL`, `COUPON_INTERVAL`, `RANKING_INTERVAL` | config (`ServerConfig.java:27-31`) | `0` each | the timer periods in `## How it works` (1084-1097) and `serverCurrentTime` stepping (175). A 0 here passes straight into `TimerManager.register` and throws | not in `SERVER_SET`; `config.example.yaml:62-66` documents 10000/300000/3600000/3600000/777 |
-| `USE_FAMILY_SYSTEM` | config (`ServerConfig.java:309`) | `false` | family load at boot (993-1000) and the daily reset task (World.java:216-220) | `SERVER_SET` (1.6.4.conf:206) sets `true` |
-| `USE_AUTOSAVE` | config (`ServerConfig.java:327`) | `false` | `CharacterAutosaverTask` and `Character.save` (src/main/java/net/server/task/CharacterAutosaverTask.java:43, src/main/java/client/Character.java:9873) | unknown |
-| `MIN_CLIENT_BUILD`, `MIN_CLIENT_BUILD_GM_BYPASS` | config (`ServerConfig.java:61,64`) | `0`, `false` | login refused for older clients (`ClientVersionGate`, src/main/java/net/server/handlers/login/ClientVersionGate.java:18-28) | `docs/release/1.6.4.conf:284` `MIN_CLIENT_BUILD=10740` |
-| `-Dmapleroot.login-port` | property | `8485` | login bind port (Server.java:1018) | not in `UNIT_EDITS`; unit uses the default |
-| `-Dmapleroot.channel-base-port` | property | `7585` | channel port base (Channel.java:64, 67-69) | not in `UNIT_EDITS` |
-| `-Dcashshop.window.enabled` | property | `false` | loads the cash-shop catalog at boot (Server.java:1036) | `-Dcashshop.window.enabled=true` (deploy/slumsms.service.example:11) |
-| `-Dweather.enabled` | property | `false` | registers `WeatherTask` per world (World.java:200) | `-Dweather.enabled=true` (deploy/slumsms.service.example:11) |
-| `-Dsolomapling.enabled` + `-Dsolomapling.template-id` | properties | `false`, `0` | whether `MapleRootSolo.start()` does anything (MapleRootSolo.java:16-25) | `UNIT_EDITS` does not enable it; the design/list flags keep the unit at `false` |
-| `-Dsolomapling.autopopulate` | property | `false` | schedules the seed waves 1 s after boot (MapleRootSolo.java:52-53) | live seeds through this path only if set; `deploy/slumsms.service.example:11` ships it `false` |
-| `-Dslums.shutdown.playerBudgetMs` / `.botBudgetMs` | properties | `60000` / `60000` | the two shutdown phases' deadlines (ShutdownSaves.java:29,32) | not in `UNIT_EDITS` |
-| `-Dslums.mechanics`, `-Dslums.mechanics.lobby` | properties | `false` | `KpqLobby.startIfEnabled()` (Server.java:1048; src/main/java/soloMapling/mechanics/KpqLobby.java:59,67-71) | both `true` (1.6.4.conf:271) |
+| `SHUTDOWNHOOK` | config (`src/main/java/config/ServerConfig.java:95`) | `false` (no initialiser) | whether `init()` registers `shutdown(false)` as a JVM hook (src/main/java/net/server/Server.java:931) | `config.example.yaml:105` says `true`; the live key is not in `SERVER_SET`, so unknown |
+| `TIMEZONE` | config (`src/main/java/config/ServerConfig.java:399`) | `null` → `TimeZone.getTimeZone(null)` throws `NullPointerException` inside `init()` | the JVM default zone, set before the pool (src/main/java/net/server/Server.java:938) | not in `SERVER_SET`; live config.yaml not readable here |
+| `WORLDS`, `WLDLIST_SIZE` | config (`src/main/java/config/ServerConfig.java:21-22`) | `0` each | how many `worlds:` entries start (978), and the hard slot ceiling (459) | not in `SERVER_SET` — live keeps whatever its `config.yaml` says |
+| `CHANNEL_SIZE`, `CHANNEL_LOAD`, `CHANNEL_LOCKS` | config (`src/main/java/config/ServerConfig.java:23-25`) | `0` each | per-channel player capacity / soft load / lock count; `CHANNEL_LOAD` is rejected by `SERVER_SET` (`tools/release/gen-deploy:63`) and set by `set-release-config --channel-load` instead | `docs/release/1.6.4.conf:277-278` `CHANNELS=5`, `CHANNEL_LOAD=125` |
+| `UPDATE_INTERVAL`, `PURGING_INTERVAL`, `RESPAWN_INTERVAL`, `COUPON_INTERVAL`, `RANKING_INTERVAL` | config (`src/main/java/config/ServerConfig.java:27-31`) | `0` each | the timer periods in `## How it works` (1084-1097) and `serverCurrentTime` stepping (175). A 0 here passes straight into `TimerManager.register` and throws | not in `SERVER_SET`; `config.example.yaml:62-66` documents 10000/300000/3600000/3600000/777 |
+| `USE_FAMILY_SYSTEM` | config (`src/main/java/config/ServerConfig.java:309`) | `false` | family load at boot (993-1000) and the daily reset task (src/main/java/net/server/world/World.java:216-220) | `SERVER_SET` (1.6.4.conf:206) sets `true` |
+| `USE_AUTOSAVE` | config (`src/main/java/config/ServerConfig.java:327`) | `false` | `CharacterAutosaverTask` and `Character.save` (src/main/java/net/server/task/CharacterAutosaverTask.java:43, src/main/java/client/Character.java:9873) | unknown |
+| `MIN_CLIENT_BUILD`, `MIN_CLIENT_BUILD_GM_BYPASS` | config (`src/main/java/config/ServerConfig.java:61,64`) | `0`, `false` | login refused for older clients (`ClientVersionGate`, src/main/java/net/server/handlers/login/ClientVersionGate.java:18-28) | `docs/release/1.6.4.conf:284` `MIN_CLIENT_BUILD=10740` |
+| `-Dmapleroot.login-port` | property | `8485` | login bind port (src/main/java/net/server/Server.java:1018) | not in `UNIT_EDITS`; unit uses the default |
+| `-Dmapleroot.channel-base-port` | property | `7585` | channel port base (src/main/java/net/server/channel/Channel.java:64, 67-69) | not in `UNIT_EDITS` |
+| `-Dcashshop.window.enabled` | property | `false` | loads the cash-shop catalog at boot (src/main/java/net/server/Server.java:1036) | `-Dcashshop.window.enabled=true` (deploy/slumsms.service.example:11) |
+| `-Dweather.enabled` | property | `false` | registers `WeatherTask` per world (src/main/java/net/server/world/World.java:200) | `-Dweather.enabled=true` (deploy/slumsms.service.example:11) |
+| `-Dsolomapling.enabled` + `-Dsolomapling.template-id` | properties | `false`, `0` | whether `MapleRootSolo.start()` does anything (src/main/java/soloMapling/server/MapleRootSolo.java:16-25) | `UNIT_EDITS` does not enable it; the design/list flags keep the unit at `false` |
+| `-Dsolomapling.autopopulate` | property | `false` | schedules the seed waves 1 s after boot (src/main/java/soloMapling/server/MapleRootSolo.java:52-53) | live seeds through this path only if set; `deploy/slumsms.service.example:11` ships it `false` |
+| `-Dslums.shutdown.playerBudgetMs` / `.botBudgetMs` | properties | `60000` / `60000` | the two shutdown phases' deadlines (src/main/java/soloMapling/server/ShutdownSaves.java:29,32) | not in `UNIT_EDITS` |
+| `-Dslums.mechanics`, `-Dslums.mechanics.lobby` | properties | `false` | `KpqLobby.startIfEnabled()` (src/main/java/net/server/Server.java:1048; src/main/java/soloMapling/mechanics/KpqLobby.java:59,67-71) | both `true` (1.6.4.conf:271) |
 | `-Dslums.mechanics.<row>.lobby` | property, name from data | unset | `ContentLobby` rows (src/main/java/soloMapling/mechanics/ContentLobby.java:75,81) | `.lobby` off for live per /root/work/OWNER-DECISIONS.md:118 |
-| `-Dslums.market.export`, `-Dslums.site.export`, `-Dslums.board`, `-Dslums.exchange`, `-Dsolomapling.dashboard` | properties | `false` | the optional exporters/APIs at Server.java:1038-1047 (constants at PublicMarketExport.java:70, PublicSiteExport.java:58, SiteBoard.java:54, DashboardExporter.java:36) | `market.export`/`site.export`/`board` `true` (1.6.4.conf:271 region + 1.6.0 flags at :229); exchange `true` with `startHalted=true` |
+| `-Dslums.market.export`, `-Dslums.site.export`, `-Dslums.board`, `-Dslums.exchange`, `-Dsolomapling.dashboard` | properties | `false` | the optional exporters/APIs at src/main/java/net/server/Server.java:1038-1047 (constants at src/main/java/soloMapling/Economy/market/PublicMarketExport.java:70, src/main/java/soloMapling/site/PublicSiteExport.java:58, src/main/java/soloMapling/Economy/board/SiteBoard.java:54, src/main/java/soloMapling/dashboard/DashboardExporter.java:36) | `market.export`/`site.export`/`board` `true` (1.6.4.conf:271 region + 1.6.0 flags at :229); exchange `true` with `startHalted=true` |
 | `-Dslums.auth.port` (+ `slums.auth.secretFile`) | properties | unset | starts `SiteAuthApi` (src/main/java/soloMapling/site/auth/SiteAuthApi.java:106-118) | already on live per 1.6.4.conf:229 comment (path only, not quoted here) |
 | `-Dslums.inspect.port` | property | unset | starts `BotInspectApi` (src/main/java/soloMapling/inspect/BotInspectApi.java:61-63,105) | unknown |
 | `-Dwz-path` | property | `"wz"` | location of the WZ tree (src/main/java/provider/wz/WZFiles.java:39-46) | not in `UNIT_EDITS`; the unit runs from the staged directory |
@@ -216,25 +216,25 @@ checks key by key against `ServerConfig.java` (`tools/release/gen-deploy:55-70`)
 
 ## Invariants
 
-1. **Nothing listens before the pool and the config are good.** The order at Server.java:940 → 957 → 1019 means a bad DB
+1. **Nothing listens before the pool and the config are good.** The order at src/main/java/net/server/Server.java:940 → 957 → 1019 means a bad DB
    or a bad `worlds:` entry aborts with no socket bound and no rows written.
-2. **`TimeZone.setDefault` precedes every connection** (Server.java:938, comment 935-937); moving it after
+2. **`TimeZone.setDefault` precedes every connection** (src/main/java/net/server/Server.java:938, comment 935-937); moving it after
    `initializeConnectionPool()` reintroduces the "already logged in" login bug it was added for.
 3. **`WORLDS` caps, the list supplies.** `worldCount = min(list.size(), WORLDS)` (978) — a longer list is truncated with a
    warning; a shorter list is not an error.
 4. **World ids are validated before any bind** (957), so `getWorld(id)` can be assumed to resolve for every started world.
 5. **A world's slot is its start order**, and `registerWorld` refuses a slot/id mismatch (501-517); `channels` and
    `worldsById` are keyed by id, `worlds` is ordered by slot.
-6. **Channel ports are a pure function of base port, world slot and channel number** (Channel.java:67-69); two worlds on
+6. **Channel ports are a pure function of base port, world slot and channel number** (src/main/java/net/server/channel/Channel.java:67-69); two worlds on
    the same slot would collide, which `registerWorld` prevents.
 7. **One writer per character at a time.** `World.beginShutdown()` cancels the autosave before any final save
-   (World.java:2192-2198; test src/test/java/net/server/task/AutosaveDuringShutdownTest.java:19-22).
+   (src/main/java/net/server/world/World.java:2192-2198; test src/test/java/net/server/task/AutosaveDuringShutdownTest.java:19-22).
 8. **Bots are frozen before they are swept.** `BotShutdown.begin()` then `BotTickService.stop()` before
-   `BotStore.settleAndSaveAll` (Server.java:2090-2097), so the sweep sees a population nothing is mutating.
-9. **Shutdown is idempotent twice over:** `World.beginShutdown` is documented idempotent (World.java:2192-2198), and
+   `BotStore.settleAndSaveAll` (src/main/java/net/server/Server.java:2090-2097), so the sweep sees a population nothing is mutating.
+9. **Shutdown is idempotent twice over:** `World.beginShutdown` is documented idempotent (src/main/java/net/server/world/World.java:2192-2198), and
    `shutdownInternal` returns early when `getWorlds() == null` (2129).
 10. **`online` flips only after the login server binds** (1023 after 1019), and `Client.channelActive` enforces it
-    (Client.java:180).
+    (src/main/java/client/Client.java:180).
 
 ## Origin
 
@@ -268,7 +268,7 @@ nothing), so no classification can be quoted as evidence.
 | src/test/java/client/LogoutWithoutWorldTest.java | logout when the world is already gone |
 
 Auto-QA: `src/main/java/soloMapling/autoqa/AutoQaCatalog.java` has **no** boot- or shutdown-specific check id (the only
-"shutdown"/"boot" hits are unrelated comments, e.g. AutoQaCatalog.java:847, :1235, :1461-1462). `!qa` scenarios under
+"shutdown"/"boot" hits are unrelated comments, e.g. src/main/java/soloMapling/autoqa/AutoQaCatalog.java:847, :1235, :1461-1462). `!qa` scenarios under
 src/main/java/soloMapling/qa/ contain no boot or shutdown scenario.
 
 Not covered, explicitly: nothing starts the real `init()` in a test (no test binds a port or needs MySQL); no test asserts
@@ -281,23 +281,23 @@ the abort paths (bad DB, bad world id via `Server.init`, `System.exit(0)`); no t
 
 | Id | One line | Source |
 |---|---|---|
-| L06 | Owned alts: failed save no longer locks an alt out; "clearer gate and boot lines" — the boot line landed (`ownedAltSwitchesLine`, Server.java:1031), the gate half is listed as needing a check | /root/work/STATUS-1.6.4.md:97 |
-| e08 | Ramp-shaped bot boot fill is wanted for 1.6.4 but needs code; until then the boot fill is flat (`BOT_DIRECTOR_BOOT_FILL_PER_SECOND`, ServerConfig.java:149) | /root/work/STATUS-1.6.4.md:118 |
-| 62 | `shutdownInternal` builds its player worklist from `connectedClients` (Server.java:2146), and `registerClient` is called only from the login handler (src/main/java/net/server/handlers/login/LoginPasswordHandler.java:226); channel clients are never registered, so the "save the real players first" phase iterates login sessions. Ticket marked closed 2026-10-25 in 4d08a0cba, but that commit's Server.java hunk swaps `for (Client client : connectedClients.values())` for `new ArrayList<>(connectedClients.values())` — same source | docs/tickets/62-shutdown-active-player-saves.md |
+| L06 | Owned alts: failed save no longer locks an alt out; "clearer gate and boot lines" — the boot line landed (`ownedAltSwitchesLine`, src/main/java/net/server/Server.java:1031), the gate half is listed as needing a check | /root/work/STATUS-1.6.4.md:97 |
+| e08 | Ramp-shaped bot boot fill is wanted for 1.6.4 but needs code; until then the boot fill is flat (`BOT_DIRECTOR_BOOT_FILL_PER_SECOND`, src/main/java/config/ServerConfig.java:149) | /root/work/STATUS-1.6.4.md:118 |
+| 62 | `shutdownInternal` builds its player worklist from `connectedClients` (src/main/java/net/server/Server.java:2146), and `registerClient` is called only from the login handler (src/main/java/net/server/handlers/login/LoginPasswordHandler.java:226); channel clients are never registered, so the "save the real players first" phase iterates login sessions. Ticket marked closed 2026-10-25 in 4d08a0cba, but that commit's Server.java hunk swaps `for (Client client : connectedClients.values())` for `new ArrayList<>(connectedClients.values())` — same source | docs/tickets/62-shutdown-active-player-saves.md |
 | NEW-FINDING: src/main/java/net/server/Server.java:1003-1006 | The world-start catch logs `"[SEVERE] Syntax error in 'world.ini'."` and calls `System.exit(0)`. There is no `world.ini` in this repo (worlds are `config.yaml`), and exit code 0 tells systemd the run succeeded, so a world that fails to start is indistinguishable from a clean stop | own reading |
 | NEW-FINDING: src/main/java/net/server/Server.java:2192-2208 | A commented-out shutdown block is left in the method, including `while (ch.getConnectedClients() > 0)` and a `System.err.println("FUCK MY LIFE")`. `getConnectedClients()` exists nowhere at HEAD (the only occurrence is in that comment), so anyone reviving the block gets a compile error, and a profanity string sits in a shipped source file | own reading |
 | NEW-FINDING: src/main/java/net/server/channel/Channel.java:167-169 | A channel constructor failure is swallowed with `log.warn`; the server reports "now online" with a missing channel and a port that is not listening, with no boot-failure signal | own reading |
 | NEW-FINDING: src/main/java/net/server/Server.java:1025 | The online message still reads `"Cosmic is now online after {} ms."` while the boot banner says SlumsMS — the release-parity check in `docs/release/1.6.4.conf:295` greps for `"Starting world 0"` in `FORBID_LOG` and `"SoloMapling initialized"` in `EXPECT_LOG`, but nothing anchors on this line | own reading |
-| NEW-FINDING: src/main/java/net/server/Server.java:1103-1129 | The JQ-door broadcaster is a raw `new Thread` with no reference kept, so shutdown cannot interrupt it; it survives into the restart path (`instance = null; getInstance().init()`, Server.java:2250-2252) and a second copy starts | own reading |
+| NEW-FINDING: src/main/java/net/server/Server.java:1103-1129 | The JQ-door broadcaster is a raw `new Thread` with no reference kept, so shutdown cannot interrupt it; it survives into the restart path (`instance = null; getInstance().init()`, src/main/java/net/server/Server.java:2250-2252) and a second copy starts | own reading |
 
 ## State
 
-**partial.** Verified by reading, not by running: the cold path exists end to end with ordered aborts (Server.java:940,
+**partial.** Verified by reading, not by running: the cold path exists end to end with ordered aborts (src/main/java/net/server/Server.java:940,
 957, 1019) and the shutdown path has budgeted, ordered phases (2127-2252) with tests for the autosave/shutdown exclusion
 and the null-storage channel (AutosaveDuringShutdownTest, ChannelBroadcastAfterShutdownTest). It is not "working" because
 three things are not evidenced: (a) ticket 62's registry defect is unfixed at HEAD (the shutdown player phase sweeps login
 clients), (b) no test drives `init()` or the abort paths, so the boot sequence is unverified as a whole, and (c) the
-`System.exit(0)` swallow (1003-1006) and the swallowed channel-constructor exception (Channel.java:167-169) mean a partial
+`System.exit(0)` swallow (1003-1006) and the swallowed channel-constructor exception (src/main/java/net/server/channel/Channel.java:167-169) mean a partial
 boot reports success. No deploy, restart or rehearsal was run for this review.
 
 ## Open questions
@@ -308,6 +308,6 @@ boot reports success. No deploy, restart or rehearsal was run for this review.
 - What TEST's `start-test.sh` passes: the unit's flags, a different `-D` set, or a different `mapleroot.login-port`?
   The file lives on mapletest and was out of reach.
 - Is the JQ-door `new Thread` loop (1103-1129) intentional or a leftover? It has no shutdown path and no `-D` gate.
-- Did anyone run the restart path (`restart=true`, Server.java:2250-2252) since `soloMapling` bot code was added? A
+- Did anyone run the restart path (`restart=true`, src/main/java/net/server/Server.java:2250-2252) since `soloMapling` bot code was added? A
   restart leaves the door thread, `BotTickService`'s static `ENTRIES` (cleared only by `stop()`) and any static caches to
   be re-entered by a second `init()`, and no test covers it.

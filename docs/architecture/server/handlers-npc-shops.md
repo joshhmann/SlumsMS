@@ -247,14 +247,14 @@ sold-out state. The only ways stock changes are a migration, `!reloadshops` (`Sh
 
 | Switch | Declared | Default | Read at | Live | TEST |
 |---|---|---|---|---|---|
-| `BLOCK_NPC_RACE_CONDT` | `src/main/java/config/ServerConfig.java:406` | `config.example.yaml:312` = 500 | `NPCTalkHandler.java:48` | not in `docs/release/1.6.4.conf` SERVER_SET (`:201+`) → value unknown | unknown |
-| `REBIRTH_NPC_ID` | `src/main/java/config/ServerConfig.java:418` | `config.example.yaml:320` = 1300009 | `NPCTalkHandler.java:81` | not in SERVER_SET | unknown |
-| `USE_REBIRTH_SYSTEM` | `src/main/java/config/ServerConfig.java:353` | `config.example.yaml:261` = true | `NPCTalkHandler.java:81`, `rebirth.js` | not in SERVER_SET | unknown |
+| `BLOCK_NPC_RACE_CONDT` | `src/main/java/config/ServerConfig.java:406` | `config.example.yaml:312` = 500 | `src/main/java/net/server/channel/handlers/NPCTalkHandler.java:48` | not in `docs/release/1.6.4.conf` SERVER_SET (`:201+`) → value unknown | unknown |
+| `REBIRTH_NPC_ID` | `src/main/java/config/ServerConfig.java:418` | `config.example.yaml:320` = 1300009 | `src/main/java/net/server/channel/handlers/NPCTalkHandler.java:81` | not in SERVER_SET | unknown |
+| `USE_REBIRTH_SYSTEM` | `src/main/java/config/ServerConfig.java:353` | `config.example.yaml:261` = true | `src/main/java/net/server/channel/handlers/NPCTalkHandler.java:81`, `rebirth.js` | not in SERVER_SET | unknown |
 | `USE_CPQ` | `src/main/java/config/ServerConfig.java:305` | `config.example.yaml:211` = true | `scripts/npc/2042000.js:33` | not in SERVER_SET | unknown |
 | `USE_ENABLE_CUSTOM_NPC_SCRIPT` | `src/main/java/config/ServerConfig.java:382` | `config.example.yaml:289` = false | `scripts/npc/2042000.js:35`, `src/main/java/soloMapling/autoqa/Probes160.java:1013`, `src/test/java/scripting/CustomNpcScriptsTest.java` — **not** read by `NPCScriptManager` | not in SERVER_SET | unknown |
 | `USE_MAKER_PERMISSIVE_ATKUP` | `src/main/java/config/ServerConfig.java:376` | `config.example.yaml:284` = false | `src/main/java/scripting/npc/NpcMakerCraftingService.java:13-15` | not in SERVER_SET | unknown |
-| `USE_ENFORCE_ITEM_SUGGESTION` | `src/main/java/config/ServerConfig.java:336` | `config.example.yaml` (`USE_ENFORCE_ITEM_SUGGESTION`) | `World.getOwlSearchedItems` (`src/main/java/net/server/world/World.java:1390-1392` returns an empty list when on), `UseCashItemHandler.java:440` | not in SERVER_SET | unknown |
-| `USE_DEBUG` | `src/main/java/config/ServerConfig.java:293` | `config.example.yaml:200` = false | `NPCTalkHandler.java:57`, `Reactor.java:258` | not in SERVER_SET | unknown |
+| `USE_ENFORCE_ITEM_SUGGESTION` | `src/main/java/config/ServerConfig.java:336` | `config.example.yaml` (`USE_ENFORCE_ITEM_SUGGESTION`) | `World.getOwlSearchedItems` (`src/main/java/net/server/world/World.java:1390-1392` returns an empty list when on), `src/main/java/net/server/channel/handlers/UseCashItemHandler.java:440` | not in SERVER_SET | unknown |
+| `USE_DEBUG` | `src/main/java/config/ServerConfig.java:293` | `config.example.yaml:200` = false | `src/main/java/net/server/channel/handlers/NPCTalkHandler.java:57`, `src/main/java/server/maps/Reactor.java:258` | not in SERVER_SET | unknown |
 | `-Dsolomapling.economy.<key>` | `src/main/java/soloMapling/Economy/EconomyConfig.java:33,97` | file values | overrides any `economy.yaml` key incl. `sinks.shopPrices`, `cosmeticShop.*` | unknown | unknown |
 | `-Dsolomapling.botGacha` | `src/main/java/soloMapling/Gachapon/BotGacha.java:65` | true | bot gachapon rolls | not in `1.6.4.conf` | unknown |
 | `-Dsolomapling.gachaNotices` | `src/main/java/soloMapling/Gachapon/GachaAnnouncer.java:73` | true | rare/jackpot broadcast | not in `1.6.4.conf` | unknown |
@@ -265,23 +265,23 @@ TEST's `start-test.sh` lives on another host and was not read, so every TEST col
 ## Invariants
 
 - A click never reaches two handlers: `NPCTalkHandler` refuses when `getCM()`/`getQM()` is live
-  (`NPCTalkHandler.java:66-69`), and the specials are a first-match `if/else` chain (`:72-84`).
+  (`src/main/java/net/server/channel/handlers/NPCTalkHandler.java:66-69`), and the specials are a first-match `if/else` chain (`:72-84`).
 - The NPC cooldown set in `NPCScriptManager.dispose` (`:197`) is the only thing preventing script spam; it is
-  compared against `BLOCK_NPC_RACE_CONDT` at `NPCTalkHandler.java:48`.
+  compared against `BLOCK_NPC_RACE_CONDT` at `src/main/java/net/server/channel/handlers/NPCTalkHandler.java:48`.
 - Shop prices are never negative-side effects: every price goes through `ShopMath.total`
   (`src/main/java/server/ShopMath.java:27-38`), which returns `-1` on negative input, overflow or a total over
-  `MAX_MESO` (`:12`), and callers refuse on `-1` (`Shop.java:118-121`, `:149-152`).
+  `MAX_MESO` (`:12`), and callers refuse on `-1` (`src/main/java/server/Shop.java:118-121`, `:149-152`).
 - A buy never mints mesos: `gainMeso(-amount)` and `addById` happen together, and a rechargeable is priced with
-  the same WZ expression that sell pays out (`Shop.java:109-117`).
-- The sell path derives the inventory type from the item id (`NPCShopHandler.java:60`), never from the client.
+  the same WZ expression that sell pays out (`src/main/java/server/Shop.java:109-117`).
+- The sell path derives the inventory type from the item id (`src/main/java/net/server/channel/handlers/NPCShopHandler.java:60`), never from the client.
 - Rechargeables are always stocked: any rechargeable id missing from a shop's rows is appended at price 0
-  (`Shop.java:354-356`).
+  (`src/main/java/server/Shop.java:354-356`).
 - A gachapon ticket is only consumed after a prize has passed `checkSpace`, and a prize that did not fit is
-  replayed rather than rerolled (`GachaMachine.java:97-119`).
-- A GM shop is never reachable by talking to an NPC (`ShopFactory.java:86-90`, `:82-84`).
-- Scripted items always release the client (`ScriptedItemHandler.java:73-80`).
+  replayed rather than rerolled (`src/main/java/soloMapling/Gachapon/GachaMachine.java:97-119`).
+- A GM shop is never reachable by talking to an NPC (`src/main/java/server/ShopFactory.java:86-90`, `:82-84`).
+- Scripted items always release the client (`src/main/java/net/server/channel/handlers/ScriptedItemHandler.java:73-80`).
 - Reactor drops for a state change only happen while `hitLock` is held and the reactor is active
-  (`Reactor.java:248-252`, `:317-320`).
+  (`src/main/java/server/maps/Reactor.java:248-252`, `:317-320`).
 
 ## Origin
 
@@ -367,7 +367,7 @@ un-sticks the client; the gachapon remote-ticket path (`RemoteGachaponHandler`) 
 | `L05` / `b277` | `/root/work/STATUS-1.6.4.md:96,79` | lane check; NX desk audit formatting |
 | NEW-FINDING | `src/main/java/net/server/channel/handlers/NPCTalkHandler.java:85-88` | a scriptless NPC with no shop logs and **returns without `enableActions`**, leaving the client frozen. `classifications.json` records this exact hazard for `scripts/npc/2110000.js`; the return is what makes it lethal |
 | NEW-FINDING | `src/main/java/server/Shop.java:155-171` | the pitch branch has no `else`: a player short of Perfect Pitch Leaves gets **no packet at all** and the shop window waits |
-| NEW-FINDING | `src/main/java/server/Shop.java:184-195` | the token branch sends `(byte) 3` (inventory full) inside the `else` and then `(byte) 0` unconditionally at `:195`, so a failed token purchase also reports success. Identical in base `Shop.java:139-158` — inherited |
+| NEW-FINDING | `src/main/java/server/Shop.java:184-195` | the token branch sends `(byte) 3` (inventory full) inside the `else` and then `(byte) 0` unconditionally at `:195`, so a failed token purchase also reports success. Identical in base `src/main/java/server/Shop.java:139-158` — inherited |
 | NEW-FINDING | `src/main/java/server/Shop.java:359-361` | `createFromDB` swallows `SQLException` with `printStackTrace` and returns the half-built shop, so a failing `shopitems` query yields a valid shop with zero stock (and negative-caches it) |
 | NEW-FINDING | `src/main/java/server/ShopFactory.java:96-100` | negative caching means a shop row added while the server runs (e.g. `addShopToDb`, `src/main/java/scripting/npc/NPCConversationManager.java:2451-2462`) is invisible until `reloadShops` |
 | NEW-FINDING | `src/main/java/net/server/channel/handlers/NPCShopHandler.java:53,60,66` | no null check on `getPlayer().getShop()`: a client that sends `NPC_SHOP` without an open shop NPEs the handler. Base-identical |
@@ -381,9 +381,9 @@ un-sticks the client; the gachapon remote-ticket path (`RemoteGachaponHandler`) 
 
 - Shop buy/sell/recharge: **working** — `ShopMathTest` (2), `ShopRechargePriceParityTest` (3) and
   `ShopRechargeableStockPriceTest` (1) pass against the same expression the handler uses, and the `vb-5`
-  scenario drives `Shop.buy`/`Shop.sell` on a live server (`GameQaWorld.java:2449-2512`).
+  scenario drives `Shop.buy`/`Shop.sell` on a live server (`src/main/java/soloMapling/qa/GameQaWorld.java:2449-2512`).
 - NPC talk routing: **partial** — every branch except the "scriptless and shopless" one has a test or an
-  auto-QA check; that branch returns without `enableActions` (`NPCTalkHandler.java:85-88`) and has none.
+  auto-QA check; that branch returns without `enableActions` (`src/main/java/net/server/channel/handlers/NPCTalkHandler.java:85-88`) and has none.
 - Gachapon: **working** — six `soloMapling/Gachapon` tests plus `t-ga-1`/`t-ga-2`/`t-sk-1` and the migration test.
   Pending-prize replay is covered by `GachaPendingPrizeTest`.
 - Reactors: **partial** — `ZakumAltarReactorTest` covers state transitions for one altar; the drop path
@@ -392,7 +392,7 @@ un-sticks the client; the gachapon remote-ticket path (`RemoteGachaponHandler`) 
 - Shop restock: **unknown** — there is nothing to be in a state; ticket 175 is a request, not an implemented
   feature.
 - Owl of Minerva / owl warp: **unknown** — no test, no auto-QA id, and the search table is only fed by
-  `UseCashItemHandler.java:441`.
+  `src/main/java/net/server/channel/handlers/UseCashItemHandler.java:441`.
 
 ## Open questions
 
@@ -402,12 +402,12 @@ un-sticks the client; the gachapon remote-ticket path (`RemoteGachaponHandler`) 
 - TEST's values for the same keys (`start-test.sh` is on another host).
 - Whether the shop's `buyable` column (written as `1000` for meso rows, `1` for rechargeables,
   `src/main/java/server/Shop.java:341-356`) is meant to be a real per-restock limit: `ShopItem.getBuyable()` is
-  only ever written to the packet (`PacketCreator.java:2456`) and never read by `Shop.buy`. This looks like the
+  only ever written to the packet (`src/main/java/tools/PacketCreator.java:2456`) and never read by `Shop.buy`. This looks like the
   hook ticket 175's restock would use, but nothing states that.
 - Why `NPCTalkHandler` returns without `enableActions` at `:87`: whether any client build recovers on its own was
   not determinable from the repo.
 - Whether the `1337` GM shop and `9999992-9999999` range are still reachable at all: `ShopFactory` refuses them
   by NPC lookup (`:86-90`), and no handler or command in this subsystem opens them by shop id except
-  `openShopNPC`'s fallback (`NPCConversationManager.java:639`, which asks for shop `11000`).
+  `openShopNPC`'s fallback (`src/main/java/scripting/npc/NPCConversationManager.java:639`, which asks for shop `11000`).
 - The reactor drop table's live contents: no seed, no DDL, no fixture in the repo (`database/migrations/` only
   mentions `reactordrops` in migration 025's rollback).

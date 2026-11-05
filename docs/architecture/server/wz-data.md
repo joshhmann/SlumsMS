@@ -68,7 +68,7 @@ Every static game fact the server knows — map layouts, mob and NPC stats, item
 - **Not in config.yaml.** `src/main/java/config/ServerConfig.java` has no WZ field and `config.example.yaml` has no `wz` key; the location is a `-D` property alone.
 - **Live:** `docs/release/1.6.4.conf:201-216` (`SERVER_SET`) sets only env-style keys and `:271` (`UNIT_EDITS`) carries no WZ flag, so live relies on either a `-Dwz-path` set outside these lists or the process CWD containing `wz/` — which of the two is not recorded.
 - **TEST:** `start-test.sh` lives on the test host and is not reachable from this worktree — unknown.
-- **Nav tooling** passes `-Dwz-path=…` explicitly (src/main/java/soloMapling/ArtificialPlayer/GCMoveSystem/NavDeepBake.java:508 and the javadoc examples in src/main/java/soloMapling/ArtificialPlayer/GCMoveSystem/NavDashboardData.java:102, NavPlayerReplay.java:31 and src/main/java/soloMapling/dashboard/DashboardMapExport.java:40).
+- **Nav tooling** passes `-Dwz-path=…` explicitly (src/main/java/soloMapling/ArtificialPlayer/GCMoveSystem/NavDeepBake.java:508 and the javadoc examples in src/main/java/soloMapling/ArtificialPlayer/GCMoveSystem/NavDashboardData.java:102, src/main/java/soloMapling/ArtificialPlayer/GCMoveSystem/NavPlayerReplay.java:31 and src/main/java/soloMapling/dashboard/DashboardMapExport.java:40).
 
 ## Invariants
 

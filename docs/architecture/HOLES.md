@@ -34,7 +34,7 @@ State words, used exactly as the subsystem files use them:
 | server/handlers-movement | no anti-cheat on `MOVE_PLAYER` (autoban distances exist, nobody adds a point); pet loot ignores ownership; `CHANGE_MAP` body catches everything and can leave the client without `enableActions` | `server/handlers-movement.md` |
 | server/handlers-npc-shops | shop sell/rebuy edge paths; b289-class pricing fixed on this branch but not what live runs | `server/handlers-npc-shops.md` |
 | server/handlers-inventory-items | pickup exists twice and the `@backpack` copy lost the self-loot, godly-drop and Ariant gates; incubator (broken above); keymap packet-edit defence commented out | `server/handlers-inventory-items.md` |
-| server/handlers-quests | hidden quest chains unfinished by design; Maker quest accounting (b279) open; bot questing off (`BotQuests.java:63`) | `server/handlers-quests.md` |
+| server/handlers-quests | hidden quest chains unfinished by design; Maker quest accounting (b279) open; bot questing off (`src/main/java/soloMapling/ArtificialPlayer/BotQuestSystem/BotQuests.java:63`) | `server/handlers-quests.md` |
 | server/handlers-trade-storage-merchants | merchant close is two non-atomic writes and swallows SQL errors; `HiredMerchant.buy`/`PlayerShop.buy` index listings unguarded; `DueyHandler` tests `TOSERVER_CLAIM_PACKAGE` twice | `server/handlers-trade-storage-merchants.md` |
 | server/handlers-cashshop | window path dropped every base entry gate (GM block, event, MiniDungeon); `CashShop` factory NPE for a jobType outside 0/1/2; no test parses the window packet | `server/handlers-cashshop.md` |
 | server/cashshop | client-facing flow unproven; gift delivery dead (broken above); live flag by inference only | `server/cashshop.md` |
@@ -103,7 +103,7 @@ agent overstated are noted here so nobody chases the wrong thing:
   (`src/main/java/client/command/commands/gm6/SaveAllCommand.java:40-48`).
 - **"HANG_OUT picked 2,734 vs run 172"**: partly arithmetic. `selected` counts every decision pass including
   `KEEP_CURRENT` (`src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifeRuntime.java:528`), and one town stay
-  is 5-20 minutes at a 30 s cadence (`LifeProfile.java:35`) — the comparable metric is `chosen` (`:876-880`) vs
+  is 5-20 minutes at a 30 s cadence (`src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifeProfile.java:35`) — the comparable metric is `chosen` (`:876-880`) vs
   `accepted` (`:798`).
 
 ## 7. Coverage gaps in this review
@@ -184,7 +184,7 @@ instruction — these are leads for Server Dev to verify.
 - `src/main/java/soloMapling/Economy/exchange/Exchange.java:1493-1496` — logs "desk step not stored" and keeps the new R in memory only. The stored R then diverges from the live R for an unbounded time, and a restart silently reloads the older value (:562-570) with no halt — unlike an unreadable …
 - `src/main/java/soloMapling/Economy/exchange/Exchange.java:2051-2066` — swallows StoreException from store.accountsWithPayout() and returns the count so far with no log line, so a store failure during the payout sweep is silent; the same class of failure in tickDesk (:1486-1490) is logged.
 - `src/main/java/soloMapling/Economy/exchange/ExchangeSite.java:474` — the site is shown two different fee numbers for the same NX trade. ExchangeSite.tickers publishes fee_bps_each_side from ExchangeConfig (, default 100 at src/main/java/soloMapling/Economy/exchange/ExchangeConfig.java:59-63), …
-- `src/main/java/soloMapling/Economy/exchange/ExchangeService.java:76` — , :192 rebuild exchange-tickers.json on every poll (15 s by default) by serialising every open ticker with 10 levels and 20 trades (ExchangeSite.java:487-489).
+- `src/main/java/soloMapling/Economy/exchange/ExchangeService.java:76` — , :192 rebuild exchange-tickers.json on every poll (15 s by default) by serialising every open ticker with 10 levels and 20 trades (src/main/java/soloMapling/Economy/exchange/ExchangeSite.java:487-489).
 - `src/main/java/soloMapling/Economy/EconomyConfig.java:29` — the numbers that steer bot pricing can silently disappear.  names src/main/java/soloMapling/Economy/economy.yaml and :57-68 catches every failure of that read, so a resolve miss leaves every price band, shop markup and sink at …
 
 **families.md** (4)
@@ -315,7 +315,7 @@ instruction — these are leads for Server Dev to verify.
 
 - `src/main/java/soloMapling/qa/QaLog.java:76` — The comment // a long: 34 topics no longer fit an int is stale: the enum holds 45 constants (OWNED_ALT at :28 … PETPOT at :73); the mask is still a single long, so this is documentation drift only.
 - `src/test/java/soloMapling/autoqa/AutoQaSchedulerTest.java:251-253` — The guard that catches undeclared shared state knows only five literal patterns (MANNERS TALLY WEALTH TRADE SHOP clumpsOnMyMap) and matches them against step *descriptions*; a new probe that reads map-wide lines under another …
-- `src/main/java/soloMapling/autoqa/AutoQaRunner.java:211-247` — + AutoQaScheduler.java:86-115 — A WORLD check runs only when busy is empty (canStart, AutoQaScheduler.java:74-79) while pick always takes the first pending check that *can* start (:86-101), so with parallel>1 a world check …
+- `src/main/java/soloMapling/autoqa/AutoQaRunner.java:211-247` — + src/main/java/soloMapling/autoqa/AutoQaScheduler.java:86-115 — A WORLD check runs only when busy is empty (canStart, src/main/java/soloMapling/autoqa/AutoQaScheduler.java:74-79) while pick always takes the first pending check that *can* start (:86-101), so with parallel>1 a world check …
 - `docs/ops/qa-suite.md:949` — The doc says the lane switch can be set as AUTOQA_PARALLEL "in a release conf", but no such ServerConfig field exists (src/main/java/config/ServerConfig.java:204-213 lists every AUTOQA_* key) and AutoQaScheduler.parallel() …
 - `docs/tickets/167-parallel-autoqa.md:43` — The ticket records the cap as "clamped to 1..4"; the code clamps to SyntheticPlayers.MAX_LANES = 10 since 1.6.3 (src/main/java/soloMapling/autoqa/AutoQaScheduler.java:41, …
 - `src/main/java/soloMapling/autoqa/AutoQaRunner.java:355-400` — A check whose expectations all SKIP is reported SKIP with reason nothing could be judged here, and a release run then fails it unless it is on the allow-list — an infrastructure skip (server not fully up, probe disabled) is …
@@ -358,7 +358,7 @@ instruction — these are leads for Server Dev to verify.
 
 **decision-core.md** (4)
 
-- ** LifeTownSlots.reserve counts bots *in flight* (incoming, LifeTownSlots.java:12, :26) while the
+- ** LifeTownSlots.reserve counts bots *in flight* (incoming, src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifeTownSlots.java:12, :26) while the
 - ** the classifier between them is only explained in a source comment, and bot-life.json writes both
 - ** no counter for gate-B refusals exists anywhere (LifeAcceptance.Status has 7 values,
 - ** a fifth of the catalogue is unreachable through the scorer; harmless, but it makes the option list
@@ -452,7 +452,7 @@ instruction — these are leads for Server Dev to verify.
 **resolution-and-d3d9.md** (8)
 
 - NEW-FINDING: src/resolution.cpp:807-810 — a failed module pattern is written through as null.** GetAddressByPattern returns nullptr when GR2D_DX8.DLL is absent, unloaded or the pattern is not found (src/hook.cpp:149-153), and …
-- NEW-FINDING: config.example.ini:2 ships [general] resolution=5, a key nothing reads in this build** (the reader is compiled out at mapleroot/ijl15/YourStuff.h:607), and its 1..5 scale would mean 1920x1080 while the live scale …
+- NEW-FINDING: /root/work/client/src-164-data/config.example.ini:2 ships [general] resolution=5, a key nothing reads in this build** (the reader is compiled out at mapleroot/ijl15/YourStuff.h:607), and its 1..5 scale would mean 1920x1080 while the live scale …
 - NEW-FINDING: the two mode tables disagree on 1280x720.** The companion's dead table has it (mapleroot/ijl15/YourStuff.h:479-500, index 2), the live client's does not (src/resolution.cpp:661-676) — so any future re-enable of …
 - `docs/PROJECT-STATUS.md:26` — NEW-FINDING: 1024x768 and 1600x900 have never been reported working.**  confirms only 800x600, 1366x768 and 1920x1080, and nothing in the patch table is mode-specific, so the risk is in the layout rather than the device path.
 - NEW-FINDING: resolution has zero automated coverage** (see Tests and QA). 42 byte patches and 22 hooks in src/resolution.cpp are validated only by the fact that the client starts.
