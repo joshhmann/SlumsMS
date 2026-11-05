@@ -2965,8 +2965,8 @@ final class GameQaWorld implements QaWorld {
         if (map == null) {
             return "the GM has no map";
         }
-        if (map.getId() != 280030000) {
-            return "the GM is on " + map.getId() + ", not 280030000";
+        if (map.getId() != 280030000 && map.getId() != 280030001) {
+            return "the GM is on " + map.getId() + ", not 280030000 or 280030001";
         }
         StringBuilder sb = new StringBuilder();
         for (Monster m : map.getAllMonsters()) {
@@ -2988,8 +2988,8 @@ final class GameQaWorld implements QaWorld {
             if (map == null) {
                 return "the GM has no map";
             }
-            if (map.getId() != 280030000) {
-                return "the GM is on " + map.getId() + ", not 280030000";
+            if (map.getId() != 280030000 && map.getId() != 280030001) {
+                return "the GM is on " + map.getId() + ", not 280030000 or 280030001";
             }
             Reactor altar = map.getReactorById(2111001);
             if (altar == null) {
@@ -3010,16 +3010,25 @@ final class GameQaWorld implements QaWorld {
 
     @Override
     public boolean ex2StartZakum(Character gm) {
+        return startBossExpedition(gm, ExpeditionType.ZAKUM, "ZakumBattle", "ex-2");
+    }
+
+    @Override
+    public boolean ex3StartChaosZakum(Character gm) {
+        return startBossExpedition(gm, ExpeditionType.CHAOS_ZAKUM, "ChaosZakumBattle", "ex-3");
+    }
+
+    private static boolean startBossExpedition(Character gm, ExpeditionType type, String script, String scenario) {
         try {
             Channel ch = gm.getClient().getChannelServer();
-            if (ch.getExpedition(ExpeditionType.ZAKUM) != null) {
+            if (ch.getExpedition(type) != null) {
                 return false;
             }
-            EventManager em = gm.getClient().getEventManager("ZakumBattle");
+            EventManager em = gm.getClient().getEventManager(script);
             if (em == null) {
                 return false;
             }
-            Expedition exped = new Expedition(gm, ExpeditionType.ZAKUM, true, 0, 0);
+            Expedition exped = new Expedition(gm, type, true, 0, 0);
             if (!exped.addChannelExpedition(ch)) {
                 return false;
             }
@@ -3028,7 +3037,7 @@ final class GameQaWorld implements QaWorld {
             em.setProperty("channel", String.valueOf(gm.getClient().getChannel()));
             return em.startInstance(exped);
         } catch (RuntimeException e) {
-            gm.yellowMessage("ex-2: the Zakum expedition could not start: " + e.getMessage());
+            gm.yellowMessage(scenario + ": the " + type + " expedition could not start: " + e.getMessage());
             return false;
         }
     }
@@ -3068,10 +3077,12 @@ final class GameQaWorld implements QaWorld {
                 eim.dispose();
             }
             Channel ch = gm.getClient() == null ? null : gm.getClient().getChannelServer();
-            Expedition exped = ch == null ? null : ch.getExpedition(ExpeditionType.ZAKUM);
-            if (exped != null) {
-                exped.removeChannelExpedition(ch);
-                exped.dispose(false);
+            for (ExpeditionType type : new ExpeditionType[]{ExpeditionType.ZAKUM, ExpeditionType.CHAOS_ZAKUM}) {
+                Expedition exped = ch == null ? null : ch.getExpedition(type);
+                if (exped != null && exped.isLeader(gm)) { // never tear down a real player's room
+                    exped.removeChannelExpedition(ch);
+                    exped.dispose(false);
+                }
             }
         } catch (RuntimeException e) {
             gm.yellowMessage("ex-2: the expedition could not be ended cleanly: " + e.getMessage());

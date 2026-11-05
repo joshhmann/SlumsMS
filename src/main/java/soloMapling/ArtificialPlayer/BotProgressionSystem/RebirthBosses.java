@@ -41,6 +41,18 @@ public final class RebirthBosses {
     /** The room's leftover placeholder the summon NPCs kill (2161008.js, 3003903.js). */
     static final int SUMMON_PLACEHOLDER_MOB = 8840010;
 
+    /**
+     * The event script a bot captain can start for this type: the rebirth table's own, plus Chaos Zakum, which is not
+     * a rebirth boss (no clear item) and so has no {@link Boss} entry. Null when the tree has no script for it.
+     */
+    public static String scriptFor(ExpeditionType type) {
+        Boss boss = type == null ? null : Boss.byType(type);
+        if (boss != null) {
+            return boss.script;
+        }
+        return type == ExpeditionType.CHAOS_ZAKUM ? "ChaosZakumBattle" : null;
+    }
+
     public enum Boss {
         ZAKUM(ExpeditionType.ZAKUM, "ZakumBattle", 211042400, 280030000, 211042400, 4032133, 120, false,
                 0, 0, 0, 0, 8800002, range(8800000, 8800010)),

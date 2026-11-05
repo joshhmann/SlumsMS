@@ -522,4 +522,89 @@ class ExpeditionBotsTest {
 
         assertTrue(exped.contains(alt), "the switch is off: today's behaviour, unchanged");
     }
+
+    // ── 1.6.4: Chaos Zakum, bots join like they join Zakum, held to the shared daily runs ──
+
+    private List<Character> chaosBots(Character leader, int count) {
+        List<Character> bots = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            Character bot = altOf(leader, soloMapling.server.SoloMaplingConstants.GameConstants.BOT_BASE_ID + 10 + i,
+                    "Chaos" + i);
+            when(bot.getLevel()).thenReturn(120);
+            bots.add(bot);
+        }
+        party(leader, bots.toArray(new Character[0]));
+        return bots;
+    }
+
+    @Test
+    void fivePartyBotsAtLevel120JoinAChaosZakumExpeditionAndReachItsMinimum() {
+        boolean daily = YamlConfig.config.server.USE_ENABLE_DAILY_EXPEDITIONS;
+        YamlConfig.config.server.USE_ENABLE_DAILY_EXPEDITIONS = true;
+        server.expeditions.ExpeditionBossLog.useChaosBotRunsToday(() -> 0);
+        try {
+            Character leader = player(LEADER, "Josh");
+            chaosBots(leader, 5);
+            Expedition exped = expedition(leader, ExpeditionType.CHAOS_ZAKUM, 0);
+
+            assertEquals(5, ExpeditionBots.autoJoin(leader, exped).size());
+
+            assertTrue(exped.getMembers().size() >= exped.getMinSize(), "6 of " + exped.getMinSize());
+            verify(leader, never()).dropMessage(eq(6), contains("Chaos Zakum runs"));
+        } finally {
+            server.expeditions.ExpeditionBossLog.useChaosBotRunsToday(null);
+            YamlConfig.config.server.USE_ENABLE_DAILY_EXPEDITIONS = daily;
+        }
+    }
+
+    @Test
+    void whenTheBotsDailyChaosRunsAreSpentNoBotJoinsAndTheLeaderIsToldOnce() {
+        boolean daily = YamlConfig.config.server.USE_ENABLE_DAILY_EXPEDITIONS;
+        YamlConfig.config.server.USE_ENABLE_DAILY_EXPEDITIONS = true;
+        server.expeditions.ExpeditionBossLog.useChaosBotRunsToday(
+                () -> server.expeditions.ExpeditionBossLog.CHAOS_ZAKUM_BOT_DAILY_RUNS);
+        ExpeditionBots.quota = realQuota; // the real boss-log rule, not the stub
+        try {
+            Character leader = player(LEADER, "Josh");
+            chaosBots(leader, 5);
+            Expedition exped = expedition(leader, ExpeditionType.CHAOS_ZAKUM, 0);
+
+            assertTrue(ExpeditionBots.autoJoin(leader, exped).isEmpty());
+            assertTrue(ExpeditionBots.autoJoin(leader, exped).isEmpty(), "the next NPC step");
+
+            assertEquals(1, exped.getMembers().size(), "only the leader");
+            verify(leader, org.mockito.Mockito.times(1)).dropMessage(6, "[Expedition] "
+                    + ExpeditionBots.CHAOS_QUOTA_TEXT);
+            assertTrue(ExpeditionBots.CHAOS_QUOTA_TEXT.contains("25"));
+        } finally {
+            server.expeditions.ExpeditionBossLog.useChaosBotRunsToday(null);
+            YamlConfig.config.server.USE_ENABLE_DAILY_EXPEDITIONS = daily;
+        }
+    }
+
+    @Test
+    void aPartyIsCutToTheChaosRunsThatAreLeft() {
+        boolean daily = YamlConfig.config.server.USE_ENABLE_DAILY_EXPEDITIONS;
+        YamlConfig.config.server.USE_ENABLE_DAILY_EXPEDITIONS = true;
+        server.expeditions.ExpeditionBossLog.useChaosBotRunsToday(
+                () -> server.expeditions.ExpeditionBossLog.CHAOS_ZAKUM_BOT_DAILY_RUNS - 2);
+        try {
+            Character leader = player(LEADER, "Josh");
+            chaosBots(leader, 5);
+            Expedition exped = expedition(leader, ExpeditionType.CHAOS_ZAKUM, 0);
+
+            assertEquals(2, ExpeditionBots.autoJoin(leader, exped).size(), "rows are written at the start: 2 left");
+            verify(leader).dropMessage(6, "[Expedition] " + ExpeditionBots.CHAOS_QUOTA_TEXT);
+        } finally {
+            server.expeditions.ExpeditionBossLog.useChaosBotRunsToday(null);
+            YamlConfig.config.server.USE_ENABLE_DAILY_EXPEDITIONS = daily;
+        }
+    }
+
+    @Test
+    void chaosZakumAsksForLevel120LikeItsRow() {
+        assertEquals("level", ExpeditionBots.skip(ExpeditionType.CHAOS_ZAKUM, LEADER,
+                facts(LEADER, false, true, 100, true)));
+        assertNull(ExpeditionBots.skip(ExpeditionType.CHAOS_ZAKUM, LEADER, facts(LEADER, false, true, 120, true)));
+    }
 }

@@ -284,6 +284,21 @@ equal and at least 2, a boss mob id targeted, `reach=yes` (a swing from where th
 `tools/ops/autoqa-proof` prints `needs -Dslums.mechanics.boss=true on the server for t-ex-2`. A release run therefore
 has to carry that switch, as it already carries `-Dslums.mechanics=true` for t-mx-1 to t-mx-6.
 
+## ex-3: a GM and party bots fight Chaos Zakum in the real expedition (1.6.4)
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `ex-3 [your alt's name]` | Same as ex-2, for Chaos Zakum (expedition type CHAOS_ZAKUM, 6-30 members, level 120+, event `ChaosZakumBattle`, altar 280030001). Needs `-Dslums.chaos.zakum=true` (it refuses with that message otherwise). Raises you to level 120 for the run if you are lower (put back at `!qa stop`), warps you to Adobis's map 211042400, stages 5 level-120 follower bots (4 when you name an alt), makes the channel's CHAOS_ZAKUM expedition (the bots join through `ExpeditionBots.autoJoin`, so the roster bots' shared 25 Chaos runs a day apply), starts `ChaosZakumBattle`, and once two of you stand in 280030001 clicks the Eye of Fire (reactor 2111001). Samples 90 to 150 s. Everything is undone at `!qa stop`. Runs 4 minutes | The same lines as ex-2 with the tag `EX3`: `EX3 START`, `EX3 SEEN`, `EX3 PARTS`, `EX3 RUN`, `EX3 ALTAR`, `EX3 CHECK`, then `EX3 PASS`, `EX3 END`, `EX3 FAIL <reason>` or `EX3 BASELINE` (boss lane off). Boss mobs are 8800100-8800110 |
+
+If the bots' 25 daily Chaos runs are spent, the staging refuses ("another channel expedition in progress, or the bots'
+25 Chaos Zakum runs for today are used up"). `t-ex-3` runs this headless with no alt, like `t-ex-2`, and SKIPs unless
+both `-Dslums.mechanics.boss=true` and `-Dslums.chaos.zakum=true` are on the server. To stage a bot-only run instead,
+`!mechanics boss CHAOS_ZAKUM` now works (it used to answer "no mechanics content row").
+
+For real players: a party leader's bots (level 120+, on the recruiting map) now join a Chaos Zakum expedition the same
+way they join Zakum, up to the party's six. When the bots' daily Chaos runs are used up, none join and the leader gets
+one line: "The bots have used all 25 of today's Chaos Zakum runs, so no more bots will join you."
+
 Owner 2026-11-02 (ticket 130 follow-up): `ex-1` stops at "the expedition exists". `ex-2` is the one that proves a fight
 happens at all, and its log is what the boss lane is judged on from the outside - target, reach, damage, and the run's
 own `Abandon`/`gave up` lines.

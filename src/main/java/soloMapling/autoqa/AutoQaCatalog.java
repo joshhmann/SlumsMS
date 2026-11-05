@@ -1181,6 +1181,19 @@ public final class AutoQaCatalog {
                         lacks("Abandon"),
                         lacks("could not be put in map"))
                 .build());
+        // 1.6.4 ex-3 (owner 2026-11-05): the same proof for Chaos Zakum (CHAOS_ZAKUM, altar 280030001). A GM raised to
+        // 120 and five level-120 party bots go through Adobis's path. SKIPs unless both the boss lane and
+        // -Dslums.chaos.zakum=true are on, because with either off the run is a refusal or a baseline, not proof.
+        c.add(Check.auto("t-ex-3", "A GM and party bots fight the real Chaos Zakum expedition").holds("pq:zakum").minutes(4)
+                .step(run("ex-3"), waitFor("EX3 CHECK members=", 160), bossLaneOn(), chaosLaneOn(), stop())
+                .expect(has("EX3 START members=[6-9]\\d* bots=[5-9]\\d* alt=none"),
+                        has("EX3 ALTAR t=\\d+ hit reactor 2111001 as \\S+, [1-9]\\d* mob"),
+                        has("EX3 CHECK members=([6-9]\\d*)/\\1 boss=yes reach=yes swings=[1-9]\\d* dmg=[1-9]\\d*"
+                                + " altar=yes abandoned=no stuck=no"),
+                        has("EX3 (PASS|END) "),
+                        lacks("Abandon"),
+                        lacks("could not be put in map"))
+                .build());
         // 1.6.0 nx-1 (owner: "does the meso -> NX path actually work?"): the plain player buys a 10k NX code from
         // an NX merchant bot for 50m, takes it by messenger and redeems it (twice: the second adds nothing); t-nx-2
         // ignores the messenger and redeems the copy the bot left in its notes
@@ -2199,6 +2212,14 @@ public final class AutoQaCatalog {
                         ? Check.StepResult.OK
                         : Check.StepResult.skip("the boss lane is off (-Dslums.mechanics.boss=true): the run read"
                                 + " EX2 BASELINE"));
+    }
+
+    /** Chaos Zakum's own switch, read where the check runs; with it off ex-3 refuses to stage. */
+    private static Check.Step chaosLaneOn() {
+        return Steps.of("Chaos Zakum is on (-Dslums.chaos.zakum=true)", r ->
+                Boolean.getBoolean("slums.chaos.zakum")
+                        ? Check.StepResult.OK
+                        : Check.StepResult.skip("Chaos Zakum is off (-Dslums.chaos.zakum=true): ex-3 would not stage"));
     }
 
     /** True when the log has {@code GUILD SAY <bot> [<guild>]: <line>} for this bot and this guild-chat line. */
