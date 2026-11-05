@@ -128,9 +128,10 @@ Paths that are reachable today and do the wrong thing.
 
 ## 4. Working
 
-Not "verified in a game" — "read end to end and found consistent with its own tests".
+Not "verified in a game" — "read end to end and found consistent with its own tests". A file can appear here and in §2
+for a different area of it; this list names the areas, not the files.
 
-- **server**: `network-and-packets` (table generation), `handlers-login`, `handlers-combat-damage` (the two main attack
+- **server**: `handlers-login`, `handlers-combat-damage` (the two main attack
   paths), `commands`, `achievements`, `checkin` (server side), `families` (main paths), `wz-data` (provider layer),
   `fishing` (server side; TEST unknown), `handlers-party-guild-alliance-family` (everything but the two broken rows).
 - **bots**: `population`, `training-bot` (phase machine), `combat`, `grind`, `movement-and-travel`, `social`,
