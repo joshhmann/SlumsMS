@@ -36,8 +36,8 @@ Every patch is installed from one function, in a fixed order (`src/hook.h:111-30
 
 Runtime entry points outside the install list:
 
-- `AttachD3D9Host` (`src/d3d9host.cpp:296-312`) creates the ImGui context, then `Overlay_Setup` (`src/d3d9host.cpp:153`) and `UiTour_Setup(g_bSettingsWindow && ReadIniBool("clienthax","uitour",true))` (`src/d3d9host.cpp:304`). `DrawOverlay` (`src/d3d9host.cpp:160`) is called from the `EndScene` detour (`src/d3d9host.cpp:185`); the gate is `if (!g_bVisible && !(g_bSettingsWindow && (Overlay_HasHud() || !Overlay_IsFrozen() || UiTour_Wants()))) return;` (`src/d3d9host.cpp:162`).
-- `D3D9Host_HandleMessage` (`src/d3d9host.cpp:269`): Ctrl+F10 toggles the settings window (:273), Ctrl+F11 calls `Overlay_ToggleFreeze` (:277), Esc closes the window (:281) and otherwise reaches `UiTour_HandleEscape` (:285).
+- `AttachD3D9Host` (`src/d3d9host.cpp:296-314`) creates the ImGui context, then `Overlay_Setup` (`src/d3d9host.cpp:153`) and `UiTour_Setup(g_bSettingsWindow && ReadIniBool("clienthax","uitour",true))` (`src/d3d9host.cpp:303`). `DrawOverlay` (`src/d3d9host.cpp:160`) is called from the `EndScene` detour (`src/d3d9host.cpp:185`); the gate is `if (!g_bVisible && !(g_bSettingsWindow && (Overlay_HasHud() || !Overlay_IsFrozen() || UiTour_Wants()))) return;` (`src/d3d9host.cpp:163`).
+- `D3D9Host_HandleMessage` (`src/d3d9host.cpp:269`): Ctrl+F10 toggles the settings window (:273), Ctrl+F11 calls `Overlay_ToggleFreeze` (:277), Esc closes the window (:282-284) and otherwise reaches `UiTour_HandleEscape` (:286).
 - Main-thread ticks from `CWvsApp::CallUpdate_hook` (`src/bypass.cpp:243-269`): `UiLayout_Tick()` (:245), weather frames gated on `Weather::IsFieldActive()` / `HasFallingSky()` (:248-258), `CashShopWnd_Tick()` (:263), `SetItem_Tick()` (:266), `MonsterBook_Tick()` (:269).
 - Inbound packets are routed by `src/packetdispatcher.cpp`: cash shop 0x3731 (:36-38), check-in 0x3733 (:43-45), set item 0x3727 (:50-52), monster book 0x3735 (:57-60), boss damage rank 0x3739 (:65), weapon tint 0x372F (:73-76), bounce zones 0x3737 (:81-83), weather 0x373D and lamp preview 0x373F (:88-92).
 
@@ -61,16 +61,16 @@ Runtime entry points outside the install list:
 
 | Files | What it changes on screen | config.ini switches | State |
 |---|---|---|---|
-| `src/overlay.cpp`, `src/overlay_policy.h` | ImGui theme, font, the HUD widgets, the Ctrl+F10 "SlumsMS HUD" window, grid overlay while editing | `[graphics] d3d9host` (default true, `src/d3d9host.cpp:297`) and `[clienthax] settingswindow` (default true, :303) gate everything here | working |
+| `src/overlay.cpp`, `src/overlay_policy.h` | ImGui theme, font, the HUD widgets, the Ctrl+F10 "SlumsMS HUD" window, grid overlay while editing | `[graphics] d3d9host` (default true, `src/d3d9host.cpp:297`) and `[clienthax] settingswindow` (default true, :302) gate everything here | working |
 | `src/settings_overlay.cpp` | The window shell itself (`SettingsOverlay_Draw`, :12) | as above | working |
-| `src/uitour.cpp`, `src/uitour_policy.h` | First-run Edit UI card and pulsing grips | `[clienthax] uitour`, default true (`src/d3d9host.cpp:304`) | working |
+| `src/uitour.cpp`, `src/uitour_policy.h` | First-run Edit UI card and pulsing grips | `[clienthax] uitour`, default true (`src/d3d9host.cpp:303`) | working |
 | `src/damagefmt.cpp`, `src/damagefmt_policy.h` | Damage numbers printed as 12.3K / 1.23M / 2.14B | none — registry value `damage_short` under `HKCU\Software\SlumsMS\Overlay`, default **off** (`src/damagefmt.cpp:61`) | working |
 | `src/tooltip.cpp` | Equip tooltip body: category, attack speed, stat rows, knock-back rate, slip/cold, upgrades; plus SET EFFECT / PIECES EQUIPPED rows | none | working |
 | `src/itemicon.cpp` | 1 px frame + boss-pet icon on the active pet's slot | none | working |
 | `src/lamps.cpp` | Lamp light pools, warm-up ramp, scenery relight, and the map-object art guard | `[clienthax] mapobjguard`, default true (`src/lamps.cpp:1498-1501`) | working |
 
-1. `LoadPrefs` (`src/overlay.cpp:88-110`) reads `theme`, `scale`, `snap`, then per widget `<id>_on/_x/_y/_w/_h/_text/_alpha`; every position is a screen fraction out of `kFrac = 10000` (`src/overlay_policy.h:24`) and `FromFractions` (:20) clamps a widget back on screen. `g_bFrozen = true` at load (`src/overlay.cpp:91`) — "Edit UI is a temporary mode: every session starts with the layout fixed".
-2. `ApplyTheme` (:123) samples `UI/UIWindow.img/Item/FullBackgrnd` so the modules wear stock colours (cream `#EEEEDD`, frame `#99BBCC`, steel `#557799`, text `#333333`). `Overlay_BeforeFrame` (:224) rebakes the font atlas when the target pixel size moves by ≥1; `FontPixels` is `clamp(15*screenH/600 * scale/100, 11..40)` (`src/overlay_policy.h:36`), the atlas is `clamp(base*MaxTextPct/100, 11..96)`, and `FontGlobalScale = base/atlasPx`.
+1. `LoadPrefs` (`src/overlay.cpp:88-110`) reads `theme`, `scale`, `snap`, then per widget `<id>_on/_x/_y/_w/_h/_text/_alpha`; every position is a screen fraction out of `kFrac = 10000` (`src/overlay_policy.h:15`) and `FromFractions` (:20-30) clamps a widget back on screen. `g_bFrozen = true` at load (`src/overlay.cpp:91`) — "Edit UI is a temporary mode: every session starts with the layout fixed".
+2. `ApplyTheme` (:124) samples `UI/UIWindow.img/Item/FullBackgrnd` so the modules wear stock colours (cream `#EEEEDD`, frame `#99BBCC`, steel `#557799`, text `#333333`). `Overlay_BeforeFrame` (:224) rebakes the font atlas when the target pixel size moves by ≥1; `FontPixels` is `clamp(15*screenH/600 * scale/100, 11..40)` (`src/overlay_policy.h:36`), the atlas is `clamp(base*MaxTextPct/100, 11..96)`, and `FontGlobalScale = base/atlasPx`.
 3. `Overlay_DrawHud` (:237) draws only in the field (:240), draws faint grid lines every `kGridFrac` when unfrozen and snapping, calls `UiLayout_DrawGrips` first, and adds `NoTitleBar|NoMove|NoResize|NoInputs` while frozen so clicks reach the game. Height is derived from the row count, so a widget is exactly as tall as its content when unfrozen. `UiTour_Draw` runs last.
 4. `Overlay_DrawSettings` (:315-386) is the module table (enable / text size 60-200 / opacity 0-100 / reset), then "Edit UI (Ctrl+F11)..." (:351), "Snap to grid while editing" (:354), "HUD size" (:355), "Look" (:360), "Reset UI layout" (:364-377 — widgets + `UiLayout_Reset` + `InvResize_ResetSize`), "Show the UI tour again" (:379), then `Display_DrawSettings` (:381) and `DamageFmt_DrawSettings` (:384).
 5. `UiTour` is once per PC: `UiTour_Wants` returns `g_dwSeen < kVersion && InField()` (`src/uitour.cpp:108`) with `kVersion 1` / `kDelayMs 1500` / `kPulseMs 9000` (`src/uitour_policy.h:13-15`); `MarkSeen` (:40) writes `tourSeen`; `UiTour_Replay` (:134) is the settings-window row; `UiTour_HandleEscape` (:138) marks it seen on Esc.
@@ -204,13 +204,13 @@ WZ data these features need beyond stock v83, all shipped in `Custom.wz` and gen
 | `invresize` | `clienthax` | true (`config.example.ini:34`) | `src/invresize.cpp:548-556` | false patches nothing and logs at :677 |
 | `doubletapjump` | `clienthax` | false (`config.example.ini:29`) | `src/bounce.cpp:231` | false still installs block zones + impulses, only the jump-call redirect is skipped |
 | `lowdefensepenalty` | `clienthax` | false (`config.example.ini:39`) | `src/mobdamage.cpp:34-38` | true keeps the stock (adding) penalty |
-| `settingswindow` | `clienthax` | true (`config.example.ini:48`) | `src/d3d9host.cpp:303` | false disables Ctrl+F10/F11 and the whole overlay draw gate (`src/d3d9host.cpp:162`) |
-| `uitour` | `clienthax` | true (`config.example.ini:51`) | `src/d3d9host.cpp:304` | false never shows the tour, even once |
+| `settingswindow` | `clienthax` | true (`config.example.ini:48`) | `src/d3d9host.cpp:302` | false disables Ctrl+F10/F11 and the whole overlay draw gate (`src/d3d9host.cpp:163`) |
+| `uitour` | `clienthax` | true (`config.example.ini:51`) | `src/d3d9host.cpp:303` | false never shows the tour, even once |
 | `mapobjguard` | `clienthax` | true (`config.example.ini:56`) | `src/lamps.cpp:1498-1501`, read once | false lets a missing-art map object fail as stock |
 | `sway` | `weather` | true (`config.example.ini:65`) | `src/weathersway.cpp:871-884`, read once | false → nothing bends |
 | `ropesway` | `weather` | true (`config.example.ini:66`) | same | false → ropes/ladders stay as the map draws them, plants still bend |
 | `d3d9host` | `graphics` | true (`config.example.ini:81`) | `src/d3d9host.cpp:297` | false → no ImGui at all: no HUD modules, no grips, no settings window; saved layout still applies |
-| `adapterfallback` | `graphics` | true (`config.example.ini:82`) | `src/d3d9host.cpp:302` | device-creation retry across adapters |
+| `adapterfallback` | `graphics` | true (`config.example.ini:82`) | `src/d3d9host.cpp:301` | device-creation retry across adapters |
 | `uistate` | `debug` | 0 (**QA only**, not documented) | `src/uilayout.cpp:368` | 1 writes `slums-ui-state.json` every 500 ms for the client-mcp driver |
 
 Non-ini switches: the damage-number toggle is the registry value `damage_short` (`src/damagefmt.cpp:61`), and every widget's visibility/size is registry state edited in the Ctrl+F10 window. Build switches are CMake options, all defaulting OFF (`CMakeLists.txt:3-18`); `scripts/build.ps1:14` turns on INTEGRATION, CASHSHOP_WINDOW, WEATHER, MOVEMENT_KEYS, MOUNT_INFO, DAILY_CHECKIN, SET_EQUIP, MONSTER_BOOK, COLOR_PRISM, ATTACK_DIAG and INV_RESIZE. `MAPLEROOT_HUD_METERS` and `MAPLEROOT_DAMAGE_FORMAT` are **not** in that list, so the EXP/DPS meters and the short damage numbers are absent from the default build.
@@ -225,7 +225,7 @@ Non-ini switches: the damage-number toggle is the registry value `damage_short` 
 - **Engine layer colours are re-asserted every frame**, because per-tile animators overwrite `IWzGr2DLayer::color` (`src/weather.cpp:8-48`).
 - **Never `RemoveCanvas`/`InsertCanvas` on an engine-owned layer** — sway toggles `visible` between pre-built frames (`src/weathersway.cpp` head).
 - **Capacity is static-asserted.** `kMaxCells 120` must fit the Draw imm8 and the scroll-bias imm8 (`src/invresize_patch.h:108-111`); `_countof(kProfiles) == SKY_COUNT` with name anchors (`src/weather.cpp:58-73`).
-- **Positions are fractions**, `kFrac = 10000`, always clamped back on screen (`src/overlay_policy.h:20`, `:59`; `src/uilayout_policy.h:31-91`).
+- **Positions are fractions**, `kFrac = 10000`, always clamped back on screen (`src/overlay_policy.h:20-30`, `:44-49`; `src/uilayout_policy.h:31-91`).
 - **Frozen means click-through.** `NoInputs` while frozen, and `g_bFrozen = true` at every session start (`src/overlay.cpp:91`, `:237`).
 - **Per-character state keyed by world+character**, never by name: `w%d_c%u` (`src/uilayout.cpp:84`, `src/invresize.cpp:338`).
 
@@ -309,7 +309,7 @@ Documented as deferred in `docs/160-ui-adjust-plan.md` and still true in the cod
 
 - The status bar moves **vertically only** — its art is 1920 px wide, wider than most screens (`docs/160-ui-adjust-plan.md:89`).
 - ImGui modules draw **over** stock windows (inventory, stat window), because the overlay draws after the game in `EndScene` (`src/d3d9host.cpp:185`); hiding under stock UI needs walking `CWndMan::ms_lpWindow`, deferred to 1.7.0 (`:90`).
-- Modules still use ImGui styling that only imitates stock window colours (`ApplyTheme` `src/overlay.cpp:123`); real stock-art modules are 1.7.0 (`:91`).
+- Modules still use ImGui styling that only imitates stock window colours (`ApplyTheme` `src/overlay.cpp:124`); real stock-art modules are 1.7.0 (`:91`).
 - The game menu still pops up at its stock place above the bar, not next to a moved Menu button (`:105`).
 - Parsec device creation and the exit-time `C0000005` in `slums.dll` cleanup are parked (owner decision, `docs/160-ui-adjust-plan.md`).
 

@@ -12,7 +12,7 @@ someone runs (`src/buildshow_text.h:2-5`, `src/slums.rc.in:17-25`).
 
 The stamp is the wire contract that lets the server ship **behaviour-changing** client patches: 4-byte HP/MP from
 build 10600 (`src/main/java/constants/game/GameConstants.java:27-34`), custom NPC templates from 10610
-(`src/main/java/server/life/CustomNpcGate.java:17`), the damage rank from 10690
+(`src/main/java/server/life/CustomNpcGate.java:16-17`), the damage rank from 10690
 (`src/main/java/config/ServerConfig.java:53`), the 1.6.4 map guards from 10740 (`docs/release/1.6.4.conf:279-284`). It
 is a *soft* version check: the old v83 handshake version is untouched.
 
@@ -67,15 +67,17 @@ Numbered end to end, configure → wire → refusal.
    `EncodeStr(release)`, `Encode4(caps)`; `:41-43` `BuildStamp_Encode(packet, caps)` calls it with the module's own
    numbers.
 7. **Caps are probed at first login only.** `src/bypass.cpp:399-419` memoises into `static uint32_t caps`
-   (sentinel `0xFFFFFFFF`), starts at `kCapCustomNpcData`, and for each of the 16 ids in
-   `src/buildstamp_proto.h:46-47` calls `get_rm()->GetObjectA(L"Npc/%07d.img")`; a `VT_UNKNOWN`/`VT_DISPATCH`
-   result or a throw clears the bit and breaks, logging
-   `Build stamp: %ls is missing, so custom NPCs stay off for this client`. Final line: `Build stamp: caps 0x%08X`.
+   (sentinel `0xFFFFFFFF`), starts with `caps = kCapCustomNpcData`, and for each of the 16 ids in
+   `src/buildstamp_proto.h:46-47` calls `get_rm()->GetObjectA(L"Npc/%07d.img")`. A property that is not a COM object
+   (`v.vt != VT_UNKNOWN && v.vt != VT_DISPATCH`, i.e. the img is absent) or a throw clears the bit, logs
+   `Build stamp: %ls is missing, so custom NPCs stay off for this client` and breaks. Final line:
+   `Build stamp: caps 0x%08X`. All 16 lookups share one `static`, so the answer is computed once per process.
 8. **Send order** (`src/bypass.cpp:421-451`): repeat guard `if (m_bRequestSent) return 0;` (`:422`), the two
    `RemoveAll` calls at `0x005FDDE3`/`0x005FDF26` and `CSystemInfo::Init` at `0x00A54BD0`, then the stamp packet
    (`:433-437`, `BuildStamp_Encode` at `:435`) via `CClientSocket::SendPacket` at `0x0049637B`, then
-   `CP_CheckPassword` (opcode 1: id, password, 16-byte MachineId, game-start mode) through the same call at `:449`.
-   Same TCP connection, no reply — ordering is the whole guarantee.
+   `CP_CheckPassword` (opcode 1: string id, string password, the 16-byte `CSystemInfo::MachineId`, `int 0`,
+   `m_nGameStartMode`, `0`, `0`, `int 0` — `:438-448`) through the same call at `:448`. Same TCP connection, no reply — ordering is the
+   whole guarantee, and `:422` makes the pair fire once per process.
 9. **Server parse** (`src/main/java/net/server/handlers/login/ClientBuildStampHandler.java:38-68`): needs
    `2 + 4 + 2` bytes, format must be 1 or 2 (`:43-45`), build must be non-negative (`:46-49`), the release length
    must be 0..40 and fit (`:50-58`), the release is sanitised with
@@ -89,10 +91,11 @@ Numbered end to end, configure → wire → refusal.
     (`src/main/java/net/server/channel/handlers/PlayerLoggedinHandler.java:147`,
     `src/main/java/net/server/coordinator/session/ClientStampCarry.java:24-43`).
 11. **Gate on a verified password** (`src/main/java/net/server/handlers/login/LoginPasswordHandler.java:74`): runs
-    only for loginok ∈ {0, 7, 23, -23, -10} (`src/main/java/net/server/handlers/login/ClientVersionGate.java:76-78`) —
-    never on a wrong password, never before the "already logged in" kick, never in the `AUTOMATIC_REGISTER` branch
-    without a GM level (`src/main/java/net/server/handlers/login/LoginPasswordHandler.java:79` passes the constant
-    `accountId -> 0` lambda).
+    only for loginok ∈ {0, 7, 23, -23, -10} (`src/main/java/net/server/handlers/login/ClientVersionGate.java:76-78`)
+    — never on a wrong password and never before the loginok-7 "you are already logged in" kick. The
+    `AUTOMATIC_REGISTER` branch calls it too (`src/main/java/net/server/handlers/login/LoginPasswordHandler.java:79`)
+    but with `accountId -> 0`, so `accountGmLevel` returns 0 at `:127-129` and the GM bypass cannot apply to an account
+    that does not exist yet.
 12. **Verdict** (`src/main/java/net/server/handlers/login/ClientVersionGate.java:99-123`): QA-cap check first
     (`:102-108`), then `MIN_CLIENT_BUILD <= 0 || build >= MIN_CLIENT_BUILD` → allow (`:110-112`), then the optional GM
     bypass read from the database (`:113-116`, `accountGmLevel` at `:126-140`, `SELECT MAX(gm) FROM characters WHERE
@@ -163,7 +166,7 @@ Golden bytes (both repos assert the same literal): format 2, build 10402, `"1.4.
 
 **Custom NPC ids the caps bit stands for** (`src/buildstamp_proto.h:46-47`): `9990000` (Slums-chan) plus `2985..2999`
 (15 Lazy Penguins) — 16 entries, asserted in `tests/buildstamp_proto_test.cpp:50-51`; mirrored server-side as the
-config default `CUSTOM_NPC_IDS = "9990000,2985-2999"` (`src/main/java/config/ServerConfig.java:70`) parsed by
+config default `CUSTOM_NPC_IDS = "9990000,2985-2999"` (`src/main/java/config/ServerConfig.java:69`) parsed by
 `CustomNpcGate.isCustom`.
 
 **Build artifacts.** `build/Release/slums-build.txt` = `release=<VERSION text>\nbuild=<n>\n`
@@ -224,11 +227,11 @@ cannot be switched on here.
 | `MIN_CLIENT_BUILD` | `0` (gate off) | `src/main/java/config/ServerConfig.java:59-61`; used `src/main/java/net/server/handlers/login/ClientVersionGate.java:48-49`, `:110` | the minimum build |
 | `CLIENT_UPDATE_MESSAGE` | `"Your game is out of date: open the SlumsMS launcher to update."` | `src/main/java/config/ServerConfig.java:62`; used `src/main/java/net/server/handlers/login/ClientVersionGate.java:67-70`, `:120` | popup text; blank → the default literal |
 | `MIN_CLIENT_BUILD_GM_BYPASS` | `false` | `src/main/java/config/ServerConfig.java:63-64`; used `src/main/java/net/server/handlers/login/ClientVersionGate.java:52`, `:113` | GM accounts (max `characters.gm` > 0) may log in below the minimum |
-| `CUSTOM_NPC_MIN_BUILD` | `10610` | `src/main/java/config/ServerConfig.java:71`; used `src/main/java/server/life/CustomNpcGate.java:60-65` | fallback for format-1/absent stamps |
+| `CUSTOM_NPC_MIN_BUILD` | `10610` | `src/main/java/config/ServerConfig.java:70`; used `src/main/java/server/life/CustomNpcGate.java:60-65` | fallback for format-1/absent stamps |
 | `DAMAGE_RANK_MIN_BUILD` | `10690` | `src/main/java/config/ServerConfig.java:53`; used `src/main/java/server/life/DamageRank.java:63-68` | who receives LP `0x3739` |
 | `DAMAGE_RANK_MIN_MOB_HP` | `5000000` | `src/main/java/config/ServerConfig.java:54` | not stamp-related, listed because it shares the build comment |
 
-`config.example.yaml:82-86` mirrors the first five with the same values.
+`config.example.yaml` mirrors the gate keys with the same values: `MIN_CLIENT_BUILD: 0` (`:82`), `CLIENT_UPDATE_MESSAGE` (`:83`), `MIN_CLIENT_BUILD_GM_BYPASS: false` (`:84`), `CUSTOM_NPC_IDS` (`:85`), `CUSTOM_NPC_MIN_BUILD: 10610` (`:86`), and the damage-rank pair `DAMAGE_RANK_MIN_BUILD: 10690` (`:78`) / `DAMAGE_RANK_MIN_MOB_HP: 5000000` (`:79`).
 
 **Server, system property:** `-Dslums.client.allowQa=true` — `ClientVersionGate.ALLOW_QA`
 (`src/main/java/net/server/handlers/login/ClientVersionGate.java:38-39`), read in `:96` via `Boolean.getBoolean`; off
@@ -342,7 +345,7 @@ source.
 
 | Ref | Problem | Evidence |
 |---|---|---|
-| card b251 | Client crash entering Rose Garden: Abandoned Garden (211080100). Unrelated to the stamp, but the 1.6.4 gate at 10740 is what keeps pre-guard clients out of that map | `/root/work/STATUS-1.6.4.md:72`; `docs/release/1.6.4.conf:279-283` |
+| card b251 | Client crash entering Rose Garden: Abandoned Garden (211080100). Not a stamp bug, but the 1.6.4 gate at 10740 exists partly for it: the Rose Garden guards ship only from 10740 | `/root/work/STATUS-1.6.4.md:72`; `docs/release/1.6.4.conf:282-284` |
 | card b270 | Launcher news manifest written without `news[]`. Adjacent: the launcher reads `slums-build.txt` as the client version, so a broken publish also breaks the version shown | `/root/work/STATUS-1.6.4.md:75`; `tools/ops/client-mcp-win/src/driver.py:525-528` |
 | card b274 | Boss portals never send a portal-enter. No stamp interaction found; listed for the lane | `/root/work/STATUS-1.6.4.md:76` |
 | card L15, card e14 | Client-side fixes / in-game exchange window: not stamp work, no version dependency found in this subsystem | `/root/work/STATUS-1.6.4.md:106`, `:124` |
@@ -366,8 +369,7 @@ live gate at 10740 for 1.6.4 (`docs/release/1.6.4.conf:284`). Client numbers wer
 Partial corners, stated plainly:
 
 - **QA build switch (caps bit 31): partial / not on this branch.** Server side implemented and tested
-(`src/main/java/net/server/handlers/login/ClientVersionGate.java:37-41`, `QaBuildGateTest`), client side exists only
-on other branches, so the feature is compiled-but-unreachable here.
+(`src/main/java/net/server/handlers/login/ClientVersionGate.java:37-41`, `src/test/java/net/server/handlers/login/QaBuildGateTest.java:43-66`), but no client on this branch can set the bit, so the gate refuses a value nothing produces. Unreachable here, not broken.
 - **Log-upload cap (bit 1): partial / server only.** `BugClientLogs` will never ask this client for logs.
 - **The docs of the wire shape: stale in three places** (`README.md:24`, `tools/release/README.md:45-47`,
   `src/buildstamp_proto.h:11`), while the code and both test suites agree on format 2.
@@ -389,6 +391,7 @@ on other branches, so the feature is compiled-but-unreachable here.
    (`src/main/java/net/server/handlers/login/ClientVersionGate.java:126-140`) although the account-level GM flag lives
    on `accounts.gm` in most v83 schemas; that the characters table is authoritative here is taken from the comment at
    `:125` and not verified against the schema in this repo.
-5. The 1.6.4 conf header says "No new client: MIN_CLIENT_BUILD stays 10721" (`docs/release/1.6.4.conf:10`) while line
-   284 sets 10740 after the owner's 2026-11-05 decision (`:279-283`). The line wins; whether the header is meant to be
+5. The 1.6.4 conf header says "No new client: MIN_CLIENT_BUILD stays 10721" (`docs/release/1.6.4.conf:10-11`) while
+   line 284 sets 10740 after the owner's 2026-11-05 decision (`:282-283`) and the comment block above it (`:279-281`)
+   still reads as the 1.6.3 justification. The assignment wins at deploy time; whether the header is meant to be
    corrected before the go/no-go is the owner's call.
