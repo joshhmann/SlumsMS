@@ -216,7 +216,7 @@ passes through `ProcessPacketHook` (`src/packetdispatcher.cpp:32-99`) first.
 
 The `Custom` namespace is mounted read-mostly over the stock root: `AddObject(L"Custom", …)` (`src/resman.cpp:125-126`),
 then `pPackage->Init(L"83", L"Custom", pArchive)` and `Mount(L"/", pPackage, 1)` (`:141-142`), with the archive taken
-from the folder above the exe (`:132-139`). Which paths may be served whole is decided by `src/customwz_policy.h`:
+from the folder above the exe (`src/resman.cpp:128-140`: `GetModuleFileNameA` → `Dir_upDir` → `fs->item[L"Custom.wz"]`). Which paths may be served whole is decided by `src/customwz_policy.h`:
 `ImagePrefix` (`:19-29`) and `TopDir` (`:32-35`) — an image with a stock file is merged leaf by leaf, one without is
 served whole (`src/customwz_policy.h:1-14`).
 
@@ -242,6 +242,45 @@ All `config.ini` keys that govern this subsystem. "Reader" is the code that cons
 Only `host`/`port`, `[graphics]` and `jumpkeydown` are read by `src/`; the rest of the companion's keys
 (`nobulb`, `customcolor`, `jumpshoot`, `jumpmagic`, `enablewinkey`, chair/skill opacity, …) are read by the companion's
 `INIReader`, not by `GetPrivateProfileStringA`.
+
+### Patch → site → switch → default
+
+Every write this subsystem performs, with the gate that controls it. "—" means there is no switch.
+
+| Patch | File | VA / offset | Switch | Default |
+|---|---|---|---|---|
+| `ShowStartUpWndModal` → `ret 0` | `src/bypass.cpp:481` | `0x009F18C9` | — | **always on** |
+| `ShowAdBalloon` → `ret 0` | `src/bypass.cpp:482` | `0x00422C7E` | — | **always on** |
+| `SendHSLog` → `ret 0` | `src/bypass.cpp:483` | `0x009F191B` | — | **always on** |
+| `ZExceptionHandler::UnhandledExceptionFilter` → `0xEB` | `src/bypass.cpp:484` | `0x00797074` | — | **always on** |
+| `CWvsApp::EnableWinKey` → `ret 0` | `src/bypass.cpp:479` | `0x009FEC62` | — (only `#ifndef MAPLEROOT_INTEGRATION`) | **always on in non-integration builds**; companion hooks the same VA instead, `[clienthax] enablewinkey` = `true` |
+| create-block `je` → `jmp` | `src/createblock.cpp:27-28` | `0x005F6440` (site `0x005F6425` + `kWriteOffset`), 1 byte `74`→`EB` | — | **always on** |
+| Title string #1163 → `SlumsMS` | `src/stringpool.cpp:53` | pool `0x00BDC9D4` index 1163 | — | **always on** |
+| `CANVAS.DLL` `raw_Serialize` detour + 2 `GetUnknown` detours | `src/inlink.cpp:62-65` | pattern `B8 ???????? E8 ???????? 83 EC 6C` | — | **always on** |
+| `Custom` namespace mount + `CWzProperty::Serialize` merge | `src/resman.cpp:260-263` | patterns in `NAMESPACE.DLL` / `PCOM.DLL` (`:206`, `:210`) | — | **always on** |
+| Custom packet dispatch detour | `src/packetdispatcher.cpp:105` | `0x004965F1` | — (compile-time opcode set) | on when any addon/INTEGRATION is built (`src/bypass.cpp:468-470`) |
+| HP/MP 4-byte widening | `src/hpmp.cpp:53-73` | ~60 sites, table in `src/hpmp_patch.h` | — | **always on** (verified last, `src/hook.h:303`) |
+| mutex rename | `src/system.cpp:42-51` | `KERNEL32!CreateMutexA` | — | always on |
+| window style + title + subclass | `src/system.cpp:179-194` | `USER32!CreateWindowExA` | `[graphics] borderless` | `false` (style `0xCA0000`) |
+| force `HKCU` | `src/system.cpp:213` | `ADVAPI32!RegCreateKeyExA` | — | always on |
+| socket redirect | `src/system.cpp:283-289` | `WS2_32!WSPStartup` | `[config] host`/`port` | `127.0.0.1` / `8485` (`port` 0 = no rewrite) |
+| DPI awareness | `src/system.cpp:307-310` | `SetProcessDPIAware` | `[graphics] dpiaware` | `false` |
+| keydown air gate NOPs | `src/midair.cpp:19-26` | `0x0096A954`, 6 bytes | `[clienthax] jumpkeydown` | `false` |
+| attack-stop site 1 (`keydown skill movable`) | `src/attackstop_patch.h:47` | `0x0095F97A`, `7F 2C`→`EB 59` | `[clienthax] attackwalk` | `false` |
+| attack-stop site 2 (`WorkUpdateActive`) | `src/attackstop_patch.h:48` | `0x009CBFB0`, `7E`→`EB` | `[clienthax] chargemove` | `true` (or legacy `moveattack`) |
+| attack-stop site 3 (`Jump` one-time gate) | `src/attackstop_patch.h:49-50` | `0x0094C3BB`, 6 bytes → 6×`90` | `[clienthax] attackjump` | `true` (or legacy `moveattack`) |
+| shoot-in-air `E9` | `mapleroot/ijl15/YourStuff.h:643-647` | `0x009539FA` → `0x00953A11` | `[clienthax] jumpshoot` | `true` |
+| magic-in-air `E9` | `mapleroot/ijl15/YourStuff.h:649-653` | `0x009559E5` → `0x00955A20` | `[clienthax] jumpmagic` | `true` |
+| no-bulb NOPs | `mapleroot/ijl15/YourStuff.h:616-618` | `0x00A08D5B`, 5 bytes | `[clienthax] nobulb` | `true` |
+| orange colour case | `mapleroot/ijl15/YourStuff.h:620-624` | `0x0098B70C+1`, `0x008C4944+1`, `0x008AA6CB+1` | `[clienthax] customcolor` | `true` |
+| bindable movement keys (4 detours + jmp + nop + `Patch4`) | `src/movementkeys.cpp:206-217` | `0x00836619`, `0x00836C82`, `0x00836C5F`, `0x0059A25A`, `0x0059B00A`, `0x00833FB0` | — (compile-time `MAPLEROOT_MOVEMENT_KEYS`) | on when the option is built |
+
+Four rows carry no gate at all and are written without any stock-byte check: the four `src/bypass.cpp:481-484` patches.
+The create-block, movement-keys and attack-stop rows have no ini key either, but each validates the bytes or pointer it
+expects before writing (`src/createblock.cpp:17-26`, `src/movementkeys.cpp:189-205`, `src/attackstop_patch.h:124-129`).
+The string-pool row writes into a runtime table (`src/stringpool.cpp:15-16, 48`), not into exe code, so there is nothing
+to verify; the inlink and resman rows resolve their targets by pattern and log a hard error when the pattern is missing
+(`src/hook.cpp:150-153`).
 
 Fallback rules worth naming:
 
@@ -360,13 +399,13 @@ There is no automated check anywhere that the exe being patched is the exe the a
   `src/bypass.cpp:484`)** while `MAPLEROOT_CRASH_REPORT` separately wraps the filter (`src/system.cpp:31-34`,
   `src/CMakeLists.txt:76-78`). Two mechanisms touch the same exception path with no shared test, and the build script
   turns neither on (`scripts/build.ps1:11`).
-- **b251** (`STATUS-1.6.4.md:72`) — client crash entering Rose Garden 211080100; the attack-info guard is
+- **b251** (`/root/work/STATUS-1.6.4.md:72`) — client crash entering Rose Garden 211080100; the attack-info guard is
   `AttachMobAttackFixMod` (`src/hook.h:283`), default on (`config.example.ini:46`). Routed but not closed.
-- **b270** (`STATUS-1.6.4.md:75`) — launcher wrote `manifest.json` without `news[]`; launcher-side, outside this
+- **b270** (`/root/work/STATUS-1.6.4.md:75`) — launcher wrote `manifest.json` without `news[]`; launcher-side, outside this
   subsystem, listed because the client lane owns it.
-- **b274** (`STATUS-1.6.4.md:76`) — Will's/Magnus boss portals never send a portal-enter; inconclusive, partially a
+- **b274** (`/root/work/STATUS-1.6.4.md:76`) — Will's/Magnus boss portals never send a portal-enter; inconclusive, partially a
   client map-data question.
-- **L15** (`STATUS-1.6.4.md:106`) and **e14** (`:124`) — deferred client work (client fixes + bonds window;
+- **L15** (`/root/work/STATUS-1.6.4.md:106`) and **e14** (`:124`) — deferred client work (client fixes + bonds window;
   Slums Exchange window).
 - **Ticket history is not in the repo.** `b103`'s rationale exists only as a comment (`src/inlink_guard.h:8-12`);
   `docs/tickets/` does not exist in the client tree, so ticket ids in comments cannot be resolved from source.

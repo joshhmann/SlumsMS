@@ -129,9 +129,9 @@ The flag gates the whole subsystem: handlers answer "The family system is coming
 | src/main/java/client/Family.java | modified | `git log --follow` oldest: `03d13cb21`; later `68d88c19b` (enable + entitlements), `3c09a2606` (missing-leader boot repair), `98648cfdc` (dissolve/join lock). Byte-differs from /root/workspace/cosmicms/src/main/java/client/Family.java |
 | src/main/java/client/FamilyEntry.java | modified | oldest `03d13cb21`; `68d88c19b`, `113b99778` (bot junior rep / Bonding). Differs from base |
 | src/main/java/client/FamilyEntitlement.java | modified | differs from base only in the description strings: stock's "If the … event is in progress, this will be nullified." became "* Stacks with … events and coupons." (src/main/java/client/FamilyEntitlement.java:6-14) |
-| src/main/java/client/FamilyBuffs.java | custom | absent upstream; oldest commit `113b99778`, then `899741272` (travel/store), `68d88c19b` |
+| src/main/java/client/FamilyBuffs.java | custom | absent upstream; oldest commit `68d88c19b`, then `899741272` (travel/store), `113b99778` (bot juniors), `77762dd81` (stacking tooltips) |
 | src/main/java/client/FamilyTravel.java | custom | absent upstream; only commit `899741272` |
-| src/main/java/net/server/channel/handlers/FamilyAddHandler.java | modified | oldest `03d13cb21`; `5ab28f6c1` (coming-soon gate), `68d88c19b` |
+| src/main/java/net/server/channel/handlers/FamilyAddHandler.java | modified | oldest `03d13cb21`; `5ab28f6c1` (coming-soon gate), `68d88c19b` (enable + entitlements), `899741272` (world-wide bot offer fallback); differs from base |
 | src/main/java/net/server/channel/handlers/AcceptFamilyHandler.java | modified | oldest `03d13cb21`; `68d88c19b`, `98648cfdc` |
 | src/main/java/net/server/channel/handlers/FamilyUseHandler.java | modified | oldest `03d13cb21`; `68d88c19b`, `1c8e03a81` (summon refusal) |
 | src/main/java/net/server/channel/handlers/FamilySummonResponseHandler.java | modified | oldest `03d13cb21`; `899741272` |
