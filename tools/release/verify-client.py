@@ -83,18 +83,30 @@ def release_files(top):
     return m['version'], out
 
 
-def ini_endpoint(path):
-    """(host, port) from a client config.ini's [config] section; None for each that is absent."""
+def ini_endpoint(path, section_name='config'):
+    """(host, port) from a client ini's [config] (config.ini) or [server] (server.ini) section; None for each absent."""
     cp = configparser.ConfigParser(strict=False, interpolation=None)
     with open(path, encoding='utf-8', errors='replace') as f:
         cp.read_string(f.read())
     for section in cp.sections():
-        if section.strip().lower() == 'config':
+        if section.strip().lower() == section_name:
             sec = cp[section]
             host = sec.get('host')
             port = sec.get('port')
             return (host.strip().lower() if host else None, port.strip() if port else None)
     return (None, None)
+
+
+def effective_endpoint(config_ini, server_ini):
+    """The server slums.dll connects to (src/server_endpoint.h, b301): server.ini [server] when it names a host and a
+    port in 1..65535, else config.ini [config]. Returns ((host, port), source file) or ((None, None), None)."""
+    if server_ini and os.path.isfile(server_ini):
+        host, port = ini_endpoint(server_ini, 'server')
+        if host and port and port.isdigit() and 0 < int(port) <= 65535:
+            return (host, port), server_ini
+    if config_ini and os.path.isfile(config_ini):
+        return ini_endpoint(config_ini), config_ini
+    return (None, None), None
 
 
 def layer_file(layer_manifest, rel):
@@ -107,27 +119,28 @@ def layer_file(layer_manifest, rel):
     return None
 
 
-def live_config(feed):
-    """The config.ini of the client layer live players have now (feed/manifest.json), or None."""
+def live_config(feed, name='config.ini'):
+    """The config.ini (or server.ini) of the client layer live players have now (feed/manifest.json), or None."""
     with open(os.path.join(feed, 'manifest.json')) as f:
         m = json.load(f)
     for layer in m['layers']:
         if layer['name'] == 'client':
-            return layer_file(os.path.join(feed, layer['manifestUrl']), 'config.ini')
+            return layer_file(os.path.join(feed, layer['manifestUrl']), name)
     return None
 
 
-def client_config(client_dir=None, client_manifest=None):
+def client_config(client_dir=None, client_manifest=None, name='config.ini'):
     if client_dir:
-        for name in os.listdir(client_dir):
-            if name.lower() == 'config.ini':
-                return os.path.join(client_dir, name)
+        for entry in os.listdir(client_dir):
+            if entry.lower() == name:
+                return os.path.join(client_dir, entry)
         return None
-    return layer_file(client_manifest, 'config.ini')
+    return layer_file(client_manifest, name)
 
 
 def check_live_endpoint(feed, client_dir=None, client_manifest=None, allow_change=False):
-    """0 when the new client layer points at the live server (or the change is allowed), else 1. Prints why."""
+    """0 when the new client layer points at the live server (or the change is allowed), else 1. Prints why.
+    Compares the server slums.dll would actually use on each side: server.ini first, then config.ini (b301)."""
     live = live_config(feed)
     if not live or not os.path.isfile(live):
         print(f'LIVE ENDPOINT FAIL: no config.ini in the live client layer under {feed} to compare against')
@@ -136,15 +149,18 @@ def check_live_endpoint(feed, client_dir=None, client_manifest=None, allow_chang
     if not new or not os.path.isfile(new):
         print('LIVE ENDPOINT FAIL: the new client layer has no config.ini')
         return 1
-    want, got = ini_endpoint(live), ini_endpoint(new)
-    print(f'live endpoint {want[0]}:{want[1]} ({live}); new client layer {got[0]}:{got[1]}')
-    if None in got or got != want:
-        if allow_change and None not in got:
+    want, live_src = effective_endpoint(live, live_config(feed, 'server.ini'))
+    got, new_src = effective_endpoint(new, client_config(client_dir, client_manifest, 'server.ini'))
+    print(f'live endpoint {want[0]}:{want[1]} ({live_src}); new client layer {got[0]}:{got[1]} ({new_src})')
+    # config.ini alone is still what an older slums.dll reads: it must match too.
+    cfg = ini_endpoint(new)
+    if None in got or got != want or cfg != want:
+        if allow_change and None not in got and cfg == got:
             print('LIVE ENDPOINT CHANGE ALLOWED (--allow-endpoint-change): players will connect to '
                   f'{got[0]}:{got[1]}')
             return 0
         print('LIVE ENDPOINT FAIL: this client would send live players to another server. Nothing may be '
-              'published to the live feed with it')
+              f'published to the live feed with it (server.ini/config.ini {got[0]}:{got[1]}, config.ini {cfg[0]}:{cfg[1]})')
         return 1
     print('LIVE ENDPOINT PASS')
     return 0

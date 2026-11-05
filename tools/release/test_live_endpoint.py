@@ -98,6 +98,34 @@ class LiveEndpointTest(unittest.TestCase):
         self.assertEqual(rc, 0, out)
         self.assertIn('CHANGE ALLOWED', out)
 
+    def server_ini(self, d, host, port):
+        Path(d, 'server.ini').write_text(f'[server]\nhost={host}\nport={port}\n')
+        return d
+
+    def test_a_server_ini_pointing_away_is_refused(self):
+        # b301: slums.dll reads server.ini before config.ini, so a matching config.ini alone is not enough
+        d = self.server_ini(self.client_dir(LIVE_INI), '192.168.0.111', 8489)
+        rc, out = self.check(client_dir=str(d))
+        self.assertEqual(rc, 1, out)
+        self.assertIn('LIVE ENDPOINT FAIL', out)
+
+    def test_a_server_ini_naming_the_live_server_passes(self):
+        d = self.server_ini(self.client_dir(LIVE_INI), 'SlumsMS.asslorde.com', 8485)
+        rc, out = self.check(client_dir=str(d))
+        self.assertEqual(rc, 0, out)
+        self.assertIn('server.ini', out)
+
+    def test_a_server_ini_without_a_usable_port_falls_back_to_config_ini(self):
+        for port in ('', 'abc', '0', '70000'):
+            d = self.server_ini(self.client_dir(LIVE_INI), '192.168.0.111', port)
+            self.assertEqual(self.check(client_dir=str(d))[0], 0, port)
+
+    def test_config_ini_must_still_match_for_older_dlls(self):
+        d = self.server_ini(self.client_dir(ini('192.168.0.111', 8489)), 'slumsms.asslorde.com', 8485)
+        rc, out = self.check(client_dir=str(d))
+        self.assertEqual(rc, 1, out)
+        self.assertEqual(self.check(client_dir=str(d), allow_change=True)[0], 1)
+
     def test_main_fails_on_the_endpoint_even_when_the_hash_diff_passes(self):
         reference = self.root / 'reference'
         (reference / 'Data').mkdir(parents=True)
