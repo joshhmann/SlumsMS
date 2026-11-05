@@ -810,7 +810,8 @@ table.t { width: 100%; border-collapse: collapse; }
   border: 1px solid var(--xc-line); background: var(--xc-bg); color: var(--xc-ink); box-sizing: border-box; }
 .xc-sort select { width: auto; margin-left: 6px; }
 .xc-items { max-height: 340px; overflow-y: auto; }
-.xc-itemlist td { padding: 3px 6px; } .xc-itemlist img { image-rendering: pixelated; object-fit: contain; display: block; }
+.xc-itemlist td { padding: 3px 6px; }
+.xc-itemlist img { image-rendering: pixelated; object-fit: contain; display: block; width: 22px; height: 22px; max-width: none; }  /* the site-wide img max-width shrank them to dots in the narrow first column */
 .xc-itemlist tr.on td { background: var(--xc-up-bg); }
 .xc-itemlist td:nth-child(2) { text-align: left; width: 100%; }
 .xc-name { all: unset; cursor: pointer; font: 600 .84rem var(--f-body); color: var(--xc-ink); }
