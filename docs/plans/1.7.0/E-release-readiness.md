@@ -19,6 +19,7 @@ Until then, no 1.7.0 implementation merges anywhere. Planning documents only.
 | **G0 Observability** | QA can lose events, or a failure can't be tied to commit, environment and capability | P1-Q1 regression green; every result carries run id, commit, env, capability context, class; zero PASS without evidence | none |
 | **G1 Engine safety** | any open P0 | each P0 `fixed` with a fault-injection test that failed before the fix; GP4, GP6, GP8 green | owner sign-off in the book with a written mitigation, per item; never for item/mesos loss |
 | **G2 Bot autonomy** | unbounded loops or starvation | TEST 24 h soak at full population: started-root terminal-within-deadline at least 99.9%; zero RUNNING past deadline; zero illegal transitions or duplicate terminals; repeated-failure rate reported; admission, rejection, cancellation and timeout rates reported (D section 6). A rise in cancellation or rejection vs the slice baseline needs a written explanation | an activity may be switched off with a visible exclusion (CONFIG_DISABLED, listed in notes), never hidden |
+| **G2 coverage (no legacy loophole)** | the report doesn't show what the 99.9% covers | the readiness report shows (a) the share of root attempts and of bot-hours on **migrated, verified** adapters; (b) per legacy family: attempt count, failure rate, and that rate vs its 1.6.4 baseline. A legacy family whose failure rate is worse than baseline blocks the release | per legacy family, owner sign-off in the book, listed in the notes |
 | **G3 Content** | a golden path fails, or a fatal missing reference sits on a golden path | GP1-GP12 PASS on the RC commit; scanner shows zero fatal references on golden-path consumers | content not on a golden path may be excluded with routing (portal blocked in `map-routing.tsv`) and listed |
 | **G4 Cross-system** | a launchable incompatible combination exists, or new-player flow breaks | launcher refuses mismatched client, unsigned/old manifest (P1-L1, P1-L2); GP1 on the VM | none for the new-player flow |
 | **G5 Recovery** | unrehearsed rollback, unproven backup, failed restore | `REHEARSAL.md` **Result: PASS** bound to staged hashes incl. WZ + extra steps (P1-R1); restore drill receipt from the cycle; live backup timers green (P0-8) | none |
@@ -50,7 +51,9 @@ night playbook.
 - New switches: `-Dslums.action.authority` (on for 1.7.0) and the capability registry (read-only, always on).
 - Rollback: the previous jar plus `rollback.sh` for migrations.
 - The `LifeMemory` world data is an extra key in the v2 format, not a new version: a 1.6.4 jar would reset a v3 row
-  (`LifeMemory.java:84-93`). Proven by a rollback test (P1-A6).
+  (`LifeMemory.java:84-93`). A 1.6.4 save drops the key (world knowledge is rebuilt); seed, delta, goals and
+  events survive. Proven by the 1.7.0 -> 1.6.4 -> 1.7.0 round-trip test (P1-A6).
+- Open operation-journal rows are reconciled at boot before logins (RFC 2.9), on either version.
 - Every live step needs the owner's explicit go.
 
 ## Go / no-go

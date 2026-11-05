@@ -32,6 +32,18 @@ Strategy and corrections: [../1.7.0-stabilization.md](../1.7.0-stabilization.md)
 - Per-check QA timing already exists (`AutoQaReport.java:139`).
 - "49 blocked maps" are deliberate rows in `map-routing.tsv`, not breakage.
 
+## Review safeguards (Codex final review, Nov 5), attached to existing tickets
+
+| Finding | Where it is now |
+|---|---|
+| Cross-actor logical waits | RFC 2.10 handshake protocol (txId, both-side deadlines, idempotent answers, one outstanding handshake, TARGET_GONE); P1-A3; D6 |
+| Bounded, failure-aware compensation | RFC 2.9: COMPENSATING state, DONE/PENDING/FAILED, claims held while uncertain, operation journal + boot reconcile; P0-1, P0-2, P1-A3; D7 |
+| Parents over-reserving | RFC 2.3: parents claim only their spine, children claim per step; D3 |
+| Memory round trip | confirmed: the 1.6.4 writer drops the `world` key (`LifeMemory.save`, `:734-742`). Required 1.7.0 -> 1.6.4 -> 1.7.0 test; P1-A6; D10 |
+| VERIFIED is not availability | RFC 3.1; D11 |
+| G2 legacy loophole | E: coverage row (migrated share, legacy failure rates vs baseline); D21 |
+| Release sequence | B: Now / Foundation / Expansion / Certification phases |
+
 ## Determination
 
 **ARCHITECTURE READY: 1.7.0 implementation can begin once 1.6.4 is released and verified.**

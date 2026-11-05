@@ -69,7 +69,7 @@ There is no global registry, worker or lock. [PROPOSED]
 ```java
 // soloMapling/ArtificialPlayer/BotLifeSystem/action/
 record AttemptId(int actorId, int bootEpoch, long seq) {}      // printed "1000421-k3f-42"; unique per process run
-enum AttemptState { PROPOSED, REJECTED, ADMITTED, RUNNING, SUCCEEDED, FAILED, INTERRUPTED, TIMED_OUT }
+enum AttemptState { PROPOSED, REJECTED, ADMITTED, RUNNING, COMPENSATING, SUCCEEDED, FAILED, INTERRUPTED, TIMED_OUT }
 enum Resource { BODY, HANDS, BAG, DIALOG, PARTY }               // see 2.4
 enum Priority { SAFETY, OWNER, COMMITMENT, AUTONOMOUS }         // see 2.4
 enum Policy { AUTONOMOUS, OWNER_DIRECTED }                      // roster bot vs owned alt (2.6)
@@ -95,7 +95,7 @@ interface ActivityAdapter {                       // replaces LifeAcceptance.Exe
   void start(Attempt admitted, Steps steps);      // begins mechanics in the existing executor
   Progress poll(Attempt running, long now);       // cheap; called on the actor's own tick
   Postcondition proof(Attempt running);           // the observable success test (2.5)
-  void compensate(Attempt ending, Reason why);    // finish or roll back a transactional step before release
+  Settle compensate(Attempt ending, Reason why);  // bounded; DONE | PENDING(journalId) | FAILED(evidence), see 2.9
   ChildPolicy onChildEnd(Attempt parent, Attempt child);   // CONTINUE | RETRY | RECOVER(child) | FAIL
 }
 record Admission(boolean admitted, Reason reason, EnumSet<Resource> claims, long budgetMs, String fact) {}
@@ -116,6 +116,10 @@ on the actor's own tick thread, under the ledger's existing per-actor `Reentrant
 | PROPOSED | admit ok | - | - | - | - | - | admit refused |
 | ADMITTED | - | adapter `start` | - | start threw (EXECUTOR_ERROR) | safety/preempt | - | - |
 | RUNNING | - | - | `proof` true | adapter fail / CHILD_FAILED / NO_PROGRESS | safety, preempt, owner, parent ended | deadline passed | - |
+| COMPENSATING | - | - | - | settle FAILED (escalated, 2.9) | settle DONE after an interruption | - | - |
+
+An attempt inside a transactional step (BAG + DIALOG, or a cross-actor handshake) goes RUNNING -> COMPENSATING ->
+terminal when it has to stop. It keeps its claims until the settle result is known (2.9).
 
 Mapping from today's `LifeAcceptance.Status`:
 - ACCEPTED -> ADMITTED then RUNNING.
@@ -139,7 +143,7 @@ Every attempt, including a subtask, has its own `AttemptId`. A child carries `pa
 | Rule | Decision |
 |---|---|
 | Ownership | A parent owns its children. **At most one RUNNING child per parent**: steps are sequential. Parallel work across domains is separate root attempts (2.4), not siblings. |
-| Child state | Children use the same table. A child's claims must be a subset of the parent's: the parent claims for the whole tree at admission. Admission is atomic per tree, so a child is never refused for a claim its parent lacks. |
+| Claims (revised) | A parent claims only what it needs **continuously** for its whole life (its spine), often nothing or just PARTY for a PQ or quest. Each child claims its own resources at its own admission and releases them when it ends. Admission is atomic **per attempt**. A child refused for a busy resource ends REJECTED(BUSY), and the parent's `onChildEnd` retries with backoff or replans. A long quest or PQ therefore never holds BAG or DIALOG while walking or fighting. |
 | Child failure | The parent's adapter decides with `onChildEnd`. Structural reasons -> parent FAILED(CHILD_FAILED, cause = child reason), never retried. Transient reasons (BUSY, CONFLICT, MAP_CAPACITY, PATH_NOT_FOUND, NO_PROGRESS) -> RETRY once per step with backoff, or RECOVER by inserting a recovery child (e.g. RESTOCK when RESOURCE_SHORTAGE). The per-tree retry budget is 3, and exhausting it fails the parent. A child never ends the parent directly. |
 | Progress | Each SUCCEEDED child adds its postcondition to the parent's evidence. The **parent succeeds only on its own `proof`**: "all children succeeded" is not proof (a quest succeeds when the quest state is COMPLETED). |
 | Cancellation | Propagates down, deepest first: children are INTERRUPTED(PARENT_ENDED), then the parent ends with the original reason. Claims are released after compensation, children before parent. |
@@ -175,13 +179,13 @@ Examples:
 | Rule | Decision |
 |---|---|
 | Atomic admission | All of an actor's claims are taken in one `admit` call on that actor's tick thread under its ledger lock: all or nothing. No actor ever takes another actor's lock. |
-| Cross-actor actions (trade, invite, help) | Each side admits its **own** attempt. The initiator holds only its own claims and waits on the partner's answer within a deadline. Partner refusal or silence -> initiator FAILED(TARGET_REFUSED / TIMEOUT). This is no deadlock by construction: no cycle of held-and-wanted locks exists. |
+| Cross-actor actions (trade, invite, help) | Per-actor locks prevent lock deadlock but not *logical* waiting cycles, so cross-actor work follows a handshake protocol (2.10): transaction id, deadlines on both sides, idempotent responses, at most one outstanding handshake per actor, and recovery when one side disappears. |
 | World-shared admission | Unchanged and reused: `BotMapCap.admit`, `LifeTownSlots`, PQ lobby caps. An adapter calls them inside `admit` and maps a refusal to MAP_CAPACITY. (HOLES: the party GRIND path skips `BotMapCap.admit`; that is ticket P1-B6.) |
 | Priority and preemption | SAFETY (death, logout, shutdown, GM warp) > OWNER (an alt owner's command) > COMMITMENT (in a transaction step, or committed to a party PQ) > AUTONOMOUS. A higher class may preempt a lower one whose claims intersect: the lower attempt ends INTERRUPTED(PREEMPTED / OWNER_COMMAND). |
-| Non-preemptible sections | While an attempt is inside a BAG+DIALOG transaction step it is COMMITMENT for at most 10 s; then `compensate` runs and it ends. SAFETY never waits: compensation runs inline. |
+| Non-preemptible sections | While an attempt is inside a BAG+DIALOG transaction step it is COMMITMENT for at most 10 s; then it moves to COMPENSATING (2.9). SAFETY doesn't wait for the step to finish, but it never releases claims with an uncertain item or mesos effect either. |
 | Release order | Children first, then the parent; compensation before releasing claims; claims released in one step. |
 | Starvation | An AUTONOMOUS attempt preempted 3 times in 10 min backs off that activity for 5 min (world knowledge, not personality). Waiting requests already expire at 30 s. A world-shared cap that refuses the same actor 5 times in 10 min adds MAP_CAPACITY backoff for that map. |
-| Logout / shutdown | `close()` ends every attempt INTERRUPTED(LOGOUT / SHUTDOWN) after compensation (today it ends as CANCELLED). |
+| Logout / shutdown | `close()` moves transactional attempts to COMPENSATING and ends the rest INTERRUPTED(LOGOUT / SHUTDOWN). Today it ends them as CANCELLED. Shutdown waits for settles within its stop budget; anything still PENDING stays in the journal and is reconciled at boot (2.9). |
 | Death | `BotDeaths` -> INTERRUPTED(DIED) for all attempts. |
 | Teleport by the world (GM warp, scripted warp, catch-up) | Attempts holding BODY end INTERRUPTED(MOVED_BY_WORLD). Attempts not holding BODY continue. |
 | Owner commands (alts) | An owner order is an OWNER attempt and preempts AUTONOMOUS ones. See 2.6. |
@@ -263,6 +267,43 @@ There are two separate scenarios, and both run at L1 (unit, fake world) and at L
 
 No other activity migrates until both pass on TEST.
 
+### 2.9 Compensation and settling (transactions)
+
+- `compensate` is **bounded**: at most 2 s of work on the actor's tick per call, and it returns one of:
+  - `DONE`: the effect is certain, either committed or rolled back;
+  - `PENDING(journalId)`: not finished yet;
+  - `FAILED(evidence)`: it can't decide.
+- **Claims are never released while the item or mesos effect is uncertain.** PENDING keeps the attempt in
+  COMPENSATING with its claims held; only SAFETY attempts may run on that actor. Settling is retried on later
+  ticks.
+- Every transactional step writes an **operation journal row** before its first side effect. The row holds the
+  transaction id, actor(s), intended deltas and state (`STARTED / APPLIED / ROLLED_BACK`). The row and the effect
+  commit in one DB transaction where they share a database. This is the same mechanism P0-1 (buyback) and P0-2
+  (merchant close) introduce, so it isn't a separate system.
+- **Shutdown and logout:** settles run within the stop budget (unit `TimeoutStopSec`). Anything left PENDING stays
+  in the journal. **Boot reconciles every open journal row before players or bots log in**: it applies or rolls
+  back from the recorded deltas and logs each one.
+- `FAILED` escalates: the attempt ends FAILED(EXECUTOR_ERROR), the journal row stays open and is flagged in
+  `test-status`, and the actor is blocked from new BAG attempts until reconciled.
+- Tests: a fault after each step (buyback, merchant close, bot shop purchase, bot-to-player trade), plus a
+  shutdown during COMPENSATING, then reboot. Expect no lost or duplicated items or mesos, and the journal empty after
+  reconcile.
+
+### 2.10 Cross-actor handshakes
+
+Used for trade, gift, party/guild invites and help requests. It reuses `BotGiveTrade`'s lifecycle
+(`TRADED, DECLINED, TIMED_OUT, CANCELLED, COULD_NOT_START`) and `IntentBook` for social asks.
+
+| Rule | Decision |
+|---|---|
+| Identity | each handshake has a `txId`; both sides' attempts record it |
+| Deadlines | both sides hold their own deadline (ask: 30 s; open trade window: 90 s); either side may end on its deadline |
+| Idempotent responses | answers are keyed by `txId`; a repeated or late answer is ignored and counted |
+| One outstanding handshake per actor | while waiting on one, an actor answers new requests with BUSY. That breaks wait-for cycles longer than two |
+| Simultaneous mutual asks | the lower actor id keeps the initiator role; the other's ask is answered BUSY |
+| Partner disappears (logout, death, map change, crash) | the remaining side ends at once with TARGET_GONE (not at the deadline); any opened transaction goes through 2.9 |
+| Owner commands | an OWNER attempt may end a waiting handshake (INTERRUPTED(OWNER_COMMAND)); an open trade window settles first |
+
 ---
 
 ## 3. Capabilities and learning
@@ -287,6 +328,12 @@ CapabilityVerdict {
   observedAt
 }
 ```
+
+**Verification is not availability.** A verdict says the capability worked under stated conditions; it never says it
+is usable right now. **Availability** (the NPC is spawned, the route is open, the map has room, the shop has stock)
+is checked by the adapter at admission, every time. A failure there is a feasibility or contention reason with a
+short-lived world-knowledge entry (minutes, time-expired). It never downgrades the verdict. A verdict changes only
+through QA evidence, a scanner, or a structural failure repeated across bots (3.4).
 
 **Matching rule:**
 - A verdict applies only when every context field matches the current context. Any mismatch reads as UNVERIFIED,
@@ -359,8 +406,10 @@ revision, config fingerprint, server SHA.
    - social intents (`IntentBook`) and trades (`BotGiveTrade`) map their End values to reasons;
    - owned alts' FOLLOW, FIGHT and orders run as OWNER_DIRECTED attempts.
 4. The only save-format change is an extra `world` key in the v2 `LifeMemory` map. It is not a version bump: a
-   1.6.4 jar resets on unknown versions. A rollback test must load a 1.7.0-written row with the 1.6.4 reader and
-   keep its seed, delta and goals.
+   1.6.4 jar resets on unknown versions. The 1.6.4 *writer* builds a fresh map (`LifeMemory.save`, `:734-742`), so
+   a 1.6.4 save **drops** `world`. This is accepted, because world knowledge is rebuildable, and it is stated. Required
+   test: a full **1.7.0 -> 1.6.4 -> 1.7.0** round trip (write with 1.7.0, load and save with the 1.6.4 classes, load
+   with 1.7.0). Seed, delta, goals and events must survive unchanged; `world` comes back empty; nothing resets.
 
 ## 6. Performance constraints (3,000+ bots)
 

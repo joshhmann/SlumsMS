@@ -30,6 +30,15 @@ flowchart LR
   R1 --> CERT
 ```
 
+## Phases
+
+| Phase | Contents | Exit |
+|---|---|---|
+| Now | 1.6.4 only: release checks, owner-approved deploy, live verification, `v1.6.4` tag | 1.6.4 verified on live |
+| 1.7.0 Foundation | P1-Q1, P1-A1, P1-A2 (HELP_FRIEND slice), P0 batch incl. the operation journal | slice checks PASS on TEST; P0-1/P0-2 journal + reconcile proven |
+| 1.7.0 Expansion | P1-A3 (trees, handshakes, settling), P1-A4 alts, P1-A5, P1-A6, P1-C1, W6 repairs, P1-L1/L2 | migrated-adapter coverage reported; capability report published |
+| 1.7.0 Certification | GP1-GP12, safety fault tests, full-population 24 h soak, client compatibility, manifest verification, restore and rollback proof (incl. memory round trip) | G0-G5 green with evidence |
+
 ## Workstreams
 
 | W | Owner lane | Tickets | Measurable outcome | Done when |
