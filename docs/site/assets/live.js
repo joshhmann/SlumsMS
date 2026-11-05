@@ -22,7 +22,8 @@
    - refresh() fetch now
    - send(path, body)  a write: POST JSON with the X-Slums header (the services refuse writes without it), then a
                refresh. Resolves to the service's answer; a refusal ({ok: false, error}) lands in error.
-   It pauses while the tab is hidden and refreshes as soon as it is shown again. seconds = 0 means fetch once. */
+   It pauses while the tab is hidden and refreshes as soon as it is shown again. seconds = 0 means fetch once.
+   A panel whose URL changes with what it shows gives itself src(), which returns the URL to fetch next. */
 (function () {
   var MAX_WAIT = 300;
 
@@ -64,7 +65,7 @@
         var self = this;
         if (this.busy || this.state === "signedOut") return Promise.resolve();
         this.busy = true;
-        return fetch(url, { credentials: "same-origin", cache: "no-store" }).then(function (r) {
+        return fetch(this.src ? this.src() : url, { credentials: "same-origin", cache: "no-store" }).then(function (r) {
           if (r.status === 401) { self.state = "signedOut"; self.error = ""; return; }
           return r.json().then(function (j) {
             if (!r.ok || (j && j.ok === false)) throw new Error((j && j.error) || "The server said no (" + r.status + ").");

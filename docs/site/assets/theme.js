@@ -669,3 +669,28 @@
     });
   });
 })();
+
+/* The Slums Exchange line on Slums Street and Price check item pages (1.6.4, ticket 270): the page has a hidden
+   <p data-xc-item> for any scroll, use or etc item; the market service says which ticker trades it (or none), and the
+   line shows Buy and Sell links to that ticker on the exchange page (#s2040805-sell opens the form on Sell). */
+(function () {
+  var el = document.querySelector("[data-xc-item]");
+  if (!el || !window.fetch) return;
+  var root = el.getAttribute("data-root") || "";
+  fetch(root + "api/market/exchange/item?id=" + encodeURIComponent(el.getAttribute("data-xc-item")),
+        { credentials: "same-origin", cache: "no-store" })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (j) {
+      if (!j || !j.ticker) return;
+      var at = root + "market/exchange.html#" + j.ticker.toLowerCase();
+      el.textContent = "On the Slums Exchange: ";
+      [["Buy", "-buy", "buy"], ["Sell", "-sell", "sell"]].forEach(function (b, i) {
+        if (i) el.appendChild(document.createTextNode(" \u00b7 "));
+        var a = document.createElement("a");
+        a.href = at + b[1]; a.className = "xc-onex-" + b[2]; a.textContent = b[0];
+        el.appendChild(a);
+      });
+      el.hidden = false;
+    })
+    .catch(function () { /* no exchange line */ });
+})();

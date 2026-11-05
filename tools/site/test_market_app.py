@@ -101,6 +101,23 @@ class NxHttpTest(old.Base):
         self.assertEqual(r.headers["Cache-Control"], "no-store")
         return r.status_code, json.loads(r.get_data() or b"null")
 
+    def test_the_book_takes_a_ticker_and_an_item_finds_its_ticker(self):
+        import exchange_desk as xd
+        import test_exchange_desk as txd
+        scroll = {"id": "S2040805", "name": "Scroll for Gloves for ATT 60%", "item_id": 2040805, "category": "scroll",
+                  "bids": [{"price": 5, "qty": 1, "orders": 1}], "asks": [], "trades": []}
+        ms.write_atomic(os.path.join(self.store.outbox, xd.TICKERS),
+                        dict(txd.TICKERS, tickers=txd.TICKERS["tickers"] + [scroll]))
+        st, b = self.call("GET", "book")
+        self.assertEqual((st, "bids" in b["tickers"][-1]), (200, False))
+        st, b = self.call("GET", "book?ticker=S2040805")
+        self.assertEqual(b["tickers"][-1]["bids"], scroll["bids"])
+        self.assertEqual(self.call("GET", "item?id=2040805")[1]["ticker"], "S2040805")
+        self.assertEqual(self.call("GET", "item?id=4001126")[1]["ticker"], "LEAF")
+        self.assertEqual(self.call("GET", "item?id=x")[0], 400)
+        closed = market_app.create_app(self.sessions, self.store).test_client()
+        self.assertEqual(self.call("GET", "item?id=2040805", client=closed), (200, {"ok": True, "ticker": None}))
+
     def test_with_the_desk_off_the_nx_urls_are_404(self):
         # 1.6.2 (the default): the NX tab is the order book and these URLs don't exist
         offline = market_app.create_app(self.sessions, self.store, exchange=True).test_client()

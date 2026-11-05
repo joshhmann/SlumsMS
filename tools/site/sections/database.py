@@ -307,6 +307,15 @@ def item_stats(it, ident):
     return rows
 
 
+def exchange_line(it, ident):
+    """A hidden line theme.js fills with Buy and Sell links when the Slums Exchange trades the item (1.6.4, ticket 270:
+    scrolls, use and etc items; the game decides which, so the page asks it). Untradeable and cash items never trade."""
+    st = it.get("stats") or {}
+    if not (2000000 <= ident < 3000000 or 4000000 <= ident < 5000000) or st.get("tradeBlock") or st.get("cash"):
+        return ""
+    return f'<p class="xc-onex" data-xc-item="{ident}" data-root="{{root}}" hidden></p>'
+
+
 def build_items(s):
     d = s.d
     for ident, it in d["items"].items():
@@ -314,7 +323,8 @@ def build_items(s):
         root = "../../"
         slug_, label = TYPE_PAGE.get(it["type"], ("etc", it["type"]))
         head = (f'<div class="ent">{s.icon("items", ident, "{root}", big=True)}<div><h1>{esc(it["name"])}</h1>'
-                f'<p class="id">Item {ident} &middot; {esc(item_kind(it, ident))} {chips(it)}</p></div></div>')
+                f'<p class="id">Item {ident} &middot; {esc(item_kind(it, ident))} {chips(it)}</p>{exchange_line(it, ident)}'
+                '</div></div>')
         desc = clean_desc(scrub(it.get("desc") or ""))
         intro = f'<p class="desc">{"<br>".join(esc(line) for line in desc)}</p>' if desc else ""
         drops = sorted(it["drops"], key=lambda x: -x.get("chance", 0))

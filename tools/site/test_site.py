@@ -955,6 +955,31 @@ console.log(JSON.stringify(out));""")
         self.assertIn("self.staleGame = !!(a.data && a.data.game)", js)
         self.assertIn("The game restarted since you signed in", js)
 
+    def test_the_exchange_lists_catalog_items_in_a_browser_and_item_pages_link_to_them(self):
+        # ticket 270 (1.6.4): ~700 item tickers go in a searchable list, not the tab strip
+        from sections import database, market
+        tmp = tempfile.mkdtemp()
+        try:
+            market.NX_DESK = "off"
+            market.build_exchange(market.Market(market.load(self.market), {}, tmp))
+            with open(os.path.join(tmp, "market", "exchange.html"), encoding="utf-8") as f:
+                flat = " ".join(f.read().split())
+        finally:
+            market.NX_DESK = None
+            shutil.rmtree(tmp)
+        self.assertIn('<template x-for="t in tabs" :key="t.id"> <button type="button" class="xc-tk"', flat)
+        self.assertIn('class="xc-p xc-browse" style="grid-area: browse" x-show="hasCatalog"', flat, "hidden without a catalog")
+        for bit in ('x-model.debounce.200ms="q"', '<template x-for="t in page"', "trade(t.id, 'SELL')", "shown += 40"):
+            self.assertIn(bit, flat)
+        self.assertIn("log out of the game first, or sell while you're playing that character", flat)
+        self.assertNotIn("so it needs the character logged in", flat)
+        line = database.exchange_line
+        self.assertIn('data-xc-item="2040805"', line({"stats": {}}, 2040805))
+        self.assertIn('data-xc-item="4000021"', line({"stats": {}}, 4000021))
+        self.assertEqual(line({"stats": {"tradeBlock": 1}}, 2040805), "", "untradeable never trades")
+        self.assertEqual(line({"stats": {"cash": 1}}, 5000000), "")
+        self.assertEqual(line({"stats": {}}, 1302000), "", "equipment isn't in the catalog")
+
     def test_the_nx_tab_is_a_quote_panel_when_the_desk_runs(self):
         # 1.6.3 s44 (ticket 162): with the NX desk on, the NX tab is SlumsBank's quote panel; off, 1.6.2's order book
         from sections import market
@@ -982,7 +1007,7 @@ console.log(JSON.stringify(out));""")
                 # no longer talk about NX; off, 1.6.2's lines stay
                 self.assertEqual("NX desk:</b> trades straight away at its own buy and sell price" in flat, want, mode)
                 self.assertEqual("sells at half of it or more, buys at twice it or less" in flat, not want, mode)
-                self.assertEqual("list.filter(function (t) { return t.id !== 'NX'; })" in flat, want, mode)
+                self.assertEqual("tabs.filter(function (t) { return t.id !== 'NX'; })" in flat, want, mode)
                 if want:  # the item panels step aside on the desk's tab; the desk panels show only there
                     self.assertEqual(flat.count("""x-show="$store.xc.tk !== 'NX'">"""), 4, (mode, "item panels"))
                     self.assertEqual(flat.count("$store.xc.tk !== 'NX'"), 7, (mode, "candles, depth, book, trades, form"))

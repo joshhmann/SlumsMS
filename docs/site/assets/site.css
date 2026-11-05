@@ -432,6 +432,9 @@ table.t { width: 100%; border-collapse: collapse; }
 .crumbs { margin: 0; font: 500 .78rem var(--f-mono); color: var(--muted); }
 .crumbs a { color: var(--muted); }
 .id { margin: 2px 0 0; font: 500 .8rem var(--f-mono); color: var(--muted); }
+/* the Slums Exchange line on an item page (theme.js fills it when the exchange trades the item; ticket 270) */
+.xc-onex { margin: 4px 0 0; font: 600 .84rem var(--f-body); }
+.xc-onex a { font-weight: 800; } .xc-onex .xc-onex-buy { color: var(--up-fill, #1f9d55); } .xc-onex .xc-onex-sell { color: #d0393e; }
 .muted { color: var(--muted); }
 .desc { margin: 0; max-width: 70ch; color: var(--muted); }
 .ent { display: flex; gap: 18px; align-items: center; }
@@ -727,8 +730,8 @@ table.t { width: 100%; border-collapse: collapse; }
   color-scheme: dark; background: var(--xc-bg); color: var(--xc-ink); border: var(--border) solid var(--edge);
   border-radius: var(--radius); padding: 12px; display: grid; gap: 12px; min-width: 0;
   grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
-  grid-template-areas: "alert alert" "tabs tabs" "tick tick" "chart form" "chart book" "depth book" "trades book"
-    "orders orders" "rules rules"; }
+  grid-template-areas: "alert alert" "tabs tabs" "browse browse" "tick tick" "chart form" "chart book" "depth book"
+    "trades book" "orders orders" "rules rules"; }
 /* w08 (1.6.2): the order form at the top right with the book under it, each only as tall as it is (no empty boxes) */
 .xc-term .xc-form, .xc-term .xc-bookp { align-self: start; }
 .xc-c { display: contents; }
@@ -799,6 +802,23 @@ table.t { width: 100%; border-collapse: collapse; }
 .xc-book tr.mid td { text-align: center; padding: 7px 8px; } .xc-book tr.mid b { font-size: 1rem; }
 .xc-book tr.mid span { color: var(--xc-muted); font-size: .74rem; margin-left: 8px; }
 .xc-scroll { overflow-x: auto; }
+/* the item browser (1.6.4, ticket 270): about 700 item tickers by category and search, a page at a time */
+.xc-filters { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin: 0 0 10px; }
+.xc-filters .xc-tabs { flex-wrap: wrap; }
+.xc-search { flex: 1 1 200px; min-width: 0; } .xc-sort { font-size: .8rem; color: var(--xc-muted); }
+.xc-search input, .xc-sort select { width: 100%; font: 500 .86rem var(--f-body); padding: 6px 10px; border-radius: 6px;
+  border: 1px solid var(--xc-line); background: var(--xc-bg); color: var(--xc-ink); box-sizing: border-box; }
+.xc-sort select { width: auto; margin-left: 6px; }
+.xc-items { max-height: 340px; overflow-y: auto; }
+.xc-itemlist td { padding: 3px 6px; } .xc-itemlist img { image-rendering: pixelated; object-fit: contain; display: block; }
+.xc-itemlist tr.on td { background: var(--xc-up-bg); }
+.xc-itemlist td:nth-child(2) { text-align: left; width: 100%; }
+.xc-name { all: unset; cursor: pointer; font: 600 .84rem var(--f-body); color: var(--xc-ink); }
+.xc-name:hover, .xc-name:focus-visible { text-decoration: underline; color: var(--xc-sun); }
+.xc-rowgo { white-space: nowrap; } .xc-rowgo button { font: 800 .72rem var(--f-body); padding: 3px 9px; border-radius: 4px;
+  cursor: pointer; border: 1px solid; background: transparent; }
+.xc-rowgo .buy { color: var(--xc-up); border-color: var(--xc-up); } .xc-rowgo .sell { color: var(--xc-down); border-color: var(--xc-down); }
+.xc-rowgo .buy:hover { background: var(--xc-up); color: #06140c; } .xc-rowgo .sell:hover { background: var(--xc-down); color: #1c0607; }
 .xc-mine { min-width: 620px; }
 .xc-form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; }
 .xc-form h2 { flex-basis: 100%; margin: 0; }
@@ -841,7 +861,7 @@ table.t { width: 100%; border-collapse: collapse; }
 /* The NX desk (1.6.3, ticket 162: exchange.html with the desk on, exchange.js xdesk). The NX tab keeps its place in
    the strip; exchange.js puts .xc-nx on the term while that tab is picked, and its four panels take their own grid
    areas. The item tabs keep the plain .xc-term grid and their book, candles, depth and order form. */
-.xc-term.xc-nx { grid-template-areas: "alert alert" "tabs tabs" "nxq nxform" "nxchart nxform" "nxme nxme"
+.xc-term.xc-nx { grid-template-areas: "alert alert" "tabs tabs" "browse browse" "nxq nxform" "nxchart nxform" "nxme nxme"
   "orders orders" "rules rules"; }
 .xc-term .xc-deskform { align-self: start; }
 .xc-deskp { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; margin: 0 0 10px; }
@@ -860,13 +880,14 @@ table.t { width: 100%; border-collapse: collapse; }
 .xc-deskcap { fill: var(--xc-sun); opacity: .1; }
 .xc-deskband { fill: var(--xc-fair); opacity: .16; }
 @media (max-width: 900px) {
-  .xc-term.xc-nx { grid-template-areas: "alert" "tabs" "nxq" "nxform" "nxchart" "nxme" "orders" "rules"; }
+  .xc-term.xc-nx { grid-template-areas: "alert" "tabs" "browse" "nxq" "nxform" "nxchart" "nxme" "orders" "rules"; }
   .xc-deskp { grid-template-columns: minmax(0, 1fr); }  /* phone: the two prices stack */
   .xc-deskbook { font-size: .78rem; }
 }
 @media (max-width: 900px) {
   .xc-term { grid-template-columns: minmax(0, 1fr); padding: 8px;
-    grid-template-areas: "alert" "tabs" "tick" "chart" "book" "form" "orders" "depth" "trades" "rules"; }
+    grid-template-areas: "alert" "tabs" "browse" "tick" "chart" "book" "form" "orders" "depth" "trades" "rules"; }
+  .xc-itemlist th:nth-child(5), .xc-itemlist td:nth-child(5), .xc-itemlist th:nth-child(6), .xc-itemlist td:nth-child(6) { display: none; }
 }
 /* the NX ticker in the Megaphone (ticker.js): signed-in players see the exchange's price */
 .rail .xtick b { color: var(--on-rail); } .rail .xtick .up { color: var(--up-fill); } .rail .xtick .down { color: #ff7b7f; }

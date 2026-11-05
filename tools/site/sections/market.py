@@ -23,7 +23,7 @@ import common
 import exchange_desk
 from common import REPO, esc, layout, strf, write
 from sections import buddy
-from sections.database import fallback_icon, scrub
+from sections.database import exchange_line, fallback_icon, scrub
 
 MARKET = "market"
 DEFAULT_DIR = os.environ.get("SLUMS_MARKET_DATA", os.path.join(REPO, "cache", "market-sample"))
@@ -533,7 +533,7 @@ def build_prices(mk):
                 f'<div class="ent">{mk.icon(item_id, "{root}", big=True)}<div><h1>{esc(name)}</h1>'
                 f'<p class="id">Price check &middot; last {len(hist)} days'
                 + (f' &middot; <a href="{{root}}database/items/{item_id}.html">Slums Street page</a>' if item_id in mk.db["items"] else "")
-                + '</p></div></div>'
+                + '</p>' + (exchange_line(mk.db["items"][item_id], item_id) if item_id in mk.db["items"] else "") + '</div></div>'
                 f'<div class="mkstats"><div class="hot"><small>Median{on}</small><b>{median}</b><span>mesos</span></div>'
                 f'<div><small>Lowest and highest sale{on}</small><b>{rng}</b><span>mesos</span></div>'
                 f'<div><small>{st["span"]}-day change</small><b>{change(st["first"], st["median"]) or "-"}</b><span>median vs {st["span"]} days ago</span></div>'
@@ -724,10 +724,30 @@ update: the patch notes will say when.</p>
 <p class="xc-alert" x-show="state === 'ok' && !list.length" x-cloak>The exchange isn't open on this server yet.</p>
 <template x-for="e in events" :key="e.id"><p class="xc-alert xc-event" @click="e.ticker && pick(e.ticker)"><b>Market event:</b>
 <span x-text="eventText(e)"></span></p></template></div>
-<nav class="xc-tabsbar" style="grid-area: tabs" aria-label="Tickers"><template x-for="t in list" :key="t.id">
+<nav class="xc-tabsbar" style="grid-area: tabs" aria-label="Tickers"><template x-for="t in tabs" :key="t.id">
 <button type="button" class="xc-tk" :class="cur && cur.id === t.id && 'on'" @click="pick(t.id)" :aria-pressed="cur && cur.id === t.id">
 <img :src="icon(t)" alt="" width="22" height="22" loading="lazy"><b x-text="label(t)"></b>
 <span x-text="short(t.last)"></span><small :class="dirOf(t.change_24h_pct)" x-text="pct(t.change_24h_pct)"></small></button></template></nav>
+<section class="xc-p xc-browse" style="grid-area: browse" x-show="hasCatalog" x-cloak><h2>Items
+<small x-text="count('all') + ' to trade'"></small></h2>
+<div class="xc-filters"><div class="xc-tabs" role="group" aria-label="Category"><template x-for="c in cats" :key="c[0]">
+<button type="button" :class="cat === c[0] && 'on'" @click="cat = c[0]" :aria-pressed="cat === c[0]" x-text="c[1] + ' ' + count(c[0])"></button></template></div>
+<label class="xc-search"><span class="vh">Search items</span><input type="search" x-model.debounce.200ms="q" placeholder="Search: name or item id" maxlength="60"></label>
+<label class="xc-sort">Sort <select x-model="sort"><option value="volume">Most traded</option><option value="move">Biggest move</option>
+<option value="price">Highest price</option><option value="name">Name</option></select></label></div>
+<div class="xc-scroll xc-items"><table class="xc-book xc-itemlist"><thead><tr><th></th><th>Item</th><th>Price</th><th>24h</th><th>Bid</th><th>Ask</th><th></th></tr></thead>
+<tbody><template x-for="t in page" :key="t.id"><tr :class="cur && cur.id === t.id && 'on'">
+<td><img :src="icon(t)" alt="" width="22" height="22" loading="lazy"></td>
+<td><button type="button" class="xc-name" @click="pick(t.id)" x-text="t.name"></button></td>
+<td x-text="fmt(priceOf(t))"></td><td :class="dirOf(t.change_24h_pct)" x-text="pct(t.change_24h_pct)"></td>
+<td class="up" x-text="fmt(t.bid)"></td><td class="down" x-text="fmt(t.ask)"></td>
+<td class="xc-rowgo"><button type="button" class="buy" @click="trade(t.id, 'BUY')">Buy</button>
+<button type="button" class="sell" @click="trade(t.id, 'SELL')">Sell</button></td></tr></template></tbody></table></div>
+<p class="xc-note" x-show="!found.length">No item matches that. Try another word, or All items.</p>
+<p class="xc-note" x-show="found.length > shown"><button type="button" class="xc-ghost" @click="shown += 40"
+x-text="'Show more (' + (found.length - shown) + ' left)'"></button></p>
+<p class="xc-note">Price is the last trade, else the best ask, bid or fair value. An item with no price yet still
+takes orders: set yours.</p></section>
 <header class="xc-tick" style="grid-area: tick" x-show="cur && cur.id !== 'NX'" x-cloak>
 <div class="xc-sym"><img :src="icon(cur)" alt="" width="36" height="36"><div><b x-text="label(cur)"></b>
 <span x-text="cur && cur.name"></span></div></div>
@@ -775,7 +795,9 @@ is the fair value: what the game's own drops and sinks say it's worth. It's a gu
 <section class="xc-p xc-rules" style="grid-area: rules"><details class="help"><summary>Fees and limits</summary><ul>
 <li><b>Fee:</b> <span x-text="feePct()"></span> of the mesos, paid by each side. A seller gets the mesos less the fee;
 a buyer pays the mesos plus the fee (set aside when the order is placed; what isn't used comes back).</li>
-<template x-for="t in list" :key="t.id"><li><b x-text="t.name + ':'"></b> <span x-text="sizeRule(t)"></span></li></template>
+<template x-for="t in tabs" :key="t.id"><li><b x-text="t.name + ':'"></b> <span x-text="sizeRule(t)"></span></li></template>
+<li x-show="hasCatalog"><b>Items:</b> scrolls 1 per order, 3 open and 10 new orders a day each; use items and etc
+items by the stack. Pick an item to see its own limits in the order form.</li>
 <li x-show="list.some(function (t) { return t.unit === 'item'; })">Only tradeable copies of an item can be sold: not
 untradeable, locked, expiring or cash items.</li>
 <li><b>Limits:</b> <span x-text="limitRule()"></span></li>
@@ -804,8 +826,8 @@ to trade.</p>
 <label>Character <select x-model="character"><template x-for="c in (data && data.characters) || []" :key="c">
 <option :value="c" x-text="c"></option></template></select></label>
 <p class="xc-note" x-text="estimate()"></p>
-<p class="xc-note" x-show="isItem">Selling items takes them out of that character's bags, so it needs the character
-logged in to the game. Items you buy go into its bags the next time it's in game (make room).</p>
+<p class="xc-note" x-show="isItem">Selling takes the items out of that character's bags: log out of the game first,
+or sell while you're playing that character. Items you buy go into its bags the next time it's in game (make room).</p>
 <button class="xc-go" :class="side === 'BUY' ? 'buy' : 'sell'" type="submit" :disabled="busy" x-text="'Preview ' + (side === 'BUY' ? 'buy' : 'sell')"></button>
 <p class="xc-msg" :class="msgClass" role="status" aria-live="polite" x-text="msg"></p>
 <div class="xc-preview" x-show="pv" x-cloak>
@@ -996,8 +1018,8 @@ RULES_FEE = """<li><b>Fee:</b> <span x-text="feePct()"></span> of the mesos, pai
 DESK_FEE = """<li><b>NX desk:</b> trades straight away at its own buy and sell price, 100 NX or more, any whole number; no
 fee: the gap between the two prices is the cost. Nothing waits in a book.</li>
 <li><b>Fee (items):</b> <span x-text="feePct()"></span> of the mesos, paid by each side."""
-RULES_LIST = '''<template x-for="t in list" :key="t.id"><li><b x-text="t.name + ':'"></b> <span x-text="sizeRule(t)">'''
-DESK_LIST = ('''<template x-for="t in list.filter(function (t) { return t.id !== 'NX'; })" :key="t.id"><li>'''
+RULES_LIST = '''<template x-for="t in tabs" :key="t.id"><li><b x-text="t.name + ':'"></b> <span x-text="sizeRule(t)">'''
+DESK_LIST = ('''<template x-for="t in tabs.filter(function (t) { return t.id !== 'NX'; })" :key="t.id"><li>'''
              '''<b x-text="t.name + ':'"></b> <span x-text="sizeRule(t)">''')
 RULES_SAFETY = """empty your account. NX prices stay near the official rate: sells at half of it or more, buys at twice it or less.
 Prices are per NX. Until players have set an official rate, NX counts as 5,000 mesos per NX (the NX merchants'

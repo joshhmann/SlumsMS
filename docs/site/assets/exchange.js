@@ -1,7 +1,11 @@
-/* The exchange page (market/exchange.html): a trading screen for every ticker (NX, LEAF, CHAOS, WS, ELIXIR), on Alpine
-   and live.js. The picked ticker lives in Alpine.store("xc") and the page's #hash (exchange.html#leaf).
-   - xbook: the ticker tabs, the ticker header, candles (api/market/exchange/history, 30 days of hours), depth, the book
-     and the last trades (api/market/exchange/book every 10 s).
+/* The exchange page (market/exchange.html): a trading screen for every ticker (NX, LEAF, CHAOS, WS, ELIXIR and, from
+   1.6.4, the item catalog: ticket 270, about 700 scroll, use and etc tickers, ids S/U/E + the item id), on Alpine and
+   live.js. The picked ticker lives in Alpine.store("xc") and the page's #hash (exchange.html#leaf, #s2040805, and
+   #s2040805-sell to open the form on Sell: the item pages link there).
+   - xbook: the ticker tabs (the 1.6.3 tickers, plus a catalog item while it is picked), the item browser (category,
+     search, sort, Buy and Sell per item), the ticker header, candles (api/market/exchange/history, 30 days of hours),
+     depth, the book and the last trades (api/market/exchange/book every 10 s; a catalog item's depth and trades come
+     only with ?ticker=, so the refresh stays small).
    - xmine: the order form (preview, then confirm with the 60 s token) and my orders with cancel (.../me).
    A write is a request to the game (exchange_desk.py): POST it, get {id}, then ask answer/<id> until the game answers.
    Units come from the desk (unit, unit_label, per): NX is priced per NX (the game's per 1,000 NX, converted by
@@ -20,6 +24,9 @@
   // for a plain Elixir, so the Power Elixir ticker shows as PELIXIR). The id itself never changes: it is the game's
   // file name, the API's ?ticker=, the order's ticker and the item's rule.
   var TICKER_LABEL = { ELIXIR: "PELIXIR" };
+  var CATALOG = /^[SUE][0-9]{7}$/;  // the item catalog's ids (exchange_desk.py CATALOG)
+  var CATS = [["all", "All items"], ["scroll", "Scrolls"], ["use", "Use"], ["etc", "Etc"]];
+  var PAGE = 40;  // the item browser shows this many rows, then "Show more"
   function label(t) {  // a ticker object, or a bare id
     var id = typeof t === "string" ? t : t && t.id;
     return (id && TICKER_LABEL[id]) || id || "";
@@ -49,7 +56,13 @@
     HALTED: "The exchange is paused by a GM right now.",
     UNAVAILABLE: "The exchange isn't running right now. Try again later.",
     LOG_OUT_FIRST: "You're logged in to the game on another character. Pick the one you're playing, or log out first.",
-    LOG_IN_FIRST: "To sell items, log in to the game on that character first: the items come out of its bags.",
+    // the game sells items from a logged-out character's bags (1.6.4, -Dslums.exchange.siteItems); a server with that
+    // off still answers LOG_IN_FIRST
+    LOG_IN_FIRST: "This server sells items only from in game: log in on that character first, the items come out of its bags.",
+    ITEMS_CAP: function (a) {
+      return "Item sells are capped per account per day" + (a.message ? " (" + a.message.replace(/^item sells are capped at /, "") + ")" : "")
+        + ". Sell less, or try again after midnight UTC.";
+    },
     INSUFFICIENT_FUNDS: "Not enough to cover it: mesos on that character, NX on your account, or tradeable items in its bags.",
     NOT_OWNER: "That character isn't on your account.",
     NOT_FOUND: "That order wasn't found (it may have already closed).",
@@ -169,24 +182,67 @@
       fmt: fmt, short: short, when: when, clock: clock, pct: pct, dirOf: dirOf, icon: icon, label: label,
       range: "3d", ranges: [["24h", DAY], ["3d", 3 * DAY], ["7d", 7 * DAY], ["30d", 30 * DAY]],
       candles: [], candlesFor: "",
+      cats: CATS, cat: "all", q: "", sort: "volume", shown: PAGE,
+      src: function () {  // live.js: a picked catalog item asks for its own depth and trades
+        var tk = store().tk;
+        return API + "book" + (CATALOG.test(tk) ? "?ticker=" + encodeURIComponent(tk) : "");
+      },
       init: function () {
         var self = this;
         init.call(this);
         this.$watch("data", function () { self.sync(); });
-        this.$watch("$store.xc.tk", function () { self.sync(); self.loadHistory(); });
+        this.$watch("$store.xc.tk", function (tk) {
+          self.sync(); self.loadHistory();
+          if (CATALOG.test(tk) && !(self.cur && self.cur.id === tk && self.cur.bids)) self.refresh();
+        });
+        ["cat", "q", "sort"].forEach(function (k) { self.$watch(k, function () { self.shown = PAGE; }); });
         window.addEventListener("hashchange", function () { self.pickFromHash(); });
         this.pickFromHash();
         this.loadHistory();
         this.histTimer = setInterval(function () { if (!document.hidden) self.loadHistory(); }, 60000);
       },
       pickFromHash: function () {
-        var h = (location.hash || "").replace("#", "").toUpperCase();
-        if (/^[A-Z]{1,8}$/.test(h)) store().tk = h;
+        var m = /^([A-Z0-9]{1,8})(?:-(BUY|SELL))?$/.exec((location.hash || "").replace("#", "").toUpperCase());
+        if (!m) return;
+        store().tk = m[1];
+        if (m[2]) store().ask = { side: m[2] };
       },
       pick: function (id) {
         store().tk = id;
         try { history.replaceState(null, "", id === "NX" ? location.pathname : "#" + id.toLowerCase()); } catch (e) { /* fine */ }
       },
+      trade: function (id, side) {  // an item row's Buy or Sell: pick it and open the form on that side
+        this.pick(id);
+        store().ask = { side: side };
+        var form = document.querySelector(".xc-form");
+        if (form && form.scrollIntoView) setTimeout(function () { form.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50);
+      },
+      // the item browser: the item tickers (the catalog and the 1.6.3 scroll and use books), by category and search
+      get items() {
+        return this.list.filter(function (t) { return t.category === "scroll" || t.category === "use" || t.category === "etc"; });
+      },
+      get hasCatalog() { return this.list.some(function (t) { return CATALOG.test(t.id); }); },
+      count: function (cat) { return cat === "all" ? this.items.length : this.items.filter(function (t) { return t.category === cat; }).length; },
+      get found() {
+        var cat = this.cat, q = this.q.trim().toLowerCase(), sort = this.sort;
+        var rows = this.items.filter(function (t) {
+          if (cat !== "all" && t.category !== cat) return false;
+          if (!q) return true;
+          return (t.name || "").toLowerCase().indexOf(q) >= 0 || t.id.toLowerCase() === q || String(t.item_id || "") === q;
+        });
+        var key = {
+          volume: function (t) { return -((t.turnover_24h || 0) * 1e6 + (t.fills_24h || 0)); },
+          move: function (t) { return -Math.abs(t.change_24h_pct || 0); },
+          price: function (t) { return -(t.last || t.ask || t.bid || t.fair || 0); },
+          name: null
+        }[sort];
+        return rows.slice().sort(function (a, b) {
+          var d = key ? key(a) - key(b) : 0;
+          return d || (a.name || a.id).localeCompare(b.name || b.id);
+        });
+      },
+      get page() { return this.found.slice(0, this.shown); },
+      priceOf: function (t) { return t.last || t.ask || t.bid || t.fair || null; },
       sync: function () {  // share the picked ticker's rules and the limits with the order form
         store().closed = !!(this.data && this.data.open === false);  // switched off on this server (b063)
         if (this.data && this.data.open === true) openLines();
@@ -200,6 +256,10 @@
           .then(function (r) { return r.ok ? r.json() : null; })
           .then(function (j) { if (j && j.ok && j.ticker === store().tk) { self.candles = j.candles || []; self.candlesFor = j.ticker; } })
           .catch(function () { /* keep what we had */ });
+      },
+      get tabs() {  // the 1.6.3 tickers, and a catalog item while it is the one picked (the browser lists the rest)
+        var tk = store().tk;
+        return this.list.filter(function (t) { return !CATALOG.test(t.id) || t.id === tk; });
       },
       get list() {  // with the desk on, the NX tab is SlumsBank's quote panel (xdesk) and has no book: NX comes first
         var ts = ((this.data && this.data.tickers) || []).filter(function (t) { return !DESK || t.id !== "NX"; });
@@ -368,6 +428,9 @@
           if (d && d.characters && d.characters.indexOf(self.character) < 0) self.character = d.characters[0] || "";
           if (d && d.waiting && d.waiting.some(function (w) { return w.type === "mine"; })) setTimeout(function () { self.refresh(); }, 2500);
         });
+        // an item row's Buy or Sell, or #s2040805-sell from an item page (a new object every time, so it always fires)
+        this.$watch("$store.xc.ask", function (a) { if (a && a.side) { self.side = a.side; self.pv = null; self.msg = ""; } });
+        if (store().ask && store().ask.side) this.side = store().ask.side;
         this.$watch("$store.xc.meta", function (m, old) {
           if (old && m && m.id === old.id) return;  // the same ticker refreshed: keep what the player typed
           self.pv = null; self.msg = ""; self.price = null; self.qty = self.lot();
@@ -786,7 +849,7 @@
   }
 
   document.addEventListener("alpine:init", function () {
-    window.Alpine.store("xc", { tk: "NX", meta: null, limits: null, closed: false, desk: null });
+    window.Alpine.store("xc", { tk: "NX", meta: null, limits: null, closed: false, desk: null, ask: null });
     window.Alpine.data("xbook", xbook);
     window.Alpine.data("xmine", xmine);
     window.Alpine.data("xdesk", xdesk);

@@ -116,6 +116,7 @@ def closed_routes():
         "ok": True, "open": False, "tickers": [], "halted": False, "generated_at": None, "limits": xd.DEFAULT_LIMITS,
         "events": [], "rules": xd.RULES}), methods=["GET"])
     bp.add_url_rule("/me", "me", lambda: reply(200, {"ok": True, "open": False}), methods=["GET"])
+    bp.add_url_rule("/item", "item", lambda: reply(200, {"ok": True, "ticker": None}), methods=["GET"])
     bp.add_url_rule("/history", "history", closed, methods=["GET"])
     bp.add_url_rule("/answer/<rid>", "answer", closed, methods=["GET"])
     for path in ("preview", "confirm", "cancel", "refresh"):
@@ -139,7 +140,9 @@ def exchange_routes(store, desk):
             store.rate(g.session["a"])
             return reply(200, dict(fn(g.session, body), ok=True))
 
-    bp.add_url_rule("/book", "book", lambda: read(lambda: dict(desk.book(), open=True)), methods=["GET"])
+    bp.add_url_rule("/book", "book", lambda: read(lambda: dict(desk.book(request.args.get("ticker")), open=True)),
+                    methods=["GET"])
+    bp.add_url_rule("/item", "item", lambda: read(lambda: desk.item(request.args.get("id"))), methods=["GET"])
     bp.add_url_rule("/me", "me", lambda: read(lambda: desk.me(g.session, characters(g.session))), methods=["GET"])
     bp.add_url_rule("/history", "history", lambda: read(lambda: desk.history(request.args.get("ticker"))),
                     methods=["GET"])

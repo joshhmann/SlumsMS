@@ -19,6 +19,8 @@ orders need a sign-in at most 12 h old, like /admin/. Older, the site answers 40
 every request also carries "siteAuthAt", the session's sign-in time in epoch ms, so the game refuses it too (REAUTH).
 
     GET  /api/market/exchange/book          every ticker: its rules, book, rate, 24 h numbers and last trades
+                                            ?ticker=S2040805  a catalog item's book and trades too (below)
+    GET  /api/market/exchange/item          ?id=2040805  the ticker that trades that item, or null
     GET  /api/market/exchange/history       ?ticker=LEAF  that ticker's hourly candles (30 days)
     GET  /api/market/exchange/me            my characters, my orders (the game's last "mine" answer), my open requests
     GET  /api/market/exchange/answer/<id>   {pending: true} or {answer: {ok, code, message, data}}
@@ -38,6 +40,7 @@ import datetime
 import json
 import math
 import os
+import re
 import secrets
 
 from market_service import Refused, characters, epoch, iso, rows_of, write_atomic
@@ -248,7 +251,13 @@ class Mock:
         return None
 
 
-META = tuple(NX) + ("max_open", "per_day", "expiry_hours", "fair", "bid", "ask", "last", "change_24h", "change_24h_pct", "high_24h", "low_24h", "volume_24h",
+# The exchange item catalog (1.6.4, ticket 270) opens 706 item tickers, ids S/U/E + the 7-digit item id. The game
+# writes 10 levels a side and 20 trades for each, which would make every 10 s refresh of the page about 1.5 MB, so
+# /book sends a catalog ticker's numbers but its depth and trades only when the page asks for that ticker.
+CATALOG = re.compile(r"^[SUE][0-9]{7}$")
+DEPTH = ("bids", "asks", "trades")
+
+META = tuple(NX) + ("category", "max_open", "per_day", "expiry_hours", "fair", "bid", "ask", "last", "change_24h", "change_24h_pct", "high_24h", "low_24h", "volume_24h",
                     "turnover_24h", "fills_24h", "rate", "bids", "asks", "trades")
 
 SCHEMA = """
@@ -407,12 +416,27 @@ class Desk:
                 return t
         raise Refused("Pick a ticker from the list.")
 
-    def book(self):
+    def book(self, ticker=None):
         rows, halted, at = self.tickers()
+        want = ticker.strip().upper() if isinstance(ticker, str) else None
+        rows = [t if not CATALOG.match(t["id"]) or t["id"] == want else {k: v for k, v in t.items() if k not in DEPTH}
+                for t in rows]
         # the game's limits when it publishes them, else the defaults (the owner may raise them: 2026-10-28)
         limits = dict(DEFAULT_LIMITS, **self.limits)
         return {"tickers": rows, "halted": halted, "generated_at": at, "limits": limits, "events": self.events,
                 "rules": RULES}
+
+    def item(self, raw):
+        """{ticker, name} of the ticker that trades item `raw` (for the Slums Street and market item pages), else
+        ticker None. The legacy books win: 4001126 is LEAF, not E4001126."""
+        try:
+            item_id = int(str(raw).strip())
+        except (TypeError, ValueError):
+            raise Refused("Give an item id.")
+        for t in self.tickers()[0]:
+            if t.get("item_id") == item_id:
+                return {"ticker": t["id"], "name": t.get("name"), "category": t.get("category")}
+        return {"ticker": None}
 
     def history(self, raw):
         t = self.ticker(raw)

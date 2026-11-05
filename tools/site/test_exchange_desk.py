@@ -222,6 +222,27 @@ class DeskTest(old.Base):
         self.assertEqual(b["events"], [{"id": "rush-1", "name": "Leaf Rush", "ticker": "LEAF",
                                         "ends_at": "2026-10-29T01:00:00Z"}], "announced events, the four fields only")
 
+    def test_catalog_tickers_come_without_depth_unless_asked_for(self):
+        # ticket 270: 706 item tickers; their numbers every refresh, their book and trades only for the picked one
+        lvl = [{"price": 9_000, "qty": 1, "orders": 1}]
+        scroll = {"id": "S2040805", "name": "Scroll for Gloves for ATT 60%", "item_id": 2040805, "category": "scroll",
+                  "unit": "item", "per": 1, "qty_label": "items", "min_qty": 1, "max_qty": 1, "lot": 1, "min_price": 1,
+                  "max_price": 9_000_000, "last": 4_500_000, "bids": lvl, "asks": lvl, "trades": [{"t": "x", "price": 1, "qty": 1}]}
+        chaos = dict(TICKERS["tickers"][1], id="CHAOS", item_id=2049100, category="scroll", bids=lvl)
+        ms.write_atomic(os.path.join(self.outbox, xd.TICKERS), dict(TICKERS, tickers=TICKERS["tickers"] + [chaos, scroll]))
+        t = {x["id"]: x for x in self.desk.book()["tickers"]}
+        self.assertEqual((t["S2040805"]["category"], t["S2040805"]["last"]), ("scroll", 4_500_000), "numbers and category")
+        self.assertFalse({"bids", "asks", "trades"} & set(t["S2040805"]), "no depth for a ticker nobody picked")
+        self.assertEqual(t["CHAOS"]["bids"], lvl, "the 1.6.3 books keep theirs")
+        t = {x["id"]: x for x in self.desk.book("s2040805")["tickers"]}
+        self.assertEqual((t["S2040805"]["bids"], len(t["S2040805"]["trades"])), (lvl, 1), "the picked one has its book")
+        self.assertEqual(self.desk.item("2040805"), {"ticker": "S2040805", "name": "Scroll for Gloves for ATT 60%",
+                                                    "category": "scroll"})
+        self.assertEqual(self.desk.item(2049100)["ticker"], "CHAOS", "an item with a 1.6.3 book trades there")
+        self.assertEqual(self.desk.item("2000000"), {"ticker": None})
+        with self.assertRaises(ms.Refused):
+            self.desk.item("chaos")
+
     def test_item_tickers_use_their_own_rules(self):
         ms.write_atomic(os.path.join(self.outbox, xd.TICKERS), TICKERS)
         rid = self.preview(ticker="leaf", qty=10, nx=None, price=600_000)["id"]
