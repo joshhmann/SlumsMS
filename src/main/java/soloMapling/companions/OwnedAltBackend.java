@@ -72,6 +72,9 @@ final class OwnedAltBackend implements OwnedAltService.Backend {
         alt.setMap(target);
         alt.setPosition(OwnedAltService.groundedSpawn(target, owner.getPosition()));
         alt.setStance(OwnedAltService.standingStance(owner.getStance())); // never a saved jump/fly stance
+        // Nov 5 (TEST t-mx-5): an alt saved at 0 HP came back dead, and the companion tick skips a dead alt for good.
+        // It gets up at 50 HP, as a player does on clicking OK.
+        if (alt.getHp() <= 0) alt.updateHp(50);
         alt.getClient().getChannelServer().addPlayer(alt);
         alt.getWorldServer().addPlayer(alt);
         alt.setEnteredChannelWorld();
