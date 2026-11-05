@@ -19,6 +19,20 @@ class ExchangeSiteTest {
     static final String T = java.time.Instant.ofEpochMilli(NOW - 5000).toString();
 
     @Test
+    void catalogTickersWithDigitsParse() {
+        // b302: catalog ids are S/U/E plus 7 digits; a letters-only check refused every site order on them
+        String json = "{\"schema\":1,\"requests\":["
+                + "{\"id\":\"a\",\"account\":1,\"type\":\"preview\",\"ticker\":\"S2040805\",\"character\":11,\"side\":\"SELL\",\"price\":5000,\"nx\":1,\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"},"
+                + "{\"id\":\"b\",\"account\":1,\"type\":\"book\",\"ticker\":\"S20408051\",\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"},"
+                + "{\"id\":\"c\",\"account\":1,\"type\":\"book\",\"ticker\":\"S2-04\",\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"}]}";
+        List<ExchangeSite.Request> r = ExchangeSite.requests(json);
+        assertNull(r.get(0).error(), "S2040805 is a real catalog id");
+        assertEquals("S2040805", r.get(0).ticker());
+        assertEquals("ticker", r.get(1).error(), "longer than 8");
+        assertEquals("ticker", r.get(2).error(), "not letters and digits");
+    }
+
+    @Test
     void parsesEveryRequestTypeAndFlagsBadRows() {
         String json = "{\"schema\":1,\"requests\":["
                 + "{\"id\":\"a\",\"account\":1,\"type\":\"place\",\"character\":11,\"side\":\"SELL\",\"price\":5000000,\"nx\":1000,\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"},"

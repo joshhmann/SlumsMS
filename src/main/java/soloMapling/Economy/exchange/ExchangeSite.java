@@ -160,7 +160,7 @@ public final class ExchangeSite {
             Long created = time(r.get("createdAt"));
             Long authAt = r.get("siteAuthAt") == null ? null : time(r.get("siteAuthAt"));
             String ticker = r.get("ticker") == null ? Ticker.NX
-                    : r.get("ticker") instanceof String s && s.matches("[A-Za-z]{1,8}") ? s : null;
+                    : r.get("ticker") instanceof String s && s.matches("[A-Za-z0-9]{1,8}") ? s : null;
             String err = account == null || account <= 0 ? "account" : type == null ? "type"
                     : created == null ? "createdAt" : ticker == null ? "ticker" : null;
             long character = 0, price = 0, nx = 0, orderId = 0;
