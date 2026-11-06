@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class TransactionService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TransactionService.class);
 
     public static SelectionListStringResult getTransactionSelectionListString(int userId) {
         List<Transaction> transactions = getLastTransactions(userId, YamlConfig.config.server.MAXIMUM_TRANSACTIONS_FOR_BUYBACK);
@@ -105,24 +106,104 @@ public class TransactionService {
             return new SelectionListStringResult(false, "You don't have enough space to complete this buyback");
         }
 
-        if (updateTransactionBuybackStatus(transaction.getTransactionId(), true))
-        {
-            try {
-                List<TransactionItem> transactionItems = transaction.getItems();
-                List<Item> items = TransactionService.convertTransactionItemsToItems(transactionItems);
-                for (Item item : items) {
-                    InventoryManipulator.add(player.getClient(), item, false);
-                }
+        return grantBuyback(new CharacterBuybackPlayer(player), new JdbcJournalStore(), player.getId(),
+                transaction.getTransactionId(), buybackPrice, convertTransactionItemsToItems(transaction.getItems()));
+    }
 
-                player.gainMeso(-buybackPrice, true);
-            } catch (Exception e) {
-                return new SelectionListStringResult(false, "Interrupted, failed to process some or all items. Please context support for additional assistance.");
-            }
+    private static final String NOTHING_CHARGED = "Failed to process the buyback. Nothing was charged and the transaction can be bought back again.";
 
-            return new SelectionListStringResult(true, "Bought back items for " + GameConstants.numberWithCommas(buybackPrice) + " mesos.");
-        } else {
+    /**
+     * All or nothing (P0-1). Claim in the DB (flag plus a STARTED journal row, one transaction), take the mesos and
+     * add the items in memory, then persist the character with the journal's APPLIED mark in the same commit. Any
+     * failure undoes the memory and releases the claim. If the process dies in between, boot reconcile releases
+     * every STARTED row (OperationJournal.reconcile).
+     */
+    static SelectionListStringResult grantBuyback(BuybackPlayer player, JournalStore store, int playerId,
+                                                  int transactionId, int price, List<Item> items) {
+        long journalId;
+        try {
+            journalId = store.claimBuyback(playerId, transactionId, buybackDeltas(price, items));
+        } catch (SQLException | RuntimeException e) {
+            log.error("Buyback: claiming transaction {} failed, nothing changed", transactionId, e);
             return new SelectionListStringResult(false, "Failed to update the transaction. Aborted.");
         }
+        if (journalId < 0) {
+            return new SelectionListStringResult(false, "This transaction has already been bought back.");
+        }
+
+        // Autosave is saveCharToDB, synchronized on the character: holding that monitor from the first in-memory
+        // change to our own save means no autosave can commit the grant without the APPLIED mark.
+        synchronized (player.saveLock()) {
+            List<Item> added = new ArrayList<>();
+            List<Integer> addedQty = new ArrayList<>();
+            boolean tookMesos = false;
+            try {
+                player.gainMeso(-price);
+                tookMesos = true;
+                for (Item item : items) {
+                    int wanted = item.getQuantity();
+                    int qty = player.addItem(item);
+                    if (qty > 0) {
+                        added.add(item);
+                        addedQty.add(qty);
+                    }
+                    if (qty < wanted) {
+                        throw new IllegalStateException("could not add item " + item.getItemId());
+                    }
+                }
+            } catch (RuntimeException e) {
+                log.error("Buyback: granting transaction {} failed, undoing", transactionId, e);
+                undo(player, added, addedQty, tookMesos ? price : 0);
+                releaseClaim(store, journalId, transactionId, "grant failed");
+                return new SelectionListStringResult(false, NOTHING_CHARGED);
+            }
+
+            boolean saved;
+            try {
+                saved = player.save(journalId);
+            } catch (RuntimeException e) {
+                log.error("Buyback: saving transaction {} threw", transactionId, e);
+                saved = false;
+            }
+            if (!saved) {
+                log.error("Buyback: save of transaction {} did not commit, undoing", transactionId);
+                undo(player, added, addedQty, price);
+                releaseClaim(store, journalId, transactionId, "save failed");
+                return new SelectionListStringResult(false, NOTHING_CHARGED);
+            }
+        }
+        return new SelectionListStringResult(true, "Bought back items for " + GameConstants.numberWithCommas(price) + " mesos.");
+    }
+
+    private static void undo(BuybackPlayer player, List<Item> added, List<Integer> addedQty, int refund) {
+        for (int i = added.size() - 1; i >= 0; i--) {
+            try {
+                player.undoAdd(added.get(i), addedQty.get(i));
+            } catch (RuntimeException e) {
+                log.error("Buyback: could not take back item {}", added.get(i).getItemId(), e);
+            }
+        }
+        if (refund != 0) {
+            player.gainMeso(refund);
+        }
+    }
+
+    private static void releaseClaim(JournalStore store, long journalId, int transactionId, String note) {
+        try {
+            store.releaseBuyback(journalId, transactionId, note);
+        } catch (SQLException | RuntimeException e) {
+            // The row stays STARTED with the flag set; boot reconcile releases it. Memory is already undone.
+            log.error("Buyback: could not release the claim of transaction {} (journal {}); boot reconcile will", transactionId, journalId, e);
+        }
+    }
+
+    private static String buybackDeltas(int price, List<Item> items) {
+        StringBuilder sb = new StringBuilder("{\"mesos\":").append(-price).append(",\"items\":[");
+        for (int i = 0; i < items.size(); i++) {
+            if (i > 0) sb.append(',');
+            sb.append("{\"id\":").append(items.get(i).getItemId()).append(",\"qty\":").append(items.get(i).getQuantity()).append('}');
+        }
+        return sb.append("]}").toString();
     }
 
     // ======== MAPPERS ========
