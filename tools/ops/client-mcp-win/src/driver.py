@@ -53,6 +53,7 @@ TOOLS = {
                   'count': {'type': 'integer', 'minimum': 1, 'maximum': 32767}},
     'party_create': {},
     'close_dialog': {},
+    'dialog_next': {},
     'party_invite': {'name': {'type': 'string', 'maxLength': 12}},
     'mouse_drag': {'x1': {'type': 'integer', 'minimum': 0, 'maximum': 799},
                    'y1': {'type': 'integer', 'minimum': 0, 'maximum': 599},
@@ -191,7 +192,8 @@ SCRIPT_NAME = re.compile(r'^[a-z0-9][a-z0-9_-]{0,47}$')
 SCRIPT_TOOLS = {'start_client', 'login', 'login_credentials', 'click_anchor', 'select_world', 'select_channel',
                 'select_character', 'qa_events', 'command', 'press_key', 'mouse_click', 'mouse_drag', 'screenshot',
                 'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to', 'click_npc', 'click_option',
-                'drop_item', 'party_create', 'party_invite', 'close_dialog'}
+                'drop_item', 'party_create', 'party_invite', 'close_dialog',
+                'dialog_next'}
 # A QA vault alias (secrets/<vault>.txt) is a script name: secrets/aq-gm-1.txt. Never a path.
 VAULT = re.compile(r'^[a-z0-9][a-z0-9-]{1,31}$')
 # The QA build writes this once per login (slums.dll bypass.cpp ClientDataCaps); the manifest's caps come from it.
@@ -738,12 +740,15 @@ class Driver:
     def click_anchor(self, name):
         """Clicks one calibrated ui.json point (docs/qa/client-scripts/anchors.yaml). x,y never come from a script.
         npc_dialog.option_<n> is not a point: it picks menu row n through the QA client (click_option); nor is
-        npc_dialog.close, which ends the dialog the way its close button does (close_dialog)."""
+        npc_dialog.close, which ends the dialog the way its close button does (close_dialog), nor npc_dialog.next, its
+        OK / Next / Yes button (dialog_next)."""
         option = NPC_OPTION_ANCHOR.match(str(name))
         if option:
             return self.click_option(int(option.group(1)))
         if name == 'npc_dialog.close':
             return self.close_dialog()
+        if name == 'npc_dialog.next':
+            return self.dialog_next()
         if name not in (self.ui.get('points') or {}):
             raise Refusal('Anchor ' + str(name) + ' is not a calibrated point in ui.json: add it to '
                           'docs/qa/client-scripts/anchors.yaml first.')
@@ -973,6 +978,12 @@ class Driver:
         welcome dialog that blocks a new character's chat. Error: no_dialog."""
         self.qa_request('close_dialog', 'click.done', lambda e: e.get('op') == 'close_dialog', 'no_dialog')
         return {'op': 'close_dialog'}
+
+    def dialog_next(self):
+        """H1: presses OK / Next / Yes / Accept on the open npc dialog the way the button does (the server gets action
+        1). Errors: no_dialog, use_click_option (a menu), no_next_button (a text or number prompt)."""
+        event = self.qa_request('dialog_next', 'click.done', lambda e: e.get('op') == 'dialog_next', 'no_dialog')
+        return {'op': 'dialog_next', 'type': event.get('type')}
 
     def drop_item(self, item, count=1):
         """P1-Q2: drops <count> of the first stack of <item> through the client's own item-move sender (the packet a

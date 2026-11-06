@@ -436,3 +436,23 @@ class CloseDialogTest(NewToolsTest):
         with self.assertRaises(self.driver.Refusal) as caught:
             self.d.close_dialog()
         self.assertEqual('no_dialog', str(caught.exception))
+
+
+class DialogNextTest(NewToolsTest):
+    """H1: sendOk('Good luck!') starts the Horntail instance only on OK; dialog_next presses it."""
+
+    def test_dialog_next(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'dialog_next', 'ok': True, 'type': 0}])
+        self.assertEqual({'op': 'dialog_next', 'type': 0}, self.d.dialog_next())
+        self.assertEqual(['dialog_next'], self.d.qa.sent)
+
+    def test_the_next_anchor_goes_to_dialog_next(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'dialog_next', 'ok': True, 'type': 1}])
+        self.assertEqual({'op': 'dialog_next', 'type': 1}, self.d.click_anchor('npc_dialog.next'))
+
+    def test_a_menu_is_refused(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'dialog_next', 'ok': False, 'error': 'use_click_option',
+                             'type': 4}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.dialog_next()
+        self.assertEqual('use_click_option', str(caught.exception))
