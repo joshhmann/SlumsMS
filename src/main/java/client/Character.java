@@ -10536,9 +10536,17 @@ public class Character extends AbstractCharacterObject {
             ps.setInt(2, id);
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            log.error("Could not write HasMerchant={} for chr {} ({})", set, id, name, e);
         }
         hasMerchant = set;
+    }
+
+    /**
+     * Mirrors in memory a MerchantMesos credit that a merchant sale already committed in its own transaction
+     * (P0-2), so the owner's Fredrick window agrees with the database. No DB write.
+     */
+    public void mirrorMerchantMesosCredit(int add) {
+        merchantmeso = (int) Math.min((long) merchantmeso + add, Integer.MAX_VALUE);
     }
 
     public void addMerchantMesos(int add) {

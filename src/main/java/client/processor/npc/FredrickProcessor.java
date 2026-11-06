@@ -128,17 +128,16 @@ public class FredrickProcessor {
         }
     }
 
-    public static void insertFredrickLog(int cid) {
-        try (Connection con = DatabaseConnection.getConnection()) {
-
-            removeFredrickLog(con, cid);
-            try (PreparedStatement ps = con.prepareStatement("INSERT INTO `fredstorage` (`cid`, `daynotes`, `timestamp`) VALUES (?, 0, ?)")) {
-                ps.setInt(1, cid);
-                ps.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
-                ps.executeUpdate();
-            }
-        } catch (SQLException sqle) {
-            sqle.printStackTrace();
+    /**
+     * Replaces the owner's Fredrick log row on the caller's connection and transaction (P0-2): the caller commits, so
+     * the log can never disagree with the merchant rows saved next to it. SQL errors are thrown, not swallowed.
+     */
+    public static void insertFredrickLog(Connection con, int cid) throws SQLException {
+        removeFredrickLog(con, cid);
+        try (PreparedStatement ps = con.prepareStatement("INSERT INTO `fredstorage` (`cid`, `daynotes`, `timestamp`) VALUES (?, 0, ?)")) {
+            ps.setInt(1, cid);
+            ps.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
+            ps.executeUpdate();
         }
     }
 

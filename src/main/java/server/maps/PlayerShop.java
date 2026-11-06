@@ -257,11 +257,16 @@ public class PlayerShop extends AbstractMapObject {
     public boolean buy(Client c, int item, short quantity) {
         synchronized (items) {
             if (isVisitor(c.getPlayer())) {
+                // P0-2: a bad or stale index is refused before anything changes
+                if (item < 0 || item >= items.size()) {
+                    c.sendPacket(PacketCreator.enableActions());
+                    return false;
+                }
                 PlayerShopItem pItem = items.get(item);
                 Item newItem = pItem.getItem().copy();
 
                 newItem.setQuantity((short) ((pItem.getItem().getQuantity() * quantity)));
-                if (quantity < 1 || !pItem.isExist() || pItem.getBundles() < quantity) {
+                if (quantity < 1 || !pItem.isExist() || pItem.getBundles() < 1 || pItem.getBundles() < quantity) {
                     c.sendPacket(PacketCreator.enableActions());
                     return false;
                 } else if (newItem.getInventoryType().equals(InventoryType.EQUIP) && newItem.getQuantity() > 1) {
@@ -654,6 +659,9 @@ public class PlayerShop extends AbstractMapObject {
 
     public boolean botBuy(Character fakechar, PlayerShopItem pItem, int itemPosition, short quantity) {
         synchronized (items) {
+            if (quantity < 1 || !items.contains(pItem) || !pItem.isExist() || pItem.getBundles() < quantity) {
+                return false;   // P0-2: a stale or foreign line
+            }
             Item newItem = pItem.getItem().copy();
             newItem.setQuantity((short) ((pItem.getItem().getQuantity() * quantity)));
             if (!server.ShopMath.isSaleablePrice(pItem.getPrice())) {   // 1.5.0 rc6: never free, never paid to buy
