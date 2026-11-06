@@ -75,6 +75,7 @@ public final class Channel {
 
     private PlayerStorage players = new PlayerStorage();
     private ChannelServer channelServer;
+    private Exception initFailure;
     private String serverMessage;
     private MapManager mapManager;
     private FieldScriptManager fieldScriptManager;
@@ -166,7 +167,17 @@ public final class Channel {
             log.info("Channel {}: Listening on port {}", getId(), port);
         } catch (Exception e) {
             log.warn("Error during channel initialization", e);
+            initFailure = e;
         }
+    }
+
+    /**
+     * P0-4: what stopped this channel from starting (its port taken, ...), or null. A boot that builds its channels
+     * checks it: a world with a dead channel used to come "online" anyway, players sent there could not connect, and
+     * systemd saw a healthy unit.
+     */
+    public Exception initFailure() {
+        return initFailure;
     }
 
     private ChannelServer initServer(int port, int world, int channel) {
