@@ -41,6 +41,7 @@ class ReactorScriptClientTest {
         bot.setPosition(new Point(100, 100));
         Reactor rock = mock(Reactor.class);
         when(rock.getPosition()).thenReturn(new Point(100, 100));
+        when(rock.getStats()).thenReturn(hittable()); // 1.6.5 b331: bots hit only a hittable state
         List<String> log = new ArrayList<>();
 
         when(map.getReactorByName("rock")).thenReturn(rock);
@@ -66,6 +67,7 @@ class ReactorScriptClientTest {
         alt.setPosition(new Point(100, 100));
         Reactor rock = mock(Reactor.class);
         when(rock.getPosition()).thenReturn(new Point(100, 100));
+        when(rock.getStats()).thenReturn(hittable()); // 1.6.5 b331: bots hit only a hittable state
         when(map.getReactorByName("rock")).thenReturn(rock);
 
         new StepExecutor().execute(null, null, null, alt, new SolverStep.HitReactorNamed("rock"), NOW, new ArrayList<String>()::add);
@@ -82,11 +84,19 @@ class ReactorScriptClientTest {
         when(player.getPosition()).thenReturn(new Point(100, 100));
         Reactor lever = mock(Reactor.class);
         when(lever.getPosition()).thenReturn(new Point(100, 100));
+        when(lever.getStats()).thenReturn(hittable()); // 1.6.5 b331: bots hit only a hittable state
         when(map.getReactorByName("lever")).thenReturn(lever);
 
         new StepExecutor().execute(null, null, null, player, new SolverStep.HitReactorNamed("lever"), NOW + 20_000,
                 new ArrayList<String>()::add);
 
         verify(lever).hitReactor(human);
+    }
+
+    /** A reactor state that takes a hit (event type 0), as a real rock or lever has; see StepExecutor.clientCanHit. */
+    private static server.maps.ReactorStats hittable() {
+        server.maps.ReactorStats stats = new server.maps.ReactorStats();
+        stats.addState((byte) 0, 0, null, (byte) 0, -1, (byte) 0);
+        return stats;
     }
 }
