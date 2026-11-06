@@ -494,6 +494,8 @@ class SilviaWorker:
                                                 "price": step["price"], "title": step.get("title", "QA shop")}
         elif kind == "merchant_close":
             name, arguments = "merchant_close", {}
+        elif kind == "fredrick_retrieve":
+            name, arguments = "fredrick_retrieve", {}
         elif kind == "use_cash_item":   # P0-6: the Incubator on an egg (item id) or on inv:slot
             name, arguments = "use_cash_item", {"item": step["item"], "target": str(step["target"])}
         elif kind in ("wheel", "type", "key_down", "key_up"):
