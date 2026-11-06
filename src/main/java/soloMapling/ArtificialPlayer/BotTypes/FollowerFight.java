@@ -44,7 +44,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * in with the shared approach step ({@link Approach}) and swings with its own rotation ({@link BotAttackDriver#botAttack}:
  * the human skill choice and rotation extras, its cooldowns setting the pace). It never starts on a quiet mob alone.
  */
-final class FollowerFight {
+public final class FollowerFight {
 
     /** Tick of a follower while it fights: the attack driver's own cooldown sets the real swing rate. */
     static final long FIGHT_TICK_MS = 200;
@@ -61,9 +61,9 @@ final class FollowerFight {
      * checked, so grinding and party quests pay one {@code isBoss()}/{@code hasBossMechanics} test per candidate and no
      * walk.
      */
-    static final String REACH_SWITCH = "slums.bossfight.reach";
+    public static final String REACH_SWITCH = "slums.bossfight.reach";
 
-    static boolean reachGateOn() {
+    public static boolean reachGateOn() {
         return Boolean.getBoolean(REACH_SWITCH);
     }
 
@@ -153,7 +153,7 @@ final class FollowerFight {
     }
 
     /** A boss or one of its parts: the big, multi-part mobs whose position is not where the bot has to stand to hit. */
-    static boolean isBossPart(Monster m) {
+    public static boolean isBossPart(Monster m) {
         return m != null && (m.isBoss() || MapleMap.hasBossMechanics(m.getId()));
     }
 
@@ -164,7 +164,7 @@ final class FollowerFight {
      * nav planner's route to it ({@link BotAttackDriver#pathCost}, the cost {@link BotAttackDriver#costTo} ranks by) -
      * {@link GCMovement#UNREACHABLE} when no walk gets there (a part hovering over a platform, or sealed off).
      */
-    static boolean canGetInReach(MapleMap map, Point at, Monster m, BotAttackProfile profile) {
+    public static boolean canGetInReach(MapleMap map, Point at, Monster m, BotAttackProfile profile) {
         Point mp = m == null ? null : m.getPosition();
         if (mp == null) {
             return false;
@@ -172,7 +172,52 @@ final class FollowerFight {
         if (profile != null && BotAttackDriver.canSwingFrom(map, at, m, profile.reachX, profile.reachY)) {
             return true;
         }
-        return BotAttackDriver.pathCost.ms(map, at, mp) != GCMovement.UNREACHABLE;
+        long t0 = System.nanoTime();
+        boolean reachable = BotAttackDriver.pathCost.ms(map, at, mp) != GCMovement.UNREACHABLE;
+        ReachCost.note(System.nanoTime() - t0, System.currentTimeMillis());
+        return reachable;
+    }
+
+    /**
+     * 1.6.5 b311: what the reach gate's walk-cost searches cost, so the switch's price is measured before it goes live.
+     * Counted per search; once a minute, when there were any, one line: searches, total and slowest ms.
+     */
+    static final class ReachCost {
+        private static final java.util.concurrent.atomic.LongAdder searches = new java.util.concurrent.atomic.LongAdder();
+        private static final java.util.concurrent.atomic.LongAdder nanos = new java.util.concurrent.atomic.LongAdder();
+        private static final java.util.concurrent.atomic.LongAccumulator slowest =
+                new java.util.concurrent.atomic.LongAccumulator(Math::max, 0L);
+        private static final java.util.concurrent.atomic.AtomicLong windowStart = new java.util.concurrent.atomic.AtomicLong();
+        static final long WINDOW_MS = 60_000L;
+
+        static void note(long tookNanos, long now) {
+            searches.increment();
+            nanos.add(tookNanos);
+            slowest.accumulate(tookNanos);
+            long start = windowStart.get();
+            if (start == 0L) {
+                windowStart.compareAndSet(0L, now);
+            } else if (now - start >= WINDOW_MS && windowStart.compareAndSet(start, now)) {
+                String line = line(now - start);
+                org.slf4j.LoggerFactory.getLogger(FollowerFight.class).info(line);
+            }
+        }
+
+        /** The window's line, and a fresh window. */
+        static String line(long windowMs) {
+            long n = searches.sumThenReset();
+            long ns = nanos.sumThenReset();
+            long max = slowest.getThenReset();
+            return String.format("Boss reach gate: %d walk-cost searches in %d s, %.1f ms total, slowest %.2f ms",
+                    n, windowMs / 1000, ns / 1e6, max / 1e6);
+        }
+
+        static void resetForTest() {
+            searches.reset();
+            nanos.reset();
+            slowest.reset();
+            windowStart.set(0L);
+        }
     }
 
     private static boolean skipped(State s, int oid, long now) {
