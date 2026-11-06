@@ -9887,12 +9887,26 @@ public class Character extends AbstractCharacterObject {
 
     //ItemFactory saveItems and monsterbook.saveCards are the most time consuming here.
     public synchronized void saveCharToDB(boolean notAutosave) {
-        if (soloMapling.ArtificialPlayer.BotHelpers.isRosterBot(this)) return;
+        saveCharToDB(notAutosave, null);
+    }
+
+    /** Extra writes that join a character save's transaction (P0-1: the buyback journal's APPLIED mark). */
+    @FunctionalInterface
+    public interface SaveExtra {
+        void run(Connection con) throws SQLException;
+    }
+
+    /**
+     * Saves like {@link #saveCharToDB(boolean)}, and runs {@code extra} on the save's connection just before the
+     * commit. If it throws, the whole save rolls back. Returns true only when the commit succeeded.
+     */
+    public synchronized boolean saveCharToDB(boolean notAutosave, SaveExtra extra) {
+        if (soloMapling.ArtificialPlayer.BotHelpers.isRosterBot(this)) return false;
         if (!loggedIn) {
-            return;
+            return false;
         }
         // Once an alt is closing, only its one final save may write: a late autosave must not race a takeover login.
-        if (ownedAltClosing && !ownedAltFinalSave) return;
+        if (ownedAltClosing && !ownedAltFinalSave) return false;
 
         Calendar c = Calendar.getInstance();
         log.debug("Attempting to {} chr {}", notAutosave ? "save" : "autosave", name);
@@ -10312,8 +10326,13 @@ public class Character extends AbstractCharacterObject {
                 // Coloring Prism hair / face tints, inside this transaction (no-op unless COLOR_PRISM_ENABLED)
                 server.colorprism.ColorPrismStore.saveLookTints(con, this);
 
+                if (extra != null) {
+                    extra.run(con);
+                }
+
                 con.commit();
                 if (isOwnedAlt()) ownedAltSaveCommitted = true;
+                return true;
             } catch (Exception e) {
                 con.rollback();
                 throw e;
@@ -10326,6 +10345,7 @@ public class Character extends AbstractCharacterObject {
             // Never throw here: autosave and !saveall loop over every character. saveOwnedAltToDB fails closed
             // on its own when the commit did not happen.
         }
+        return false;
     }
 
     public void sendPolice(int greason, String reason, int duration) {
