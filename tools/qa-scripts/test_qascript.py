@@ -134,6 +134,13 @@ class ValidatorTest(unittest.TestCase):
         too_many, _ = check(GOOD.replace("every_ms: 4000, times: 4", "every_ms: 4000, times: 70"))
         self.assertTrue(too_many)
 
+    def test_optional_is_for_client_signals_only(self):
+        self.assertRefused(GOOD.replace("bind: {healer: who},", "optional: true, bind: {healer: who},"),
+                           "optional is for client signals only")
+        errors, _ = check(GOOD.replace("retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000",
+                                       "retry: {step: pick-world, every_ms: 4000, times: 4}, optional: true, timeout_ms: 30000"))
+        self.assertEqual([], errors)
+
     def test_placeholders_and_binds_resolve(self):
         self.assertRefused(GOOD.replace("!hurt ${me.name} 40", "!hurt ${you.name} 40"), "no client")
         self.assertRefused(GOOD.replace("!hurt ${me.name} 40", "!hurt ${me.password} 40"), "a client has only")

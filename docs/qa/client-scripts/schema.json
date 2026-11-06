@@ -692,6 +692,10 @@
        },
        "description": "var -> named regex group: later text may use ${var}."
       },
+      "optional": {
+       "type": "boolean",
+       "description": "Client signals only: a timeout is recorded (signal.timed_out) and the script goes on instead of failing. For a time-boxed window with retry steps (heal pulses while the alts fight); never for a check."
+      },
       "retry": {
        "type": "object",
        "additionalProperties": false,

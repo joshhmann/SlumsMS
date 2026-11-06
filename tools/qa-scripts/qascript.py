@@ -294,6 +294,8 @@ def rule_errors(doc, raw_text, file_stem, anchors, windows):
             sig = s.get("signal", {})
             if "timeout_ms" not in s:
                 errors.append("%s: a wait needs timeout_ms" % where)
+            if s.get("optional") and t_kind(s) != "client_signal":
+                errors.append("%s: optional is for client signals only" % where)
             retry = s.get("retry")
             if retry:
                 if t_kind(s) != "client_signal":

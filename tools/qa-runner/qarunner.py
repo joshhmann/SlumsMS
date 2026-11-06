@@ -835,6 +835,17 @@ class Run:
         return bool(nxt and nxt.get("do") == "wait" and (nxt.get("signal") or {}).get("type") == "server_line"
                     and "armed_at" not in nxt)
 
+    def prepared(self, step, alias):
+        """The step as the worker gets it: placeholders filled, the character slot set. The first send and every retry
+        resend go through here, so a resent `!warp ${room}` carries its value."""
+        sent = dict(step)
+        for key in ("text", "line", "name"):   # name: party_invite ${regular}
+            if key in sent:
+                sent[key] = fill(sent[key], self.values)
+        if step["do"] == "select_character":
+            sent["slot"] = (self.doc["clients"][alias].get("character") or {}).get("slot", 0)
+        return sent
+
     def do(self, i, step, alias, entry):
         kind = step["do"]
         if kind == "mark":
@@ -848,13 +859,7 @@ class Run:
         if kind == "wait":
             self.wait(i, step, alias, entry)
             return
-        sent = dict(step)
-        for key in ("text", "line", "name"):   # name: party_invite ${regular}
-            if key in sent:
-                sent[key] = fill(sent[key], self.values)
-        if kind == "select_character":
-            sent["slot"] = (self.doc["clients"][alias].get("character") or {}).get("slot", 0)
-        r = self.worker.send(alias, sent) or {}
+        r = self.worker.send(alias, self.prepared(step, alias)) or {}
         if r.get("result", "ok") != "ok":
             raise RunFailed("%s refused: %s" % (kind, r.get("detail", "")), "refused")
 
@@ -871,6 +876,10 @@ class Run:
             while True:
                 left = deadline - time.monotonic()
                 if left <= 0:
+                    if step.get("optional"):   # a time-boxed window (heal retries while the alts fight), not a check
+                        entry["signal"] = {"type": "client_signal", "name": sig["name"], "timed_out": True}
+                        entry["retries"] = tries if retry else 0
+                        return
                     raise RunFailed("timed out waiting for %s after %d s" % (sig["name"], timeout_s))
                 got = self.worker.wait_signal(alias, sig["name"], min(every, left), extra)
                 if got:
@@ -888,7 +897,9 @@ class Run:
                     tries += 1
                     for tid in (retry.get("steps") or [retry["step"]]):   # one step, or a short list in order
                         target = next(s for s in self.doc["steps"] if s.get("id") == tid)
-                        self.worker.send(alias, dict(target))
+                        sent = self.worker.send(alias, self.prepared(target, alias)) or {}
+                        if sent.get("result", "ok") != "ok":   # the first thing to read when the wait times out
+                            entry["last_resend_refusal"] = "%s: %s" % (target.get("do"), str(sent.get("detail", ""))[:160])
         else:
             regex = fill(sig["regex"], self.values, regex=True)
             armed = step.get("armed_at")
