@@ -489,6 +489,13 @@ class SilviaWorker:
             name, arguments = "party_create", {}
         elif kind == "party_invite":
             name, arguments = "party_invite", {"name": step["name"]}
+        elif kind == "merchant_open":   # P0-2 GP8: a hired merchant, set up the way a player does it
+            name, arguments = "merchant_open", {"item": step["item"], "quantity": step["quantity"],
+                                                "price": step["price"], "title": step.get("title", "QA shop")}
+        elif kind == "merchant_close":
+            name, arguments = "merchant_close", {}
+        elif kind == "use_cash_item":   # P0-6: the Incubator on an egg (item id) or on inv:slot
+            name, arguments = "use_cash_item", {"item": step["item"], "target": str(step["target"])}
         elif kind in ("wheel", "type", "key_down", "key_up"):
             return {"result": "refused", "detail": "%s is not available in this client build" % kind}
         answer = self.tool(name, arguments)

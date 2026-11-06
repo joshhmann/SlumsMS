@@ -52,6 +52,17 @@ TOOLS = {
     'drop_item': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 5999999},
                   'count': {'type': 'integer', 'minimum': 1, 'maximum': 32767}},
     'party_create': {},
+    'close_dialog': {},
+    'dialog_next': {},
+    # P0-2 GP8: open a hired merchant selling <quantity> of <item> at <price>, the way a player sets one up.
+    'merchant_open': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 4999999},
+                      'quantity': {'type': 'integer', 'minimum': 1, 'maximum': 2000},
+                      'price': {'type': 'integer', 'minimum': 1, 'maximum': 2147483647},
+                      'title': {'type': 'string', 'maxLength': 30}},
+    'merchant_close': {},
+    # P0-6: the Incubator on a target (the egg's item id, or inv:slot for an empty slot); only 5060002 is taken.
+    'use_cash_item': {'item': {'type': 'integer', 'minimum': 5000000, 'maximum': 5999999},
+                      'target': {'type': 'string', 'maxLength': 12}},
     'party_invite': {'name': {'type': 'string', 'maxLength': 12}},
     'mouse_drag': {'x1': {'type': 'integer', 'minimum': 0, 'maximum': 799},
                    'y1': {'type': 'integer', 'minimum': 0, 'maximum': 599},
@@ -65,7 +76,8 @@ REQUIRED = {'qa_wait': ('signal',), 'qa_burst': ('fps', 'ms', 'label'), 'run_scr
             'login_credentials': ('vault',), 'click_anchor': ('name',), 'select_world': ('world',),
             'select_channel': ('channel',), 'select_character': ('slot',),
             'mouse_drag': ('x1', 'y1', 'x2', 'y2'), 'click_npc': ('npc',), 'click_option': ('option',),
-            'drop_item': ('item',), 'party_invite': ('name',)}
+            'drop_item': ('item',), 'party_invite': ('name',),
+            'use_cash_item': ('item', 'target'), 'merchant_open': ('item', 'quantity', 'price')}
 
 # Single taps only: no modifiers, so no Alt+F4, no Ctrl shortcuts. Value = (virtual key, extended).
 KEYS = {**{chr(c): (c, False) for c in range(ord('A'), ord('Z') + 1)},
@@ -190,7 +202,9 @@ SCRIPT_NAME = re.compile(r'^[a-z0-9][a-z0-9_-]{0,47}$')
 SCRIPT_TOOLS = {'start_client', 'login', 'login_credentials', 'click_anchor', 'select_world', 'select_channel',
                 'select_character', 'qa_events', 'command', 'press_key', 'mouse_click', 'mouse_drag', 'screenshot',
                 'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to', 'click_npc', 'click_option',
-                'drop_item', 'party_create', 'party_invite'}
+                'drop_item', 'party_create', 'party_invite', 'close_dialog',
+                'dialog_next', 'use_cash_item',
+                'merchant_open', 'merchant_close'}
 # A QA vault alias (secrets/<vault>.txt) is a script name: secrets/aq-gm-1.txt. Never a path.
 VAULT = re.compile(r'^[a-z0-9][a-z0-9-]{1,31}$')
 # The QA build writes this once per login (slums.dll bypass.cpp ClientDataCaps); the manifest's caps come from it.
@@ -198,7 +212,8 @@ BUILD_STAMP_CAPS = re.compile(r'Build stamp: caps (0x[0-9A-Fa-f]{8})')
 QA_EVENTS_MAX = 200
 NPC_POS_TIMEOUT = 3.0   # the client answers npc_pos / click_option on its next frame
 NPC_OPTION_ANCHOR = re.compile(r'^npc_dialog\.option_([1-8])$')
-CHAR_NAME = re.compile(r'^[A-Za-z0-9]{4,12}$')   # v83 character names; the QA client checks the same
+CHAR_NAME = re.compile(r'^[A-Za-z0-9]{4,12}$')
+CASH_TARGET = re.compile(r'^([1-5]:[0-9]{1,3}|[1-5][0-9]{6})$')   # inv:slot, or an inventory item id   # v83 character names; the QA client checks the same
 
 
 def utc(epoch):
@@ -736,10 +751,16 @@ class Driver:
 
     def click_anchor(self, name):
         """Clicks one calibrated ui.json point (docs/qa/client-scripts/anchors.yaml). x,y never come from a script.
-        npc_dialog.option_<n> is not a point: it picks menu row n through the QA client (click_option)."""
+        npc_dialog.option_<n> is not a point: it picks menu row n through the QA client (click_option); nor is
+        npc_dialog.close, which ends the dialog the way its close button does (close_dialog), nor npc_dialog.next, its
+        OK / Next / Yes button (dialog_next)."""
         option = NPC_OPTION_ANCHOR.match(str(name))
         if option:
             return self.click_option(int(option.group(1)))
+        if name == 'npc_dialog.close':
+            return self.close_dialog()
+        if name == 'npc_dialog.next':
+            return self.dialog_next()
         if name not in (self.ui.get('points') or {}):
             raise Refusal('Anchor ' + str(name) + ' is not a calibrated point in ui.json: add it to '
                           'docs/qa/client-scripts/anchors.yaml first.')
@@ -963,6 +984,63 @@ class Driver:
         if not event.get('ok'):
             raise Refusal(str(event.get('error') or timeout_error))
         return event
+
+    def close_dialog(self):
+        """D1: ends the open npc dialog the way its close button does (any type; the server gets "end chat"). For the
+        welcome dialog that blocks a new character's chat. Error: no_dialog."""
+        self.qa_request('close_dialog', 'click.done', lambda e: e.get('op') == 'close_dialog', 'no_dialog')
+        return {'op': 'close_dialog'}
+
+    def dialog_next(self):
+        """H1: presses OK / Next / Yes / Accept on the open npc dialog the way the button does (the server gets action
+        1). Errors: no_dialog, use_click_option (a menu), no_next_button (a text or number prompt)."""
+        event = self.qa_request('dialog_next', 'click.done', lambda e: e.get('op') == 'dialog_next', 'no_dialog')
+        return {'op': 'dialog_next', 'type': event.get('type')}
+
+    def merchant_open(self, item, quantity, price, title='QA shop'):
+        """P0-2 GP8: sets up a hired merchant (the Fredrick check, CREATE, the item, Open) through the QA client, which
+        needs a hired merchant item (503xxxx) in the Cash tab and a free-market room. The setup takes a few seconds.
+        Errors: no_merchant_item, not_in_inventory, retrieve_from_fredrick_first, refused, timeout_<stage>."""
+        if any(ch in title for ch in '"\\') or not title.strip() or any(ord(ch) < 32 or ord(ch) > 126 for ch in title):
+            raise Refusal('title must be 1-30 printable characters without quotes')
+        pipe = self.need_qa()
+        pipe.send('merchant_open %d %d %d %s' % (item, quantity, price, title.strip()))
+        deadline = time.monotonic() + 25
+        while True:
+            left = deadline - time.monotonic()
+            event = pipe.wait('merchant.open', left) if left > 0 else None
+            if event is None:
+                raise Refusal('timeout')
+            if event.get('item') == item:
+                break
+        if not event.get('ok'):
+            raise Refusal(str(event.get('error') or 'refused'))
+        return {'item': item, 'quantity': quantity, 'price': price, 'slot': event.get('slot'),
+                'merchant_item': event.get('merchant_item')}
+
+    def merchant_close(self):
+        """P0-2 GP8: closes this character's hired merchant the way its owner does: visit it (maintenance), then the
+        owner window's close; the unsold items and mesos go to Fredrick. Errors: no_merchant, timeout_<stage>."""
+        pipe = self.need_qa()
+        pipe.send('merchant_close')
+        event = pipe.wait('merchant.close', 15)
+        if event is None:
+            raise Refusal('timeout')
+        if not event.get('ok'):
+            raise Refusal(str(event.get('error') or 'refused'))
+        return {'closed': True}
+
+    def use_cash_item(self, item, target):
+        """P0-6: uses cash item <item> on <target> (an item id, or inv:slot) through the client's USE_CASH_ITEM packet.
+        The QA client takes only the Incubator (5060002). Errors: not_in_inventory, target_not_in_inventory,
+        field_not_ready. The answer says the request was sent; what the server did shows in the inventory and chat."""
+        target = str(target)
+        if not CASH_TARGET.match(target):
+            raise Refusal('target must be an item id or inv:slot')
+        event = self.qa_request('use_cash_item %d %s' % (item, target), 'item.use',
+                                lambda e: e.get('item') == item, 'no_character')
+        return {'item': item, 'slot': event.get('slot'), 'target_type': event.get('target_type'),
+                'target_slot': event.get('target_slot')}
 
     def drop_item(self, item, count=1):
         """P1-Q2: drops <count> of the first stack of <item> through the client's own item-move sender (the packet a

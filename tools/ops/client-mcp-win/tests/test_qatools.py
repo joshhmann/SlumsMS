@@ -411,3 +411,112 @@ class DropAndPartyTest(NewToolsTest):
             self.assertIn(tool, self.driver.TOOLS)
         self.assertEqual(('item',), self.driver.REQUIRED['drop_item'])
         self.assertEqual(('name',), self.driver.REQUIRED['party_invite'])
+
+
+class CloseDialogTest(NewToolsTest):
+    """D1: the welcome dialog on a new character blocks chat; close_dialog ends any npc dialog."""
+
+    def test_close_dialog(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'close_dialog', 'ok': True}])
+        self.assertEqual({'op': 'close_dialog'}, self.d.close_dialog())
+        self.assertEqual(['close_dialog'], self.d.qa.sent)
+
+    def test_the_close_anchor_goes_to_close_dialog(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'close_dialog', 'ok': True}])
+        self.assertEqual({'op': 'close_dialog'}, self.d.click_anchor('npc_dialog.close'))
+
+    def test_no_dialog_is_passed_on(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'close_dialog', 'ok': False, 'error': 'no_dialog'}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.close_dialog()
+        self.assertEqual('no_dialog', str(caught.exception))
+
+    def test_an_option_answer_is_not_a_close_answer(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'click_option', 'option': 1, 'ok': True, 'value': 0}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.close_dialog()
+        self.assertEqual('no_dialog', str(caught.exception))
+
+
+class DialogNextTest(NewToolsTest):
+    """H1: sendOk('Good luck!') starts the Horntail instance only on OK; dialog_next presses it."""
+
+    def test_dialog_next(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'dialog_next', 'ok': True, 'type': 0}])
+        self.assertEqual({'op': 'dialog_next', 'type': 0}, self.d.dialog_next())
+        self.assertEqual(['dialog_next'], self.d.qa.sent)
+
+    def test_the_next_anchor_goes_to_dialog_next(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'dialog_next', 'ok': True, 'type': 1}])
+        self.assertEqual({'op': 'dialog_next', 'type': 1}, self.d.click_anchor('npc_dialog.next'))
+
+    def test_a_menu_is_refused(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'dialog_next', 'ok': False, 'error': 'use_click_option',
+                             'type': 4}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.dialog_next()
+        self.assertEqual('use_click_option', str(caught.exception))
+
+
+class UseCashItemTest(NewToolsTest):
+    """P0-6: the Incubator on an egg, or on an explicit (empty) slot."""
+
+    def test_incubator_on_an_egg(self):
+        self.d.qa = FakeQa([{'ev': 'item.use', 'item': 5060002, 'slot': 2, 'target_type': 4, 'target_slot': 5,
+                             'ok': True}])
+        self.assertEqual({'item': 5060002, 'slot': 2, 'target_type': 4, 'target_slot': 5},
+                         self.d.use_cash_item(5060002, '4170000'))
+        self.assertEqual(['use_cash_item 5060002 4170000'], self.d.qa.sent)
+
+    def test_an_explicit_slot(self):
+        self.d.qa = FakeQa([{'ev': 'item.use', 'item': 5060002, 'slot': 2, 'target_type': 4, 'target_slot': 99,
+                             'ok': True}])
+        self.assertEqual(99, self.d.use_cash_item(5060002, '4:99')['target_slot'])
+
+    def test_a_bad_target_is_refused_before_sending(self):
+        self.d.qa = FakeQa([])
+        for target in ('egg', '6:1', '4:', '4170000;x'):
+            with self.assertRaises(self.driver.Refusal):
+                self.d.use_cash_item(5060002, target)
+        self.assertFalse(hasattr(self.d.qa, 'sent'))
+
+    def test_the_client_error_is_passed_on(self):
+        self.d.qa = FakeQa([{'ev': 'item.use', 'item': 5060002, 'ok': False, 'error': 'target_not_in_inventory'}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.use_cash_item(5060002, '4170000')
+        self.assertEqual('target_not_in_inventory', str(caught.exception))
+
+
+class MerchantOpenTest(NewToolsTest):
+    """P0-2 GP8: a hired merchant set up through the QA client."""
+
+    def test_merchant_open(self):
+        self.d.qa = FakeQa([{'ev': 'merchant.open', 'item': 2000000, 'quantity': 5, 'price': 1000, 'ok': True,
+                             'slot': 3, 'merchant_item': 5030000}])
+        self.assertEqual({'item': 2000000, 'quantity': 5, 'price': 1000, 'slot': 3, 'merchant_item': 5030000},
+                         self.d.merchant_open(2000000, 5, 1000, 'GP8 shop'))
+        self.assertEqual(['merchant_open 2000000 5 1000 GP8 shop'], self.d.qa.sent)
+
+    def test_fredrick_first_is_passed_on(self):
+        self.d.qa = FakeQa([{'ev': 'merchant.open', 'item': 2000000, 'ok': False,
+                             'error': 'retrieve_from_fredrick_first', 'check': 9}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.merchant_open(2000000, 1, 10)
+        self.assertEqual('retrieve_from_fredrick_first', str(caught.exception))
+
+    def test_merchant_close(self):
+        self.d.qa = FakeQa([{'ev': 'merchant.close', 'ok': True}])
+        self.assertEqual({'closed': True}, self.d.merchant_close())
+        self.assertEqual(['merchant_close'], self.d.qa.sent)
+
+    def test_no_merchant_is_passed_on(self):
+        self.d.qa = FakeQa([{'ev': 'merchant.close', 'ok': False, 'error': 'no_merchant'}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.merchant_close()
+        self.assertEqual('no_merchant', str(caught.exception))
+
+    def test_a_quote_in_the_title_is_refused_before_sending(self):
+        self.d.qa = FakeQa([])
+        with self.assertRaises(self.driver.Refusal):
+            self.d.merchant_open(2000000, 1, 10, 'a "b"')
+        self.assertFalse(hasattr(self.d.qa, 'sent'))
