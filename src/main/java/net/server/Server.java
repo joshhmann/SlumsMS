@@ -971,6 +971,9 @@ public class Server {
             throw new IllegalStateException(sqle);
         }
 
+        // P0-1: settle journal rows left STARTED by a crash, before any player or bot can log in.
+        server.transactions.OperationJournal.reconcile();
+
         ThreadManager.getInstance().start();
         initializeTimelyTasks(channelDependencies);    // aggregated method for timely tasks thanks to lxconan
 
