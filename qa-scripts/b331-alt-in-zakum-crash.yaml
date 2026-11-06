@@ -1,0 +1,57 @@
+# b331 (S1, live, 1.6.5): bringing your own alt into a party quest crashes the game. A friend saw it on Zakum.
+# Repro attempt on TEST with a QA account plus its owned alt: ex-2 stages the real Zakum expedition with the GM,
+# party bots and the alt (BossRunScenarios.Ex2ZakumRoom, ctx.arg(0) = alt name). The check is that the client is
+# still alive and in the altar room after the alt arrives. The KPQ variant is a second script, run only after this
+# one, to see whether it is every party quest. Cause unnamed when written: Server Dev and Client have not named it.
+id: b331-alt-in-zakum-crash
+title: Bringing your own alt into Zakum does not crash the game
+covers: [b331]
+status: draft
+server: test
+needs: [gm, mechanics, owned_alt, proposed_signals]
+notes: "Account aq-alt-owner has a second offline character on Bera (the botme-alt-basics account). GM level 50+ is needed for Zakum; ex-2 refuses below that. ex-2 summons the alt itself, so this does not go through the player's @botme or party-invite path: if it passes, the second half of the plan is the manual path (@botme the alt, party invite, Adobis). TEST client with the QA module only; a crash shows as client_alive failing or the pipe going quiet."
+clients:
+  me:
+    account: {vault: aq-alt-owner}
+    world: Bera
+    channel: 2
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 2}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  - {id: prestop, do: gm, line: "!qa stop", note: "a card that failed before its cleanup leaves its scenario running"}
+  - {id: stopped, do: sleep, ms: 2000, reason: "let the stop land before the next GM command"}
+  - {id: list, do: chat, text: "@botme"}
+  - id: listed
+    do: wait
+    signal: {type: client_signal, name: chat.received, regex: "Available characters: (?P<alt>[A-Za-z0-9]+)"}
+    bind: {alt: alt}
+    timeout_ms: 15000
+  - {id: scene, do: gm, line: "!qa run ex-2 ${alt}"}
+  - {id: started, do: wait, armed_at: scene, signal: {type: server_line, topic: QA_RUN, regex: "EX2 START.* alt=${alt}", char: me}, timeout_ms: 90000}
+  - {id: altar, do: wait, armed_at: scene, signal: {type: client_signal, name: field.ready, map_id: 280030000}, timeout_ms: 120000}
+  - {id: soak1, do: sleep, ms: 10000, reason: "the crash was reported once the alt was in the room: give it time to show"}
+  - {id: soak2, do: sleep, ms: 10000, reason: "the crash was reported once the alt was in the room: give it time to show"}
+  - {id: soak3, do: sleep, ms: 8000, reason: "the crash was reported once the alt was in the room: give it time to show"}
+  - {id: cleanup, do: gm, line: "!qa stop"}
+captures:
+  - {id: entering, burst: {fps: 3, ms: 5000, at: {step: scene}}}
+  - {id: in-altar, burst: {fps: 2, ms: 5000, at: {signal: altar}}}
+  - {id: after-stop, burst: {fps: 1, ms: 3000, at: {step: cleanup}}}
+expect:
+  reviewer:
+    - see: "You, the party bots and your alt stand in the Zakum altar room and the game window is still responding"
+      in: [in-altar]
+    - see: "No crash dialog, no frozen frame, no return to the desktop or login screen"
+      in: [entering, in-altar, after-stop]
+  checks:
+    - {check: server_line, topic: QA_RUN, regex: "EX2 START.* alt=${alt}", char: me, min: 1}
+    - {check: client_alive}
+  judgment: "Frames and client_alive decide it: PASS only when the client lives through the whole span with the alt in the room; a death of the client is the b331 repro and names the step it died on."
