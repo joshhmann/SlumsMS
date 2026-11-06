@@ -33,12 +33,27 @@ if [ "$MIGRATE" = 1 ] && ls $D/files/*.sql >/dev/null 2>&1; then
 fi
 
 cp $D/Cosmic.jar $SRV/target/Cosmic.jar
-echo "$HEAD" > $SRV/DEPLOYED_COMMIT
 S=$(date -u +%H:%M:%S)
 bash $BASE/start-test.sh >/dev/null 2>&1
-for i in $(seq 1 90); do journalctl -u $UNIT --since "$S" | grep -q "Auto-QA on\|is now online" && break; sleep 5; done
-journalctl -u $UNIT --since "$S" | grep -E "SlumsMS v|is now online|Population director started|Auto-QA on" | sed -E 's/^.{0,60}//' | cut -c1-140
-E=$(journalctl -u $UNIT --since "$S" | grep -cE "ERROR|Exception" || true)
+# P0-3: ready means the log says online (or Auto-QA on) while the unit is active. The journal is read into a variable:
+# `journalctl | grep -q` under pipefail failed on journalctl's SIGPIPE even when the line was there, so the old loop
+# could neither succeed early nor fail. A failed unit stops the wait at once; a stall times out. Either way the
+# deploy fails and DEPLOYED_COMMIT keeps naming the last proven commit.
+ready=0
+for i in $(seq 1 90); do
+  log=$(journalctl -u $UNIT --since "$S" 2>/dev/null || true)
+  if systemctl is-active -q $UNIT; then
+    case "$log" in *"is now online"*|*"Auto-QA on"*) ready=1; break ;; esac
+  elif [ "$i" -gt 2 ]; then
+    break  # the unit is not running any more: a failed boot
+  fi
+  sleep 5
+done
+log=$(journalctl -u $UNIT --since "$S" 2>/dev/null || true)
+printf '%s\n' "$log" | grep -E "SlumsMS v|is now online|Population director started|Auto-QA on|SEVERE" | sed -E 's/^.{0,60}//' | cut -c1-140 || true
+E=$(printf '%s\n' "$log" | grep -cE "ERROR|Exception" || true)
 echo "boot ERROR/Exception lines: $E"
-systemctl is-active $UNIT
-[ "$E" = 0 ] || { echo "BOOT HAS ERRORS: read journalctl -u $UNIT; roll back with the files in $D" >&2; exit 1; }
+systemctl is-active $UNIT || true
+[ "$ready" = 1 ] || { echo "TEST DID NOT COME UP (no 'is now online' while active): read journalctl -u $UNIT; DEPLOYED_COMMIT unchanged; roll back with the files in $D" >&2; exit 1; }
+[ "$E" = 0 ] || { echo "BOOT HAS ERRORS: read journalctl -u $UNIT; DEPLOYED_COMMIT unchanged; roll back with the files in $D" >&2; exit 1; }
+echo "$HEAD" > $SRV/DEPLOYED_COMMIT
