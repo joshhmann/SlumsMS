@@ -63,6 +63,7 @@ steps:
   - {id: stage-59, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 59 cleared in \\d+ s", char: me}, timeout_ms: 300000}
   - {id: finished, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN zakumpq cleared in \\d+ s; prizes, bonus and out", char: me}, timeout_ms: 300000}
 captures:
+  - {id: by-adobis, burst: {fps: 2, ms: 3000, at: {step: talk}}}
   - {id: entering, burst: {fps: 3, ms: 5000, at: {signal: run-start}}}
   - {id: on-the-hub, burst: {fps: 2, ms: 5000, at: {signal: on-hub}}}
   - {id: stage-1-clear, burst: {fps: 2, ms: 4000, at: {signal: stage-1}}}
