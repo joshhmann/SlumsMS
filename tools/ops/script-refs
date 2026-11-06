@@ -7,7 +7,9 @@ half: every script a map points at has a file the server will find.
   * portal script: a portal with a non-empty "script" needs scripts/portal/<script>.js          (fatal)
     (references are keyed by kind and script name: a map that points at an already-listed missing script is not new)
   * map scripts:   info/onUserEnter, info/onFirstUserEnter need scripts/map/<kind>/<name>.js   (fatal)
-  * NPC script:    a placed NPC whose Npc.wz entry names info/script/*/script needs scripts/npc/<name>.js  (fatal)
+  * NPC script:    the server opens scripts/npc/<npc id>.js (NPCScriptManager), never the WZ script name. A placed NPC
+                   whose Npc.wz entry names a script but has no <id>.js is listed as informational: shop NPCs
+                   legitimately have no file (their shop is in the database, which this check cannot see)
   * reactor:       a placed reactor with no scripts/reactor/<id>.js (informational: many reactors need none)
 
 A reference is "fatal" when the server would log a missing script the moment a player uses it. The release check
@@ -92,8 +94,8 @@ def scan(wz, scripts):
         for e in (life if life is not None else []):
             if sval(e, "type") == "n" and sval(e, "id").isdigit():
                 name = npc_script(wz, int(sval(e, "id")), npc_cache)
-                if name and not exists("npc", name + ".js"):
-                    fatal.setdefault("npc\t%s" % name, "map %d npc %s" % (mapid, sval(e, "id")))
+                if name and not exists("npc", sval(e, "id") + ".js"):
+                    info.add("npc\t%d\t%s\t%s" % (mapid, sval(e, "id"), name))
         reactors = sub(root, "reactor")
         for e in (reactors if reactors is not None else []):
             rid = sval(e, "id")
@@ -134,7 +136,7 @@ def main():
         print(json.dumps({"fatal": len(fatal), "baseline": len(base), "new": [{"ref": l, "firstSeen": fatal[l]} for l in new], "fixedSinceBaseline": fixed,
                           "reactorsWithoutScript": len(info)}, indent=2))
     else:
-        print("fatal script references: %d (baseline %d), reactors without a script file: %d (informational)"
+        print("fatal script references: %d (baseline %d), reactors/NPCs without a script file: %d (informational)"
               % (len(fatal), len(base), len(info)))
         for l in new:
             print("NEW  %s  (first seen: %s)" % (l.replace("\t", " "), fatal[l]))

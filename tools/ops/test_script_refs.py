@@ -42,7 +42,7 @@ class T(unittest.TestCase):
     def test_all_present_is_clean(self):
         with tempfile.TemporaryDirectory() as d:
             wz, sc = build(d, "enterA", "portB", "npcC",
-                           ["map/onUserEnter/enterA.js", "portal/portB.js", "npc/npcC.js"])
+                           ["map/onUserEnter/enterA.js", "portal/portB.js", "npc/9000.js"])
             fatal, info = sr.scan(wz, sc)
             self.assertEqual(fatal, {})
             self.assertEqual(len(info), 1)  # reactor 2000 has no script: informational only
@@ -50,8 +50,9 @@ class T(unittest.TestCase):
     def test_each_kind_of_missing_script_is_fatal(self):
         with tempfile.TemporaryDirectory() as d:
             wz, sc = build(d, "enterA", "portB", "npcC", [])
-            fatal, _ = sr.scan(wz, sc)
-            self.assertEqual(set(fatal), {"map/onUserEnter\tenterA", "portal\tportB", "npc\tnpcC"})
+            fatal, info = sr.scan(wz, sc)
+            self.assertEqual(set(fatal), {"map/onUserEnter\tenterA", "portal\tportB"})
+            self.assertEqual(len(info), 2)  # reactor 2000, and NPC 9000 (WZ script, no 9000.js: could be a shop)
 
     def test_blank_script_names_are_not_references(self):
         with tempfile.TemporaryDirectory() as d:
