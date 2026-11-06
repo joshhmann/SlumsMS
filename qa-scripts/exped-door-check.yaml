@@ -31,43 +31,69 @@ steps:
   # test, so GM followbot staging is fine. Judge b311 only from the two alts' own attack packets and positions.
   - {id: revive, do: gm, line: "!heal", note: "AqClient may log in dead (saved at 0 HP after dying in Horntail): !warp is refused while dead"}
   - {do: sleep, ms: 1000, reason: "let the revive land before the next command"}
-  - {id: in-leafre, do: gm, line: "!warp 240000000"}
-  - {id: at-leafre, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240000000}, timeout_ms: 30000}
-  - {id: login-thunder54, do: gm, line: "!roster login thunder54"}
-  - {id: logged-thunder54, do: wait, armed_at: login-thunder54, signal: {type: client_signal, name: chat.received, regex: "login 1000553099: "}, timeout_ms: 20000}
-  - {id: follow-thunder54, do: gm, line: "!bot followbot 1000553099"}
+  - {id: to-door, do: gm, line: "!warp 240050400"}
+  - {id: at-door, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240050400}, timeout_ms: 30000}
+  - {id: stand-by-npc, do: gm, line: "!tp 860 246"}
+  # party (cap 6): human, Alt1, Alt2, MSbeta, thunder54, GokuBucc, all on the recruiter's map: a bot registers only while it stands there
   - {id: login-msbeta, do: gm, line: "!roster login MSbeta"}
   - {id: logged-msbeta, do: wait, armed_at: login-msbeta, signal: {type: client_signal, name: chat.received, regex: "login 1000551094: "}, timeout_ms: 20000}
   - {id: follow-msbeta, do: gm, line: "!bot followbot 1000551094"}
+  - {id: login-thunder54, do: gm, line: "!roster login thunder54"}
+  - {id: logged-thunder54, do: wait, armed_at: login-thunder54, signal: {type: client_signal, name: chat.received, regex: "login 1000553099: "}, timeout_ms: 20000}
+  - {id: follow-thunder54, do: gm, line: "!bot followbot 1000553099"}
+  - {id: login-gokubucc, do: gm, line: "!roster login GokuBucc"}
+  - {id: logged-gokubucc, do: wait, armed_at: login-gokubucc, signal: {type: client_signal, name: chat.received, regex: "login 1000553063: "}, timeout_ms: 20000}
+  - {id: follow-gokubucc, do: gm, line: "!bot followbot 1000553063"}
   - {id: call-alt-1, do: chat, text: "@botme AqClientAlt1"}
   - {id: alt-1-here, do: wait, armed_at: call-alt-1, signal: {type: server_line, topic: OWNED_ALT, regex: "loaded alt=105", char: me}, timeout_ms: 20000}
   - {id: call-alt-2, do: chat, text: "@botme AqClientAlt2"}
   - {id: alt-2-here, do: wait, armed_at: call-alt-2, signal: {type: server_line, topic: OWNED_ALT, regex: "loaded alt=106", char: me}, timeout_ms: 20000}
-  - {id: invite-thunder54, do: party_invite, name: thunder54}
-  - {id: joined-thunder54, do: sleep, ms: 3000, reason: "the join is a client notice with no chat or server line: the hex logger shows it"}
   - {id: invite-msbeta, do: party_invite, name: MSbeta}
-  - {id: joined-msbeta, do: sleep, ms: 3000, reason: "the join is a client notice with no chat or server line: the hex logger shows it"}
-  - {id: stop-msbeta, do: gm, line: "!bot 1000551094 manualstop", note: "MSbeta stays in Leafre while the leader goes to the door"}
-  - {id: to-door, do: gm, line: "!warp 240050400"}
-  - {id: at-door, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240050400}, timeout_ms: 30000}
-  - {id: stand-by-npc, do: gm, line: "!tp 860 246"}
-  - {id: gather, do: sleep, ms: 8000, reason: "the active follower thunder54 travels to the recruiter map after the leader"}
+  - {id: joined-msbeta, do: sleep, ms: 2000, reason: "the join is a client notice with no chat or server line: the hex logger shows it"}
+  - {id: invite-thunder54, do: party_invite, name: thunder54}
+  - {id: joined-thunder54, do: sleep, ms: 2000, reason: "the join is a client notice with no chat or server line: the hex logger shows it"}
+  - {id: invite-gokubucc, do: party_invite, name: GokuBucc}
+  - {id: joined-gokubucc, do: sleep, ms: 2000, reason: "the join is a client notice with no chat or server line: the hex logger shows it"}
+  - {id: gather, do: sleep, ms: 8000, reason: "the followers travel to the recruiter map after the leader"}
+  - {id: roll-call, do: gm, line: "!botstatus"}
+  - {id: here-msbeta, do: wait, armed_at: roll-call, signal: {type: client_signal, name: chat.received, regex: "^1000551094 MSbeta "}, timeout_ms: 20000}
+  - {id: here-thunder54, do: wait, armed_at: roll-call, signal: {type: client_signal, name: chat.received, regex: "^1000553099 thunder54 "}, timeout_ms: 20000}
+  - {id: here-gokubucc, do: wait, armed_at: roll-call, signal: {type: client_signal, name: chat.received, regex: "^1000553063 GokuBucc "}, timeout_ms: 20000}
+  # 2. create the expedition: all six register
   - {id: talk-1, do: click_npc, npc: 2083004}
   - {id: dialog-1, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
   - {id: lets-go, do: click, anchor: npc_dialog.option_1}
   - {id: created, do: wait, armed_at: lets-go, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
   - {id: close-created, do: click, anchor: npc_dialog.close}
   - {id: closed-1, do: wait, armed_at: close-created, signal: {type: client_signal, name: window.closed, window: npc_dialog}, timeout_ms: 10000}
-  # (b) dismiss Alt2, then look at the member list
+  # 3. (b) dismiss Alt2 and look at the list: switch on = 5 names without Alt2; off = still 6 with the ghost
   - {id: dismiss-alt-2, do: chat, text: "@dismiss AqClientAlt2"}
-  - {do: sleep, ms: 4000, reason: "the dismissal removes the alt from the expedition list on the server"}
+  - {id: alt-2-gone, do: wait, armed_at: dismiss-alt-2, signal: {type: server_line, topic: OWNED_ALT, regex: "removed alt=106", char: me}, timeout_ms: 20000}
   - {id: talk-roster, do: click_npc, npc: 2083004}
   - {id: dialog-roster, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
   - {id: view-members, do: click, anchor: npc_dialog.option_1}
-  - {do: sleep, ms: 2500, reason: "frame of the member list: Alt2 must be absent with the switch on"}
+  - {do: sleep, ms: 2500, reason: "frame of the member list after the dismissal"}
   - {id: close-roster, do: click, anchor: npc_dialog.close}
   - {id: roster-closed, do: wait, armed_at: close-roster, signal: {type: client_signal, name: window.closed, window: npc_dialog}, timeout_ms: 10000}
-  # (a) start the run: MSbeta is not at the altar
+  # 4. SweetKairi takes the free slot (switch on: 6 again; off: 7 with the ghost)
+  - {id: login-sweetkairi, do: gm, line: "!roster login SweetKairi"}
+  - {id: logged-sweetkairi, do: wait, armed_at: login-sweetkairi, signal: {type: client_signal, name: chat.received, regex: "login 1000536762: "}, timeout_ms: 20000}
+  - {id: follow-sweetkairi, do: gm, line: "!bot followbot 1000536762"}
+  - {id: invite-sweetkairi, do: party_invite, name: SweetKairi}
+  - {id: arrive-sweetkairi, do: sleep, ms: 6000, reason: "SweetKairi travels to the recruiter map after the leader"}
+  - {id: roll-call-2, do: gm, line: "!botstatus"}
+  - {id: here-sweetkairi, do: wait, armed_at: roll-call-2, signal: {type: client_signal, name: chat.received, regex: "^1000536762 SweetKairi "}, timeout_ms: 20000}
+  - {id: talk-roster-2, do: click_npc, npc: 2083004}
+  - {id: dialog-roster-2, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: view-members-2, do: click, anchor: npc_dialog.option_1}
+  - {do: sleep, ms: 2500, reason: "frame of the member list after SweetKairi registered"}
+  - {id: close-roster-2, do: click, anchor: npc_dialog.close}
+  - {id: roster-2-closed, do: wait, armed_at: close-roster-2, signal: {type: client_signal, name: window.closed, window: npc_dialog}, timeout_ms: 10000}
+  # 5. take MSbeta off the map (it stays registered)
+  - {id: stop-msbeta, do: gm, line: "!bot manualstop 1000551094"}
+  - {id: portal-msbeta, do: gm, line: "!bot enterportal 1000551094"}
+  - {id: off-map, do: sleep, ms: 2000, reason: "MSbeta walks through the nearest portal, off the recruiter map"}
+  # 6. (a) start: the size check passes (6 registered), then the line for MSbeta
   - {id: talk-2, do: click_npc, npc: 2083004}
   - {id: dialog-2, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
   - {id: start-fight, do: click, anchor: npc_dialog.option_2}
@@ -77,13 +103,14 @@ steps:
   - {id: in-fight, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240060000}, timeout_ms: 60000}
 captures:
   - {id: roster, burst: {fps: 2, ms: 3000, at: {step: view-members}}}
+  - {id: roster-2, burst: {fps: 2, ms: 3000, at: {step: view-members-2}}}
   - {id: answer, burst: {fps: 2, ms: 2500, at: {signal: after-start}}}
   - {id: in-room, burst: {fps: 2, ms: 4000, at: {signal: in-fight}}}
   - {id: chat, chat_log: {span: {from: stop-msbeta, to: in-fight}}}
 expect:
   reviewer:
     - see: "The expedition's member list without AqClientAlt2 (switch on) or still naming it (switch off)"
-      in: [roster]
+      in: [roster, roster-2]
     - see: "The party entering the Horntail room"
       in: [in-room]
   checks:
