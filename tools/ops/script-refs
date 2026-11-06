@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+"""P1-C1a: L0 smoke check of script references in the map data (release check).
+
+tools/ops/map-integrity already checks portal -> map/portal, placed life and reactors. This tool checks the other
+half: every script a map points at has a file the server will find.
+
+  * portal script: a portal with a non-empty "script" needs scripts/portal/<script>.js          (fatal)
+    (references are keyed by kind and script name: a map that points at an already-listed missing script is not new)
+  * map scripts:   info/onUserEnter, info/onFirstUserEnter need scripts/map/<kind>/<name>.js   (fatal)
+  * NPC script:    a placed NPC whose Npc.wz entry names info/script/*/script needs scripts/npc/<name>.js  (fatal)
+  * reactor:       a placed reactor with no scripts/reactor/<id>.js (informational: many reactors need none)
+
+A reference is "fatal" when the server would log a missing script the moment a player uses it. The release check
+passes while the set of fatal references is a subset of the committed baseline (tools/ops/script-refs.baseline), so
+only a NEW fatal reference fails it. Fix and shrink the baseline; never grow it without the owner's say.
+
+Usage:
+    tools/ops/script-refs [--wz DIR] [--scripts DIR] [--baseline FILE] [--json] [--write-baseline]
+Exit 0 = no new fatal reference, 1 = new fatal reference(s), 2 = bad input.
+"""
+import argparse
+import json
+import os
+import re
+import sys
+import xml.etree.ElementTree as ET
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_BASELINE = os.path.join(HERE, "script-refs.baseline")
+DEFAULT_SCRIPTS = os.path.normpath(os.path.join(HERE, "..", "..", "scripts"))
+
+
+def sval(elem, name):
+    for c in elem:
+        if c.tag == "string" and c.get("name") == name:
+            return (c.get("value") or "").strip()
+    return ""
+
+
+def sub(elem, name):
+    for c in elem:
+        if c.get("name") == name:
+            return c
+    return None
+
+
+def map_files(wz):
+    base = os.path.join(wz, "Map.wz", "Map")
+    for d in sorted(os.listdir(base)):
+        if not d.startswith("Map"):
+            continue
+        for f in sorted(os.listdir(os.path.join(base, d))):
+            m = re.fullmatch(r"(\d+)\.img\.xml", f)
+            if m:
+                yield int(m.group(1)), os.path.join(base, d, f)
+
+
+def npc_script(wz, npc_id, cache):
+    """The script name Npc.wz gives an NPC, '' when none."""
+    if npc_id in cache:
+        return cache[npc_id]
+    name = ""
+    path = os.path.join(wz, "Npc.wz", "%d.img.xml" % npc_id)
+    if os.path.exists(path):
+        info = sub(ET.parse(path).getroot(), "info")
+        scripts = sub(info, "script") if info is not None else None
+        if scripts is not None:
+            for entry in scripts:
+                name = sval(entry, "script") or name
+    cache[npc_id] = name
+    return name
+
+
+def scan(wz, scripts):
+    fatal, info = {}, set()   # fatal: "kind<TAB>script" -> first "map where" it was seen
+    npc_cache = {}
+    exists = lambda *p: os.path.isfile(os.path.join(scripts, *p))
+    for mapid, path in map_files(wz):
+        root = ET.parse(path).getroot()
+        mi = sub(root, "info")
+        if mi is not None:
+            for kind in ("onUserEnter", "onFirstUserEnter"):
+                name = sval(mi, kind)
+                if name and not exists("map", kind, name + ".js"):
+                    fatal.setdefault("map/%s\t%s" % (kind, name), "map %d" % mapid)
+        portals = sub(root, "portal")
+        for p in (portals if portals is not None else []):
+            name = sval(p, "script")
+            if name and not exists("portal", name + ".js"):
+                fatal.setdefault("portal\t%s" % name, "map %d portal %s" % (mapid, sval(p, "pn")))
+        life = sub(root, "life")
+        for e in (life if life is not None else []):
+            if sval(e, "type") == "n" and sval(e, "id").isdigit():
+                name = npc_script(wz, int(sval(e, "id")), npc_cache)
+                if name and not exists("npc", name + ".js"):
+                    fatal.setdefault("npc\t%s" % name, "map %d npc %s" % (mapid, sval(e, "id")))
+        reactors = sub(root, "reactor")
+        for e in (reactors if reactors is not None else []):
+            rid = sval(e, "id")
+            if rid.isdigit() and not exists("reactor", rid + ".js"):
+                info.add("reactor\t%d\t%s\t%s" % (mapid, rid, sval(e, "name")))
+    return fatal, info
+
+
+def load_baseline(path):
+    if not os.path.exists(path):
+        return set()
+    with open(path, encoding="utf-8") as f:
+        return {l.rstrip("\n") for l in f if l.strip() and not l.startswith("#")}
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Check that every script a map references exists.")
+    ap.add_argument("--wz", default=os.environ.get("WZ_PATH", "wz"))
+    ap.add_argument("--scripts", default=DEFAULT_SCRIPTS)
+    ap.add_argument("--baseline", default=DEFAULT_BASELINE)
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--write-baseline", action="store_true", help="rewrite the baseline from this run (review the diff)")
+    a = ap.parse_args()
+    if not os.path.isdir(os.path.join(a.wz, "Map.wz", "Map")) or not os.path.isdir(a.scripts):
+        print("need --wz with Map.wz/Map and --scripts", file=sys.stderr)
+        return 2
+    fatal, info = scan(a.wz, a.scripts)
+    if a.write_baseline:
+        with open(a.baseline, "w", encoding="utf-8") as f:
+            f.write("# known missing script references (kind, script name); only shrink this file\n")
+            f.writelines(l + "\n" for l in sorted(fatal))
+        print("baseline written: %d fatal references" % len(fatal))
+        return 0
+    base = load_baseline(a.baseline)
+    new = sorted(set(fatal) - base)
+    fixed = sorted(base - set(fatal))
+    if a.json:
+        print(json.dumps({"fatal": len(fatal), "baseline": len(base), "new": [{"ref": l, "firstSeen": fatal[l]} for l in new], "fixedSinceBaseline": fixed,
+                          "reactorsWithoutScript": len(info)}, indent=2))
+    else:
+        print("fatal script references: %d (baseline %d), reactors without a script file: %d (informational)"
+              % (len(fatal), len(base), len(info)))
+        for l in new:
+            print("NEW  %s  (first seen: %s)" % (l.replace("\t", " "), fatal[l]))
+        for l in fixed:
+            print("FIXED (drop from baseline) " + l.replace("\t", " "))
+    return 1 if new else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
