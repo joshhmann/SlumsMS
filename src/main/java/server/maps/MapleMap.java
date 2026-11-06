@@ -2832,6 +2832,9 @@ public class MapleMap {
         int chrSize;
         boolean bot = false;
         Party party = chr.getParty();
+        if (!(chr.getClient() instanceof BotClient)) {
+            chr.resetEntrySpawns(); // b350: a fresh entry, before anyone can broadcast to this character
+        }
         chrWLock.lock();
         try {
             if (characters.add(chr) && soloMapling.ArtificialPlayer.BotHelpers.isBot(chr)) {
@@ -3018,14 +3021,23 @@ public class MapleMap {
             }
         }
 
+        // b350: in mapobjects BEFORE the spawn broadcast, so an entrant that is not yet in `characters` when we
+        // broadcast finds us in its sendObjectPlacement snapshot (the dedupe in entrySpawn covers getting both)
+        objectWLock.lock();
+        try {
+            this.mapobjects.put(chr.getObjectId(), chr);
+        } finally {
+            objectWLock.unlock();
+        }
+
         if (chr.isHidden()) {
-            broadcastGMSpawnPlayerMapObjectMessage(chr, chr, true);
+            broadcastEntryGMSpawn(chr);
             chr.sendPacket(PacketCreator.getGMEffect(0x10, (byte) 1));
 
             List<Pair<BuffStat, Integer>> dsstat = Collections.singletonList(new Pair<>(BuffStat.DARKSIGHT, 0));
             broadcastGMMessage(chr, PacketCreator.giveForeignBuff(chr.getId(), dsstat), false);
         } else {
-            broadcastSpawnPlayerMapObjectMessage(chr, chr, true);
+            broadcastSpawnPlayerMapObjectMessage(chr, chr, true, false, true);
         }
 
         if (afterSpawnBroadcast != null) {
@@ -3044,13 +3056,6 @@ public class MapleMap {
             chr.sendPacket(PacketCreator.coconutScore(0, 0));
             chr.sendPacket(PacketCreator.showForcedEquip(chr.getTeam()));
         }
-        objectWLock.lock();
-        try {
-            this.mapobjects.put(chr.getObjectId(), chr);
-        } finally {
-            objectWLock.unlock();
-        }
-
         if (chr.getPlayerShop() != null && getMapObject(chr.getPlayerShop().getObjectId()) != chr.getPlayerShop()) {
             addMapObject(chr.getPlayerShop()); // 1.4.2: only once - a re-add gave the shop a new oid and left the old key behind
         }
@@ -3214,6 +3219,7 @@ public class MapleMap {
         } finally {
             chrWLock.unlock();
         }
+        forgetEntrySpawns(chr.getId());
         if (bot) {
             soloMapling.ArtificialPlayer.BotMapCap.onBotCountChanged(this);
         }
@@ -3251,6 +3257,20 @@ public class MapleMap {
             } else {
                 this.broadcastPacket(chr, PacketCreator.removeDragon(chr.getId()));
             }
+        }
+    }
+
+    /** b350: those still here must be sent this character's spawn again if it re-enters. Real players only. */
+    private void forgetEntrySpawns(int id) {
+        chrRLock.lock();
+        try {
+            for (Character c : characters) {
+                if (!(c.getClient() instanceof BotClient)) {
+                    c.forgetEntrySpawn(id);
+                }
+            }
+        } finally {
+            chrRLock.unlock();
         }
     }
 
@@ -3425,19 +3445,32 @@ public class MapleMap {
     }
 
     public void broadcastSpawnPlayerMapObjectMessage(Character source, Character player, boolean enteringField) {
-        broadcastSpawnPlayerMapObjectMessage(source, player, enteringField, false);
+        broadcastSpawnPlayerMapObjectMessage(source, player, enteringField, false, false);
     }
 
     public void broadcastGMSpawnPlayerMapObjectMessage(Character source, Character player, boolean enteringField) {
-        broadcastSpawnPlayerMapObjectMessage(source, player, enteringField, true);
+        broadcastSpawnPlayerMapObjectMessage(source, player, enteringField, true, false);
     }
 
-    private void broadcastSpawnPlayerMapObjectMessage(Character source, Character player, boolean enteringField, boolean gmBroadcast) {
+    private void broadcastEntryGMSpawn(Character player) {
+        broadcastSpawnPlayerMapObjectMessage(player, player, true, true, true);
+    }
+
+    /** b350: true when `recipient` has not been sent a spawn for `subject` on its current map entry (and now has). */
+    private static boolean entrySpawn(Character recipient, Character subject) {
+        return recipient.markEntrySpawn(subject.getId());
+    }
+
+    /**
+     * @param entry true only for addPlayer's entry broadcast: each recipient is sent the spawn at most once per entry
+     *              (b350 dedupe against sendObjectPlacement); false is every other caller, unchanged.
+     */
+    private void broadcastSpawnPlayerMapObjectMessage(Character source, Character player, boolean enteringField, boolean gmBroadcast, boolean entry) {
         chrRLock.lock();
         try {
             if (gmBroadcast) {
                 for (Character chr : characters) {
-                    if (chr.isGM()) {
+                    if (chr.isGM() && (!entry || chr == source || entrySpawn(chr, player))) {
                         chr.sendPacket(PacketCreator.spawnPlayerMapObject(chr.getClient(), player, enteringField));
                     }
                 }
@@ -3445,7 +3478,8 @@ public class MapleMap {
                 for (Character chr : characters) {
                     // 1.4.2 (perf): a bot's client drops every packet; building a full spawn packet for each bot on
                     // the map made every entry O(characters on the map) in packet encoding for nothing
-                    if (chr != source && !(chr.getClient() instanceof BotClient)) {
+                    if (chr != source && !(chr.getClient() instanceof BotClient)
+                            && (!entry || entrySpawn(chr, player))) {
                         chr.sendPacket(PacketCreator.spawnPlayerMapObject(chr.getClient(), player, enteringField));
                     }
                 }
@@ -3516,6 +3550,12 @@ public class MapleMap {
                 if (trickle && o != chr && MapEntryPlacement.deferrableCharacter(o) && !MapEntryPlacement.inView(at, o)) {
                     deferred.add(new MapEntryPlacement.Deferred(o, entryStamps.get(((Character) o).getId())));
                     continue;
+                }
+                if (o == chr) {
+                    continue; // b350: the entrant is in mapobjects before its own broadcast now
+                }
+                if (chr != null && o instanceof Character other && !entrySpawn(chr, other)) {
+                    continue; // b350: the entry broadcast already sent this one
                 }
                 o.sendSpawnData(c);
                 sentNow++;
@@ -3609,7 +3649,7 @@ public class MapleMap {
             for (MapEntryPlacement.Deferred d : chunk) {
                 if (d.object() instanceof Character bot) {
                     // still here on the same entry: else its removal, or its own spawn, has gone out already
-                    if (d.stamp() != null && d.stamp().equals(entryStamps.get(bot.getId()))) {
+                    if (d.stamp() != null && d.stamp().equals(entryStamps.get(bot.getId())) && entrySpawn(chr, bot)) {
                         bot.sendSpawnData(c);
                         sent++;
                     }
