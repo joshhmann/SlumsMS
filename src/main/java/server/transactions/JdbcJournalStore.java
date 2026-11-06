@@ -59,6 +59,45 @@ public class JdbcJournalStore implements JournalStore {
     }
 
     @Override
+    public long startRow(String kind, int actorId, long refId, String deltasJson) throws SQLException {
+        try (Connection con = DatabaseConnection.getConnection()) {
+            con.setAutoCommit(false);
+            try {
+                long id = OperationJournal.start(con, kind, actorId, refId, deltasJson);
+                con.commit();
+                return id;
+            } catch (SQLException | RuntimeException e) {
+                con.rollback();
+                throw e;
+            } finally {
+                con.setAutoCommit(true);
+            }
+        }
+    }
+
+    @Override
+    public void rollBackRow(long journalId, String kind, int actorId, String note) throws SQLException {
+        try (Connection con = DatabaseConnection.getConnection()) {
+            con.setAutoCommit(false);
+            try {
+                if (OperationJournal.MERCHANT_CLOSE.equals(kind)) {
+                    try (PreparedStatement ps = con.prepareStatement("UPDATE characters SET HasMerchant = 0 WHERE id = ?")) {
+                        ps.setInt(1, actorId);
+                        ps.executeUpdate();
+                    }
+                }
+                OperationJournal.markRolledBack(con, journalId, note);
+                con.commit();
+            } catch (SQLException | RuntimeException e) {
+                con.rollback();
+                throw e;
+            } finally {
+                con.setAutoCommit(true);
+            }
+        }
+    }
+
+    @Override
     public List<OpenRow> openRows() throws SQLException {
         List<OpenRow> rows = new ArrayList<>();
         try (Connection con = DatabaseConnection.getConnection();

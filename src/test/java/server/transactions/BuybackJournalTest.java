@@ -43,6 +43,16 @@ class BuybackJournalTest {
         }
 
         @Override
+        public long startRow(String kind, int actorId, long refId, String deltasJson) {
+            throw new UnsupportedOperationException("buyback test");
+        }
+
+        @Override
+        public void rollBackRow(long journalId, String kind, int actorId, String note) {
+            throw new UnsupportedOperationException("buyback test");
+        }
+
+        @Override
         public List<OpenRow> openRows() {
             List<OpenRow> out = new ArrayList<>();
             for (String[] r : rows) if ("STARTED".equals(r[2])) out.add(new OpenRow(Long.parseLong(r[0]), r[1], PLAYER, TX));

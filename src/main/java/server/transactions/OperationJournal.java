@@ -17,11 +17,25 @@ import java.util.List;
  * <p>States: STARTED (claimed, effect not yet known to be durable), APPLIED (the effect committed with this row's
  * flip), ROLLED_BACK. For BUYBACK a STARTED row at boot means the character save that carries the grant never
  * committed, so the database still shows no item or meso change and boot only has to clear the claim flag.
+ *
+ * <p>The merchant kinds (P0-2) follow the same rule: their APPLIED flip commits in the same transaction as the whole
+ * effect (the owner's or buyer's character save plus the merchant rows, Fredrick log, HasMerchant flag and the owner's
+ * MerchantMesos). So a STARTED row at boot means none of it committed: the DB still holds the goods in the merchant
+ * (Fredrick) tables and the mesos where they were, and boot only marks the row ROLLED_BACK. An APPLIED row is
+ * never touched, so nothing is applied twice.
  */
 public final class OperationJournal {
     private static final Logger log = LoggerFactory.getLogger(OperationJournal.class);
 
     public static final String BUYBACK = "BUYBACK";
+    /** A hired merchant closing and handing its goods to the owner's inventory (P0-2). */
+    public static final String MERCHANT_CLOSE = "MERCHANT_CLOSE";
+    /** A buyer purchasing from a hired merchant: buyer item and mesos, shop stock, owner's MerchantMesos (P0-2). */
+    public static final String MERCHANT_BUY = "MERCHANT_BUY";
+    /** The owner taking a line back out of the shop: item to the bag, line off the stored stock (P0-2b). */
+    public static final String MERCHANT_TAKEBACK = "MERCHANT_TAKEBACK";
+    /** Fredrick handing the stored goods and merchant mesos to the owner: items, wallet, MerchantMesos, log (P0-2b). */
+    public static final String FREDRICK_RETRIEVE = "FREDRICK_RETRIEVE";
 
     private OperationJournal() {
     }
@@ -81,19 +95,25 @@ public final class OperationJournal {
         }
         int rolledBack = 0, failed = 0, skipped = 0;
         for (JournalStore.OpenRow row : rows) {
-            if (!BUYBACK.equals(row.kind())) {
+            boolean buyback = BUYBACK.equals(row.kind());
+            if (!buyback && !MERCHANT_CLOSE.equals(row.kind()) && !MERCHANT_BUY.equals(row.kind())
+                    && !FREDRICK_RETRIEVE.equals(row.kind()) && !MERCHANT_TAKEBACK.equals(row.kind())) {
                 log.warn("Journal reconcile: row {} has unknown kind '{}' (actor {}, ref {}), left alone",
                         row.id(), row.kind(), row.actorId(), row.refId());
                 skipped++;
                 continue;
             }
             try {
-                store.releaseBuyback(row.id(), (int) row.refId(), "boot reconcile");
-                log.info("Journal reconcile: BUYBACK row {} (actor {}, transaction {}) was never saved, claim released",
-                        row.id(), row.actorId(), row.refId());
+                if (buyback) {
+                    store.releaseBuyback(row.id(), (int) row.refId(), "boot reconcile");
+                } else {
+                    store.rollBackRow(row.id(), row.kind(), row.actorId(), "boot reconcile");
+                }
+                log.info("Journal reconcile: {} row {} (actor {}, ref {}) never committed, rolled back",
+                        row.kind(), row.id(), row.actorId(), row.refId());
                 rolledBack++;
             } catch (SQLException e) {
-                log.error("Journal reconcile: BUYBACK row {} could not be settled, left STARTED", row.id(), e);
+                log.error("Journal reconcile: {} row {} could not be settled, left STARTED", row.kind(), row.id(), e);
                 failed++;
             }
         }

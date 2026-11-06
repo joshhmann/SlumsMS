@@ -226,6 +226,10 @@ public class PlayerShop extends AbstractMapObject {
 
     public void takeItemBack(int slot, Character chr) {
         synchronized (items) {
+            if (slot < 0 || slot >= items.size()) {   // P0-2b: a bad or stale slot is refused before anything changes
+                chr.sendPacket(PacketCreator.enableActions());
+                return;
+            }
             PlayerShopItem shopItem = items.get(slot);
             if (shopItem.isExist()) {
                 if (shopItem.getBundles() > 0) {
@@ -257,18 +261,27 @@ public class PlayerShop extends AbstractMapObject {
     public boolean buy(Client c, int item, short quantity) {
         synchronized (items) {
             if (isVisitor(c.getPlayer())) {
+                // P0-2: a bad or stale index is refused before anything changes
+                if (item < 0 || item >= items.size()) {
+                    MarketLog.refused("playershop", c.getPlayer(), MarketLog.who(owner), "bad-line");
+                    c.sendPacket(PacketCreator.enableActions());
+                    return false;
+                }
                 PlayerShopItem pItem = items.get(item);
                 Item newItem = pItem.getItem().copy();
 
                 newItem.setQuantity((short) ((pItem.getItem().getQuantity() * quantity)));
-                if (quantity < 1 || !pItem.isExist() || pItem.getBundles() < quantity) {
+                if (quantity < 1 || !pItem.isExist() || pItem.getBundles() < 1 || pItem.getBundles() < quantity) {
+                    MarketLog.refused("playershop", c.getPlayer(), MarketLog.who(owner), "bad-line");
                     c.sendPacket(PacketCreator.enableActions());
                     return false;
                 } else if (newItem.getInventoryType().equals(InventoryType.EQUIP) && newItem.getQuantity() > 1) {
+                    MarketLog.refused("playershop", c.getPlayer(), MarketLog.who(owner), "bad-line");
                     c.sendPacket(PacketCreator.enableActions());
                     return false;
                 }
                 if (!server.ShopMath.isSaleablePrice(pItem.getPrice())) {   // 1.5.0 rc6: never free, never paid to buy
+                    MarketLog.refused("playershop", c.getPlayer(), MarketLog.who(owner), "price");
                     c.getPlayer().dropMessage(1, "That item isn't for sale right now.");
                     c.sendPacket(PacketCreator.enableActions());
                     return false;
@@ -280,6 +293,7 @@ public class PlayerShop extends AbstractMapObject {
                 try {
                     long total = server.ShopMath.total(pItem.getPrice(), quantity);   // 1.5.0 rc3 review: exact
                     if (total < 0) {
+                        MarketLog.refused("playershop", c.getPlayer(), MarketLog.who(owner), "price");
                         c.getPlayer().dropMessage(1, "That costs more mesos than anyone can carry at once.");
                         c.sendPacket(PacketCreator.enableActions());
                         return false;
@@ -288,6 +302,7 @@ public class PlayerShop extends AbstractMapObject {
 
                     if (c.getPlayer().getMeso() >= price) {
                         if (!owner.canHoldMeso(price)) {    // thanks Rohenn for noticing owner hold check misplaced
+                            MarketLog.refused("playershop", c.getPlayer(), MarketLog.who(owner), "owner-full");
                             c.getPlayer().dropMessage(1, "Transaction failed since the shop owner can't hold any more mesos.");
                             c.sendPacket(PacketCreator.enableActions());
                             return false;
@@ -323,16 +338,19 @@ public class PlayerShop extends AbstractMapObject {
                                 }
                             }
                         } else {
+                            MarketLog.refused("playershop", c.getPlayer(), MarketLog.who(owner), "inventory-full");
                             c.getPlayer().dropMessage(1, "Your inventory is full. Please clear a slot before buying this item.");
                             c.sendPacket(PacketCreator.enableActions());
                             return false;
                         }
                     } else {
+                        MarketLog.refused("playershop", c.getPlayer(), MarketLog.who(owner), "funds");
                         c.getPlayer().dropMessage(1, "You don't have enough mesos to purchase this item.");
                         c.sendPacket(PacketCreator.enableActions());
                         return false;
                     }
 
+                    MarketLog.sale("playershop", c.getPlayer(), MarketLog.who(owner));
                     return true;
                 } finally {
                     visitorLock.unlock();
@@ -654,6 +672,9 @@ public class PlayerShop extends AbstractMapObject {
 
     public boolean botBuy(Character fakechar, PlayerShopItem pItem, int itemPosition, short quantity) {
         synchronized (items) {
+            if (quantity < 1 || !items.contains(pItem) || !pItem.isExist() || pItem.getBundles() < quantity) {
+                return false;   // P0-2: a stale or foreign line
+            }
             Item newItem = pItem.getItem().copy();
             newItem.setQuantity((short) ((pItem.getItem().getQuantity() * quantity)));
             if (!server.ShopMath.isSaleablePrice(pItem.getPrice())) {   // 1.5.0 rc6: never free, never paid to buy
