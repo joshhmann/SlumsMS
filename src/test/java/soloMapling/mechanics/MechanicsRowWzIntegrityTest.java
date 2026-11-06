@@ -143,6 +143,94 @@ class MechanicsRowWzIntegrityTest {
         assertTrue(reactorsOn(mapRoot, 926110100).contains(2618000), "and the beakers are the control that must be found");
     }
 
+    /**
+     * 1.6.5 b344 (TEST, 6 Nov): a stage whose party WALKS to the next room (the {@code zakum-mines} solver leaves
+     * through whichever door on its map leads to the clear's map, {@code SolverStep.EnterPortalTo}) can only clear if
+     * that door exists. {@code zakumpq} stage 10 waited for 280010041 from 280010050, whose only way out is back to the
+     * hub, so a bot said "no portal on 280010050 leads to 280010041" every 10 s until the run's clock ran out; stages
+     * 36 and 38 walked back the same way through one-way rooms. Every such clear must be one real portal (or the same
+     * map) away.
+     */
+    @Test
+    void everyWalkedClearIsOneRealDoorAwayFromItsStage() throws IOException {
+        WzTestData.assumePresent("Map.wz");
+
+        StageData.Result r = StageData.loadDir(Path.of(Mechanics.DEFAULT_DIR));
+        assertTrue(r.errors().isEmpty(), "the rows parse: " + r.errors());
+
+        Path mapRoot = WzTestData.dir().resolve("Map.wz").resolve("Map");
+        List<String> noDoor = new ArrayList<>();
+        int checked = 0;
+        for (MechanicsModel.Content c : r.content()) {
+            for (MechanicsModel.Stage s : c.stages()) {
+                if (!"zakum-mines".equals(s.solver()) || s.clear() == null || s.clear().partyOnMap() <= 0) {
+                    continue;
+                }
+                int to = s.clear().partyOnMap();
+                checked++;
+                if (to != s.mapId() && !doorsOn(mapRoot, s.mapId()).contains(to)) {
+                    noDoor.add(c.id() + " stage " + s.index() + ": waits for " + to + " but " + s.mapId()
+                            + " has doors only to " + new java.util.TreeSet<>(doorsOn(mapRoot, s.mapId())));
+                }
+            }
+        }
+        assertTrue(noDoor.isEmpty(), "every walked clear must be one door away: " + noDoor);
+        assertTrue(checked > 30, "the pass really walked the routes: " + checked);
+        assertTrue(doorsOn(mapRoot, 280010040).contains(280010041), "and the control: 040 has its door to 041");
+    }
+
+    private static final java.util.Map<Integer, java.util.Set<Integer>> DOORS = new java.util.HashMap<>();
+
+    /** The maps a map image's portals lead to (tm), the "no target" 999999999 left out; read once per map. */
+    private static java.util.Set<Integer> doorsOn(Path mapRoot, int mapId) throws IOException {
+        java.util.Set<Integer> cached = DOORS.get(mapId);
+        if (cached != null) {
+            return cached;
+        }
+        java.util.Set<Integer> to = new java.util.HashSet<>();
+        Path image = mapImagePath(mapRoot, mapId);
+        if (image != null) {
+            javax.xml.parsers.DocumentBuilderFactory f = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+            f.setValidating(false);
+            try {
+                org.w3c.dom.Document doc = f.newDocumentBuilder().parse(image.toFile());
+                org.w3c.dom.NodeList blocks = doc.getElementsByTagName("imgdir");
+                for (int i = 0; i < blocks.getLength(); i++) {
+                    org.w3c.dom.Element block = (org.w3c.dom.Element) blocks.item(i);
+                    if (!"portal".equals(block.getAttribute("name"))) {
+                        continue;
+                    }
+                    org.w3c.dom.NodeList entries = block.getChildNodes();
+                    for (int j = 0; j < entries.getLength(); j++) {
+                        org.w3c.dom.Node entry = entries.item(j);
+                        if (entry.getNodeType() != org.w3c.dom.Node.ELEMENT_NODE) {
+                            continue;
+                        }
+                        org.w3c.dom.NodeList fields = entry.getChildNodes();
+                        for (int k = 0; k < fields.getLength(); k++) {
+                            org.w3c.dom.Node field = fields.item(k);
+                            if (field.getNodeType() == org.w3c.dom.Node.ELEMENT_NODE
+                                    && "tm".equals(((org.w3c.dom.Element) field).getAttribute("name"))) {
+                                try {
+                                    int tm = Integer.parseInt(((org.w3c.dom.Element) field).getAttribute("value").trim());
+                                    if (tm != 999_999_999) {
+                                        to.add(tm);
+                                    }
+                                } catch (NumberFormatException ignored) {
+                                    // a malformed target is the dump's problem, not this test's
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (org.xml.sax.SAXException | javax.xml.parsers.ParserConfigurationException e) {
+                throw new IOException("cannot read " + image, e);
+            }
+        }
+        DOORS.put(mapId, to);
+        return to;
+    }
+
     private static final java.util.Map<Integer, java.util.Set<Integer>> REACTORS = new java.util.HashMap<>();
 
     /** The reactor ids a map image places, read once per map. */
