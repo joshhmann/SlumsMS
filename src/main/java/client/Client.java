@@ -114,7 +114,7 @@ public class Client extends ChannelInboundHandlerAdapter {
     private int picattempt = 0;
     private byte csattempt = 0;
     private byte gender = -1;
-    private boolean disconnecting = false;
+    private volatile boolean disconnecting = false; // b352: read by the netty thread to refuse packets once a disconnect began
     private final Semaphore actionsSemaphore = new Semaphore(7);
     private final Lock lock = new ReentrantLock(true);
     private final Lock encoderLock = new ReentrantLock(true);
@@ -214,7 +214,9 @@ public class Client extends ChannelInboundHandlerAdapter {
             log.debug("Received packet id {}", opcode);
         }
 
-        if (handler != null && handler.validateState(this)) {
+        // b352: once a disconnect began (a kick, a ban, a duplicate login) nothing more from this client is acted on; the
+        // logout save runs on another thread and a packet handled after it was taken would not be in the database
+        if (handler != null && !disconnecting && handler.validateState(this)) {
             try {
                 MonitoredChrLogger.logPacketIfMonitored(this, opcode, packet.getBytes());
                 notePlayerAction(opcode);
@@ -338,7 +340,9 @@ public class Client extends ChannelInboundHandlerAdapter {
     }
 
     public void closeSession() {
-        ioChannel.close();
+        if (ioChannel != null) {
+            ioChannel.close();
+        }
     }
 
     public void disconnectSession() {
@@ -1195,6 +1199,10 @@ public class Client extends ChannelInboundHandlerAdapter {
             }
 
             engines = null; // thanks Tochi for pointing out a NPE here
+        }
+
+        if (!serverTransition) {
+            closeSession(); // b352: a server-side kick also closes the socket (closeSession(this, false) above never did)
         }
     }
 
