@@ -29,6 +29,7 @@ steps:
   - {do: sleep, ms: 2000, reason: "let the revive land before the next command"}
   - {id: alts-1-away, do: chat, text: "@dismiss AqClientAlt1"}
   - {id: alts-2-away, do: chat, text: "@dismiss AqClientAlt2"}
+  - {id: restart-msbeta, do: gm, line: "!bot manualstart 1000551094", note: "undo the manualstop of the exped.door away check"}
   - {id: leave-thunder54, do: gm, line: "!bot leaveparty 1000553099"}
   - {id: leave-msbeta, do: gm, line: "!bot leaveparty 1000551094"}
   - {id: leave-gokubucc, do: gm, line: "!bot leaveparty 1000553063"}
