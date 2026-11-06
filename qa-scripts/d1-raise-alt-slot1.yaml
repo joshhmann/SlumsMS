@@ -24,6 +24,7 @@ steps:
   - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
   - {id: pick, do: select_character}
   - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
   - {id: level-up, do: gm, line: "!level 120"}
   - {do: sleep, ms: 3000, reason: "let the level-up effect and HUD settle for the frame"}
 captures:

@@ -6,7 +6,7 @@ title: "Raise the account's character in slot 2 to level 120"
 covers: [b311]
 status: draft
 server: test
-needs: [gm, proposed_signals]
+needs: [gm, proposed_signals, proposed_anchors]
 notes: "tarkov2 QA account only (TEST). GM staging used: !level 120. Judge from the frames: character select with every slot (shows names and levels), and the HUD level after !level. Report the slot's name and level to the Coordinator."
 clients:
   me:
@@ -24,6 +24,9 @@ steps:
   - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
   - {id: pick, do: select_character}
   - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
+  - {id: close-tour, do: click, anchor: npc_dialog.option_3, note: "a fresh character opens the Slums-chan welcome tour; its menu row 3 is Close (click_option, no mouse)"}
+  - {do: sleep, ms: 1000, reason: "let the dialog close before the GM line is typed"}
   - {id: level-up, do: gm, line: "!level 120"}
   - {do: sleep, ms: 3000, reason: "let the level-up effect and HUD settle for the frame"}
 captures:

@@ -11,7 +11,7 @@ covers: [feature-zakum-e2e, b331]
 status: draft
 server: test
 needs: [gm, owned_alt, proposed_anchors, proposed_signals, proposed_steps]
-notes: "AFTER THE RUN: copy crash.log from the worker (client/me in the run folder); Server Dev confirms no live Zakum expedition is left on the channel (this script only dismisses the alts and leaves the altar); record the cleanup, the GM-staged Eye of Fire and the spent attempt in latest.json. tarkov2 QA account (AqClient lv120 GM; alts AqClientAlt1 and AQALT2 at 120). TEST build with the batch 1+2 deploy; hex logger on (Server Dev decodes SPAWN_PLAYER of the alts on 280030000). NPC 2030013 is on 211042400; menu rows: first dialog 'Lets get this going!' (1); leader menu View members (1), Start the fight! (2), Stop (3). The expedition quota is spent by the attempt (assertion (e) will read it later). Needs the expedition free on the channel. Replace AQALT2 with the second alt's name from d1-raise-alt-slot2 before running."
+notes: "AFTER THE RUN: copy crash.log from the worker (client/me in the run folder); Server Dev confirms no live Zakum expedition is left on the channel (this script only dismisses the alts and leaves the altar); record the cleanup, the GM-staged Eye of Fire and the spent attempt in latest.json. tarkov2 QA account (AqClient lv120 GM; alts AqClientAlt1 and AqClientAlt2 at 120). TEST build with the batch 1+2 deploy; hex logger on (Server Dev decodes SPAWN_PLAYER of the alts on 280030000). NPC 2030013 is on 211042400; menu rows: first dialog 'Lets get this going!' (1); leader menu View members (1), Start the fight! (2), Stop (3). The expedition quota is spent by the attempt (assertion (e) will read it later). Needs the expedition free on the channel."
 clients:
   me:
     account: {vault: account}
@@ -28,13 +28,14 @@ steps:
   - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
   - {do: select_character}
   - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
   - {id: eye, do: gm, line: "!item 4001017 1", note: "the expedition leader must hold an Eye of Fire to register"}
   - {id: to-recruit, do: gm, line: "!warp 211042400"}
   - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 211042400}, timeout_ms: 30000}
   - {id: call-alt-1, do: chat, text: "@botme AqClientAlt1"}
   - {id: alt-1-here, do: wait, armed_at: call-alt-1, signal: {type: server_line, topic: OWNED_ALT, regex: "AqClientAlt1", char: me}, timeout_ms: 20000}
-  - {id: call-alt-2, do: chat, text: "@botme AQALT2"}
-  - {id: alt-2-here, do: wait, armed_at: call-alt-2, signal: {type: server_line, topic: OWNED_ALT, regex: "AQALT2", char: me}, timeout_ms: 20000}
+  - {id: call-alt-2, do: chat, text: "@botme AqClientAlt2"}
+  - {id: alt-2-here, do: wait, armed_at: call-alt-2, signal: {type: server_line, topic: OWNED_ALT, regex: "AqClientAlt2", char: me}, timeout_ms: 20000}
   - {id: talk-1, do: click_npc, npc: 2030013}
   - {id: dialog-1, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
   - {id: lets-go, do: click, anchor: npc_dialog.option_1}
@@ -54,7 +55,7 @@ steps:
   - {id: alts-arrive, do: sleep, ms: 10000, reason: "give the alts time to arrive in the altar room for the frame and the hex logger"}
   # cleanup: send the alts away and leave the altar so TEST is not left with the party in the instance
   - {id: dismiss-1, do: chat, text: "@dismiss AqClientAlt1"}
-  - {id: dismiss-2, do: chat, text: "@dismiss AQALT2"}
+  - {id: dismiss-2, do: chat, text: "@dismiss AqClientAlt2"}
   - {id: leave, do: gm, line: "!warp 211000000"}
   - {id: left, do: wait, signal: {type: client_signal, name: field.ready, map_id: 211000000}, timeout_ms: 30000}
 captures:
