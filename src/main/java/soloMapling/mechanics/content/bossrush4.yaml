@@ -1,4 +1,6 @@
-# Ticket 164 Boss Rush PQ, level band 4 - GENERATED, do not hand-edit.
+# Ticket 164 Boss Rush PQ, level band 4. HAND-MAINTAINED (1.6.5 b340): this file once said GENERATED, but no
+# generator was ever in the repo. Edit all eight bands alike; BossRushRowTest checks their shape (stage count,
+# map ids, mapEmpty waves, the shared rest spot).
 # Layout from the scripts, not guessed: the band is the instance index the starter hands to startInstance
 # (scripts/npc/9000037.js:162-166, detectTeamLobby :40-70 turns the party's average level into a band 0..7), the
 # event stores it as "lobby" (scripts/event/BossRushPQ.js:136) and warps the party to entryMap + lobby (:146-148),
