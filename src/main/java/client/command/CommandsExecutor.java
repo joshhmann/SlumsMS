@@ -484,6 +484,7 @@ public class CommandsExecutor {
         addCommand("maxenergy", 3, MaxEnergyCommand.class);
         addCommand("sense", 3, SenseCommand.class);
         addCommand("killall", 3, KillAllCommand.class);
+        addCommand("killmob", 3, client.command.commands.gm3.KillMobCommand.class);
         addCommand("notice", 3, NoticeCommand.class);
         addCommand("rip", 3, RipCommand.class);
         addCommand("openportal", 3, OpenPortalCommand.class);
