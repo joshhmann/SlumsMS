@@ -82,6 +82,47 @@ public final class BotPopulationDirector {
     }
 
     /**
+     * e08 probe: how far a boot fill has come. A regular is an active roster member whose usual play window covers
+     * now - the bots the director prefers, so the ones players expect to see at this hour. Read off the roster the
+     * tick already holds: no query of its own.
+     */
+    record FillProgress(int online, int target, int regularsOnline, int regulars, int queued) {
+        boolean done() {
+            return queued == 0 && online >= Math.floor(target * (1 - SLACK)); // the director stops inside its slack
+        }
+
+        String line(long sinceFillMs) {
+            return "[Director] fill +" + sinceFillMs / 1000 + " s: online " + online + " of " + target
+                    + ", regulars online " + regularsOnline + " of " + regulars + ", logins queued " + queued
+                    + (done() ? "; fill done in " + sinceFillMs / 1000 + " s" : "");
+        }
+    }
+
+    static FillProgress fillProgress(List<Candidate> roster, int target, int minuteOfDay, int queued) {
+        int online = 0;
+        int regulars = 0;
+        int regularsOnline = 0;
+        for (Candidate c : roster) {
+            if (c.online()) {
+                online++;
+            }
+            if (c.active() && c.inWindow(minuteOfDay)) {
+                regulars++;
+                if (c.online()) {
+                    regularsOnline++;
+                }
+            }
+        }
+        return new FillProgress(online, target, regularsOnline, regulars, queued);
+    }
+
+    /** e08 probe: when the boot fill began (0 = no fill yet) and whether its end was reported. */
+    private static volatile long fillStartedAt;
+    private static volatile boolean fillReported;
+    /** A fill still not done this long after it began stops being reported (the curve may never reach it). */
+    static final long FILL_REPORT_MAX_MS = TimeUnit.HOURS.toMillis(2);
+
+    /**
      * The pure decision of one tick.
      *
      * @param maxLogins how many may log in this tick (the boot fill passes the whole target)
@@ -553,6 +594,16 @@ public final class BotPopulationDirector {
                     continue;
                 }
                 pacer.offer(botId);
+            }
+            if (maxLogins == Integer.MAX_VALUE && fillStartedAt == 0L) {
+                fillStartedAt = now;
+            }
+            long sinceFill = now - fillStartedAt;
+            if (fillStartedAt > 0L && !fillReported) {
+                FillProgress progress = fillProgress(roster, target, local.getHour() * 60 + local.getMinute(),
+                        pacer.size());
+                System.out.println(progress.line(sinceFill));
+                fillReported = progress.done() || sinceFill > FILL_REPORT_MAX_MS;
             }
         } catch (Exception e) {
             log.warn("Population director tick failed", e);
