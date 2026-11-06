@@ -45,6 +45,8 @@ TOOLS = {
     'select_channel': {'channel': {'type': 'integer', 'minimum': 1, 'maximum': 5}},
     'select_character': {'slot': {'type': 'integer', 'minimum': 0, 'maximum': 14}},
     'qa_events': {'since': {'type': 'integer', 'minimum': 0, 'maximum': 1000000}},
+    # P1-Q2: click an npc like a player. The QA client says where the npc is on screen (npc_pos); the worker clicks.
+    'click_npc': {'npc': {'type': 'integer', 'minimum': 1, 'maximum': 99999999}},
     'mouse_drag': {'x1': {'type': 'integer', 'minimum': 0, 'maximum': 799},
                    'y1': {'type': 'integer', 'minimum': 0, 'maximum': 599},
                    'x2': {'type': 'integer', 'minimum': 0, 'maximum': 799},
@@ -56,7 +58,7 @@ REQUIRED = {'qa_wait': ('signal',), 'qa_burst': ('fps', 'ms', 'label'), 'run_scr
             'command': ('line',), 'press_key': ('name',), 'mouse_click': ('x', 'y'),
             'login_credentials': ('vault',), 'click_anchor': ('name',), 'select_world': ('world',),
             'select_channel': ('channel',), 'select_character': ('slot',),
-            'mouse_drag': ('x1', 'y1', 'x2', 'y2')}
+            'mouse_drag': ('x1', 'y1', 'x2', 'y2'), 'click_npc': ('npc',)}
 
 # Single taps only: no modifiers, so no Alt+F4, no Ctrl shortcuts. Value = (virtual key, extended).
 KEYS = {**{chr(c): (c, False) for c in range(ord('A'), ord('Z') + 1)},
@@ -180,12 +182,13 @@ def log_tail(path, lines):
 SCRIPT_NAME = re.compile(r'^[a-z0-9][a-z0-9_-]{0,47}$')
 SCRIPT_TOOLS = {'start_client', 'login', 'login_credentials', 'click_anchor', 'select_world', 'select_channel',
                 'select_character', 'qa_events', 'command', 'press_key', 'mouse_click', 'mouse_drag', 'screenshot',
-                'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to'}
+                'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to', 'click_npc'}
 # A QA vault alias (secrets/<vault>.txt) is a script name: secrets/aq-gm-1.txt. Never a path.
 VAULT = re.compile(r'^[a-z0-9][a-z0-9-]{1,31}$')
 # The QA build writes this once per login (slums.dll bypass.cpp ClientDataCaps); the manifest's caps come from it.
 BUILD_STAMP_CAPS = re.compile(r'Build stamp: caps (0x[0-9A-Fa-f]{8})')
 QA_EVENTS_MAX = 200
+NPC_POS_TIMEOUT = 3.0   # the client answers npc_pos on its next frame
 
 
 def utc(epoch):
@@ -891,6 +894,28 @@ class Driver:
         self.field_input()
         self.sender.click(x, y, right=button == 'right', double=button == 'double')
         return {'clicked': [x, y], 'button': button}
+
+    def click_npc(self, npc):
+        """P1-Q2: clicks npc <id> where the QA client draws it. It does not walk: on out_of_view the script moves and
+        tries again. Errors are the client's codes (npc_not_on_map, out_of_view, field_not_ready)."""
+        pipe = self.need_qa()
+        self.field_input()
+        pipe.send('npc_pos %d' % npc)
+        deadline = time.monotonic() + NPC_POS_TIMEOUT
+        while True:
+            left = deadline - time.monotonic()
+            event = pipe.wait('npc.pos', left) if left > 0 else None
+            if event is None:
+                raise Refusal('field_not_ready')   # the client did not answer: no field to look in
+            if event.get('npc') == npc:
+                break
+        if not event.get('ok'):
+            raise Refusal(str(event.get('error') or 'field_not_ready'))
+        x, y = int(event['x']), int(event['y'])
+        if not (0 <= x <= 799 and 0 <= y <= 599):
+            raise Refusal('out_of_view')
+        self.sender.click(x, y, right=False, double=False)
+        return {'npc': npc, 'clicked': [x, y]}
 
     def mouse_drag(self, x1, y1, x2, y2, steps=12):
         self.field_input()
