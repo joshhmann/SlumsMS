@@ -93,6 +93,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.IntConsumer;
 
 import static java.util.concurrent.TimeUnit.*;
 
@@ -424,7 +425,13 @@ public class Server {
     }
 
     public int addWorld() {
-        int newWorld = initWorld();
+        int newWorld;
+        try {
+            newWorld = initWorld();
+        } catch (IllegalStateException e) { // P0-4: a channel that could not start; a GM add fails, the server stays up
+            log.error("Could not add a world", e);
+            return -2;
+        }
         if (newWorld > -1) {
             installWorldPlayerRanking(newWorld);
 
@@ -477,6 +484,10 @@ public class Server {
         for (int j = 1; j <= wc.channels; j++) {
             int channelid = j;
             Channel channel = new Channel(i, channelid, bootTime, slot);
+            if (channel.initFailure() != null) { // P0-4: a channel that cannot start fails the boot
+                throw new IllegalStateException("World " + i + " channel " + channelid + " could not start",
+                        channel.initFailure());
+            }
 
             world.addChannel(channel);
             channelInfo.put(channelid, channel.getIP());
@@ -1004,8 +1015,9 @@ public class Server {
 //
 
         } catch (Exception e) {
-            log.error("[SEVERE] Syntax error in 'world.ini'.", e); //For those who get errors
-            System.exit(0);
+            // P0-4: this used to log "Syntax error in 'world.ini'" and exit 0, so systemd saw a clean stop and a
+            // failed boot (a channel port in use, a bad world row) looked like a normal shutdown. main exits 1.
+            throw new IllegalStateException("Setting up the worlds failed", e);
         }
 
         // Wait on all async tasks to complete
@@ -1158,7 +1170,24 @@ public class Server {
 
     public static void main(String[] args) {
         System.setProperty("polyglot.engine.WarnInterpreterOnly", "false"); // Mute GraalVM warning: "The polyglot context is using an implementation that does not support runtime compilation."
-        Server.getInstance().init();
+        boot(() -> Server.getInstance().init());
+    }
+
+    /** How a failed boot ends the process; tests swap it to record the status instead. */
+    static IntConsumer bootExit = System::exit;
+
+    /**
+     * P0-4: runs the boot and turns any failure into one ERROR line with the real exception and exit status 1, so
+     * systemd marks the unit failed (and restarts it on-failure). A throw out of init after ThreadManager started used
+     * to leave a half-booted JVM running with no login port; the world-setup failure exited 0.
+     */
+    static void boot(Runnable init) {
+        try {
+            init.run();
+        } catch (Throwable t) {
+            log.error("[SEVERE] Boot failed; exiting with status 1", t);
+            bootExit.accept(1);
+        }
     }
 
     public Properties getSubnetInfo() {
