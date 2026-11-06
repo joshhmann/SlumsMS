@@ -461,8 +461,8 @@ class ExpeditionBotsTest {
 
             ExpeditionBots.warnNotAtTheAltar(exped);
 
-            verify(leader).dropMessage(6, "[Expedition] Away is not at the altar and will not join.");
-            verify(leader, never()).dropMessage(6, "[Expedition] Here is not at the altar and will not join.");
+            verify(leader).dropMessage(6, ExpeditionBots.notAtTheAltarLine("Away"));
+            verify(leader, never()).dropMessage(6, ExpeditionBots.notAtTheAltarLine("Here"));
         } finally {
             System.clearProperty(ExpeditionDoor.PROPERTY);
         }
@@ -478,7 +478,7 @@ class ExpeditionBotsTest {
 
         ExpeditionBots.warnNotAtTheAltar(exped);
 
-        verify(leader, never()).dropMessage(eq(6), contains("is not at the altar"));
+        verify(leader, never()).dropMessage(eq(6), contains("at the altar"));
     }
 
     @Test
