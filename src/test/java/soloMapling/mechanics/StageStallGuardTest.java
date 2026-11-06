@@ -118,9 +118,12 @@ class StageStallGuardTest {
         StepExecutor exec = new StepExecutor();
         List<String> lines = new ArrayList<>();
         SolverStep hit = new SolverStep.HitReactor(2_112_011);
-        exec.execute(s.run, s.orch, null, bot, hit, START + 1_000, lines::add);
-        assertFalse(s.run.ended(), "one 'no route' can be a bot in mid-air");
-        exec.execute(s.run, s.orch, null, bot, hit, START + 12_000, lines::add);
+        try (org.mockito.MockedStatic<soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement> move =
+                     org.mockito.Mockito.mockStatic(soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.class)) {
+            exec.execute(s.run, s.orch, null, bot, hit, START + 1_000, lines::add);
+            assertFalse(s.run.ended(), "one 'no route' can be a bot in mid-air");
+            exec.execute(s.run, s.orch, null, bot, hit, START + 12_000, lines::add);
+        }
         assertTrue(s.run.ended(), "two in a row: lines " + lines);
         assertTrue(s.run.endedBecause().contains("can't reach reactor 2112011"), s.run.endedBecause());
     }

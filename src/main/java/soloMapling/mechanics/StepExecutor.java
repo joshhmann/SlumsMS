@@ -1167,9 +1167,7 @@ final class StepExecutor {
         Point rp = reactor.getPosition();
         if (at != null && rp != null && (Math.abs(rp.x - at.x) > 45 || Math.abs(rp.y - at.y) > 60)) {
             checkRoute(bot, beat, rp, label, now);
-            if (beat.noRouteTimes == 0 && beat.noRoute == null) {
-                moveNear(bot, beat, rp.x, rp.y, 30, now); // no new walk on a route the planner just said is not there
-            }
+            moveNear(bot, beat, rp.x, rp.y, 30, now);
             return;
         }
         beat.noRouteTimes = 0;
