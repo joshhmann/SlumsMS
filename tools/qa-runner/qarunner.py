@@ -341,6 +341,9 @@ class SilviaWorker:
 
     # The QA build's signals (client src/qamodule_policy.h). Since client-170-qa-signals (2026-10-31): field.ready
     # carries map_id, chat.received carries kind + text, window.open/closed carry the window's name.
+    # b286: an event nobody waited for stays available to a later wait for this long (worker clock seconds); past
+    # it, it belongs to an earlier action and must not prove a later one (a stale field.ready is not a new map).
+    PENDING_TTL_S = 60.0
     SIGNALS = ("worldselect.ready", "channels.ready", "charselect.ready", "field.ready", "chat.received",
                "window.open", "window.closed")
     FILTERS = {"field.ready": ("map_id",), "chat.received": ("regex", "kind"), "window.open": ("window",),
@@ -355,6 +358,7 @@ class SilviaWorker:
         self.sleep, self.clock = sleep, clock
         self.cursor = {}     # alias -> position in the pipe's event log
         self.seen = {}       # alias -> every event this run read, in order (the run folder's pipe.log)
+        self.pending = {}    # alias -> [(read_at, event)] read but not yet claimed by a wait (b286, ticket 179)
         self.info = {}       # alias -> build/release/caps/dll_sha256 learned so far
         self.labels = {}     # burst label -> capture id, when the caller registers it through pull
         self._anchors = None  # anchors.yaml, read once
@@ -385,6 +389,8 @@ class SilviaWorker:
         answer = self.json_tool("qa_events", {"since": since})
         got = answer.get("events") or []
         self.seen.setdefault(alias, []).extend(got)
+        now = self.clock()
+        self.pending.setdefault(alias, []).extend((now, event) for event in got)
         self.cursor[alias] = int(answer.get("next", since + len(got)))
         return got
 
@@ -422,6 +428,7 @@ class SilviaWorker:
         if status.get("client_running"):
             self.json_tool("stop_client")
         self.json_tool("start_client")
+        self.pending[alias] = []   # whatever the old client sent belongs to the old client
         self.events(alias)   # the log up to now: the login's own signals start here
         vault = (client.get("account") or {}).get("vault")
         if not vault:
@@ -446,6 +453,12 @@ class SilviaWorker:
         name, arguments = kind, None
         if kind in ("gm", "chat"):
             name, arguments = "command", {"line": step.get("line") if kind == "gm" else step.get("text")}
+        elif kind == "click" and re.fullmatch(r"npc_dialog\.option_[1-8]", step["anchor"]):
+            # the QA client ends the open NPC menu on that row through the dialog's own reply path: no ui.json point
+            name, arguments = "click_option", {"option": int(step["anchor"][-1])}
+        elif kind == "click" and step["anchor"] == "npc_dialog.close":
+            # the QA client ends any open NPC dialog the way its End Chat button does: no ui.json point needed
+            name, arguments = "close_dialog", {}
         elif kind == "click":
             name, arguments = "click_anchor", {"name": self.anchor_point(step["anchor"])}
         elif kind == "select_world":
@@ -489,7 +502,7 @@ class SilviaWorker:
         deadline = self.clock() + timeout_s
         while True:
             got = self.events(alias)
-            hit = next((event for event in got if event.get("ev") == name and self.matches(event, extra)), None)
+            hit = self.claim(alias, name, extra)
             if hit:
                 return {"name": name, "detail": self.payload(hit), "utc": hit.get("utc") or iso(utc_now()),
                         "text": self.text_of(hit)}
@@ -500,6 +513,19 @@ class SilviaWorker:
             if left <= 0:
                 return None
             self.sleep(min(0.25, left))
+
+    def claim(self, alias, name, extra):
+        """The oldest unclaimed event that fits this wait, removed from the queue; every other event stays for the wait
+        it belongs to. Events older than PENDING_TTL_S are dropped first (b286: batched events must not be lost, and
+        stale ones must not prove a new action)."""
+        queue = self.pending.setdefault(alias, [])
+        fresh = self.clock() - self.PENDING_TTL_S
+        queue[:] = [(at, event) for at, event in queue if at >= fresh or event.get("ev") == "_closed"]
+        for k, (_, event) in enumerate(queue):
+            if event.get("ev") == name and self.matches(event, extra):
+                del queue[k]
+                return event
+        return None
 
     def qa_closed(self, alias):
         return any(event.get("ev") == "_closed" for event in self.seen.get(alias, []))

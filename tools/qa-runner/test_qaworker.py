@@ -95,6 +95,16 @@ class WorkerCallsTest(unittest.TestCase):
             ('drop_item', {'item': 2000000, 'count': 3}), ('party_create', {}), ('party_invite', {'name': 'Bishbot'}),
         ], transport.calls)
 
+    def test_npc_menu_rows_go_through_click_option_not_the_mouse(self):
+        worker, transport = self.make()
+        self.assertEqual('ok', worker.send('me', {'do': 'click', 'anchor': 'npc_dialog.option_3'})['result'])
+        self.assertEqual([('click_option', {'option': 3})], transport.calls)
+
+    def test_npc_dialog_close_goes_through_close_dialog_not_the_mouse(self):
+        worker, transport = self.make()
+        self.assertEqual('ok', worker.send('me', {'do': 'click', 'anchor': 'npc_dialog.close'})['result'])
+        self.assertEqual([('close_dialog', {})], transport.calls)
+
     def test_a_qa_client_refusal_fails_the_step(self):
         worker, _ = self.make({'drop_item': answer('not_in_inventory', is_error=True)})
         self.assertEqual({'result': 'refused', 'detail': 'not_in_inventory'},
@@ -152,6 +162,54 @@ class WorkerCallsTest(unittest.TestCase):
         self.assertEqual('2026-10-31T03:12:11.000Z', got['utc'])
         self.assertEqual([('qa_events', {'since': 0}), ('qa_events', {'since': 1})], transport.calls)
         self.assertEqual(3, worker.cursor['me'])   # the next wait starts after what it already read
+
+    # -- b286 / ticket 179: events that arrive together must each reach their own wait --
+
+    def batch_worker(self, events, clock=None, sleep=None):
+        pages = [answer({'from': 0, 'next': len(events), 'events': events}),
+                 answer({'from': len(events), 'next': len(events), 'events': []})]
+        if clock is None:
+            clock, sleep = ticking(step=1.0)   # a lost signal must time out, not hang the test
+        return self.make({'qa_events': pages}, clock=clock, sleep=sleep)
+
+    def test_two_signals_in_one_batch_both_reach_their_waits(self):
+        worker, _ = self.batch_worker([{'ev': 'worldselect.ready', 'utc': 'u1'}, {'ev': 'channels.ready', 'utc': 'u2'}])
+        first = worker.wait_signal('me', 'worldselect.ready', 5, {})
+        second = worker.wait_signal('me', 'channels.ready', 5, {})
+        self.assertEqual('u1', first['utc'])
+        self.assertIsNotNone(second, 'the second signal arrived in the first batch and was lost')
+        self.assertEqual('u2', second['utc'])
+
+    def test_a_wait_consumes_only_its_own_event_and_an_unrelated_one_survives(self):
+        worker, _ = self.batch_worker([{'ev': 'chat.received', 'kind': 1, 'text': 'x'},
+                                       {'ev': 'worldselect.ready'}, {'ev': 'channels.ready'}])
+        self.assertIsNotNone(worker.wait_signal('me', 'channels.ready', 5, {}))
+        self.assertIsNotNone(worker.wait_signal('me', 'worldselect.ready', 5, {}))   # survived the wait before it
+        self.assertIsNotNone(worker.wait_signal('me', 'chat.received', 5, {}))
+
+    def test_a_signal_is_consumed_once(self):
+        clock, sleep = ticking(step=2.0)
+        worker, _ = self.batch_worker([{'ev': 'channels.ready'}], clock=clock, sleep=sleep)
+        self.assertIsNotNone(worker.wait_signal('me', 'channels.ready', 5, {}))
+        self.assertIsNone(worker.wait_signal('me', 'channels.ready', 5, {}))
+
+    def test_a_stale_event_from_an_earlier_action_does_not_satisfy_a_later_wait(self):
+        clock, sleep = ticking(step=1.0)
+        worker, _ = self.batch_worker([{'ev': 'field.ready'}], clock=clock, sleep=sleep)
+        worker.events('me')   # read at login time, never waited for
+        for _ in range(int(qarunner.SilviaWorker.PENDING_TTL_S) + 5):
+            sleep(1)
+        self.assertIsNone(worker.wait_signal('me', 'field.ready', 3, {}))
+
+    def test_a_fresh_login_drops_what_the_old_client_sent(self):
+        worker, _ = self.make({'status': answer({'client_running': False}),
+                               'qa_events': [answer({'from': 0, 'next': 1, 'events': [{'ev': 'channels.ready'}]}),
+                                             answer({'from': 1, 'next': 2, 'events': [HELLO]})]})
+        worker.character = lambda alias: {}   # the identity checks have their own tests
+        worker.events('me')
+        self.assertEqual(['channels.ready'], [e['ev'] for _, e in worker.pending['me']])
+        worker.login('me', {'account': {'vault': 'qa1'}})
+        self.assertEqual(['hello'], [e['ev'] for _, e in worker.pending['me']])
 
     def test_a_signal_that_never_comes_times_out(self):
         clock, sleep = ticking(step=2.0)
