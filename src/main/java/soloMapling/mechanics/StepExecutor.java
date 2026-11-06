@@ -631,6 +631,13 @@ final class StepExecutor {
             moveNear(bot, beat, p.x, p.y, LOOT_REACH_X / 2, now);
             return;
         }
+        // 1.6.5 b331: wait out the drop's fly-out first, as grind loot does. A bot already standing at the chest
+        // took the drop on the next tick, mid-animation on the players' clients, and an owner's client in ZPQ stage
+        // 1 with its alt closed 4 of 4 times (TEST 2026-11-06, Client diag2).
+        if (!soloMapling.ArtificialPlayer.BotGrindSystem.LootPicker.settled(drop,
+                soloMapling.ArtificialPlayer.BotGrindSystem.LootPicker.SETTLE_MS, now)) {
+            return;
+        }
         DropCommands.botLootSingleDrop(bot, drop);
     }
 
