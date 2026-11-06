@@ -54,6 +54,9 @@ TOOLS = {
     'party_create': {},
     'close_dialog': {},
     'dialog_next': {},
+    # P0-6: the Incubator on a target (the egg's item id, or inv:slot for an empty slot); only 5060002 is taken.
+    'use_cash_item': {'item': {'type': 'integer', 'minimum': 5000000, 'maximum': 5999999},
+                      'target': {'type': 'string', 'maxLength': 12}},
     'party_invite': {'name': {'type': 'string', 'maxLength': 12}},
     'mouse_drag': {'x1': {'type': 'integer', 'minimum': 0, 'maximum': 799},
                    'y1': {'type': 'integer', 'minimum': 0, 'maximum': 599},
@@ -67,7 +70,8 @@ REQUIRED = {'qa_wait': ('signal',), 'qa_burst': ('fps', 'ms', 'label'), 'run_scr
             'login_credentials': ('vault',), 'click_anchor': ('name',), 'select_world': ('world',),
             'select_channel': ('channel',), 'select_character': ('slot',),
             'mouse_drag': ('x1', 'y1', 'x2', 'y2'), 'click_npc': ('npc',), 'click_option': ('option',),
-            'drop_item': ('item',), 'party_invite': ('name',)}
+            'drop_item': ('item',), 'party_invite': ('name',),
+            'use_cash_item': ('item', 'target')}
 
 # Single taps only: no modifiers, so no Alt+F4, no Ctrl shortcuts. Value = (virtual key, extended).
 KEYS = {**{chr(c): (c, False) for c in range(ord('A'), ord('Z') + 1)},
@@ -193,7 +197,7 @@ SCRIPT_TOOLS = {'start_client', 'login', 'login_credentials', 'click_anchor', 's
                 'select_character', 'qa_events', 'command', 'press_key', 'mouse_click', 'mouse_drag', 'screenshot',
                 'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to', 'click_npc', 'click_option',
                 'drop_item', 'party_create', 'party_invite', 'close_dialog',
-                'dialog_next'}
+                'dialog_next', 'use_cash_item'}
 # A QA vault alias (secrets/<vault>.txt) is a script name: secrets/aq-gm-1.txt. Never a path.
 VAULT = re.compile(r'^[a-z0-9][a-z0-9-]{1,31}$')
 # The QA build writes this once per login (slums.dll bypass.cpp ClientDataCaps); the manifest's caps come from it.
@@ -201,7 +205,8 @@ BUILD_STAMP_CAPS = re.compile(r'Build stamp: caps (0x[0-9A-Fa-f]{8})')
 QA_EVENTS_MAX = 200
 NPC_POS_TIMEOUT = 3.0   # the client answers npc_pos / click_option on its next frame
 NPC_OPTION_ANCHOR = re.compile(r'^npc_dialog\.option_([1-8])$')
-CHAR_NAME = re.compile(r'^[A-Za-z0-9]{4,12}$')   # v83 character names; the QA client checks the same
+CHAR_NAME = re.compile(r'^[A-Za-z0-9]{4,12}$')
+CASH_TARGET = re.compile(r'^([1-5]:[0-9]{1,3}|[1-5][0-9]{6})$')   # inv:slot, or an inventory item id   # v83 character names; the QA client checks the same
 
 
 def utc(epoch):
@@ -984,6 +989,18 @@ class Driver:
         1). Errors: no_dialog, use_click_option (a menu), no_next_button (a text or number prompt)."""
         event = self.qa_request('dialog_next', 'click.done', lambda e: e.get('op') == 'dialog_next', 'no_dialog')
         return {'op': 'dialog_next', 'type': event.get('type')}
+
+    def use_cash_item(self, item, target):
+        """P0-6: uses cash item <item> on <target> (an item id, or inv:slot) through the client's USE_CASH_ITEM packet.
+        The QA client takes only the Incubator (5060002). Errors: not_in_inventory, target_not_in_inventory,
+        field_not_ready. The answer says the request was sent; what the server did shows in the inventory and chat."""
+        target = str(target)
+        if not CASH_TARGET.match(target):
+            raise Refusal('target must be an item id or inv:slot')
+        event = self.qa_request('use_cash_item %d %s' % (item, target), 'item.use',
+                                lambda e: e.get('item') == item, 'no_character')
+        return {'item': item, 'slot': event.get('slot'), 'target_type': event.get('target_type'),
+                'target_slot': event.get('target_slot')}
 
     def drop_item(self, item, count=1):
         """P1-Q2: drops <count> of the first stack of <item> through the client's own item-move sender (the packet a

@@ -456,3 +456,32 @@ class DialogNextTest(NewToolsTest):
         with self.assertRaises(self.driver.Refusal) as caught:
             self.d.dialog_next()
         self.assertEqual('use_click_option', str(caught.exception))
+
+
+class UseCashItemTest(NewToolsTest):
+    """P0-6: the Incubator on an egg, or on an explicit (empty) slot."""
+
+    def test_incubator_on_an_egg(self):
+        self.d.qa = FakeQa([{'ev': 'item.use', 'item': 5060002, 'slot': 2, 'target_type': 4, 'target_slot': 5,
+                             'ok': True}])
+        self.assertEqual({'item': 5060002, 'slot': 2, 'target_type': 4, 'target_slot': 5},
+                         self.d.use_cash_item(5060002, '4170000'))
+        self.assertEqual(['use_cash_item 5060002 4170000'], self.d.qa.sent)
+
+    def test_an_explicit_slot(self):
+        self.d.qa = FakeQa([{'ev': 'item.use', 'item': 5060002, 'slot': 2, 'target_type': 4, 'target_slot': 99,
+                             'ok': True}])
+        self.assertEqual(99, self.d.use_cash_item(5060002, '4:99')['target_slot'])
+
+    def test_a_bad_target_is_refused_before_sending(self):
+        self.d.qa = FakeQa([])
+        for target in ('egg', '6:1', '4:', '4170000;x'):
+            with self.assertRaises(self.driver.Refusal):
+                self.d.use_cash_item(5060002, target)
+        self.assertFalse(hasattr(self.d.qa, 'sent'))
+
+    def test_the_client_error_is_passed_on(self):
+        self.d.qa = FakeQa([{'ev': 'item.use', 'item': 5060002, 'ok': False, 'error': 'target_not_in_inventory'}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.use_cash_item(5060002, '4170000')
+        self.assertEqual('target_not_in_inventory', str(caught.exception))

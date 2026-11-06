@@ -95,6 +95,13 @@ class WorkerCallsTest(unittest.TestCase):
             ('drop_item', {'item': 2000000, 'count': 3}), ('party_create', {}), ('party_invite', {'name': 'Bishbot'}),
         ], transport.calls)
 
+    def test_use_cash_item_sends_the_target_as_text(self):
+        worker, transport = self.make()
+        self.assertEqual('ok', worker.send('me', {'do': 'use_cash_item', 'item': 5060002, 'target': 4170000})['result'])
+        self.assertEqual('ok', worker.send('me', {'do': 'use_cash_item', 'item': 5060002, 'target': '4:99'})['result'])
+        self.assertEqual([('use_cash_item', {'item': 5060002, 'target': '4170000'}),
+                          ('use_cash_item', {'item': 5060002, 'target': '4:99'})], transport.calls)
+
     def test_a_qa_client_refusal_fails_the_step(self):
         worker, _ = self.make({'drop_item': answer('not_in_inventory', is_error=True)})
         self.assertEqual({'result': 'refused', 'detail': 'not_in_inventory'},

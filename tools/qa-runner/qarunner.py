@@ -473,6 +473,8 @@ class SilviaWorker:
             name, arguments = "party_create", {}
         elif kind == "party_invite":
             name, arguments = "party_invite", {"name": step["name"]}
+        elif kind == "use_cash_item":   # P0-6: the Incubator on an egg (item id) or on inv:slot
+            name, arguments = "use_cash_item", {"item": step["item"], "target": str(step["target"])}
         elif kind in ("wheel", "type", "key_down", "key_up"):
             return {"result": "refused", "detail": "%s is not available in this client build" % kind}
         answer = self.tool(name, arguments)
