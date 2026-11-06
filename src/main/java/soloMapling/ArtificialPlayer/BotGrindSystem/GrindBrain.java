@@ -452,7 +452,7 @@ public final class GrindBrain {
      * name-tag overlap box there. Called when a move is issued, never per tick.
      */
     int standX(Character chr, Monster mob, int mobX, int groundY, int lo, int hi) {
-        return Approach.standX(chr, standBand(chr, mob), mobX, groundY, lo, hi);
+        return Approach.standX(chr, standBand(chr, mob), mobX, groundY, lo, hi, mob); // b311: a boss part is fought from under it
     }
 
     // ── Organic loot, driven through here so the collect cost is attributable (see BotPerformanceMonitor) ──

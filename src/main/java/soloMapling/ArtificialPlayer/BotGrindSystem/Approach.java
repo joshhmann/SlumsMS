@@ -42,6 +42,11 @@ public final class Approach {
                 Math.max(MELEE_Y, (int) (BotAttackDriver.attackReachY(chr) * REACH_FRAC))};
     }
 
+    /** A boss or one of its parts (the big, multi-part mobs), as FollowerFight and the attack driver count them. */
+    static boolean isBossPart(Monster m) {
+        return m != null && (m.isBoss() || server.maps.MapleMap.hasBossMechanics(m.getId()));
+    }
+
     /** {@code target} is within {@code reach} ({x, y}) of {@code at}. */
     public static boolean inReach(Point at, Point target, int[] reach) {
         return at != null && target != null && Math.abs(target.x - at.x) <= reach[0]
@@ -68,6 +73,12 @@ public final class Approach {
         java.awt.Rectangle body = mob != null ? GCMovement.mobBounds(mob) : null;
         int half = body != null ? body.width / 2 : DEFAULT_MOB_HALF_WIDTH;
         boolean far = style == MovementStyle.RANGED || (human && keepsDistance);
+        if (!far && isBossPart(mob)) {
+            // 1.6.5 b311: a melee fighter stands under the boss part it fights, as a player does. Past the body's edge
+            // is the right spot for a mob that walks into you; on a part wider than the reach (Horntail's heads) that
+            // spot was never in reach, and the fighter parked there for the whole fight.
+            half = 0;
+        }
         int comfort = style == MovementStyle.RANGED ? EngageBeat.KITE_MIN_PX : EngageBeat.MAGE_COMFORT_PX;
         return StandOffset.band(half, reachX, far, comfort);
     }
@@ -78,12 +89,21 @@ public final class Approach {
      * stands within the name-tag overlap box there. Called when a move is issued, never per tick.
      */
     public static int standX(Character chr, int[] band, int mobX, int groundY, int lo, int hi) {
+        return standX(chr, band, mobX, groundY, lo, hi, null);
+    }
+
+    /**
+     * As {@link #standX(Character, int[], int, int, int, int)}, for a fight against {@code target}: a boss part's own
+     * body is not a no-stand zone for the one fighting it (1.6.5 b311; t-cb-2's rule is about ANOTHER mob).
+     */
+    public static int standX(Character chr, int[] band, int mobX, int groundY, int lo, int hi, Monster target) {
         server.maps.MapleMap map = chr.getMap();
         if (map == null) {
             return GrindBrain.clamp(mobX, lo, hi);
         }
         int self = chr.getId();
-        java.util.List<java.awt.Rectangle> bodies = mobBodiesNear(map, mobX, groundY, band[1]);
+        java.util.List<java.awt.Rectangle> bodies = mobBodiesNear(map, mobX, groundY, band[1],
+                isBossPart(target) ? target : null);
         return StandOffset.standX(self, mobX, lo, hi, band[0], band[1],
                 x -> {
                     Point g = GCMovement.groundPointBelow(map, x, groundY - 12);
@@ -111,12 +131,18 @@ public final class Approach {
      * The stand spot now skips spots inside any hostile mob's touch box, as a spot another player holds.
      */
     static java.util.List<java.awt.Rectangle> mobBodiesNear(server.maps.MapleMap map, int mobX, int groundY, int span) {
+        return mobBodiesNear(map, mobX, groundY, span, null);
+    }
+
+    /** As above, leaving out {@code except} (the boss part being fought). */
+    static java.util.List<java.awt.Rectangle> mobBodiesNear(server.maps.MapleMap map, int mobX, int groundY, int span,
+                                                           Monster except) {
         java.util.List<java.awt.Rectangle> out = new java.util.ArrayList<>();
         double r = span + 120.0;
         for (MapObject mo : map.getMapObjectsInRange(new Point(mobX, groundY), r * r,
                 java.util.List.of(server.maps.MapObjectType.MONSTER))) {
             Monster m = (Monster) mo;
-            if (!m.isAlive() || !SpotFinder.isHostile(m)) {
+            if (m == except || !m.isAlive() || !SpotFinder.isHostile(m)) {
                 continue;
             }
             java.awt.Rectangle b = GCMovement.mobBounds(m);
@@ -173,6 +199,6 @@ public final class Approach {
         MovementStyle style = MovementStylePolicy.forBot(chr);
         int[] band = standBand(mob, reach[0], style, keepsDistance(chr, style), human);
         int span = Math.max(60, band[1]);
-        return new int[]{standX(chr, band, mp.x, ty, mp.x - span, mp.x + span), ty};
+        return new int[]{standX(chr, band, mp.x, ty, mp.x - span, mp.x + span, mob), ty};
     }
 }
