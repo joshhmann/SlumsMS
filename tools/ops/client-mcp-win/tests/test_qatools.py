@@ -332,3 +332,25 @@ class ClickNpcTest(NewToolsTest):
         with self.assertRaises(self.driver.Refusal) as caught:
             self.d.click_npc(2030008)
         self.assertEqual('field_not_ready', str(caught.exception))
+
+
+class ClickOptionTest(NewToolsTest):
+    def test_click_option_reports_the_row_value(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'click_option', 'option': 1, 'ok': True, 'value': 0}])
+        self.assertEqual({'option': 1, 'value': 0}, self.d.click_option(1))
+        self.assertEqual(['click_option 1'], self.d.qa.sent)
+
+    def test_the_option_anchor_goes_to_click_option(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'click_option', 'option': 3, 'ok': True, 'value': 12}])
+        self.assertEqual({'option': 3, 'value': 12}, self.d.click_anchor('npc_dialog.option_3'))
+
+    def test_not_a_menu_is_passed_on(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'click_option', 'option': 1, 'ok': False, 'error': 'not_a_menu'}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.click_option(1)
+        self.assertEqual('not_a_menu', str(caught.exception))
+
+    def test_option_9_is_still_a_ui_point_name(self):
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.click_anchor('npc_dialog.option_9')
+        self.assertIn('not a calibrated point', str(caught.exception))
