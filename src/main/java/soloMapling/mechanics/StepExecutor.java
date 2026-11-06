@@ -1091,6 +1091,24 @@ final class StepExecutor {
         hitReactorAt(bot, beat, reactor, "#" + h.objectId(), now, log);
     }
 
+    /**
+     * 1.6.5 b331: whether this reactor's current state can take a hit at all. A WZ state with no event loads as
+     * ReactorFactory.INERT_STATE (999, next -1; addInertState) and a missing state answers -1: no client ever hits
+     * either. Type 100 (an item-drop event) is left hittable on purpose: eight boss/PQ rows hit such reactors today
+     * (papulatus, ellinpq, magatiapq(z), latanica, showa, scarga, zakumpq; WZ state 0 type 100 for 2201004, 2618000,
+     * 3009000, 5411000, 5511000/1, 8001000) and that is not what crashed clients. The server-side hit has no check:
+     * Reactor.hitReactor's else-branch moved ZPQ chest 2112012 (linked to 2112007, states 0-4) to a state 5 that does
+     * not exist, broadcast it, and ran act again, and every player's client on the map terminated.
+     */
+    static boolean clientCanHit(server.maps.Reactor reactor) {
+        if (reactor == null || reactor.getStats() == null) {
+            return false;
+        }
+        byte state = reactor.getState();
+        int type = reactor.getStats().getType(state); // -1 for a state the stats do not have, checked first
+        return type >= 0 && type < 999 && reactor.getStats().getStateSize(state) > 0;
+    }
+
     /** The walk-and-click part, shared by {@link SolverStep.HitReactor} and {@link SolverStep.HitReactorNamed}. */
     private static void hitReactorAt(Character bot, Beat beat, server.maps.Reactor reactor, String label, long now,
                                      Consumer<String> log) {
@@ -1104,6 +1122,11 @@ final class StepExecutor {
             return;
         }
         beat.lastReactorMs = now;
+        if (!clientCanHit(reactor)) { // 1.6.5 b331: never a hit no client could make (see clientCanHit)
+            log.accept(bot.getName() + ": reactor " + label + " on " + bot.getMapId() + " is in state "
+                    + reactor.getState() + ", which takes no hit - not hitting it");
+            return;
+        }
         reactor.hitReactor(client.BotClient.forScripts(bot)); // a population bot's script needs a player behind the client
         log.accept(bot.getName() + ": hit reactor " + label + " on " + bot.getMapId());
     }

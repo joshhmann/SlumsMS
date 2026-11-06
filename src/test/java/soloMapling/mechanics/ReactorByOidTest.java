@@ -48,6 +48,10 @@ class ReactorByOidTest {
         when(r.getName()).thenReturn(name);
         when(r.getState()).thenReturn((byte) state);
         when(r.getPosition()).thenReturn(new Point(x, y));
+        // 1.6.5 b331: a bot hits only a state a client could hit (StepExecutor.clientCanHit); a statue takes hits
+        server.maps.ReactorStats stats = new server.maps.ReactorStats();
+        stats.addState((byte) state, 0, null, (byte) state, -1, (byte) 0);
+        when(r.getStats()).thenReturn(stats);
         return r;
     }
 

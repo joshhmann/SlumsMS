@@ -51,26 +51,36 @@ class ZakumPqSolversTest {
         assertTrue(stages.get(stages.size() - 1).clear().onInstance(), "the last stage is the hand-in");
     }
 
+    /**
+     * 1.6.5 b331: a chest yields ONE drop, as it does for a real party (the bots' old fifth hit was on a state no client
+     * can hit, gave a second drop and crashed clients). The big chest eats seven 4001016 and the maze has exactly seven
+     * ore rocks (WZ Map.wz: 2112004 on 280010091/110/140 and 280011002/003, 2112011 on 280010041 and on 280011005
+     * itself), so every one of them must be mined before the walk stands in front of 2112014. A rock met twice in the
+     * walk (280010041) yields once.
+     */
     @Test
     void enoughOreRoomsComeBeforeTheBigChestToFeedIt() {
-        // the big chest eats seven 4001016 and a chest yields two, so the walk has to pass four ore rooms before it
-        // stands in front of 2112014 - the room's own 2112011 is the fifth, and the order is the row's job
         MechanicsModel.Content c = row();
         int big = -1;
-        java.util.List<Integer> oreRoomsBefore = new java.util.ArrayList<>();
+        java.util.Set<String> rocksBefore = new java.util.TreeSet<>();
         for (int i = 0; i < c.stages().size(); i++) {
             MechanicsModel.Stage st = c.stages().get(i);
-            if (st.mapId() == 280_011_005) {
+            if (st.hitReactors().contains(2_112_014)) {
                 big = i;
+                break;
             }
-            if (big < 0 && (st.hitReactors().contains(2_112_004) || st.hitReactors().contains(2_112_011))) {
-                oreRoomsBefore.add(st.mapId());
+            for (int ore : List.of(2_112_004, 2_112_011)) {
+                if (st.hitReactors().contains(ore)) {
+                    rocksBefore.add(st.mapId() + ":" + ore);
+                }
             }
         }
-        assertTrue(big > 0, "the big chest's room is in the walk");
-        assertTrue(oreRoomsBefore.size() * 2 >= 7,
-                "four ore rooms yield eight ores before the big chest, and the walk has " + oreRoomsBefore.size()
-                        + ": " + oreRoomsBefore);
+        assertTrue(big > 0, "the big chest is in the walk");
+        java.util.Set<String> all = new java.util.TreeSet<>(List.of("280010091:2112004", "280010110:2112004",
+                "280010140:2112004", "280011002:2112004", "280011003:2112004", "280010041:2112011",
+                "280011005:2112011"));
+        assertEquals(all, rocksBefore, "all seven ore rocks, one ore each, are mined before the big chest (stage "
+                + (big + 1) + ")");
     }
 
     @Test
@@ -86,6 +96,16 @@ class ZakumPqSolversTest {
         assertInstanceOf(SolverStep.EnterPortalTo.class, out, "a spent room is left through the next stage's door");
         assertEquals(row().stages().get(1).clear().partyOnMap(), ((SolverStep.EnterPortalTo) out).mapId(),
                 "the door is the one that leads to the stage the row walks into next");
+    }
+
+    /** 1.6.5 b331: a chest standing in a state no client can hit (2112007's state 4) is spent: the miner moves on. */
+    @Test
+    void aChestInAStateNoClientCanHitIsSpentAndTheMinerMovesOn() {
+        View v = new View();
+        v.reactor = 4;
+        v.hittable = false;
+        SolverStep out = new ZakumMinesSolver().next(v, v.me);
+        assertInstanceOf(SolverStep.EnterPortalTo.class, out, "no HitReactor for a chest no client could hit");
     }
 
     @Test
@@ -137,7 +157,7 @@ class ZakumPqSolversTest {
     }
 
     private static MechanicsModel.Stage bigChestStage() {
-        return row().stages().stream().filter(st -> st.mapId() == 280_011_005).findFirst().orElseThrow();
+        return row().stages().stream().filter(st -> st.hitReactors().contains(2_112_014)).findFirst().orElseThrow();
     }
 
     private static MechanicsModel.Stage handInStage() {
@@ -151,6 +171,7 @@ class ZakumPqSolversTest {
         MechanicsModel.Stage stage = row().stages().get(1);
         int mapId = stage.mapId();
         int reactor = 0;
+        boolean hittable = true;
         int floor;
         int ore;
         int document;
@@ -165,6 +186,7 @@ class ZakumPqSolversTest {
         @Override public int reactorState(int reactorId) {
             return reactorId > 0 && stage.hitReactors().contains(reactorId) ? reactor : -1; // only this room's chest answers
         }
+        @Override public boolean reactorHittable(int reactorId) { return hittable && reactorState(reactorId) >= 0; }
         @Override public int itemCount(int characterId, int itemId) {
             return switch (itemId) {
                 case 400_1016 -> ore;
