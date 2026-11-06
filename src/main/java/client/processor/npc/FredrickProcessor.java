@@ -38,6 +38,9 @@ import org.slf4j.LoggerFactory;
 import server.ItemInformationProvider;
 import server.maps.HiredMerchant;
 import server.maps.PlayerShopItem;
+import server.transactions.JdbcJournalStore;
+import server.transactions.JournalStore;
+import server.transactions.OperationJournal;
 import service.NoteService;
 import tools.DatabaseConnection;
 import tools.FilePrinter;
@@ -113,15 +116,18 @@ public class FredrickProcessor {
         return msg;
     }
 
-    public static void removeFredrickLog(int cid) {
+    /** Removes the log row. False when the database refused it (the row is then still there). */
+    public static boolean removeFredrickLog(int cid) {
         try (Connection con = DatabaseConnection.getConnection()) {
             removeFredrickLog(con, cid);
+            return true;
         } catch (SQLException sqle) {
-            sqle.printStackTrace();
+            log.error("Could not remove the Fredrick log of chr {}", cid, sqle);
+            return false;
         }
     }
 
-    private static void removeFredrickLog(Connection con, int cid) throws SQLException {
+    public static void removeFredrickLog(Connection con, int cid) throws SQLException {
         try (PreparedStatement ps = con.prepareStatement("DELETE FROM `fredstorage` WHERE `cid` = ?")) {
             ps.setInt(1, cid);
             ps.executeUpdate();
@@ -215,6 +221,7 @@ public class FredrickProcessor {
                 }
 
                 try (PreparedStatement ps = con.prepareStatement("UPDATE `characters` SET `MerchantMesos` = 0 WHERE `id` = ?")) {
+                    List<Character> online = new LinkedList<>();
                     for (Pair<Integer, Integer> cid : expiredCids) {
                         ps.setInt(1, cid.getLeft());
                         ps.addBatch();
@@ -223,12 +230,15 @@ public class FredrickProcessor {
                         if (wserv != null) {
                             Character chr = wserv.getPlayerStorage().getCharacterById(cid.getLeft());
                             if (chr != null) {
-                                chr.setMerchantMeso(0);
+                                online.add(chr);
                             }
                         }
                     }
 
                     ps.executeBatch();
+                    for (Character chr : online) {   // memory follows the database, only once the batch went through
+                        chr.mirrorMerchantMeso(0);
+                    }
                 }
 
                 removeFredrickReminders(expiredCids);
@@ -265,17 +275,19 @@ public class FredrickProcessor {
         }
     }
 
-    private static boolean deleteFredrickItems(int cid) {
-        try (Connection con = DatabaseConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement("DELETE FROM `inventoryitems` WHERE `type` = ? AND `characterid` = ?")) {
+    private static void deleteFredrickItems(Connection con, int cid) throws SQLException {
+        try (PreparedStatement ps = con.prepareStatement("DELETE FROM `inventoryitems` WHERE `type` = ? AND `characterid` = ?")) {
             ps.setInt(1, ItemFactory.MERCHANT.getValue());
             ps.setInt(2, cid);
             ps.executeUpdate();
+        }
+    }
 
-            return true;
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return false;
+    private static void writeMerchantMesos(Connection con, int cid, int value) throws SQLException {
+        try (PreparedStatement ps = con.prepareStatement("UPDATE `characters` SET `MerchantMesos` = ? WHERE `id` = ?")) {
+            ps.setInt(1, value);
+            ps.setInt(2, cid);
+            ps.executeUpdate();
         }
     }
 
@@ -287,53 +299,130 @@ public class FredrickProcessor {
                 List<Pair<Item, InventoryType>> items;
                 try {
                     items = ItemFactory.MERCHANT.loadItems(chr.getId(), false);
-
-                    byte response = canRetrieveFromFredrick(chr, items);
-                    if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.MERCHANT)) { // !qa np-2, np-3
-                        soloMapling.qa.QaLog.owner(soloMapling.qa.QaLog.Topic.MERCHANT, chr.getId(), "Fredrick retrieve: "
-                                + items.size() + " item(s) stored, merchant mesos " + chr.getMerchantMeso()
-                                + ", response " + response + (response == 0 ? " (handing them over)" : " (refused)"));
-                    }
-                    if (response != 0) {
-                        chr.sendPacket(PacketCreator.fredrickMessage(response));
-                        return;
-                    }
-
-                    chr.withdrawMerchantMesos();
-
-                    for (Pair<Item, InventoryType> it : items) {
-                        Item item = it.getLeft();
-                        String itemName = ItemInformationProvider.getInstance().getName(item.getItemId());
-                        FilePrinter.print(FilePrinter.FREDRICK + chr.getName() + ".txt", chr.getName() + " put into Fredrick " + item.getQuantity() + " " + itemName + " (" + item.getItemId() + ")");
-                    }
-
-                    if (deleteFredrickItems(chr.getId())) {
-                        // Cosmic: drop the in-memory copy too, so a merchant still loaded for this owner cannot
-                        // hand the same items out again after Fredrick has (1.4.1, restored from Cosmic).
-                        HiredMerchant merchant = chr.getHiredMerchant();
-
-                        if (merchant != null) {
-                            merchant.clearItems();
-                        }
-
-                        for (Pair<Item, InventoryType> it : items) {
-                            Item item = it.getLeft();
-                            InventoryManipulator.addFromDrop(chr.getClient(), item, false);
-                            String itemName = ItemInformationProvider.getInstance().getName(item.getItemId());
-                            FilePrinter.print(FilePrinter.FREDRICK + chr.getName() + ".txt", chr.getName() + " gained " + item.getQuantity() + " " + itemName + " (" + item.getItemId() + ")");                            log.debug("Chr {} gained {}x {} ({})", chr.getName(), item.getQuantity(), itemName, item.getItemId());
-                        }
-
-                        chr.sendPacket(PacketCreator.fredrickMessage((byte) 0x1E));
-                        removeFredrickLog(chr.getId());
-                    } else {
-                        chr.message("An unknown error has occured.");
-                    }
                 } catch (SQLException ex) {
-                    ex.printStackTrace();
+                    log.error("Fredrick retrieve: could not load the stored goods of chr {}", chr.getId(), ex);
+                    chr.message("An unknown error has occured.");
+                    return;
                 }
+                retrieve(chr, items, new JdbcJournalStore());
             } finally {
                 c.releaseClient();
             }
         }
+    }
+
+    /**
+     * P0-2b, all or nothing (RFC 2.9). Items and mesos used to move in separate steps (mesos first, then the stored
+     * rows deleted, then the items added in memory with no save), so a failed add, a failed delete or a crash
+     * before the next autosave lost goods or mesos, and a swallowed MerchantMesos write let the mesos be taken twice.
+     * Now: claim a STARTED FREDRICK_RETRIEVE row, add wallet and items in memory under the character's save lock,
+     * and let one character save carry the stored-rows delete, the new MerchantMesos, the log removal and the
+     * APPLIED mark. If anything fails the memory is undone, the row released, and Fredrick still holds everything.
+     */
+    static void retrieve(Character chr, List<Pair<Item, InventoryType>> items, JournalStore journal) {
+        byte response = canRetrieveFromFredrick(chr, items);
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.MERCHANT)) { // !qa np-2, np-3
+            soloMapling.qa.QaLog.owner(soloMapling.qa.QaLog.Topic.MERCHANT, chr.getId(), "Fredrick retrieve: "
+                    + items.size() + " item(s) stored, merchant mesos " + chr.getMerchantMeso()
+                    + ", response " + response + (response == 0 ? " (handing them over)" : " (refused)"));
+        }
+        if (response != 0) {
+            chr.sendPacket(PacketCreator.fredrickMessage(response));
+            return;
+        }
+
+        final int cid = chr.getId();
+        final Character.MerchantWithdrawal plan = chr.planMerchantWithdrawal();
+        StringBuilder deltas = new StringBuilder("{\"mesos\":" + plan.gain() + ",\"items\":[");
+        for (int i = 0; i < items.size(); i++) {
+            Item it = items.get(i).getLeft();
+            deltas.append(i == 0 ? "" : ",").append("{\"id\":").append(it.getItemId()).append(",\"qty\":").append(it.getQuantity()).append('}');
+        }
+        deltas.append("]}");
+
+        long journalId;
+        try {
+            journalId = journal.startRow(OperationJournal.FREDRICK_RETRIEVE, cid, cid, deltas.toString());
+        } catch (SQLException | RuntimeException e) {
+            log.error("Fredrick retrieve: could not start the journal row for chr {}, nothing changed", cid, e);
+            chr.sendPacket(PacketCreator.serverNotice(1, "Fredrick could not hand over your goods right now. Nothing was taken. Please try again."));
+            return;
+        }
+
+        Client c = chr.getClient();
+        boolean saved = false;
+        boolean gained = false;
+        List<Item> added = new LinkedList<>();
+        synchronized (chr) {   // Character.saveCharToDB is synchronized on it: no autosave can slip in between
+            try {
+                if (plan.gain() != 0) {
+                    chr.gainMeso(plan.gain(), false);
+                    gained = true;
+                }
+                for (Pair<Item, InventoryType> it : items) {
+                    if (!InventoryManipulator.addFromDrop(c, it.getLeft(), false)) {
+                        throw new IllegalStateException("could not add item " + it.getLeft().getItemId());
+                    }
+                    added.add(it.getLeft());
+                }
+                saved = chr.saveCharToDB(true, con -> {
+                    deleteFredrickItems(con, cid);
+                    writeMerchantMesos(con, cid, plan.newMerchantMeso());
+                    removeFredrickLog(con, cid);
+                    OperationJournal.markApplied(con, journalId);
+                });
+            } catch (RuntimeException e) {
+                log.error("Fredrick retrieve: chr {} failed, undoing", cid, e);
+            }
+            if (!saved) {
+                log.error("Fredrick retrieve: the save of chr {} did not commit, undoing the hand-over", cid);
+                for (Item it : added) {
+                    try {
+                        InventoryType type = it.getInventoryType();
+                        if (type == InventoryType.EQUIP) {
+                            InventoryManipulator.removeFromSlot(c, type, it.getPosition(), (short) 1, false, false);
+                        } else {
+                            InventoryManipulator.removeById(c, type, it.getItemId(), it.getQuantity(), false, false);
+                        }
+                    } catch (RuntimeException e) {
+                        log.error("Fredrick retrieve: could not take item {} back from chr {}", it.getItemId(), cid, e);
+                    }
+                }
+                if (gained) {
+                    chr.gainMeso(-plan.gain(), false);
+                }
+                try {
+                    journal.rollBackRow(journalId, OperationJournal.FREDRICK_RETRIEVE, cid, "save failed");
+                } catch (SQLException | RuntimeException e) {
+                    log.error("Fredrick retrieve: could not release journal row {}; boot reconcile will", journalId, e);
+                }
+            }
+        }
+        if (!saved) {
+            chr.sendPacket(PacketCreator.serverNotice(1, "Fredrick could not hand over your goods right now. Nothing was taken and everything is still stored. Please try again."));
+            chr.sendPacket(PacketCreator.enableActions());
+            return;
+        }
+
+        // Committed: only memory-side bookkeeping is left.
+        chr.mirrorMerchantMeso(plan.newMerchantMeso());
+        try {
+            // Cosmic: drop the in-memory copy too, so a merchant still loaded for this owner cannot
+            // hand the same items out again after Fredrick has (1.4.1, restored from Cosmic).
+            HiredMerchant merchant = chr.getHiredMerchant();
+            if (merchant != null) {
+                merchant.clearItems();
+            }
+            for (Pair<Item, InventoryType> it : items) {
+                Item item = it.getLeft();
+                String itemName = ItemInformationProvider.getInstance().getName(item.getItemId());
+                FilePrinter.print(FilePrinter.FREDRICK + chr.getName() + ".txt", chr.getName() + " put into Fredrick " + item.getQuantity() + " " + itemName + " (" + item.getItemId() + ")");
+                FilePrinter.print(FilePrinter.FREDRICK + chr.getName() + ".txt", chr.getName() + " gained " + item.getQuantity() + " " + itemName + " (" + item.getItemId() + ")");
+                log.debug("Chr {} gained {}x {} ({})", chr.getName(), item.getQuantity(), itemName, item.getItemId());
+            }
+        } catch (RuntimeException e) {
+            log.error("Fredrick retrieve: bookkeeping after the commit failed for chr {}", cid, e);
+        }
+        chr.sendPacket(PacketCreator.fredrickMessage((byte) 0x1E));
     }
 }

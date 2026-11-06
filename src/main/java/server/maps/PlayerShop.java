@@ -226,6 +226,10 @@ public class PlayerShop extends AbstractMapObject {
 
     public void takeItemBack(int slot, Character chr) {
         synchronized (items) {
+            if (slot < 0 || slot >= items.size()) {   // P0-2b: a bad or stale slot is refused before anything changes
+                chr.sendPacket(PacketCreator.enableActions());
+                return;
+            }
             PlayerShopItem shopItem = items.get(slot);
             if (shopItem.isExist()) {
                 if (shopItem.getBundles() > 0) {

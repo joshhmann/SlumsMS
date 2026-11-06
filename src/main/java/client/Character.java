@@ -3134,7 +3134,7 @@ public class Character extends AbstractCharacterObject {
             }
 
             deleteQuestProgressWhereCharacterId(con, cid);
-            FredrickProcessor.removeFredrickLog(cid);   // thanks maple006 for pointing out the player's Fredrick items are not being deleted at character deletion
+            FredrickProcessor.removeFredrickLog(con, cid);   // thanks maple006 for pointing out the player's Fredrick items are not being deleted at character deletion
 
             try (PreparedStatement ps = con.prepareStatement("SELECT id FROM mts_cart WHERE cid = ?")) {
                 ps.setInt(1, cid);
@@ -10549,35 +10549,51 @@ public class Character extends AbstractCharacterObject {
         merchantmeso = (int) Math.min((long) merchantmeso + add, Integer.MAX_VALUE);
     }
 
-    public void addMerchantMesos(int add) {
+    /**
+     * Adds to the owner's MerchantMesos. False when the database refused it; then neither the database nor the
+     * in-memory value changed, and the caller must tell the player.
+     */
+    public boolean addMerchantMesos(int add) {
         final int newAmount = (int) Math.min((long) merchantmeso + add, Integer.MAX_VALUE);
-
-        try (Connection con = DatabaseConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement("UPDATE characters SET MerchantMesos = ? WHERE id = ?", Statement.RETURN_GENERATED_KEYS)) {
-            ps.setInt(1, newAmount);
-            ps.setInt(2, id);
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return;
+        if (!writeMerchantMesos(newAmount)) {
+            return false;
         }
         merchantmeso = newAmount;
+        return true;
     }
 
-    public void setMerchantMeso(int set) {
+    /** Sets MerchantMesos. False when the database refused it; nothing changed then, in the database or in memory. */
+    public boolean setMerchantMeso(int set) {
+        if (!writeMerchantMesos(set)) {
+            return false;
+        }
+        merchantmeso = set;
+        return true;
+    }
+
+    private boolean writeMerchantMesos(int value) {
         try (Connection con = DatabaseConnection.getConnection();
              PreparedStatement ps = con.prepareStatement("UPDATE characters SET MerchantMesos = ? WHERE id = ?", Statement.RETURN_GENERATED_KEYS)) {
-            ps.setInt(1, set);
+            ps.setInt(1, value);
             ps.setInt(2, id);
             ps.executeUpdate();
+            return true;
         } catch (SQLException e) {
-            e.printStackTrace();
-            return;
+            log.error("Could not write MerchantMesos={} for chr {} ({})", value, id, name, e);
+            return false;
         }
+    }
+
+    /** Mirrors in memory a MerchantMesos value that a transaction already committed. No DB write. */
+    public void mirrorMerchantMeso(int set) {
         merchantmeso = set;
     }
 
-    public synchronized void withdrawMerchantMesos() {
+    /** What taking the merchant mesos out would do: mesos to gain (may be negative: a Fredrick fee debt) and what stays. */
+    public record MerchantWithdrawal(int gain, int newMerchantMeso) {
+    }
+
+    public MerchantWithdrawal planMerchantWithdrawal() {
         int merchantMeso = this.getMerchantNetMeso();
         int playerMeso = this.getMeso();
 
@@ -10586,24 +10602,48 @@ public class Character extends AbstractCharacterObject {
 
             if (possible > 0) {
                 if (possible < merchantMeso) {
-                    this.gainMeso(possible, false);
-                    this.setMerchantMeso(merchantMeso - possible);
-                } else {
-                    this.gainMeso(merchantMeso, false);
-                    this.setMerchantMeso(0);
+                    return new MerchantWithdrawal(possible, merchantMeso - possible);
                 }
+                return new MerchantWithdrawal(merchantMeso, 0);
             }
-        } else {
-            int nextMeso = playerMeso + merchantMeso;
-
-            if (nextMeso < 0) {
-                this.gainMeso(-playerMeso, false);
-                this.setMerchantMeso(merchantMeso + playerMeso);
-            } else {
-                this.gainMeso(merchantMeso, false);
-                this.setMerchantMeso(0);
-            }
+            return new MerchantWithdrawal(0, merchantmeso);
         }
+        int nextMeso = playerMeso + merchantMeso;
+
+        if (nextMeso < 0) {
+            return new MerchantWithdrawal(-playerMeso, merchantMeso + playerMeso);
+        }
+        return new MerchantWithdrawal(merchantMeso, 0);
+    }
+
+    /**
+     * Moves the merchant mesos to the wallet all-or-nothing: the wallet gain and the new MerchantMesos commit in one
+     * character save. False when that save did not commit; then the wallet and MerchantMesos are as they were.
+     */
+    public synchronized boolean withdrawMerchantMesos() {
+        MerchantWithdrawal plan = planMerchantWithdrawal();
+        if (plan.gain() == 0 && plan.newMerchantMeso() == merchantmeso) {
+            return true;
+        }
+        this.gainMeso(plan.gain(), false);
+        boolean saved = false;
+        try {
+            saved = saveCharToDB(true, con -> {
+                try (PreparedStatement ps = con.prepareStatement("UPDATE characters SET MerchantMesos = ? WHERE id = ?")) {
+                    ps.setInt(1, plan.newMerchantMeso());
+                    ps.setInt(2, id);
+                    ps.executeUpdate();
+                }
+            });
+        } catch (RuntimeException e) {
+            log.error("Withdrawing merchant mesos failed for chr {} ({})", id, name, e);
+        }
+        if (!saved) {
+            this.gainMeso(-plan.gain(), false);
+            return false;
+        }
+        merchantmeso = plan.newMerchantMeso();
+        return true;
     }
 
     public void setHiredMerchant(HiredMerchant merchant) {

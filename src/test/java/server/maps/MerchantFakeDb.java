@@ -26,6 +26,8 @@ public final class MerchantFakeDb {
     public volatile String failOn;
     /** SQLState of the injected failure ("40001" = deadlock/serialization, "08S01" = link failure); null for none. */
     public volatile String failState;
+    /** Answers a SELECT by its SQL; null (or no hook) gives the statement no result set. */
+    public volatile java.util.function.Function<String, ResultSet> query;
 
     public static final class Conn {
         public final List<String> sql = new ArrayList<>();
@@ -82,6 +84,10 @@ public final class MerchantFakeDb {
             log.sql.add(sql);
             (log.autoCommitOff ? log.pending : log.durable).add(sql);
             return 1;
+        });
+        when(ps.executeQuery()).thenAnswer(a -> {
+            java.util.function.Function<String, ResultSet> q = query;
+            return q == null ? null : q.apply(sql);
         });
         ResultSet keys = mock(ResultSet.class);
         when(keys.next()).thenReturn(true, false);

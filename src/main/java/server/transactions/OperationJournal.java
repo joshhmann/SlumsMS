@@ -32,6 +32,8 @@ public final class OperationJournal {
     public static final String MERCHANT_CLOSE = "MERCHANT_CLOSE";
     /** A buyer purchasing from a hired merchant: buyer item and mesos, shop stock, owner's MerchantMesos (P0-2). */
     public static final String MERCHANT_BUY = "MERCHANT_BUY";
+    /** Fredrick handing the stored goods and merchant mesos to the owner: items, wallet, MerchantMesos, log (P0-2b). */
+    public static final String FREDRICK_RETRIEVE = "FREDRICK_RETRIEVE";
 
     private OperationJournal() {
     }
@@ -92,7 +94,8 @@ public final class OperationJournal {
         int rolledBack = 0, failed = 0, skipped = 0;
         for (JournalStore.OpenRow row : rows) {
             boolean buyback = BUYBACK.equals(row.kind());
-            if (!buyback && !MERCHANT_CLOSE.equals(row.kind()) && !MERCHANT_BUY.equals(row.kind())) {
+            if (!buyback && !MERCHANT_CLOSE.equals(row.kind()) && !MERCHANT_BUY.equals(row.kind())
+                    && !FREDRICK_RETRIEVE.equals(row.kind())) {
                 log.warn("Journal reconcile: row {} has unknown kind '{}' (actor {}, ref {}), left alone",
                         row.id(), row.kind(), row.actorId(), row.refId());
                 skipped++;

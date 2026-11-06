@@ -281,14 +281,21 @@ public class HiredMerchant extends AbstractMapObject {
     public void withdrawMesos(Character chr) {
         if (isOwner(chr)) {
             synchronized (items) {
-                chr.withdrawMerchantMesos();
+                if (!chr.withdrawMerchantMesos()) {
+                    chr.dropMessage(1, "Your merchant mesos could not be collected right now. Nothing was taken. Please try again.");
+                    chr.sendPacket(PacketCreator.enableActions());
+                }
             }
         }
     }
 
     public void takeItemBack(int slot, Character chr) {
         synchronized (items) {
-            PlayerShopItem shopItem = items.get(slot);
+            PlayerShopItem shopItem = itemAt(slot);   // P0-2b: a bad or stale slot is refused before anything changes
+            if (shopItem == null) {
+                chr.sendPacket(PacketCreator.enableActions());
+                return;
+            }
             if (shopItem.isExist()) {
                 if (shopItem.getBundles() > 0) {
                     Item iitem = shopItem.getItem().copy();

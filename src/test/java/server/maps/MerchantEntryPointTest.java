@@ -128,4 +128,33 @@ class MerchantEntryPointTest {
         verify(bot, never()).gainMeso(anyInt(), anyBoolean(), anyBoolean(), anyBoolean());
         assertEquals(2, shop.getItems().get(0).getBundles());
     }
+
+    @Test
+    void hiredMerchantTakeItemBackRefusesABadOrStaleSlotAndChangesNothing() {
+        HiredMerchant shop = shopWithTwoLines();
+        Character owner = mock(Character.class);
+
+        for (int slot : new int[]{-1, 2, 99}) {
+            assertDoesNotThrow(() -> shop.takeItemBack(slot, owner), "slot " + slot);
+        }
+
+        assertEquals(2, shop.getItems().size(), "no line was removed");
+        assertEquals(2, shop.getItems().get(0).getBundles());
+        verify(owner, never()).gainMeso(anyInt(), anyBoolean());
+    }
+
+    @Test
+    void playerShopTakeItemBackRefusesABadOrStaleSlotAndChangesNothing() {
+        Character owner = mock(Character.class);
+        when(owner.getPosition()).thenReturn(new Point(0, 0));
+        PlayerShop shop = new PlayerShop(owner, "test", 4080000);
+        shop.addItem(new PlayerShopItem(new Item(4000000, (short) 0, (short) 5), (short) 2, 100));
+
+        for (int slot : new int[]{-1, 1, 99}) {
+            assertDoesNotThrow(() -> shop.takeItemBack(slot, owner), "slot " + slot);
+        }
+
+        assertEquals(1, shop.getItems().size());
+        assertEquals(2, shop.getItems().get(0).getBundles());
+    }
 }
