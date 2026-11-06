@@ -453,6 +453,9 @@ class SilviaWorker:
         name, arguments = kind, None
         if kind in ("gm", "chat"):
             name, arguments = "command", {"line": step.get("line") if kind == "gm" else step.get("text")}
+        elif kind == "click" and re.fullmatch(r"npc_dialog\.option_[1-8]", step["anchor"]):
+            # the QA client ends the open NPC menu on that row through the dialog's own reply path: no ui.json point
+            name, arguments = "click_option", {"option": int(step["anchor"][-1])}
         elif kind == "click":
             name, arguments = "click_anchor", {"name": self.anchor_point(step["anchor"])}
         elif kind == "select_world":
