@@ -26,13 +26,36 @@ steps:
   - {do: select_character}
   - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
   - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
-  - {id: to-door, do: gm, line: "!warp 240050400"}
-  - {id: at-door, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240050400}, timeout_ms: 30000}
-  - {id: stand-by-npc, do: gm, line: "!tp 860 246"}
+  # the three level 100+ filler regulars (Bots: BabyRanger is too low): the expedition needs 6 members; fillers are not under
+  # test, so GM followbot staging is fine. Judge b311 only from the two alts' own attack packets and positions.
+  - {id: login-thunder54, do: gm, line: "!roster login thunder54"}
+  - {id: logged-thunder54, do: wait, armed_at: login-thunder54, signal: {type: client_signal, name: chat.received, regex: "login 1000553099: done"}, timeout_ms: 20000}
+  - {id: follow-thunder54, do: gm, line: "!bot followbot 1000553099"}
+  - {id: login-msbeta, do: gm, line: "!roster login MSbeta"}
+  - {id: logged-msbeta, do: wait, armed_at: login-msbeta, signal: {type: client_signal, name: chat.received, regex: "login 1000551094: done"}, timeout_ms: 20000}
+  - {id: follow-msbeta, do: gm, line: "!bot followbot 1000551094"}
+  - {id: login-gokubucc, do: gm, line: "!roster login GokuBucc"}
+  - {id: logged-gokubucc, do: wait, armed_at: login-gokubucc, signal: {type: client_signal, name: chat.received, regex: "login 1000553063: done"}, timeout_ms: 20000}
+  - {id: follow-gokubucc, do: gm, line: "!bot followbot 1000553063"}
   - {id: call-alt-1, do: chat, text: "@botme AqClientAlt1"}
   - {id: alt-1-here, do: wait, armed_at: call-alt-1, signal: {type: server_line, topic: OWNED_ALT, regex: "loaded alt=105", char: me}, timeout_ms: 20000}
   - {id: call-alt-2, do: chat, text: "@botme AqClientAlt2"}
   - {id: alt-2-here, do: wait, armed_at: call-alt-2, signal: {type: server_line, topic: OWNED_ALT, regex: "loaded alt=106", char: me}, timeout_ms: 20000}
+  - {id: invite-thunder54, do: party_invite, name: thunder54}
+  - {id: joined-thunder54, do: wait, armed_at: invite-thunder54, signal: {type: client_signal, name: chat.received, regex: "thunder54 has joined the party"}, timeout_ms: 20000}
+  - {id: invite-msbeta, do: party_invite, name: MSbeta}
+  - {id: joined-msbeta, do: wait, armed_at: invite-msbeta, signal: {type: client_signal, name: chat.received, regex: "MSbeta has joined the party"}, timeout_ms: 20000}
+  - {id: invite-gokubucc, do: party_invite, name: GokuBucc}
+  - {id: joined-gokubucc, do: wait, armed_at: invite-gokubucc, signal: {type: client_signal, name: chat.received, regex: "GokuBucc has joined the party"}, timeout_ms: 20000}
+  - {id: to-door, do: gm, line: "!warp 240050400"}
+  - {id: at-door, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240050400}, timeout_ms: 30000}
+  - {id: stand-by-npc, do: gm, line: "!tp 860 246"}
+  - {id: gather, do: sleep, ms: 7500, reason: "the followers travel to the recruiter map after the leader"}
+  - {do: sleep, ms: 7500, reason: "the followers travel to the recruiter map after the leader (second half)"}
+  - {id: roll-call, do: gm, line: "!botstatus"}
+  - {id: here-thunder54, do: wait, armed_at: roll-call, signal: {type: client_signal, name: chat.received, regex: "^1000553099 thunder54 "}, timeout_ms: 20000}
+  - {id: here-msbeta, do: wait, armed_at: roll-call, signal: {type: client_signal, name: chat.received, regex: "^1000551094 MSbeta "}, timeout_ms: 20000}
+  - {id: here-gokubucc, do: wait, armed_at: roll-call, signal: {type: client_signal, name: chat.received, regex: "^1000553063 GokuBucc "}, timeout_ms: 20000}
   # register the expedition
   - {id: talk-1, do: click_npc, npc: 2083004}
   - {id: dialog-1, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
@@ -50,6 +73,8 @@ steps:
   - {id: room-3, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240060200}, timeout_ms: 240000}
 captures:
   - {id: door, burst: {fps: 2, ms: 2000, at: {step: stand-by-npc}}}
+  - {id: first-dialog, burst: {fps: 4, ms: 2500, at: {signal: dialog-1}}}
+  - {id: second-dialog, burst: {fps: 4, ms: 2500, at: {signal: dialog-2}}}
   - {id: party, burst: {fps: 2, ms: 2000, at: {step: alt-2-here}}}
   - {id: room-1-shot, burst: {fps: 2, ms: 4000, at: {signal: in-fight}}}
   - {id: room-2-shot, burst: {fps: 2, ms: 4000, at: {signal: room-2}}}
