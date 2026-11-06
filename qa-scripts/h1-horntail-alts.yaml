@@ -74,9 +74,17 @@ steps:
   - {id: ok-after-start, do: click, anchor: npc_dialog.next, note: "OK on Good luck! starts the instance (NPC script 2083004.js:170)"}
   - {id: in-fight, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240060000}, timeout_ms: 60000}
   # the human stands still; the alts fight. Watch the run through the map changes the leader is carried along.
-  - {id: safe-spot, do: gm, line: "!tp 110 -300", note: "the human stands at the far left edge of the room (VRLeft 90) so it survives to warp with the alts; same in every H1 run (Coordinator). No invincibility toggle exists on TEST and MaxHP is already at the 99999 cap"}
-  - {id: room-2, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240060100}, timeout_ms: 240000}
-  - {id: room-3, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240060200}, timeout_ms: 240000}
+  # the rooms advance only when the leader walks into the room's next00 portal AFTER a head is dead (portal script hontale_BR:
+  # defeatedHead >= 1 in room 1, >= 2 in room 2). The human stands at the portal, healing and pressing UP every 4 s (the
+  # wait's retry resends both steps), and is at gm 3 like the alts in runs 1-2. Heal + UP: the same in every H1 run.
+  - {id: portal-1, do: gm, line: "!tp 832 -166"}
+  - {id: heal-1, do: gm, line: "!heal"}
+  - {id: up-1, do: key, key: UP}
+  - {id: room-2, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240060100}, retry: {steps: [heal-1, up-1], every_ms: 4000, times: 60}, timeout_ms: 270000}
+  - {id: portal-2, do: gm, line: "!tp -299 -165"}
+  - {id: heal-2, do: gm, line: "!heal"}
+  - {id: up-2, do: key, key: UP}
+  - {id: room-3, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240060200}, retry: {steps: [heal-2, up-2], every_ms: 4000, times: 60}, timeout_ms: 270000}
 captures:
   - {id: door, burst: {fps: 2, ms: 2000, at: {step: stand-by-npc}}}
   - {id: answer, burst: {fps: 2, ms: 2500, at: {signal: after-start}}}
