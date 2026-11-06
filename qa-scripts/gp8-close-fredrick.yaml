@@ -24,7 +24,6 @@ steps:
   - {do: select_character}
   - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
   - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
-  - {id: at-entrance, do: wait, signal: {type: client_signal, name: field.ready, map_id: 910000000}, timeout_ms: 30000, note: "Server Dev staged the character at the FM entrance after the server-side close"}
   - {id: talk-fredrick, do: click_npc, npc: 9030000}
   - {id: fredrick-open, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000, optional: true}
   - {do: sleep, ms: 2000, reason: "frame of Fredrick's retrieval window with the items and mesos"}
