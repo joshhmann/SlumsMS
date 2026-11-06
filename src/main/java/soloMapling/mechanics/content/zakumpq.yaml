@@ -1,5 +1,7 @@
-# Ticket 164 Pre-Zakum PQ - GENERATED, do not hand-edit. Thirty rooms on a hub, walked once.
-# b331 (2026-11-06, hand-edited; the generator is not in the repo): a chest yields ONE drop, as it does for a
+# Ticket 164 Pre-Zakum PQ. Thirty rooms on a hub, walked once. HAND-MAINTAINED (1.6.5 b340): this file once said
+# GENERATED, but no generator was ever in the repo and every change since 3 Nov was made by hand. Edit it here, and
+# keep the room order and the notes below true.
+# b331 (2026-11-06): a chest yields ONE drop, as it does for a
 # real party (the bots' old 5th hit on a state no client can hit gave a second drop and crashed clients). The
 # big chest wants 7 ores and the maze has exactly 7 ore rocks (2112004 on 280010091/110/140, 280011002/003;
 # 2112011 on 280010041 and on 280011005 itself), so the walk now mines all seven before 2112014: the
