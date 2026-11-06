@@ -41,8 +41,17 @@ final class MarketLog {
         emit(refusedLine(kind, who(buyer), owner, reason));
     }
 
+    /** A sale where neither side is a real player. */
+    static boolean isBotToBot(String line) {
+        return line.contains("buyer=bot") && line.contains("owner=bot");
+    }
+
     private static void emit(String line) {
-        log.info(line);
+        if (isBotToBot(line)) {
+            log.debug(line);   // bot-to-bot sales are too many for INFO
+        } else {
+            log.info(line);
+        }
         Consumer<String> t = tap;
         if (t != null) {
             t.accept(line);

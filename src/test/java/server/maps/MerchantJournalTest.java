@@ -113,6 +113,7 @@ class MerchantJournalTest {
         inv.when(() -> InventoryManipulator.addById(any(Character.class), anyInt(), anyShort(), any(), anyInt(), anyShort(), anyLong())).thenReturn(true);
         invStatic = mockStatic(Inventory.class);
         invStatic.when(() -> Inventory.checkSpotsAndOwnership(any(), any())).thenReturn(true);
+        invStatic.when(() -> Inventory.checkSpot(any(Character.class), any(Item.class))).thenReturn(true);
     }
 
     @AfterEach
@@ -516,5 +517,61 @@ class MerchantJournalTest {
         assertEquals(1, flagWrites, "HasMerchant is cleared once: the merchant died with the JVM, the goods wait with Fredrick");
         assertTrue(db.conns.stream().anyMatch(c -> c.committedAny("HasMerchant") && c.committedAny("UPDATE operation_journal")),
                 "flag and journal flip in one commit");
+    }
+
+    // ---- take an item back out of the shop (P0-2b) ----
+
+    @Test
+    void aFailedSaveLeavesTheItemInTheShopAndNotInTheBag() throws Exception {
+        HiredMerchant[] h = new HiredMerchant[1];
+        Character o = owner(h);
+        HiredMerchant shop = shop(o);
+        h[0] = shop;
+        db.failOn = "INSERT INTO `fredstorage`";   // the stock write cannot commit
+
+        shop.takeItemBack(0, o);
+
+        assertEquals(1, shop.getItems().size(), "the line is still in the shop");
+        assertEquals(3, bundles(shop));
+        assertTrue(shop.getItems().get(0).isExist());
+        inv.verify(() -> InventoryManipulator.removeById(any(Client.class), any(), eq(4000000), eq(15), eq(false), eq(false)));
+        assertFalse(db.anyCommitted("DELETE FROM `inventorymerchant`"), "the stored stock is as it was");
+        assertEquals("ROLLED_BACK", journal.state(0));
+        assertEquals(0, journal.started());
+    }
+
+    @Test
+    void aCrashAfterTheClaimLeavesOneCopyAndBootRollsTheRowBack() throws Exception {
+        HiredMerchant[] h = new HiredMerchant[1];
+        Character o = owner(h);
+        HiredMerchant shop = shop(o);
+        h[0] = shop;
+        ownerSave = Save.CRASH;
+
+        assertThrows(Crash.class, () -> shop.takeItemBack(0, o));
+        assertEquals("STARTED", journal.state(0));
+        assertFalse(db.anyCommitted("DELETE FROM `inventorymerchant`"), "the stored stock still holds the item");
+
+        OperationJournal.reconcile(journal);
+
+        assertEquals(0, journal.started());
+        assertEquals("ROLLED_BACK", journal.state(0));
+        assertEquals(List.of("MERCHANT_TAKEBACK"), journal.rollBackKinds);
+    }
+
+    @Test
+    void aTakeBackThatSavesMovesTheItemAndTheStockInOneCommit() throws Exception {
+        HiredMerchant[] h = new HiredMerchant[1];
+        Character o = owner(h);
+        HiredMerchant shop = shop(o);
+        h[0] = shop;
+
+        shop.takeItemBack(0, o);
+
+        assertTrue(shop.getItems().isEmpty());
+        assertEquals("APPLIED", journal.state(0));
+        MerchantFakeDb.Conn tx = db.conns.stream().filter(c -> c.committedAny("DELETE FROM `inventorymerchant`")).findFirst().orElseThrow();
+        assertTrue(tx.committedAny("operation_journal"));
+        assertEquals(1, tx.commits);
     }
 }

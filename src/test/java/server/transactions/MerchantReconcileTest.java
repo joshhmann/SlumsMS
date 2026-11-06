@@ -44,10 +44,11 @@ class MerchantReconcileTest {
         s.open.add(new JournalStore.OpenRow(3, "SOMETHING_ELSE", 9, 9));
         s.open.add(new JournalStore.OpenRow(4, OperationJournal.BUYBACK, 10, 11));
         s.open.add(new JournalStore.OpenRow(5, OperationJournal.FREDRICK_RETRIEVE, 12, 12));
+        s.open.add(new JournalStore.OpenRow(6, OperationJournal.MERCHANT_TAKEBACK, 7, 7));
 
         OperationJournal.reconcile(s);
 
-        assertEquals(List.of(1L, 2L, 4L, 5L), s.rolledBack);
+        assertEquals(List.of(1L, 2L, 4L, 5L, 6L), s.rolledBack);
         assertFalse(s.rolledBack.contains(3L), "an unknown kind stays untouched");
     }
 

@@ -157,4 +157,12 @@ class MerchantEntryPointTest {
         assertEquals(1, shop.getItems().size());
         assertEquals(2, shop.getItems().get(0).getBundles());
     }
+
+    @Test
+    void onlySalesWithARealPlayerAreLoggedAtInfo() {
+        assertFalse(MarketLog.isBotToBot(MarketLog.saleLine("merchant", "real", "bot")));
+        assertFalse(MarketLog.isBotToBot(MarketLog.saleLine("merchant", "bot", "real")));
+        assertFalse(MarketLog.isBotToBot(MarketLog.refusedLine("playershop", "real", "real", "funds")));
+        assertTrue(MarketLog.isBotToBot(MarketLog.saleLine("merchant", "bot", "bot")));
+    }
 }

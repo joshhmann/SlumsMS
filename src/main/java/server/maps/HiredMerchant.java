@@ -307,10 +307,19 @@ public class HiredMerchant extends AbstractMapObject {
                         return;
                     }
 
-                    InventoryManipulator.addFromDrop(chr.getClient(), iitem, true);
+                    if (isPersistent()) {
+                        if (!takeBackPersistent(chr, slot, shopItem, iitem)) {
+                            chr.sendPacket(PacketCreator.serverNotice(1, "The item could not be taken back right now. It is still in the shop. Please try again."));
+                            chr.sendPacket(PacketCreator.enableActions());
+                            return;
+                        }
+                    } else {
+                        InventoryManipulator.addFromDrop(chr.getClient(), iitem, true);
+                        removeFromSlot(slot);
+                    }
+                } else {
+                    removeFromSlot(slot);
                 }
-
-                removeFromSlot(slot);
                 chr.sendPacket(PacketCreator.updateHiredMerchant(this, chr));
             }
 
@@ -318,6 +327,61 @@ public class HiredMerchant extends AbstractMapObject {
                 chr.saveCharToDB(false);
             }
         }
+    }
+
+    /**
+     * P0-2b: the owner takes a line back all-or-nothing. A STARTED MERCHANT_TAKEBACK row is claimed, the item goes to
+     * the owner's bag and off the shop in memory under the owner's save lock, and one owner save carries the stock
+     * write and the APPLIED mark. If it does not commit the bag and the line are put back, so the item can never be
+     * in the bag and in the stored stock at once. Caller holds the {@code items} lock.
+     */
+    private boolean takeBackPersistent(Character chr, int slot, PlayerShopItem shopItem, Item iitem) {
+        long journalId;
+        try {
+            journalId = journal.startRow(OperationJournal.MERCHANT_TAKEBACK, chr.getId(), ownerId,
+                    "{\"item\":" + iitem.getItemId() + ",\"qty\":" + iitem.getQuantity() + "}");
+        } catch (SQLException | RuntimeException e) {
+            log.error("Merchant take-back: could not start the journal row for owner {}, nothing changed", ownerId, e);
+            return false;
+        }
+        boolean saved = false;
+        boolean added = false, removed = false;
+        synchronized (chr) {   // Character.saveCharToDB is synchronized on it: no autosave can slip in between
+            try {
+                if (!InventoryManipulator.addFromDrop(chr.getClient(), iitem, true)) {
+                    throw new IllegalStateException("could not add item " + iitem.getItemId());
+                }
+                added = true;
+                items.remove(slot);
+                removed = true;
+                final List<PlayerShopItem> snapshot = new ArrayList<>(items);
+                saved = chr.saveCharToDB(true, con -> {
+                    writeItems(con, snapshot);
+                    OperationJournal.markApplied(con, journalId);
+                });
+            } catch (RuntimeException e) {
+                log.error("Merchant take-back: owner {} failed, undoing", ownerId, e);
+            }
+            if (!saved) {
+                log.error("Merchant take-back: the save of owner {} did not commit, undoing", ownerId);
+                if (removed) {
+                    items.add(Math.min(slot, items.size()), shopItem);
+                }
+                if (added) {
+                    try {
+                        takeBack(chr.getClient(), iitem);
+                    } catch (RuntimeException e) {
+                        log.error("Merchant take-back: could not take item {} back from owner {}", iitem.getItemId(), ownerId, e);
+                    }
+                }
+                try {
+                    journal.rollBackRow(journalId, OperationJournal.MERCHANT_TAKEBACK, chr.getId(), "save failed");
+                } catch (SQLException | RuntimeException e) {
+                    log.error("Merchant take-back: could not release journal row {}; boot reconcile will", journalId, e);
+                }
+            }
+        }
+        return saved;
     }
 
     private static boolean canBuy(Client c, Item newItem) {    // thanks xiaokelvin (Conrad) for noticing a leaked test code here
