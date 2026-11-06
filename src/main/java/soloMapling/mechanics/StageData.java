@@ -579,10 +579,19 @@ public final class StageData {
                 p.add(at + "clear: partyOnMap must be a map id");
             }
         }
+        if (clear == null && m.get("clear") instanceof Map<?, ?> bm && bm.get("botsOnMap") != null) {
+            // 1.6.5 b344: the run's bots reaching the map is the clear, wherever its real players walked (ZPQ mines)
+            int target = num(bm, "botsOnMap", -1, p);
+            if (target > 0) {
+                clear = Clear.ofBotsOnMap(target);
+            } else {
+                p.add(at + "clear: botsOnMap must be a map id");
+            }
+        }
         if (clear == null) {
             p.add(at + "no clear: { eventProperty: ... } (+ optional equals: value), or { instance: true },"
                     + " or { mapEmpty: true }, or { reactorState: { id: N, state: M } },"
-                    + " or { partyOnMap: mapId }");
+                    + " or { partyOnMap: mapId }, or { botsOnMap: mapId }");
         }
         String answerProperty = m.get("answerProperty") == null ? null : String.valueOf(m.get("answerProperty")).trim();
         List<List<Integer>> combos = new ArrayList<>();

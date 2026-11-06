@@ -165,6 +165,14 @@ final class GCTravel {
         if (bot == null) {
             return;
         }
+        if (soloMapling.mechanics.MechanicsHold.committed(bot)) {
+            // 1.6.5 b344: a mechanics run drives this bot and never travels it across maps itself (its steps walk to
+            // a portal or warp inside the instance), so this trip is someone else's: a follow re-armed by a brain tick
+            // that was in flight at run start pulled a ZPQ bot to its leader's room every 20 s. No trip; a chained
+            // errand hears that it did not happen
+            fire(callback, false);
+            return;
+        }
         cancel(bot);
         if (GCMovement.hasLeftWorld(bot)) {
             // A logged-out bot's errand callback (a sauna trip's way home, say) asks for a trip after removal. No
