@@ -23,6 +23,8 @@ capability spec), C (tickets P1-Q1..Q3), E (release readiness), F (decisions, es
 - The bot-action event schema and the rates (D section 6), shared with the Bots lane.
 - **Timing (D20):** no 1.7.0 code merges or TEST deploys until 1.6.4 is released, verified on live and tagged
   `v1.6.4`. Until then, write failing tests and plans on `170-qa-*` branches.
+  **Superseded 2026-11-06:** full development halt (owner, 07:28 UTC). This lane works only when the owner activates it
+  and names the allowed work (`/root/work/agent-runs/coordinator/HALT-2026-11-06.md`).
 - The 24 h bot soak for gate G2, with the Bots lane's KPIs.
 
 **Not yours:** server/bot code fixes (the lane that owns the code fixes it; you prove it), release-* merges and TEST

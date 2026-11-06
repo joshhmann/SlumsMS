@@ -52,7 +52,8 @@ night playbook.
 - Rollback: the previous jar plus `rollback.sh` for migrations.
 - The `LifeMemory` world data is an extra key in the v2 format, not a new version: a 1.6.4 jar would reset a v3 row
   (`LifeMemory.java:84-93`). A 1.6.4 save drops the key (world knowledge is rebuilt); seed, delta, goals and
-  events survive. Proven by the 1.7.0 -> 1.6.4 -> 1.7.0 round-trip test (P1-A6).
+  events survive. Proven by the 1.7.0 -> 1.6.4 -> 1.7.0 round-trip test (P1-A6). *(Amended by D10, 6 Nov: the round trip is
+  new release -> previous live release -> new release, run at 1.6.8 and again at 1.7.0.)*
 - Open operation-journal rows are reconciled at boot before logins (RFC 2.9), on either version.
 - Every live step needs the owner's explicit go.
 

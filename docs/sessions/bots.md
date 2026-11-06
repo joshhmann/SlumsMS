@@ -21,6 +21,8 @@ Read first: `/root/work/START-HERE.md`, `AGENTS.md` section 1, `docs/sessions/RE
   - The bot-action event schema is shared with the QA lane (`D-qa-capability-spec.md` sections 6-7).
 - **Timing (D20, owner Nov 5):** no 1.7.0 code merges or TEST deploys until 1.6.4 is released, verified on live and
   tagged `v1.6.4`. Until then: read, plan, and write failing tests on `170-bots-*` branches.
+  **Superseded 2026-11-06:** full development halt (owner, 07:28 UTC). This lane works only when the owner activates it
+  and names the allowed work (`/root/work/agent-runs/coordinator/HALT-2026-11-06.md`).
 - Bot KPIs with honest denominators (plan section 08), and performance at 3,000 bots: time-budgeted ticks, capped
   pathfinding, no unbounded retries, and real-player latency watched.
 

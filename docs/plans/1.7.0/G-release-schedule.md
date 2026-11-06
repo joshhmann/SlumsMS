@@ -35,7 +35,7 @@ A ticket moved to a point release keeps its ID, its acceptance criteria and its 
 
 - **Baseline (conditions 4 and 6, D20):**
   - release-1.6.N is cut from the tag `v1.6.(N-1)` actually running on live and verified, starting with `v1.6.4`.
-  - Parallel work on `16N-*` / `170-*` branches may start once v1.6.4 is tagged.
+  - Parallel work on `16N-*` / `170-*` branches may start once v1.6.4 is tagged. *(Superseded: see Amendments, 6 Nov, item 1.)*
   - It is rebased and re-tested on the real preceding baseline before it merges, never merged on the assumption that
     an older branch still fits.
 - **Independently releasable (condition 5).** Each release has:
@@ -56,7 +56,7 @@ A ticket moved to a point release keeps its ID, its acceptance criteria and its 
 
 ## Releases, scope and exit criteria
 
-### 1.6.5: Safety first (baseline v1.6.4)
+### 1.6.5: Safety first (baseline v1.6.4; amended to v1.6.4.1, see Amendments, 6 Nov, item 2)
 
 Core scope (must ship):
 - **P0-1, P0-2:** buyback and merchant/shop atomicity, with the operation journal and boot reconcile (RFC 2.9).
@@ -129,12 +129,13 @@ Scope:
 - related small bot bugs: P2-1, P2-2, b303, b317, b318, b319.
 
 The A1 deviation question (the GRIND auto-complete kept as a legacy end, per RFC section 5) goes to the owner before
-A1 code.
+A1 code. *(Answered: see Amendments, 6 Nov, item 6.)*
 
 Exit criteria:
 1. The A1/A2 fail-before tests are green, plus the D2 architecture test.
 2. HELP_FRIEND positive and negative scenarios pass on TEST.
 3. Bot DB refusals on TEST at full population are back near the 1.6.3 level (the owner sets the bar at kickoff).
+   *(Superseded: see Amendments, 6 Nov, item 7.)*
 4. Legacy activities show no regression.
 5. `-Dslums.action.authority` is ON for TEST and OFF for live, unless the owner says otherwise.
 
@@ -207,7 +208,7 @@ They close on their own proof in the 1.6.4 book.
 | 1.6.9 | b257, b306, b308, b309, b310, b312, b313, b314, b315, b316, b256 | P1-C1, P2-W6, P2-3, P2-4, P2-5, P1-L2, s20 |
 | 1.7.0 | (fixes found by certification) | GP1-GP12, G0-G5, s12 |
 
-Not in the table above, allocated when the 1.6.5 book opened (Nov 6): b275 → 1.6.6, then moved by the owner to 1.6.5 stretch (Nov 6); w06 → 1.8.x backlog.
+Not in the table above, allocated when the 1.6.5 book opened (Nov 6): b275 → 1.6.6, then moved by the owner to 1.6.5 stretch (Nov 6); w06 → 1.8.x backlog. *(Superseded: see Amendments, 6 Nov, item 4.)*
 
 **1.8.x backlog (feature freeze; the owner may pull any one forward):**
 - e01 (economy rework), e03, e05, e06, e07, e08, e09 (NX desk auto top-up), e10, e11, e12 (PELIXIR in game), e13
@@ -220,3 +221,31 @@ Not in the table above, allocated when the 1.6.5 book opened (Nov 6): b275 → 1
 
 Owner-decision cards stay open for the owner: n14 (open boss/PQ decisions), n16 (architecture review leads, inputs to
 P1-C1).
+
+## Amendments, 6 Nov 2026 (owner-approved 6 Nov)
+
+The text above stays as written; each line these items change carries a pointer here.
+
+1. **Authorization.** "Parallel work on `16N-*` / `170-*` branches may start once v1.6.4 is tagged" is superseded.
+   Work on any release, including future branches, starts only when the owner activates that release and names the
+   lanes and work allowed (full development halt, owner 07:28 UTC Nov 6).
+2. **Baseline.** 1.6.5's baseline is **v1.6.4.1**. It is merged into release-1.6.5 before any 1.6.5 work (step 0).
+3. **Hotfix 1.6.4.1** (owner, 06:49 UTC Nov 6). Scope: the b331 reactor last-state cap and the shared bot-client guard,
+   from v1.6.4. Its record is the 1.6.4 release book; only evidence from that exact candidate counts.
+4. **Card moves** (owner, 02:07 UTC Nov 6). b275, w06, b329 and b330 are 1.6.5 extras. The note above that puts w06 in
+   the 1.8.x backlog is superseded.
+5. **Lanes** (Road to 1.7.0, approved 6 Nov). QA takes P1-C1a, P1-C1b, s32 and b284; Server reviews the smoke checks.
+   Bots takes b303, b317, b318, b319, b324 and b285. Server keeps the database side of b324.
+6. **1.6.7, the A1 deviation question:** answered by A section 5, phase 1 (the GRIND auto-complete is deleted; other
+   activities run through the legacy adapter). It is not an owner question.
+7. **1.6.7 exit criterion 3** is replaced by: "Bot DB refusals on TEST at full population are no worse than a baseline
+   measured under the same conditions at kickoff." Protocol (owner-approved 6 Nov; run only once 1.6.7 is
+   activated):
+   - baseline: the live predecessor (v1.6.6) on TEST, full roster with the count recorded, the same host, a 60-minute
+     window starting 10 minutes after the boot fill;
+   - source: the BotDbGate "refused so far" minute lines in the dated server logs, split by operation, with peak permits
+     in use and pool waiting;
+   - the candidate passes if it is no worse than the baseline and no refused write is lost;
+   - evidence: both extracts, with population, commit and jar hash.
+   The conf's "stay at 0" bar is a separate goal, not this exit criterion.
+8. **Cards filed 6 Nov** (b331-b344) are placed by severity in the 1.6.5 book.
