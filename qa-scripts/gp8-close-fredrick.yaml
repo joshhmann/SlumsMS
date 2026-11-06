@@ -1,4 +1,4 @@
-# GP8 part 2 (P0-2, real client): after the owner has bought one item by hand, close AqClient's merchant server-side like a restart (`!qa do close`), then take everything from Fredrick
+# GP8 part 2 (P0-2, real client): AqClient at gm 0. After the owner has bought one item by hand, SERVER DEV closes the merchant server-side like a restart (a TEST-side close, with the character logged out) and sets the character's map to the FM entrance 910000000; then this script takes everything from Fredrick
 # (9030000 at the FM entrance) with fredrick_retrieve, and click Fredrick again: nothing left. Server Dev reads inventory and mesos rows before/after and the journal. TEST QA account only.
 id: gp8-close-fredrick
 title: "GP8: close the merchant the way a restart does, then collect everything from Fredrick"
@@ -13,7 +13,7 @@ clients:
     character: {slot: 0}
     world: Bera
     channel: 3
-    gm: true
+    gm: false
 steps:
   - {do: login}
   - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
@@ -24,14 +24,7 @@ steps:
   - {do: select_character}
   - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
   - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
-  - {id: revive, do: gm, line: "!heal"}
-  - {do: sleep, ms: 1000, reason: "let the revive land before the next command"}
-  - {id: stage-np3, do: gm, line: "!qa run np-3 1", note: "np-3 stages the merchant tools; it warps to FM room 1 and may give a second merchant item: harmless"}
-  - {do: sleep, ms: 2000, reason: "let the scenario stage before the close action"}
-  - {id: close-as-restart, do: gm, line: "!qa do close", note: "closes the owner's open merchant the way a server restart closes it: the unsold items and the sale mesos go to Fredrick"}
-  - {do: sleep, ms: 3000, reason: "let the server hand the merchant's contents to Fredrick"}
-  - {id: to-entrance, do: gm, line: "!warp 910000000"}
-  - {id: at-entrance, do: wait, signal: {type: client_signal, name: field.ready, map_id: 910000000}, timeout_ms: 30000}
+  - {id: at-entrance, do: wait, signal: {type: client_signal, name: field.ready, map_id: 910000000}, timeout_ms: 30000, note: "Server Dev staged the character at the FM entrance after the server-side close"}
   - {id: talk-fredrick, do: click_npc, npc: 9030000}
   - {id: fredrick-open, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000, optional: true}
   - {do: sleep, ms: 2000, reason: "frame of Fredrick's retrieval window with the items and mesos"}

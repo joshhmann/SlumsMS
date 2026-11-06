@@ -1,19 +1,19 @@
-# GP8 part 1 (P0-2, real client): AqClient (gm 4) opens a hired merchant in FM room 910000021 with 5 Red Potions at 1000 mesos and leaves it open. The owner then buys ONE item by hand
+# GP8 part 1 (P0-2, real client): AqClient AT GM 0 (a player, Coordinator) opens a hired merchant in FM room 910000021 with 5 Red Potions at 1000 mesos and leaves it open. The owner then buys ONE item by hand
 # (the real-player purchase path: a full buyer save with owner credit); a bot may buy too. Then gp8-close. Server Dev reads inventory and meso rows before/after. TEST QA account only.
 id: gp8-open
 title: "GP8: open a hired merchant with 5 Red Potions at 1000 each (the owner buys one by hand)"
 covers: [feature-p0-2-gp8]
 status: draft
 server: test
-needs: [gm, owned_alt, proposed_signals]
-notes: "tarkov2 QA account, TEST."
+needs: [proposed_signals, proposed_steps]
+notes: "STAGED BY SERVER DEV on the TEST DB with account 44 logged out: AqClient gm 0, map 910000021, 5 Red Potions (2000000) in USE, 1 hired merchant 5030000 in CASH, HP above 0 and an empty Fredrick. No GM commands run in this script. tarkov2 QA account, TEST."
 clients:
   me:
     account: {vault: account}
     character: {slot: 0}
     world: Bera
     channel: 3
-    gm: true
+    gm: false
 steps:
   - {do: login}
   - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
@@ -24,12 +24,6 @@ steps:
   - {do: select_character}
   - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
   - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
-  - {id: revive, do: gm, line: "!heal"}
-  - {do: sleep, ms: 1000, reason: "let the revive land before the next command"}
-  - {id: to-room, do: gm, line: "!warp 910000021", note: "an FM room away from the portal: Client's proven spot"}
-  - {id: in-room, do: wait, signal: {type: client_signal, name: field.ready, map_id: 910000021}, timeout_ms: 30000}
-  - {id: stock, do: gm, line: "!item 2000000 5", note: "5 Red Potions: the cheap stock the owner buys one of"}
-  - {id: shop-item, do: gm, line: "!item 5030000 1", note: "the hired merchant item"}
   - {id: step-aside, do: move, dir: right, ms: 2500, note: "away from the portal and other shops (Client's proven walk)"}
   - {id: open, do: merchant_open, item: 2000000, quantity: 5, price: 1000, title: "GP8 QA"}
   - {do: sleep, ms: 3000, reason: "let the merchant spawn and the frame show it"}
