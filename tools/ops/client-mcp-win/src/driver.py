@@ -60,6 +60,7 @@ TOOLS = {
                       'price': {'type': 'integer', 'minimum': 1, 'maximum': 2147483647},
                       'title': {'type': 'string', 'maxLength': 30}},
     'merchant_close': {},
+    'fredrick_retrieve': {},
     # P0-6: the Incubator on a target (the egg's item id, or inv:slot for an empty slot); only 5060002 is taken.
     'use_cash_item': {'item': {'type': 'integer', 'minimum': 5000000, 'maximum': 5999999},
                       'target': {'type': 'string', 'maxLength': 12}},
@@ -204,7 +205,7 @@ SCRIPT_TOOLS = {'start_client', 'login', 'login_credentials', 'click_anchor', 's
                 'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to', 'click_npc', 'click_option',
                 'drop_item', 'party_create', 'party_invite', 'close_dialog',
                 'dialog_next', 'use_cash_item',
-                'merchant_open', 'merchant_close'}
+                'merchant_open', 'merchant_close', 'fredrick_retrieve'}
 # A QA vault alias (secrets/<vault>.txt) is a script name: secrets/aq-gm-1.txt. Never a path.
 VAULT = re.compile(r'^[a-z0-9][a-z0-9-]{1,31}$')
 # The QA build writes this once per login (slums.dll bypass.cpp ClientDataCaps); the manifest's caps come from it.
@@ -1029,6 +1030,19 @@ class Driver:
         if not event.get('ok'):
             raise Refusal(str(event.get('error') or 'refused'))
         return {'closed': True}
+
+    def fredrick_retrieve(self):
+        """P0-2 GP8: Fredrick's Retrieve button (click Fredrick, 9030000, first, as a player would). Takes everything the
+        closed merchant left; the answer is the server's FREDRICK_MESSAGE code (0x1E = handed over). Errors: refused
+        (with the code), timeout, field_not_ready."""
+        pipe = self.need_qa()
+        pipe.send('fredrick_retrieve')
+        event = pipe.wait('item.fredrick', 10)
+        if event is None:
+            raise Refusal('timeout')
+        if not event.get('ok'):
+            raise Refusal('%s (code %s)' % (event.get('error') or 'refused', event.get('code')))
+        return {'retrieved': True, 'code': event.get('code')}
 
     def use_cash_item(self, item, target):
         """P0-6: uses cash item <item> on <target> (an item id, or inv:slot) through the client's USE_CASH_ITEM packet.

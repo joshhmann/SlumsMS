@@ -520,3 +520,16 @@ class MerchantOpenTest(NewToolsTest):
         with self.assertRaises(self.driver.Refusal):
             self.d.merchant_open(2000000, 1, 10, 'a "b"')
         self.assertFalse(hasattr(self.d.qa, 'sent'))
+
+
+class FredrickTest(NewToolsTest):
+    def test_retrieve(self):
+        self.d.qa = FakeQa([{'ev': 'item.fredrick', 'ok': True, 'code': 30}])
+        self.assertEqual({'retrieved': True, 'code': 30}, self.d.fredrick_retrieve())
+        self.assertEqual(['fredrick_retrieve'], self.d.qa.sent)
+
+    def test_a_refusal_keeps_the_code(self):
+        self.d.qa = FakeQa([{'ev': 'item.fredrick', 'ok': False, 'code': 33, 'error': 'refused'}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.fredrick_retrieve()
+        self.assertEqual('refused (code 33)', str(caught.exception))

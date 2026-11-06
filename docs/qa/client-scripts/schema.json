@@ -1247,6 +1247,28 @@
       "do"
      ],
      "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "fredrick_retrieve"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      }
+     },
+     "required": [
+      "do"
+     ],
+     "additionalProperties": false
     }
    ]
   },
