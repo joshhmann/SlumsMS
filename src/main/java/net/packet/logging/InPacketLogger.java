@@ -34,6 +34,10 @@ public class InPacketLogger extends ChannelInboundHandlerAdapter implements Pack
             final String opcodeHex = Integer.toHexString(opcode).toUpperCase();
             final String opcodeName = getRecvOpcodeName(opcode);
             final String prefix = opcodeName == null ? "<UnknownPacket> " : "";
+            if (LoggingUtil.isCredentialRecvPacket(opcode)) { // b351: never a password, PIN or PIC in the log
+                log.debug("ClientSend:{} [{}] ({}) <HEX> <masked> <TEXT> <masked>", opcodeName, opcodeHex, packetLength);
+                return;
+            }
             log.debug("{}ClientSend:{} [{}] ({}) <HEX> {} <TEXT> {}", prefix, opcodeName, opcodeHex, packetLength,
                     HexTool.toHexString(content), HexTool.toStringFromAscii(content));
         } else {

@@ -16,11 +16,27 @@ public class LoggingUtil {
             (short) RecvOpcode.NPC_ACTION.getValue() // 197
     );
 
+    // b351: packets that carry a login password, PIN or PIC; the loggers write their name and length, never their bytes
+    private static final Set<Short> credentialRecvPackets = Set.of(
+            (short) RecvOpcode.LOGIN_PASSWORD.getValue(),
+            (short) RecvOpcode.AFTER_LOGIN.getValue(),
+            (short) RecvOpcode.REGISTER_PIN.getValue(),
+            (short) RecvOpcode.DELETE_CHAR.getValue(),
+            (short) RecvOpcode.REGISTER_PIC.getValue(),
+            (short) RecvOpcode.CHAR_SELECT_WITH_PIC.getValue(),
+            (short) RecvOpcode.VIEW_ALL_PIC_REGISTER.getValue(),
+            (short) RecvOpcode.VIEW_ALL_WITH_PIC.getValue()
+    );
+
     public static short readFirstShort(byte[] bytes) {
         return Unpooled.wrappedBuffer(bytes).readShortLE();
     }
 
     public static boolean isIgnoredRecvPacket(short opcode) {
         return ignoredDebugRecvPackets.contains(opcode);
+    }
+
+    public static boolean isCredentialRecvPacket(short opcode) {
+        return credentialRecvPackets.contains(opcode);
     }
 }

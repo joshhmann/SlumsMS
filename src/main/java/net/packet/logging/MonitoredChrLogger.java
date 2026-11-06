@@ -75,7 +75,8 @@ public class MonitoredChrLogger {
             return;
         }
 
-        String packet = packetContent.length > 0 ? HexTool.toHexString(packetContent) : "<empty>";
+        String packet = LoggingUtil.isCredentialRecvPacket(packetId) ? "<masked>" // b351
+                : packetContent.length > 0 ? HexTool.toHexString(packetContent) : "<empty>";
         log.info("{}-{} {}-{}", c.getAccountName(), chr.getName(), packetId, packet);
     }
 
