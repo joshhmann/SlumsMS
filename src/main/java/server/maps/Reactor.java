@@ -302,6 +302,12 @@ public class Reactor extends AbstractMapObject {
                             }
                         }
                     } else {
+                        // 1.6.5 b331: never past the last state the WZ defines. A broken ZPQ rock (2112012, states
+                        // 0-4) hit again by a server-side bot went to 5: the client got a state it has no data for
+                        // and closed, and the script acted (dropped) a second time. A real client never sends this hit.
+                        if (!stats.hasState((byte) (state + 1))) {
+                            return;
+                        }
                         state++;
                         map.broadcastMessage(PacketCreator.triggerReactor(this, stance));
                         if (this.getId() != 9980000 && this.getId() != 9980001) {
