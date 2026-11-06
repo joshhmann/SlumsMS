@@ -72,7 +72,7 @@ steps:
   - {id: talk-roster, do: click_npc, npc: 2083004}
   - {id: dialog-roster, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
   - {id: view-members, do: click, anchor: npc_dialog.option_1}
-  - {do: sleep, ms: 2500, reason: "frame of the member list after the dismissal"}
+  - {id: look-1, do: sleep, ms: 2500, reason: "frame of the member list after the dismissal"}
   - {id: close-roster, do: click, anchor: npc_dialog.close}
   - {id: roster-closed, do: wait, armed_at: close-roster, signal: {type: client_signal, name: window.closed, window: npc_dialog}, timeout_ms: 10000}
   # 4. SweetKairi takes the free slot (switch on: 6 again; off: 7 with the ghost)
@@ -86,7 +86,7 @@ steps:
   - {id: talk-roster-2, do: click_npc, npc: 2083004}
   - {id: dialog-roster-2, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
   - {id: view-members-2, do: click, anchor: npc_dialog.option_1}
-  - {do: sleep, ms: 2500, reason: "frame of the member list after SweetKairi registered"}
+  - {id: look-2, do: sleep, ms: 2500, reason: "frame of the member list after SweetKairi registered"}
   - {id: close-roster-2, do: click, anchor: npc_dialog.close}
   - {id: roster-2-closed, do: wait, armed_at: close-roster-2, signal: {type: client_signal, name: window.closed, window: npc_dialog}, timeout_ms: 10000}
   # 5. take MSbeta off the map (it stays registered)
@@ -102,8 +102,8 @@ steps:
   - {id: warned, do: wait, armed_at: start-fight, signal: {type: client_signal, name: chat.received, regex: "MSbeta is not at the altar and will not join"}, timeout_ms: 20000, optional: true}
   - {id: in-fight, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240060000}, timeout_ms: 60000}
 captures:
-  - {id: roster, burst: {fps: 2, ms: 3000, at: {step: view-members}}}
-  - {id: roster-2, burst: {fps: 2, ms: 3000, at: {step: view-members-2}}}
+  - {id: roster, burst: {fps: 2, ms: 3000, at: {step: look-1}}}
+  - {id: roster-2, burst: {fps: 2, ms: 3000, at: {step: look-2}}}
   - {id: answer, burst: {fps: 2, ms: 2500, at: {signal: after-start}}}
   - {id: in-room, burst: {fps: 2, ms: 4000, at: {signal: in-fight}}}
   - {id: chat, chat_log: {span: {from: stop-msbeta, to: in-fight}}}
