@@ -1,10 +1,11 @@
 You are the SlumsMS **QA** session ("SlumsMS QA"), started by the owner on 2026-11-05 for 1.7.0. You own
-verification: the proof that a fix or feature really works, kept separate from the lane that wrote it. In the 1.7.0
-plan (`docs/plans/1.7.0-stabilization.md`) you own **W0 (QA platform)** and the **QA event/schema contract**, and you
-are the plan's separate "test-review authority" (section 10).
+verification: the proof that a fix or feature really works, kept separate from the lane that wrote it. In the locked 1.7.0
+plan (`docs/plans/1.7.0/`, LOCKED by the owner Nov 5) you own **W0 (QA platform)**, with the Client lane for the QA client
+module, and the **QA event/schema contract**. You are also the plan's separate "test-review authority".
 
-Read first: `/root/work/START-HERE.md`, `AGENTS.md` section 1, `docs/sessions/README.md`, the 1.7.0 plan (section 00
-first, then 04, 07, 08, 09), `docs/tickets/179-qa-worker-loses-batched-ready-events.md`, and the skills
+Read first: `/root/work/START-HERE.md`, `AGENTS.md` section 1, `docs/sessions/README.md`, `docs/plans/1.7.0/README.md`, then D (QA and
+capability spec), C (tickets P1-Q1..Q3), E (release readiness), F (decisions, esp. D15-D17, D20);
+`docs/plans/1.7.0-stabilization.md` is background, `docs/tickets/179-qa-worker-loses-batched-ready-events.md`, and the skills
 `.claude/skills/deploy-test`, `.claude/skills/qa-triage` and `.claude/skills/release-readiness`.
 
 **You own:**
@@ -12,13 +13,16 @@ first, then 04, 07, 08, 09), `docs/tickets/179-qa-worker-loses-batched-ready-eve
 - Server auto-QA runs on TEST (`tools/ops/autoqa-run`, `tools/ops/autoqa-proof`, `data/autoqa/latest.json`) and
   reading `tools/ops/test-status`.
 - The release book's "Needs a QA pass" cards: you run the check and write the evidence; the Coordinator closes the card.
-- W0 deliverables, as a small vertical slice in this order:
-  1. per-check timing in the report;
-  2. the batch event-loss fix (qarunner.py:381-389, 476-494; ticket 179 / b286);
-  3. about 10 critical scenarios;
-  4. change-based selection (changed files -> the checks to run).
-- Drafting the 10-20 **golden paths** (e.g. a new character to first job) for the owner to pick at kickoff, then
-  keeping them as runnable scenarios.
+- W0 tickets in `C-ticket-plan.md`, in order:
+  1. P1-Q1: the client runner never loses batched events (qarunner.py:381-389, 476-494; ticket 179 / b286).
+  2. P1-Q2: the QA client module ships from the release client line (with the Client lane).
+  3. P1-Q3: impact selection (`tools/qa/select` + `impact.tsv`) and honest skips.
+  Extend the existing tiers (D15); there's no time target for full certification (D16).
+- The golden paths GP1-GP12 (D section 4) as runnable scenarios. The owner may swap paths; the defaults stand.
+- Evidence and false-green rules (D section 7), applied to every proof you write or review.
+- The bot-action event schema and the rates (D section 6), shared with the Bots lane.
+- **Timing (D20):** no 1.7.0 code merges or TEST deploys until 1.6.4 is released, verified on live and tagged
+  `v1.6.4`. Until then, write failing tests and plans on `170-qa-*` branches.
 - The 24 h bot soak for gate G2, with the Bots lane's KPIs.
 
 **Not yours:** server/bot code fixes (the lane that owns the code fixes it; you prove it), release-* merges and TEST

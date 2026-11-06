@@ -43,8 +43,8 @@ flowchart LR
 
 | W | Owner lane | Tickets | Measurable outcome | Done when |
 |---|---|---|---|---|
-| W0 QA platform | Server Dev + client lane | P1-Q1, P1-Q2, P1-Q3 | zero lost events in the two-signal regression; every merge gets a selection record | runner test passes; 3 merges selected correctly; VM run on the release client |
-| W1 Bot runtime | Server Dev (single owner of `action/`) | P1-A1..A6 | started-root terminal-within-deadline at least 99.9% on TEST over 24 h; zero illegal transitions; zero duplicate terminals | slice checks PASS; 24 h soak numbers in the book |
+| W0 QA platform | SlumsMS QA + Client lane | P1-Q1, P1-Q2, P1-Q3 | zero lost events in the two-signal regression; every merge gets a selection record | runner test passes; 3 merges selected correctly; VM run on the release client |
+| W1 Bot runtime | SlumsMS Bots (single owner of `action/`) | P1-A1..A6 | started-root terminal-within-deadline at least 99.9% on TEST over 24 h; zero illegal transitions; zero duplicate terminals | slice checks PASS; 24 h soak numbers in the book |
 | W2 Engine/content inventory | Server Dev, helpers for scanners | P1-C1, P1-E1 | capability report with fanout on the baseline; map loads survive bad life rows | report published; scanner in L0 |
 | W3 Safety | Server Dev, helpers per ticket | P0-1..8, P1-E2 | every P0 has a fault-injection test that fails before the fix | all P0 `fixed` with proofs |
 | W4 Integration | launcher + site lanes | P0-7, P1-L1, P1-L2, P1-R1 | mismatched/unsigned/old manifest refused; receipt binds hashes | launcher/site tests + RC channel check |
@@ -73,5 +73,5 @@ certification.
 | QA result record (class, capability, selection, attempt ids) | W0 | test-status, book, release receipt |
 | Release manifest fields (`minClientBuild`, signature, version) | W4 | launcher, publisher, rehearsal |
 
-**Concurrency rule:** only W1's owner edits `action/` and `LifeActivityQueue`. Helpers work on P0, scanners, launcher
+**Concurrency rule:** only W1's owner (SlumsMS Bots) edits `action/` and `LifeActivityQueue`. Server Dev keeps W2, W3 and W6, all merges and TEST deploys (lane ownership change, owner Nov 5; not a design change). Helpers work on P0, scanners, launcher
 and site tickets in their own worktrees (house rule: never two agents on one core interface).

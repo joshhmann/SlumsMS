@@ -29,6 +29,7 @@ questions). Context: `docs/plans/1.7.0-stabilization.md` and Codex's two reviews
 | D20 | No 1.7.0 code merges before 1.6.4 is released and verified; baseline is the `v1.6.4` tag | owner, Nov 5: 1.6.4 is the priority | starting in parallel on release-1.6.4 |
 | D22 | Compensation is non-blocking: small in-memory slices per tick, I/O off-tick, 2 s is a cross-tick deadline (owner, at lock) | the shared game loop must never stall for settlement | spending up to 2 s on the tick |
 | D21 | G2 must show coverage: share of attempts and bot-hours on migrated adapters, and legacy families' failure rates vs baseline; a worse legacy family blocks unless owner-excepted and listed | closes the loophole between the 99.9% rate and the legacy adapter | excluding legacy silently |
+| D23 | Release schedule amendment: the locked plan ships as 1.6.5 (safety: P0-1..8, P1-E2, P1-R1, P1-C1a), 1.6.6 (QA platform, quest smoke), 1.6.7 (bots slice 1), 1.6.8 (bots rest + alts, G2 soak), 1.6.9 (content trust), 1.7.0 (certification, G0-G5 + GP1-GP12). Architecture, D1-D22, ticket IDs, tests and evidence rules unchanged; see G | owner, Nov 5 (approved with six conditions, verbatim in G) | one big 1.7.0 release |
 
 ## Remaining risks
 
