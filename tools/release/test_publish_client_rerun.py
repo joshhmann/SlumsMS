@@ -241,6 +241,24 @@ class MinClientBuildTest(PublishClientRerunTest):
                 self.assertIn('whole number from 1 to 99999999', out.stderr)
                 self.assertFalse(self.layer().exists())
 
+    def test_an_older_publisher_stops_the_run_before_anything_is_published(self):
+        """Server Dev's review: no 'Unknown option' halfway through, after the client layer is out."""
+        self.conf_with('MIN_CLIENT_BUILD=10740\n')
+        pub = self.root / 'publisher/tools/publish.mjs'
+        pub.write_text(pub.read_text().replace('--min-client-build', '--old-flag'))
+        for extra in (('--dry-run',), ()):
+            with self.subTest(extra=extra):
+                out = self.release(*extra)
+                self.assertNotEqual(out.returncode, 0, out.stdout)
+                self.assertIn('the publisher in LAUNCHER_REPO is older than P1-L1', out.stderr)
+                self.assertIn('--no-min-client-build', out.stderr)
+                self.assertFalse(self.layer().exists(), 'nothing may be published')
+                self.assertEqual(self.manifest()['version'], 'r1')
+        # the way out the message names: no field, so the older publisher is fine
+        out = self.release('--no-min-client-build')
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertNotIn('minClientBuild', self.manifest())
+
     def test_every_shipped_conf_reads_the_same_number_as_the_server_sees(self):
         """conf_min_client_build against an independent read of every docs/release conf (the server's own line)."""
         import re

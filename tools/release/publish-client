@@ -119,6 +119,12 @@ echo "base layer: $BASE (from the current manifest.json unless --base)"
 h "test -f $(q "$PATCH_DIR/layers/base/$BASE/manifest.json")" || die "base layer $BASE is not published"
 h "test ! -e $(q "$SRC/launcher.config.json")" || die "$SRC contains launcher.config.json"
 check_publisher "$SYNC"
+# The publisher that will run on the host must know --min-client-build: an older one would stop mid-run with
+# "Unknown option" (after the client layer is out). Checked on the host's copy, which check_publisher made match the repo's.
+if [ -n "$MINB" ]; then
+  h "grep -qF -- --min-client-build $(q "$PUBLISHER/tools/publish.mjs")" \
+    || die "the publisher in LAUNCHER_REPO is older than P1-L1; sync launcher-166-minbuild (then --sync-publisher) or pass --no-min-client-build. Nothing was published"
+fi
 scp -q "$here/client-allow.txt" "$RELEASE_HOST:/tmp/slums-client-allow.txt"
 # The LIVE feed: a client layer published there must point at the live server (config.ini [config] host and port, as
 # in the client layer live players have now). A test-server client on the live feed would send every player to the
