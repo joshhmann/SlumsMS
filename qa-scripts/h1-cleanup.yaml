@@ -25,6 +25,8 @@ steps:
   - {do: select_character}
   - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
   - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  - {id: revive, do: gm, line: "!heal", note: "AqClient may log in dead (saved at 0 HP after dying in Horntail): !warp is refused while dead"}
+  - {do: sleep, ms: 2000, reason: "let the revive land before the next command"}
   - {id: alts-1-away, do: chat, text: "@dismiss AqClientAlt1"}
   - {id: alts-2-away, do: chat, text: "@dismiss AqClientAlt2"}
   - {id: leave-thunder54, do: gm, line: "!bot leaveparty 1000553099"}

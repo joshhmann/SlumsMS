@@ -28,6 +28,11 @@ steps:
   - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
   # the three level 100+ filler regulars (Bots: BabyRanger is too low): the expedition needs 6 members; fillers are not under
   # test, so GM followbot staging is fine. Judge b311 only from the two alts' own attack packets and positions.
+  - {id: revive, do: gm, line: "!heal", note: "AqClient may log in dead (saved at 0 HP after dying in Horntail): !warp is refused while dead"}
+  - {do: sleep, ms: 1000, reason: "let the revive land before the next command"}
+  - {id: to-door, do: gm, line: "!warp 240050400"}
+  - {id: at-door, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240050400}, timeout_ms: 30000}
+  - {id: stand-by-npc, do: gm, line: "!tp 860 246"}
   - {id: login-thunder54, do: gm, line: "!roster login thunder54"}
   - {id: logged-thunder54, do: wait, armed_at: login-thunder54, signal: {type: client_signal, name: chat.received, regex: "login 1000553099: "}, timeout_ms: 20000}
   - {id: follow-thunder54, do: gm, line: "!bot followbot 1000553099"}
@@ -47,11 +52,8 @@ steps:
   - {id: joined-msbeta, do: sleep, ms: 3000, reason: "the join is a client notice with no chat or server line: the hex logger shows it"}
   - {id: invite-gokubucc, do: party_invite, name: GokuBucc}
   - {id: joined-gokubucc, do: sleep, ms: 3000, reason: "the join is a client notice with no chat or server line: the hex logger shows it"}
-  - {id: to-door, do: gm, line: "!warp 240050400"}
-  - {id: at-door, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240050400}, timeout_ms: 30000}
-  - {id: stand-by-npc, do: gm, line: "!tp 860 246"}
-  - {id: gather, do: sleep, ms: 5000, reason: "the followers travel to the recruiter map after the leader"}
-  - {do: sleep, ms: 5000, reason: "the followers travel to the recruiter map after the leader (second half)"}
+  - {id: gather, do: sleep, ms: 4000, reason: "the followers travel to the recruiter map after the leader"}
+  - {do: sleep, ms: 4000, reason: "the followers travel to the recruiter map after the leader (second half)"}
   - {id: roll-call, do: gm, line: "!botstatus"}
   - {id: here-thunder54, do: wait, armed_at: roll-call, signal: {type: client_signal, name: chat.received, regex: "^1000553099 thunder54 "}, timeout_ms: 20000}
   - {id: here-msbeta, do: wait, armed_at: roll-call, signal: {type: client_signal, name: chat.received, regex: "^1000551094 MSbeta "}, timeout_ms: 20000}
