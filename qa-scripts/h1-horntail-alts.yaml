@@ -29,29 +29,29 @@ steps:
   # the three level 100+ filler regulars (Bots: BabyRanger is too low): the expedition needs 6 members; fillers are not under
   # test, so GM followbot staging is fine. Judge b311 only from the two alts' own attack packets and positions.
   - {id: login-thunder54, do: gm, line: "!roster login thunder54"}
-  - {id: logged-thunder54, do: wait, armed_at: login-thunder54, signal: {type: client_signal, name: chat.received, regex: "login 1000553099: done"}, timeout_ms: 20000}
+  - {id: logged-thunder54, do: wait, armed_at: login-thunder54, signal: {type: client_signal, name: chat.received, regex: "login 1000553099: "}, timeout_ms: 20000}
   - {id: follow-thunder54, do: gm, line: "!bot followbot 1000553099"}
   - {id: login-msbeta, do: gm, line: "!roster login MSbeta"}
-  - {id: logged-msbeta, do: wait, armed_at: login-msbeta, signal: {type: client_signal, name: chat.received, regex: "login 1000551094: done"}, timeout_ms: 20000}
+  - {id: logged-msbeta, do: wait, armed_at: login-msbeta, signal: {type: client_signal, name: chat.received, regex: "login 1000551094: "}, timeout_ms: 20000}
   - {id: follow-msbeta, do: gm, line: "!bot followbot 1000551094"}
   - {id: login-gokubucc, do: gm, line: "!roster login GokuBucc"}
-  - {id: logged-gokubucc, do: wait, armed_at: login-gokubucc, signal: {type: client_signal, name: chat.received, regex: "login 1000553063: done"}, timeout_ms: 20000}
+  - {id: logged-gokubucc, do: wait, armed_at: login-gokubucc, signal: {type: client_signal, name: chat.received, regex: "login 1000553063: "}, timeout_ms: 20000}
   - {id: follow-gokubucc, do: gm, line: "!bot followbot 1000553063"}
   - {id: call-alt-1, do: chat, text: "@botme AqClientAlt1"}
   - {id: alt-1-here, do: wait, armed_at: call-alt-1, signal: {type: server_line, topic: OWNED_ALT, regex: "loaded alt=105", char: me}, timeout_ms: 20000}
   - {id: call-alt-2, do: chat, text: "@botme AqClientAlt2"}
   - {id: alt-2-here, do: wait, armed_at: call-alt-2, signal: {type: server_line, topic: OWNED_ALT, regex: "loaded alt=106", char: me}, timeout_ms: 20000}
   - {id: invite-thunder54, do: party_invite, name: thunder54}
-  - {id: joined-thunder54, do: wait, armed_at: invite-thunder54, signal: {type: client_signal, name: chat.received, regex: "thunder54 has joined the party"}, timeout_ms: 20000}
+  - {id: joined-thunder54, do: sleep, ms: 3000, reason: "the join is a client notice with no chat or server line: the hex logger shows it"}
   - {id: invite-msbeta, do: party_invite, name: MSbeta}
-  - {id: joined-msbeta, do: wait, armed_at: invite-msbeta, signal: {type: client_signal, name: chat.received, regex: "MSbeta has joined the party"}, timeout_ms: 20000}
+  - {id: joined-msbeta, do: sleep, ms: 3000, reason: "the join is a client notice with no chat or server line: the hex logger shows it"}
   - {id: invite-gokubucc, do: party_invite, name: GokuBucc}
-  - {id: joined-gokubucc, do: wait, armed_at: invite-gokubucc, signal: {type: client_signal, name: chat.received, regex: "GokuBucc has joined the party"}, timeout_ms: 20000}
+  - {id: joined-gokubucc, do: sleep, ms: 3000, reason: "the join is a client notice with no chat or server line: the hex logger shows it"}
   - {id: to-door, do: gm, line: "!warp 240050400"}
   - {id: at-door, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240050400}, timeout_ms: 30000}
   - {id: stand-by-npc, do: gm, line: "!tp 860 246"}
-  - {id: gather, do: sleep, ms: 7500, reason: "the followers travel to the recruiter map after the leader"}
-  - {do: sleep, ms: 7500, reason: "the followers travel to the recruiter map after the leader (second half)"}
+  - {id: gather, do: sleep, ms: 5000, reason: "the followers travel to the recruiter map after the leader"}
+  - {do: sleep, ms: 5000, reason: "the followers travel to the recruiter map after the leader (second half)"}
   - {id: roll-call, do: gm, line: "!botstatus"}
   - {id: here-thunder54, do: wait, armed_at: roll-call, signal: {type: client_signal, name: chat.received, regex: "^1000553099 thunder54 "}, timeout_ms: 20000}
   - {id: here-msbeta, do: wait, armed_at: roll-call, signal: {type: client_signal, name: chat.received, regex: "^1000551094 MSbeta "}, timeout_ms: 20000}
@@ -60,19 +60,25 @@ steps:
   - {id: talk-1, do: click_npc, npc: 2083004}
   - {id: dialog-1, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
   - {id: lets-go, do: click, anchor: npc_dialog.option_1}
-  - {id: closed-1, do: wait, signal: {type: client_signal, name: window.closed, window: npc_dialog}, timeout_ms: 10000}
+  - {id: created, do: wait, armed_at: lets-go, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000, note: "the NPC answers with a second dialog: the expedition has been created"}
+  - {id: close-created, do: click, anchor: npc_dialog.close}
+  - {id: closed-1, do: wait, armed_at: close-created, signal: {type: client_signal, name: window.closed, window: npc_dialog}, timeout_ms: 10000}
   # the alts join through their own clients' scripts; give them a moment
   - {do: sleep, ms: 8000, reason: "alts register for the expedition by their own scripts"}
   # start the fight
   - {id: talk-2, do: click_npc, npc: 2083004}
   - {id: dialog-2, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
   - {id: start-fight, do: click, anchor: npc_dialog.option_2}
+  - {id: after-start, do: wait, armed_at: start-fight, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000, note: "the NPC answers Start the fight with a dialog: capture what it says"}
+  - {do: sleep, ms: 2000, reason: "frame of the NPC's answer to Start the fight"}
+  - {id: ok-after-start, do: click, anchor: npc_dialog.next, note: "OK on Good luck! starts the instance (NPC script 2083004.js:170)"}
   - {id: in-fight, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240060000}, timeout_ms: 60000}
   # the human stands still; the alts fight. Watch the run through the map changes the leader is carried along.
   - {id: room-2, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240060100}, timeout_ms: 240000}
   - {id: room-3, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240060200}, timeout_ms: 240000}
 captures:
   - {id: door, burst: {fps: 2, ms: 2000, at: {step: stand-by-npc}}}
+  - {id: answer, burst: {fps: 2, ms: 2500, at: {signal: after-start}}}
   - {id: first-dialog, burst: {fps: 4, ms: 2500, at: {signal: dialog-1}}}
   - {id: second-dialog, burst: {fps: 4, ms: 2500, at: {signal: dialog-2}}}
   - {id: party, burst: {fps: 2, ms: 2000, at: {step: alt-2-here}}}

@@ -1,0 +1,43 @@
+# Ends a Horntail expedition that is still registering (the leader menu row 3). Use after an H1 run that stopped before the start.
+id: h1-stop-expedition
+title: "End a leftover Horntail expedition registration (leader menu: Stop the expedition)"
+covers: [b311]
+status: draft
+server: test
+needs: [gm, owned_alt, proposed_signals, proposed_anchors, proposed_steps]
+notes: "tarkov2 QA account (AqClient slot 0), TEST. Fillers thunder54 1000553099, MSbeta 1000551094, GokuBucc 1000553063. Log what happened in latest.json."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  - {id: to-door, do: gm, line: "!warp 240050400"}
+  - {id: at-door, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240050400}, timeout_ms: 30000}
+  - {id: stand-by-npc, do: gm, line: "!tp 860 246"}
+  - {do: sleep, ms: 2000, reason: "let the teleport settle so the NPC is on screen"}
+  - {id: talk, do: click_npc, npc: 2083004}
+  - {id: dialog, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {do: sleep, ms: 1500, reason: "frame of the leader menu"}
+  - {id: stop, do: click, anchor: npc_dialog.option_3, note: "leader menu row 3 = Stop the expedition; on the first menu there is no row 3 and this refuses"}
+  - {do: sleep, ms: 2000, reason: "let the server end the registration before the client stops"}
+captures:
+  - {id: after, burst: {fps: 2, ms: 2000, at: {step: stop}}}
+expect:
+  reviewer:
+    - see: "The expedition NPC's answer after Stop the expedition"
+      in: [after]
+  checks:
+    - {check: client_alive}
+  judgment: "PASS = every step ran. Then Server Dev confirms no Horntail expedition is left open and the fillers are offline."
