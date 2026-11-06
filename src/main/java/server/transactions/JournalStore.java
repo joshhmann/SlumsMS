@@ -26,6 +26,19 @@ public interface JournalStore {
      */
     void releaseBuyback(long journalId, int transactionId, String note) throws SQLException;
 
+    /**
+     * One DB transaction: write a STARTED journal row of {@code kind} (merchant close or buy, P0-2) and nothing else.
+     * Returns the journal id. Throws when the database failed (nothing changed).
+     */
+    long startRow(String kind, int actorId, long refId, String deltasJson) throws SQLException;
+
+    /**
+     * One DB transaction: mark the STARTED row ROLLED_BACK. For MERCHANT_CLOSE it also clears the actor's HasMerchant
+     * flag (their merchant is gone, so the flag must not stay set). Fails (and changes nothing) if the row is no
+     * longer STARTED.
+     */
+    void rollBackRow(long journalId, String kind, int actorId, String note) throws SQLException;
+
     /** Every row whose state is STARTED. */
     List<OpenRow> openRows() throws SQLException;
 }
