@@ -31,7 +31,7 @@ CLIENT_FIELDS = {"name", "id"}
 BUILT_SIGNALS = {"worldselect.ready", "channels.ready", "charselect.ready", "field.ready"}
 RETRYABLE = {"select_world", "select_channel", "click", "key"}
 # step kinds the client-mcp driver cannot do yet (the Silvia worker's run_script must add them)
-PROPOSED_STEPS = {"click_npc", "wheel", "type", "key_down", "key_up"}
+PROPOSED_STEPS = {"wheel", "type", "key_down", "key_up"}
 
 
 # ── pass 1: the schema subset ─────────────────────────────────────────────────────────────────────

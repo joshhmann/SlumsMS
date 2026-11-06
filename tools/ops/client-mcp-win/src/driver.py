@@ -48,6 +48,12 @@ TOOLS = {
     # P1-Q2: click an npc like a player. The QA client says where the npc is on screen (npc_pos); the worker clicks.
     'click_npc': {'npc': {'type': 'integer', 'minimum': 1, 'maximum': 99999999}},
     'click_option': {'option': {'type': 'integer', 'minimum': 1, 'maximum': 8}},
+    # P1-Q2 (Zakum run): the QA client calls the item and party windows' own senders; no mouse, no window anchors.
+    'drop_item': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 5999999},
+                  'count': {'type': 'integer', 'minimum': 1, 'maximum': 32767}},
+    'party_create': {},
+    'close_dialog': {},
+    'party_invite': {'name': {'type': 'string', 'maxLength': 12}},
     'mouse_drag': {'x1': {'type': 'integer', 'minimum': 0, 'maximum': 799},
                    'y1': {'type': 'integer', 'minimum': 0, 'maximum': 599},
                    'x2': {'type': 'integer', 'minimum': 0, 'maximum': 799},
@@ -59,7 +65,8 @@ REQUIRED = {'qa_wait': ('signal',), 'qa_burst': ('fps', 'ms', 'label'), 'run_scr
             'command': ('line',), 'press_key': ('name',), 'mouse_click': ('x', 'y'),
             'login_credentials': ('vault',), 'click_anchor': ('name',), 'select_world': ('world',),
             'select_channel': ('channel',), 'select_character': ('slot',),
-            'mouse_drag': ('x1', 'y1', 'x2', 'y2'), 'click_npc': ('npc',), 'click_option': ('option',)}
+            'mouse_drag': ('x1', 'y1', 'x2', 'y2'), 'click_npc': ('npc',), 'click_option': ('option',),
+            'drop_item': ('item',), 'party_invite': ('name',)}
 
 # Single taps only: no modifiers, so no Alt+F4, no Ctrl shortcuts. Value = (virtual key, extended).
 KEYS = {**{chr(c): (c, False) for c in range(ord('A'), ord('Z') + 1)},
@@ -183,7 +190,8 @@ def log_tail(path, lines):
 SCRIPT_NAME = re.compile(r'^[a-z0-9][a-z0-9_-]{0,47}$')
 SCRIPT_TOOLS = {'start_client', 'login', 'login_credentials', 'click_anchor', 'select_world', 'select_channel',
                 'select_character', 'qa_events', 'command', 'press_key', 'mouse_click', 'mouse_drag', 'screenshot',
-                'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to', 'click_npc', 'click_option'}
+                'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to', 'click_npc', 'click_option',
+                'drop_item', 'party_create', 'party_invite', 'close_dialog'}
 # A QA vault alias (secrets/<vault>.txt) is a script name: secrets/aq-gm-1.txt. Never a path.
 VAULT = re.compile(r'^[a-z0-9][a-z0-9-]{1,31}$')
 # The QA build writes this once per login (slums.dll bypass.cpp ClientDataCaps); the manifest's caps come from it.
@@ -191,6 +199,7 @@ BUILD_STAMP_CAPS = re.compile(r'Build stamp: caps (0x[0-9A-Fa-f]{8})')
 QA_EVENTS_MAX = 200
 NPC_POS_TIMEOUT = 3.0   # the client answers npc_pos / click_option on its next frame
 NPC_OPTION_ANCHOR = re.compile(r'^npc_dialog\.option_([1-8])$')
+CHAR_NAME = re.compile(r'^[A-Za-z0-9]{4,12}$')   # v83 character names; the QA client checks the same
 
 
 def utc(epoch):
@@ -728,10 +737,13 @@ class Driver:
 
     def click_anchor(self, name):
         """Clicks one calibrated ui.json point (docs/qa/client-scripts/anchors.yaml). x,y never come from a script.
-        npc_dialog.option_<n> is not a point: it picks menu row n through the QA client (click_option)."""
+        npc_dialog.option_<n> is not a point: it picks menu row n through the QA client (click_option); nor is
+        npc_dialog.close, which ends the dialog the way its close button does (close_dialog)."""
         option = NPC_OPTION_ANCHOR.match(str(name))
         if option:
             return self.click_option(int(option.group(1)))
+        if name == 'npc_dialog.close':
+            return self.close_dialog()
         if name not in (self.ui.get('points') or {}):
             raise Refusal('Anchor ' + str(name) + ' is not a calibrated point in ui.json: add it to '
                           'docs/qa/client-scripts/anchors.yaml first.')
@@ -939,6 +951,50 @@ class Driver:
         if not event.get('ok'):
             raise Refusal(str(event.get('error') or 'not_a_menu'))
         return {'option': option, 'value': event.get('value')}
+
+    def qa_request(self, command, ev, matches, timeout_error):
+        """Sends one QA client command and returns its answer event; the client's error code is the refusal."""
+        pipe = self.need_qa()
+        pipe.send(command)
+        deadline = time.monotonic() + NPC_POS_TIMEOUT
+        while True:
+            left = deadline - time.monotonic()
+            event = pipe.wait(ev, left) if left > 0 else None
+            if event is None:
+                raise Refusal(timeout_error)
+            if matches(event):
+                break
+        if not event.get('ok'):
+            raise Refusal(str(event.get('error') or timeout_error))
+        return event
+
+    def close_dialog(self):
+        """D1: ends the open npc dialog the way its close button does (any type; the server gets "end chat"). For the
+        welcome dialog that blocks a new character's chat. Error: no_dialog."""
+        self.qa_request('close_dialog', 'click.done', lambda e: e.get('op') == 'close_dialog', 'no_dialog')
+        return {'op': 'close_dialog'}
+
+    def drop_item(self, item, count=1):
+        """P1-Q2: drops <count> of the first stack of <item> through the client's own item-move sender (the packet a
+        drag out of the item window sends). Errors: not_in_inventory, no_character, site_mismatch. The answer says the
+        request was sent; the server's drop shows in its lines and on the field."""
+        event = self.qa_request('drop_item %d %d' % (item, count), 'item.drop',
+                                lambda e: e.get('item') == item and e.get('count') == count, 'no_character')
+        return {'item': item, 'count': count, 'slot': event.get('slot')}
+
+    def party_create(self):
+        """P1-Q2: creates a party through the client's own sender (the party window's Create)."""
+        self.qa_request('party_create', 'party.sent', lambda e: e.get('op') == 'create', 'field_not_ready')
+        return {'op': 'create'}
+
+    def party_invite(self, name):
+        """P1-Q2: invites <name> through the client's own sender (the party window's Invite). The client refuses
+        itself or a full party without sending; the server's answer shows in chat."""
+        if not CHAR_NAME.match(name):
+            raise Refusal('name must be 4-12 letters or digits')
+        self.qa_request('party_invite %s' % name, 'party.sent',
+                        lambda e: e.get('op') == 'invite' and e.get('name') == name, 'field_not_ready')
+        return {'op': 'invite', 'name': name}
 
     def mouse_drag(self, x1, y1, x2, y2, steps=12):
         self.field_input()
