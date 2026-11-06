@@ -30,6 +30,7 @@ steps:
   - {id: second-stat, do: chat, text: "@str 100"}
   - {id: hp, do: gm, line: "!setmaxhp 5200 2600"}
   - {id: stat-window, do: key, key: S, note: "opens the character stat window for the frame"}
+  - {do: sleep, ms: 6000, reason: "give the server time to apply the stat points and save before the client is stopped"}
   - {do: sleep, ms: 3000, reason: "let the stat window draw for the frame"}
 captures:
   - {id: charselect, burst: {fps: 2, ms: 2000, at: {signal: chars}}}
