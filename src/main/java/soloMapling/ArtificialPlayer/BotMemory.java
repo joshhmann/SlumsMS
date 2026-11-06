@@ -1632,6 +1632,27 @@ public final class BotMemory {
         return source != null ? source : BotDbGate::connection;
     }
 
+    /**
+     * 1.6.5 b324/b327: what bot memory's database work came to, by operation, since boot (the minute line and tests).
+     * STUB for the failing tests: nothing is counted yet.
+     */
+    public record Stats(long loadsOk, long loadsRefused, long loadsFailed, long touchesQueued, long touchesWritten,
+                        long touchesDropped, long insertsWritten, long insertsQueued, long insertsRetriedOk,
+                        long insertsFailed, long insertsDropped, int pendingTouches, int pendingInserts) {
+    }
+
+    public static Stats stats() {
+        return new Stats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    }
+
+    /** STUB for the failing tests: writes nothing that is pending. */
+    static void flushPending() {
+    }
+
+    /** STUB for the failing tests. */
+    static void useCapsForTest(int touches, int inserts) {
+    }
+
     /** How many pairs the cache holds now. */
     static int cachedPairs() {
         synchronized (cache) {
