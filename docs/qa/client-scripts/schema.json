@@ -1225,6 +1225,28 @@
       "price"
      ],
      "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "merchant_close"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      }
+     },
+     "required": [
+      "do"
+     ],
+     "additionalProperties": false
     }
    ]
   },

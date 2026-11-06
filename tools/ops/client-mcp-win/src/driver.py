@@ -59,6 +59,7 @@ TOOLS = {
                       'quantity': {'type': 'integer', 'minimum': 1, 'maximum': 2000},
                       'price': {'type': 'integer', 'minimum': 1, 'maximum': 2147483647},
                       'title': {'type': 'string', 'maxLength': 30}},
+    'merchant_close': {},
     # P0-6: the Incubator on a target (the egg's item id, or inv:slot for an empty slot); only 5060002 is taken.
     'use_cash_item': {'item': {'type': 'integer', 'minimum': 5000000, 'maximum': 5999999},
                       'target': {'type': 'string', 'maxLength': 12}},
@@ -203,7 +204,7 @@ SCRIPT_TOOLS = {'start_client', 'login', 'login_credentials', 'click_anchor', 's
                 'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to', 'click_npc', 'click_option',
                 'drop_item', 'party_create', 'party_invite', 'close_dialog',
                 'dialog_next', 'use_cash_item',
-                'merchant_open'}
+                'merchant_open', 'merchant_close'}
 # A QA vault alias (secrets/<vault>.txt) is a script name: secrets/aq-gm-1.txt. Never a path.
 VAULT = re.compile(r'^[a-z0-9][a-z0-9-]{1,31}$')
 # The QA build writes this once per login (slums.dll bypass.cpp ClientDataCaps); the manifest's caps come from it.
@@ -1016,6 +1017,18 @@ class Driver:
             raise Refusal(str(event.get('error') or 'refused'))
         return {'item': item, 'quantity': quantity, 'price': price, 'slot': event.get('slot'),
                 'merchant_item': event.get('merchant_item')}
+
+    def merchant_close(self):
+        """P0-2 GP8: closes this character's hired merchant the way its owner does: visit it (maintenance), then the
+        owner window's close; the unsold items and mesos go to Fredrick. Errors: no_merchant, timeout_<stage>."""
+        pipe = self.need_qa()
+        pipe.send('merchant_close')
+        event = pipe.wait('merchant.close', 15)
+        if event is None:
+            raise Refusal('timeout')
+        if not event.get('ok'):
+            raise Refusal(str(event.get('error') or 'refused'))
+        return {'closed': True}
 
     def use_cash_item(self, item, target):
         """P0-6: uses cash item <item> on <target> (an item id, or inv:slot) through the client's USE_CASH_ITEM packet.

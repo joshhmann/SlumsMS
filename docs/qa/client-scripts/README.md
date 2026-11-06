@@ -126,6 +126,7 @@ At most two clients (`two_clients` in `needs`); with two, every step, capture an
 | `drop_item` | `item`, `count` | drops `count` (default 1) of the item's first stack through the client's own sender (QA build 3) |
 | `party_create` | | creates a party through the client's own sender, as the party window's Create does |
 | `merchant_open` | `item`, `quantity`, `price`, `title` | sets up a hired merchant selling `quantity` of `item` (Fredrick check, CREATE, item, Open), as a player does; needs a 503xxxx item and an FM room (P0-2 GP8) |
+| `merchant_close` | | closes this character's hired merchant as its owner does (visit, then close); the rest goes to Fredrick |
 | `use_cash_item` | `item`, `target` | the Incubator (5060002 only) on `target`: an item id (its first stack) or `inv:slot` (P0-6) |
 | `party_invite` | `name` | invites a character by name the same way; `!bot <cid> acceptinv` answers it for a bot |
 | `wheel`* | `anchor`, `notches` | mouse wheel over a target |

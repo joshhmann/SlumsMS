@@ -504,6 +504,17 @@ class MerchantOpenTest(NewToolsTest):
             self.d.merchant_open(2000000, 1, 10)
         self.assertEqual('retrieve_from_fredrick_first', str(caught.exception))
 
+    def test_merchant_close(self):
+        self.d.qa = FakeQa([{'ev': 'merchant.close', 'ok': True}])
+        self.assertEqual({'closed': True}, self.d.merchant_close())
+        self.assertEqual(['merchant_close'], self.d.qa.sent)
+
+    def test_no_merchant_is_passed_on(self):
+        self.d.qa = FakeQa([{'ev': 'merchant.close', 'ok': False, 'error': 'no_merchant'}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.merchant_close()
+        self.assertEqual('no_merchant', str(caught.exception))
+
     def test_a_quote_in_the_title_is_refused_before_sending(self):
         self.d.qa = FakeQa([])
         with self.assertRaises(self.driver.Refusal):
