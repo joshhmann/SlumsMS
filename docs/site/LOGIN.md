@@ -35,7 +35,11 @@ market service too) and this browser is signed in afresh. The launcher's "Forgot
 Sessions are HMAC-SHA256 signed with `/etc/slums-login/key`. **Sign out** (`POST /api/login/logout`) ends that session
 on the server too: its id goes in `/var/lib/slums-login/revoked-sessions.txt` until it would have expired, and the
 market service reads the same file. Signing someone out everywhere: put their account id in
-`/var/lib/slums-login/revoked.txt` (one per line). The game server can write banned accounts there too.
+`/var/lib/slums-login/revoked.txt` (one per line, hand-edited). **Bans (P0-7):** the game server owns
+`/var/lib/slums-login/banned.txt` next to it: one account id per line, the whole file rewritten on every ban and unban and by a
+periodic sweep, so a missed change heals itself. The login and market services read both files (reloaded when they change:
+no database, no game call). A banned account's sessions and download passes stop working (403 on the pages), and an
+unban restores them while the cookie lasts.
 
 ## Install on 164 (owner's go: it changes the public site's web server)
 
