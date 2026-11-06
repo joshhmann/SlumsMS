@@ -13,7 +13,7 @@ covers: [b344, b331]
 status: draft
 server: test
 needs: [gm, mechanics, owned_alt, proposed_signals, proposed_anchors, proposed_steps]
-notes: "tarkov2 QA account (AqClient lv120, GM; owned alt AqClientAlt1, level 50+). TEST build must contain 165-bots-b344 @ cdff69129 (batch 2 merge 5e03bf5bb): confirm with Server Dev. Server Dev has the TEST hex logger on for the run and turns MECHANICS QA on. No !mechanics stageN staging and no !bot warphere. Needs a channel with no ZPQ running (channel 5). The run can take up to 30 minutes (timeLimitMinutes 30): each wait below is up to 5 minutes against the same armed_at: run-start. GM staging used: !level, !startquest 100200, !warp 211042300, @botme."
+notes: "tarkov2 QA account (AqClient lv120, GM; owned alt AqClientAlt1, level 120 Bowmaster with Bow 1452019, gm 0). Flags on TEST for this run: instanceleash=true, bossfight.reach=true (c064e754a). TEST build must contain 165-bots-b344 @ cdff69129 (batch 2 merge 5e03bf5bb): confirm with Server Dev. Server Dev has the TEST hex logger on for the run and turns MECHANICS QA on. No !mechanics stageN staging and no !bot warphere. Needs a channel with no ZPQ running (channel 5). The run can take up to 30 minutes (timeLimitMinutes 30): each wait below is up to 5 minutes against the same armed_at: run-start. GM staging used: !level, !startquest 100200, !warp 211042300, @botme."
 clients:
   me:
     account: {vault: account}
@@ -31,6 +31,8 @@ steps:
   - {do: select_character}
   - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
   - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
+  - {id: revive, do: gm, line: "!heal", note: "AqClient may log in dead after a boss run: !warp is refused while dead"}
+  - {do: sleep, ms: 1000, reason: "let the revive land before the next command"}
   - {id: prestop, do: gm, line: "!qa stop", note: "a card that failed before its cleanup leaves its scenario running"}
   - {id: stopped, do: sleep, ms: 2000, reason: "let the stop land before the next GM command"}
   - {id: quest, do: gm, line: "!startquest 100200", note: "the recruiter refuses without the Council approval quest"}
