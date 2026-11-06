@@ -18,6 +18,9 @@ class FakeSender:
     def text(self, value):
         self.events.append(('text', value))
 
+    def click(self, x, y, right=False, double=False):
+        self.events.append(('mouse', x, y))
+
     def key(self, vk, down=None, extended=False):
         self.events.append(('key', vk, down))
 
@@ -29,6 +32,16 @@ class FakeQa:
 
     def events_from(self, index):
         return list(self.log[index:]), len(self.log)
+
+    def send(self, line):
+        self.sent = getattr(self, 'sent', []) + [line]
+
+    def wait(self, name, timeout):
+        while self.log:
+            event = self.log.pop(0)
+            if event.get('ev') == name:
+                return event
+        return None
 
 
 class NewToolsTest(unittest.TestCase):
@@ -297,3 +310,47 @@ class ClientEndpointTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ClickNpcTest(NewToolsTest):
+    def test_click_npc_clicks_where_the_client_says(self):
+        self.d.qa = FakeQa([{'ev': 'npc.pos', 'npc': 9999, 'ok': True, 'x': 1, 'y': 1},
+                            {'ev': 'npc.pos', 'npc': 2030008, 'ok': True, 'x': 431, 'y': 352}])
+        self.assertEqual({'npc': 2030008, 'clicked': [431, 352]}, self.d.click_npc(2030008))
+        self.assertEqual(['npc_pos 2030008'], self.d.qa.sent)
+        self.assertIn(('mouse', 431, 352), self.d.sender.events)
+
+    def test_click_npc_passes_the_client_error_on(self):
+        self.d.qa = FakeQa([{'ev': 'npc.pos', 'npc': 2030008, 'ok': False, 'error': 'out_of_view', 'x': 900, 'y': 10}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.click_npc(2030008)
+        self.assertEqual('out_of_view', str(caught.exception))
+        self.assertNotIn('mouse', [event[0] for event in self.d.sender.events])
+
+    def test_click_npc_without_an_answer_is_field_not_ready(self):
+        self.d.qa = FakeQa([])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.click_npc(2030008)
+        self.assertEqual('field_not_ready', str(caught.exception))
+
+
+class ClickOptionTest(NewToolsTest):
+    def test_click_option_reports_the_row_value(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'click_option', 'option': 1, 'ok': True, 'value': 0}])
+        self.assertEqual({'option': 1, 'value': 0}, self.d.click_option(1))
+        self.assertEqual(['click_option 1'], self.d.qa.sent)
+
+    def test_the_option_anchor_goes_to_click_option(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'click_option', 'option': 3, 'ok': True, 'value': 12}])
+        self.assertEqual({'option': 3, 'value': 12}, self.d.click_anchor('npc_dialog.option_3'))
+
+    def test_not_a_menu_is_passed_on(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'click_option', 'option': 1, 'ok': False, 'error': 'not_a_menu'}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.click_option(1)
+        self.assertEqual('not_a_menu', str(caught.exception))
+
+    def test_option_9_is_still_a_ui_point_name(self):
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.click_anchor('npc_dialog.option_9')
+        self.assertIn('not a calibrated point', str(caught.exception))
