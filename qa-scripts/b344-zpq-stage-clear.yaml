@@ -35,6 +35,8 @@ steps:
   - {do: sleep, ms: 1000, reason: "let the revive land before the next command"}
   - {id: prestop, do: gm, line: "!qa stop", note: "a card that failed before its cleanup leaves its scenario running"}
   - {id: stopped, do: sleep, ms: 2000, reason: "let the stop land before the next GM command"}
+  - {id: stop-run, do: gm, line: "!mechanics stop", note: "a ZPQ run left over from an earlier attempt must not be adopted"}
+  - {do: sleep, ms: 1000, reason: "let the stop land before the next GM command"}
   - {id: quest, do: gm, line: "!startquest 100200", note: "the recruiter refuses without the Council approval quest"}
   - {id: to-recruit, do: gm, line: "!warp 211042300"}
   - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 211042300}, timeout_ms: 30000}
@@ -54,14 +56,65 @@ steps:
   - {id: stage-1, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 1 cleared in \\d+ s", char: me}, timeout_ms: 300000}
   - {id: stage-2, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 2 cleared in \\d+ s", char: me}, timeout_ms: 300000}
   - {id: stage-3, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 3 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-4, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 4 cleared in \\d+ s", char: me}, timeout_ms: 300000}
   - {id: stage-5, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 5 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-6, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 6 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-7, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 7 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-8, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 8 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-9, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 9 cleared in \\d+ s", char: me}, timeout_ms: 300000}
   - {id: stage-10, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 10 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-11, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 11 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-12, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 12 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-13, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 13 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-14, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 14 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-15, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 15 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-16, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 16 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-17, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 17 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-18, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 18 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-19, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 19 cleared in \\d+ s", char: me}, timeout_ms: 300000}
   - {id: stage-20, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 20 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-21, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 21 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-22, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 22 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-23, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 23 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-24, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 24 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-25, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 25 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-26, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 26 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-27, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 27 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-28, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 28 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-29, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 29 cleared in \\d+ s", char: me}, timeout_ms: 300000}
   - {id: stage-30, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 30 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-31, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 31 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-32, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 32 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-33, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 33 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-34, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 34 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-35, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 35 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-36, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 36 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-37, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 37 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-38, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 38 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-39, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 39 cleared in \\d+ s", char: me}, timeout_ms: 300000}
   - {id: stage-40, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 40 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-41, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 41 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-42, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 42 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-43, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 43 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-44, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 44 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-45, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 45 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-46, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 46 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-47, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 47 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-48, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 48 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-49, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 49 cleared in \\d+ s", char: me}, timeout_ms: 300000}
   - {id: stage-50, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 50 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-51, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 51 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-52, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 52 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-53, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 53 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-54, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 54 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-55, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 55 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-56, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 56 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-57, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 57 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-58, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 58 cleared in \\d+ s", char: me}, timeout_ms: 300000}
   - {id: stage-59, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 59 cleared in \\d+ s", char: me}, timeout_ms: 300000}
   - {id: finished, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN zakumpq cleared in \\d+ s; prizes, bonus and out", char: me}, timeout_ms: 300000}
+  - {id: end-run, do: gm, line: "!mechanics stop", note: "clean up: end the run after the last wait"}
+  - {id: dismiss-alt, do: chat, text: "@dismiss AqClientAlt1"}
 captures:
   - {id: by-adobis, burst: {fps: 2, ms: 3000, at: {step: talk}}}
   - {id: entering, burst: {fps: 3, ms: 5000, at: {signal: run-start}}}
