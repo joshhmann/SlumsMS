@@ -1,0 +1,78 @@
+# b344 (1.6.5, Bots): Zakum PQ stage 1 used to hold forever when the human leader stood on the hub, because a stage cleared
+# only when every member was in the next room. After cdff69129 a stage clears on the bots: wherever the human walks. This is
+# the real-client proof on TEST: the human leader starts the run through Adobis-style NPC 2030008 with ONE owned alt in the
+# party (@botme: the alt is a RunMember with bot=true, as in the 02:37 TEST failure), the leader then stands on the hub
+# 280010000 the whole run and does not walk the mines, and the run advances stage by stage to the end (59 stages).
+# Pass (Bots): RUN start, stage 1 cleared and the later stages in order, no warp-back loop (the alt never goes
+# 280010100 -> 280010000 -> 280010100 repeatedly: at most one hub return per hub row of zakumpq.yaml), the big chest opens
+# (2112014 hit, 4001018 dropped, final line "RUN zakumpq cleared"), client alive, no REACTOR_HIT past a reactor's last WZ
+# state in the hex logger. A stall at the big chest from ores is B7 (known limit), not b344: send Bots the RUN lines.
+id: b344-zpq-stage-clear
+title: Zakum PQ stages advance while the human leader stays on the hub, with an owned alt in the party
+covers: [b344, b331]
+status: draft
+server: test
+needs: [gm, mechanics, owned_alt, proposed_signals, proposed_anchors, proposed_steps]
+notes: "tarkov2 QA account (AqClient lv120, GM; owned alt AqClientAlt1, level 50+). TEST build must contain 165-bots-b344 @ cdff69129 (batch 2 merge 5e03bf5bb): confirm with Server Dev. Server Dev has the TEST hex logger on for the run and turns MECHANICS QA on. No !mechanics stageN staging and no !bot warphere. Needs a channel with no ZPQ running (channel 5). The run can take up to 30 minutes (timeLimitMinutes 30): each wait below is up to 5 minutes against the same armed_at: run-start. GM staging used: !level, !startquest 100200, !warp 211042300, @botme."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 5
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 5}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: prestop, do: gm, line: "!qa stop", note: "a card that failed before its cleanup leaves its scenario running"}
+  - {id: stopped, do: sleep, ms: 2000, reason: "let the stop land before the next GM command"}
+  - {id: quest, do: gm, line: "!startquest 100200", note: "the recruiter refuses without the Council approval quest"}
+  - {id: to-recruit, do: gm, line: "!warp 211042300"}
+  - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 211042300}, timeout_ms: 30000}
+  - {id: summon, do: chat, text: "@botme AqClientAlt1"}
+  - {id: joined, do: wait, signal: {type: client_signal, name: chat.received, regex: "AqClientAlt1 has joined you and follows you"}, timeout_ms: 20000}
+  - {id: talk, do: click_npc, npc: 2030008}
+  - {id: talk-open, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: pick, do: click, anchor: npc_dialog.option_1}
+  - id: run-start
+    do: wait
+    armed_at: pick
+    signal: {type: server_line, topic: MECHANICS, regex: "^RUN start zakumpq stage 1 ", char: me}
+    timeout_ms: 60000
+  - {id: on-hub, do: wait, signal: {type: client_signal, name: field.ready, map_id: 280010000}, timeout_ms: 60000}
+  - {id: stage-1, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 1 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-2, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 2 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-3, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 3 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-5, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 5 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-10, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 10 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-20, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 20 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-30, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 30 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-40, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 40 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-50, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 50 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: stage-59, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 59 cleared in \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: finished, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN zakumpq cleared in \\d+ s; prizes, bonus and out", char: me}, timeout_ms: 300000}
+captures:
+  - {id: entering, burst: {fps: 3, ms: 5000, at: {signal: run-start}}}
+  - {id: on-the-hub, burst: {fps: 2, ms: 5000, at: {signal: on-hub}}}
+  - {id: stage-1-clear, burst: {fps: 2, ms: 4000, at: {signal: stage-1}}}
+  - {id: stage-20-clear, burst: {fps: 2, ms: 4000, at: {signal: stage-20}}}
+  - {id: end, burst: {fps: 2, ms: 5000, at: {signal: finished}}}
+  - {id: chat, chat_log: {span: {from: summon, to: finished}}}
+expect:
+  reviewer:
+    - see: "The leader stands on the Zakum mine hub with the alt, the game window responds and there is no crash dialog"
+      in: [on-the-hub, stage-1-clear, stage-20-clear]
+    - see: "The leader is out of the mine after the final hand-in"
+      in: [end]
+  checks:
+    - {check: server_line, topic: MECHANICS, regex: "^RUN start zakumpq stage 1 ", char: me, min: 1}
+    - {check: server_line, topic: MECHANICS, regex: "^RUN stage 1 cleared in \\d+ s", char: me, min: 1}
+    - {check: server_line, topic: MECHANICS, regex: "^RUN not started", char: me, max: 0}
+    - {check: client_alive}
+  judgment: "PASS = every line above and no warp-back loop; the loop and REACTOR_HIT checks come from the TEST hex logger (Server Dev decodes by the alt's cid). FAIL names the first stage that never clears."
