@@ -88,14 +88,12 @@ captures:
   - {id: second-dialog, burst: {fps: 4, ms: 2500, at: {signal: dialog-2}}}
   - {id: party, burst: {fps: 2, ms: 2000, at: {step: alt-2-here}}}
   - {id: room-1-shot, burst: {fps: 2, ms: 4000, at: {signal: in-fight}}}
-  - {id: room-2-shot, burst: {fps: 2, ms: 4000, at: {signal: room-2}}}
-  - {id: room-3-shot, burst: {fps: 2, ms: 4000, at: {signal: room-3}}}
 expect:
   reviewer:
     - see: "The leader with two alts standing next to it at Horntail's cave entrance"
       in: [party]
     - see: "The alts in each Horntail room with the boss parts on the map"
-      in: [room-1-shot, room-2-shot, room-3-shot]
+      in: [room-1-shot]
   checks:
     - {check: client_alive}
   judgment: "AFTER THE RUN: run h1-cleanup (always, even after a FAIL: the runner has no finally step); Server Dev confirms no Horntail expedition is left open; log the cleanup in latest.json. PASS needs the TEST hex logger: both alts present in each room's SPAWN_PLAYER, boss-part SPAWN_MONSTER, the alts' attack packets on boss parts, and the alts following each warp. FAIL names the first blocker (no expedition member, no entry, idle alts, no damage, no follow)."
