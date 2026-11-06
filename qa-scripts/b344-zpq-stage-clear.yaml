@@ -40,6 +40,8 @@ steps:
   - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 211042300}, timeout_ms: 30000}
   - {id: summon, do: chat, text: "@botme AqClientAlt1"}
   - {id: joined, do: wait, signal: {type: client_signal, name: chat.received, regex: "AqClientAlt1 has joined you and follows you"}, timeout_ms: 20000}
+  - {id: stand-by-adobis, do: gm, line: "!tp -1000 -218", note: "Adobis (2030008) is off screen at the arrival point: the proven spot from Client's brief"}
+  - {do: sleep, ms: 2000, reason: "let the teleport settle so the NPC is on screen"}
   - {id: talk, do: click_npc, npc: 2030008}
   - {id: talk-open, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
   - {id: pick, do: click, anchor: npc_dialog.option_1}
