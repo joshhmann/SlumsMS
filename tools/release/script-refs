@@ -13,11 +13,11 @@ half: every script a map points at has a file the server will find.
   * reactor:       a placed reactor with no scripts/reactor/<id>.js (informational: many reactors need none)
 
 A reference is "fatal" when the server would log a missing script the moment a player uses it. The release check
-passes while the set of fatal references is a subset of the committed baseline (tools/ops/script-refs.baseline), so
+passes while the set of fatal references is a subset of the committed baseline (tools/release/script-refs.baseline), so
 only a NEW fatal reference fails it. Fix and shrink the baseline; never grow it without the owner's say.
 
 Usage:
-    tools/ops/script-refs [--wz DIR] [--scripts DIR] [--baseline FILE] [--json] [--write-baseline]
+    tools/release/script-refs [--wz DIR] [--scripts DIR] [--baseline FILE] [--json] [--write-baseline]
 Exit 0 = no new fatal reference, 1 = new fatal reference(s), 2 = bad input.
 """
 import argparse

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Tests for tools/ops/script-refs (P1-C1a). Fixture WZ + scripts in a temp dir, no server needed.
+"""Tests for tools/release/script-refs (P1-C1a). Fixture WZ + scripts in a temp dir, no server needed.
 
-    python3 -m unittest tools/ops/test_script_refs.py -v
+    python3 -m unittest tools/release/test_script_refs.py -v
 """
 import importlib.machinery, importlib.util, os, tempfile, unittest
 
