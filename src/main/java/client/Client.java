@@ -654,8 +654,9 @@ public class Client extends ChannelInboundHandlerAdapter {
         }
 
         pinattempt++;
-        if (pinattempt > 5) {
-            SessionCoordinator.getInstance().closeSession(this, false);
+        if (pinattempt > 5) { // b353: the limit closes the connection; closeSession(this, false) left it open, checking more guesses
+            SessionCoordinator.getInstance().closeSession(this, true);
+            return false;
         }
         if (pin.equals(other)) {
             pinattempt = 0;
@@ -687,8 +688,9 @@ public class Client extends ChannelInboundHandlerAdapter {
         }
 
         picattempt++;
-        if (picattempt > 5) {
-            SessionCoordinator.getInstance().closeSession(this, false);
+        if (picattempt > 5) { // b353: the limit closes the connection; closeSession(this, false) left it open, checking more guesses
+            SessionCoordinator.getInstance().closeSession(this, true);
+            return false;
         }
         if (pic.equals(other)) {    // thanks ryantpayton (HeavenClient) for noticing null pics being checked here
             picattempt = 0;
