@@ -74,6 +74,7 @@ steps:
   - {id: ok-after-start, do: click, anchor: npc_dialog.next, note: "OK on Good luck! starts the instance (NPC script 2083004.js:170)"}
   - {id: in-fight, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240060000}, timeout_ms: 60000}
   # the human stands still; the alts fight. Watch the run through the map changes the leader is carried along.
+  - {id: safe-spot, do: gm, line: "!tp 110 -300", note: "the human stands at the far left edge of the room (VRLeft 90) so it survives to warp with the alts; same in every H1 run (Coordinator). No invincibility toggle exists on TEST and MaxHP is already at the 99999 cap"}
   - {id: room-2, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240060100}, timeout_ms: 240000}
   - {id: room-3, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240060200}, timeout_ms: 240000}
 captures:
