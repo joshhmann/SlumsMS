@@ -207,7 +207,7 @@ They close on their own proof in the 1.6.4 book.
 | 1.6.9 | b257, b306, b308, b309, b310, b312, b313, b314, b315, b316, b256 | P1-C1, P2-W6, P2-3, P2-4, P2-5, P1-L2, s20 |
 | 1.7.0 | (fixes found by certification) | GP1-GP12, G0-G5, s12 |
 
-Not in the table above, allocated when the 1.6.5 book opened (Nov 6): b275 → 1.6.6; w06 → 1.8.x backlog.
+Not in the table above, allocated when the 1.6.5 book opened (Nov 6): b275 → 1.6.6, then moved by the owner to 1.6.5 stretch (Nov 6); w06 → 1.8.x backlog.
 
 **1.8.x backlog (feature freeze; the owner may pull any one forward):**
 - e01 (economy rework), e03, e05, e06, e07, e08, e09 (NX desk auto top-up), e10, e11, e12 (PELIXIR in game), e13
