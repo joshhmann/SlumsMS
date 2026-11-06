@@ -229,7 +229,13 @@ public final class MechanicsModel {
      * is. {@link #instance()} is that clear form - it is not an event property, it is the instance's own flag.
      */
     public record Clear(String eventProperty, String equals, boolean onInstance, boolean mapEmpty,
-                        int reactorId, int reactorState, int partyOnMap) {
+                        int reactorId, int reactorState, int partyOnMap, boolean botsOnly) {
+        /** Every clear but {@link #ofBotsOnMap}: a {@code partyOnMap} clear counts the whole party. */
+        public Clear(String eventProperty, String equals, boolean onInstance, boolean mapEmpty,
+                     int reactorId, int reactorState, int partyOnMap) {
+            this(eventProperty, equals, onInstance, mapEmpty, reactorId, reactorState, partyOnMap, false);
+        }
+
         public Clear(String eventProperty, String equals, boolean onInstance, boolean mapEmpty,
                      int reactorId, int reactorState) {
             this(eventProperty, equals, onInstance, mapEmpty, reactorId, reactorState, 0);
@@ -246,6 +252,17 @@ public final class MechanicsModel {
          */
         public static Clear ofPartyOnMap(int mapId) {
             return new Clear(null, null, false, false, 0, 0, mapId);
+        }
+
+        /**
+         * 1.6.5 b344: a stage that ends when every <b>bot</b> of the run stands on {@code mapId}, wherever the real
+         * players are. For a maze the party roams freely (the Zakum PQ mines: no script warps the team, every door is
+         * open): the run never steers a real player, so a whole-party clear there waits on whoever walked his own way,
+         * and the orchestrator puts a bot that went on ahead back on the stage map. {@link #partyOnMap()} is still the
+         * map, so a solver that leaves for it reads it the same way.
+         */
+        public static Clear ofBotsOnMap(int mapId) {
+            return new Clear(null, null, false, false, 0, 0, mapId, true);
         }
 
         public Clear(String eventProperty, String equals, boolean onInstance) {

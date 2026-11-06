@@ -9,7 +9,9 @@
 # The walk is the row: the maze is a hub (280010000) with fifteen numbered doors and a wing (280011000) behind two of
 # them, and every room's doors are published in its own WZ portal block (pt-1 portals; the hub's are in01..in15). So
 # each stage is one room and its clear is the map the party walks into next - the solver leaves through whichever door
-# on its map leads there (SolverStep.EnterPortalTo), which is why no route is written in Java. The hub therefore
+# on its map leads there (SolverStep.EnterPortalTo), which is why no route is written in Java. The clear is
+# botsOnMap, not partyOnMap (1.6.5 b344): a real player in the party roams the mines his own way and the run never
+# steers him, so a whole-party clear held stage 1 for ever and the run kept putting a bot that went ahead back on the hub. The hub therefore
 # appears once per return, because walking back through it is what the party actually does.
 # Chests: reactordrops gives 2112012/2112005 -> 4001015 (the key), 2112004/2112011 -> 4001016 (the ore) and
 # 2112014 -> 4001018 (the document), all at chance 1. A chest yields on its fourth and fifth hit and is inert for ever
@@ -65,7 +67,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010110
+      botsOnMap: 280010110
   - stage: 2
     map: 280010110
     name: "mine room 280010110"
@@ -94,7 +96,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010000
+      botsOnMap: 280010000
   - stage: 3
     map: 280010000
     name: "the hub: Adobis's cave"
@@ -123,7 +125,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010140
+      botsOnMap: 280010140
   - stage: 4
     map: 280010140
     name: "mine room 280010140"
@@ -152,7 +154,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010000
+      botsOnMap: 280010000
   - stage: 5
     map: 280010000
     name: "the hub: Adobis's cave"
@@ -181,7 +183,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010130
+      botsOnMap: 280010130
   - stage: 6
     map: 280010130
     name: "mine room 280010130"
@@ -210,7 +212,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010000
+      botsOnMap: 280010000
   - stage: 7
     map: 280010000
     name: "the hub: Adobis's cave"
@@ -239,7 +241,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010040
+      botsOnMap: 280010040
   - stage: 8
     map: 280010040
     name: "mine room 280010040"
@@ -267,7 +269,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010041
+      botsOnMap: 280010041
   - stage: 9
     map: 280010041
     name: "mine room 280010041"
@@ -296,7 +298,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010050
+      botsOnMap: 280010050
   - stage: 10
     map: 280010050
     name: "mine room 280010050"
@@ -325,7 +327,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010041
+      botsOnMap: 280010041
   - stage: 11
     map: 280010041
     name: "mine room 280010041"
@@ -354,7 +356,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010040
+      botsOnMap: 280010040
   - stage: 12
     map: 280010040
     name: "mine room 280010040"
@@ -382,7 +384,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010000
+      botsOnMap: 280010000
   - stage: 13
     map: 280010000
     name: "the hub: Adobis's cave"
@@ -411,7 +413,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010090
+      botsOnMap: 280010090
   - stage: 14
     map: 280010090
     name: "mine room 280010090"
@@ -440,7 +442,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010091
+      botsOnMap: 280010091
   - stage: 15
     map: 280010091
     name: "mine room 280010091"
@@ -469,7 +471,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010090
+      botsOnMap: 280010090
   - stage: 16
     map: 280010090
     name: "mine room 280010090"
@@ -498,7 +500,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010000
+      botsOnMap: 280010000
   - stage: 17
     map: 280010000
     name: "the hub: Adobis's cave"
@@ -527,7 +529,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010010
+      botsOnMap: 280010010
   - stage: 18
     map: 280010010
     name: "mine room 280010010"
@@ -556,7 +558,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010011
+      botsOnMap: 280010011
   - stage: 19
     map: 280010011
     name: "mine room 280010011"
@@ -585,7 +587,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010070
+      botsOnMap: 280010070
   - stage: 20
     map: 280010070
     name: "mine room 280010070"
@@ -614,7 +616,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010071
+      botsOnMap: 280010071
   - stage: 21
     map: 280010071
     name: "mine room 280010071"
@@ -643,7 +645,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011000
+      botsOnMap: 280011000
   - stage: 22
     map: 280011000
     name: "the ore wing's door"
@@ -671,7 +673,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011002
+      botsOnMap: 280011002
   - stage: 23
     map: 280011002
     name: "mine room 280011002"
@@ -700,7 +702,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011000
+      botsOnMap: 280011000
   - stage: 24
     map: 280011000
     name: "the ore wing's door"
@@ -728,7 +730,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011003
+      botsOnMap: 280011003
   - stage: 25
     map: 280011003
     name: "mine room 280011003"
@@ -757,7 +759,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011000
+      botsOnMap: 280011000
   - stage: 26
     map: 280011000
     name: "the ore wing's door"
@@ -785,7 +787,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011001
+      botsOnMap: 280011001
   - stage: 27
     map: 280011001
     name: "mine room 280011001"
@@ -813,7 +815,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011000
+      botsOnMap: 280011000
   - stage: 28
     map: 280011000
     name: "the ore wing's door"
@@ -841,7 +843,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011004
+      botsOnMap: 280011004
   - stage: 29
     map: 280011004
     name: "mine room 280011004"
@@ -870,7 +872,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011000
+      botsOnMap: 280011000
   - stage: 30
     map: 280011000
     name: "the ore wing's door"
@@ -898,7 +900,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011006
+      botsOnMap: 280011006
   - stage: 31
     map: 280011006
     name: "mine room 280011006"
@@ -927,7 +929,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011000
+      botsOnMap: 280011000
   - stage: 32
     map: 280011000
     name: "the ore wing's door, for the big room's own ore rock"
@@ -955,7 +957,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011005
+      botsOnMap: 280011005
   - stage: 33
     map: 280011005
     name: "mine room 280011005: its own ore rock (2112011) before the big chest"
@@ -984,7 +986,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011000
+      botsOnMap: 280011000
   - stage: 34
     map: 280011000
     name: "the ore wing's door"
@@ -1012,7 +1014,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011005
+      botsOnMap: 280011005
   - stage: 35
     map: 280011005
     name: "mine room 280011005"
@@ -1041,7 +1043,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011000
+      botsOnMap: 280011000
   - stage: 36
     map: 280011000
     name: "the ore wing's door"
@@ -1069,7 +1071,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010071
+      botsOnMap: 280010071
   - stage: 37
     map: 280010071
     name: "mine room 280010071"
@@ -1098,7 +1100,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010070
+      botsOnMap: 280010070
   - stage: 38
     map: 280010070
     name: "mine room 280010070"
@@ -1127,7 +1129,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010011
+      botsOnMap: 280010011
   - stage: 39
     map: 280010011
     name: "mine room 280010011"
@@ -1156,7 +1158,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010010
+      botsOnMap: 280010010
   - stage: 40
     map: 280010010
     name: "mine room 280010010"
@@ -1185,7 +1187,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010000
+      botsOnMap: 280010000
   - stage: 41
     map: 280010000
     name: "the hub: Adobis's cave"
@@ -1214,7 +1216,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010020
+      botsOnMap: 280010020
   - stage: 42
     map: 280010020
     name: "mine room 280010020"
@@ -1243,7 +1245,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010000
+      botsOnMap: 280010000
   - stage: 43
     map: 280010000
     name: "the hub: Adobis's cave"
@@ -1272,7 +1274,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010030
+      botsOnMap: 280010030
   - stage: 44
     map: 280010030
     name: "mine room 280010030"
@@ -1301,7 +1303,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010031
+      botsOnMap: 280010031
   - stage: 45
     map: 280010031
     name: "mine room 280010031"
@@ -1330,7 +1332,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010030
+      botsOnMap: 280010030
   - stage: 46
     map: 280010030
     name: "mine room 280010030"
@@ -1359,7 +1361,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010000
+      botsOnMap: 280010000
   - stage: 47
     map: 280010000
     name: "the hub: Adobis's cave"
@@ -1388,7 +1390,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010060
+      botsOnMap: 280010060
   - stage: 48
     map: 280010060
     name: "mine room 280010060"
@@ -1417,7 +1419,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010000
+      botsOnMap: 280010000
   - stage: 49
     map: 280010000
     name: "the hub: Adobis's cave"
@@ -1446,7 +1448,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010080
+      botsOnMap: 280010080
   - stage: 50
     map: 280010080
     name: "mine room 280010080"
@@ -1475,7 +1477,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010081
+      botsOnMap: 280010081
   - stage: 51
     map: 280010081
     name: "mine room 280010081"
@@ -1503,7 +1505,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010080
+      botsOnMap: 280010080
   - stage: 52
     map: 280010080
     name: "mine room 280010080"
@@ -1532,7 +1534,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010000
+      botsOnMap: 280010000
   - stage: 53
     map: 280010000
     name: "the hub: Adobis's cave"
@@ -1561,7 +1563,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010100
+      botsOnMap: 280010100
   - stage: 54
     map: 280010100
     name: "mine room 280010100"
@@ -1590,7 +1592,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010101
+      botsOnMap: 280010101
   - stage: 55
     map: 280010101
     name: "mine room 280010101"
@@ -1619,7 +1621,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010100
+      botsOnMap: 280010100
   - stage: 56
     map: 280010100
     name: "mine room 280010100"
@@ -1648,7 +1650,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010000
+      botsOnMap: 280010000
   - stage: 57
     map: 280010000
     name: "the hub: Adobis's cave"
@@ -1677,7 +1679,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010120
+      botsOnMap: 280010120
   - stage: 58
     map: 280010120
     name: "mine room 280010120"
@@ -1706,7 +1708,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010000
+      botsOnMap: 280010000
   - stage: 59
     map: 280010000
     name: "the hub: Adobis's cave"
@@ -1735,7 +1737,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010150
+      botsOnMap: 280010150
   - stage: 60
     map: 280010150
     name: "mine room 280010150"
@@ -1764,7 +1766,7 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010000
+      botsOnMap: 280010000
   - stage: 61
     map: 280010000
     name: "the hub: Adobis's cave"

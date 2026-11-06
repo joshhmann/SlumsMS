@@ -177,6 +177,13 @@ final class GCFollow {
         }
         Character bot = s.bot;
         Character target = s.target;
+        if (soloMapling.mechanics.MechanicsHold.committed(bot)) {
+            // 1.6.5 b344: a mechanics run holds this bot; the run stopped the follow when it started, and a follow
+            // armed after that (a brain tick in flight) would chase the leader out of the run's room. End it here; the
+            // brain re-arms its follow when the run lets the bot go
+            cancel(bot);
+            return;
+        }
         if (bot == null || bot.getMap() == null || target == null || target.getMap() == null) {
             GCMovement.endFollowState(bot); // target gone / offline — end follow
             cancel(bot);

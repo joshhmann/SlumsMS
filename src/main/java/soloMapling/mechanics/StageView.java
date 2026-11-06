@@ -372,7 +372,10 @@ public interface StageView {
         }
         if (clear.partyOnMap() > 0) {
             // the whole party standing on the map the script warps them to (Ellin PQ: 2133001.js:93-94)
-            List<RunMember> all = members();
+            // 1.6.5 b344: a botsOnMap clear counts the run's bots only (the Zakum PQ mines), never zero of them
+            List<RunMember> all = clear.botsOnly()
+                    ? members().stream().filter(RunMember::bot).toList()
+                    : members();
             return !all.isEmpty() && all.stream().allMatch(m -> mapOf(m.characterId()) == clear.partyOnMap());
         }
         if (clear.eventProperty() == null) {
