@@ -134,8 +134,19 @@ public class Pet extends Item {
         if (botPet) {
             return; // 1.5.0 rc4: no row to write, and its id must never touch a real pet's row
         }
-        try (Connection con = DatabaseConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement("UPDATE pets SET name = ?, level = ?, closeness = ?, fullness = ?, summoned = ?, flag = ? WHERE petid = ?")) {
+        try (Connection con = DatabaseConnection.getConnection()) {
+            saveToDb(con);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /** Writes the pet's row on the caller's connection (a character save's transaction); a failure propagates. */
+    public void saveToDb(Connection con) throws SQLException {
+        if (botPet) {
+            return;
+        }
+        try (PreparedStatement ps = con.prepareStatement("UPDATE pets SET name = ?, level = ?, closeness = ?, fullness = ?, summoned = ?, flag = ? WHERE petid = ?")) {
             ps.setString(1, getName());
             ps.setInt(2, getLevel());
             ps.setInt(3, getTameness());
@@ -144,8 +155,6 @@ public class Pet extends Item {
             ps.setInt(6, getPetAttribute());
             ps.setInt(7, getUniqueId());
             ps.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
         }
     }
 
