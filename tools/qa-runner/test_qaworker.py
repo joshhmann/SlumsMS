@@ -105,6 +105,11 @@ class WorkerCallsTest(unittest.TestCase):
         self.assertEqual('ok', worker.send('me', {'do': 'click', 'anchor': 'npc_dialog.close'})['result'])
         self.assertEqual([('close_dialog', {})], transport.calls)
 
+    def test_npc_dialog_next_goes_through_dialog_next_not_the_mouse(self):
+        worker, transport = self.make()
+        self.assertEqual('ok', worker.send('me', {'do': 'click', 'anchor': 'npc_dialog.next'})['result'])
+        self.assertEqual([('dialog_next', {})], transport.calls)
+
     def test_a_qa_client_refusal_fails_the_step(self):
         worker, _ = self.make({'drop_item': answer('not_in_inventory', is_error=True)})
         self.assertEqual({'result': 'refused', 'detail': 'not_in_inventory'},
