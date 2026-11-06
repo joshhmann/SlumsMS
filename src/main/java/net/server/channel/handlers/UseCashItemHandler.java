@@ -266,15 +266,7 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
             } else if (itemId == 5060002) { // Incubator
                 byte inventory2 = (byte) p.readInt();
                 short slot2 = (short) p.readInt();
-                Item item2 = player.getInventory(InventoryType.getByType(inventory2)).getItem(slot2);
-                if (item2 == null) // hacking
-                {
-                    return;
-                }
-                if (getIncubatedItem(c, itemId)) {
-                    InventoryManipulator.removeFromSlot(c, InventoryType.getByType(inventory2), slot2, (short) 1, false);
-                    remove(c, position, itemId);
-                }
+                incubate(c, position, inventory2, slot2);
                 return;
             }
             p.readInt(); // time stamp
@@ -763,19 +755,48 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
         }
     }
 
-    private static boolean getIncubatedItem(Client c, int id) {
-        final int[] ids = {1012070, 1302049, 1302063, 1322027, 2000004, 2000005, 2020013, 2020015, 2040307, 2040509, 2040519, 2040521, 2040533, 2040715, 2040717, 2040810, 2040811, 2070005, 2070006, 4020009,};
-        final int[] quantitys = {1, 1, 1, 1, 240, 200, 200, 200, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3};
-        int amount = 0;
-        for (int i = 0; i < ids.length; i++) {
-            if (i == id) {
-                amount = quantitys[i];
+    private static void incubate(Client c, short incubatorPos, byte invType, short slot2) {
+        Character player = c.getPlayer();
+        InventoryType type = InventoryType.getByType(invType);
+        Item target = type == null ? null : player.getInventory(type).getItem(slot2);
+        final int targetId = target == null ? -1 : target.getItemId();
+        IncubatorHatch.Result result = IncubatorHatch.hatch(new IncubatorHatch.Ops() {
+            public int targetItemId() {
+                return targetId;
             }
+
+            public boolean hasSpaceFor(int itemId, int quantity) {
+                return InventoryManipulator.checkSpace(c, itemId, quantity, "");
+            }
+
+            public boolean consumeEgg() {
+                InventoryManipulator.removeFromSlot(c, type, slot2, (short) 1, false);
+                return true;
+            }
+
+            public boolean consumeIncubator() {
+                remove(c, incubatorPos, IncubatorHatch.INCUBATOR_ID);
+                return true;
+            }
+
+            public boolean grant(int itemId, int quantity) {
+                return InventoryManipulator.addById(c, itemId, (short) quantity);
+            }
+
+            public void restoreEgg() {
+                InventoryManipulator.addById(c, targetId, (short) 1);
+            }
+
+            public void restoreIncubator() {
+                InventoryManipulator.addById(c, IncubatorHatch.INCUBATOR_ID, (short) 1);
+            }
+        }, java.util.concurrent.ThreadLocalRandom.current()::nextInt);
+        if (result.hatched()) {
+            player.dropMessage(1, "The egg hatched! You received "
+                    + ItemInformationProvider.getInstance().getName(result.rewardId()) + " x" + result.quantity() + ".");
+        } else {
+            player.dropMessage(1, result.refusal());
+            c.sendPacket(PacketCreator.enableActions());
         }
-        if (c.getPlayer().getInventory(InventoryType.getByType((byte) (id / 1000000))).isFull()) {
-            return false;
-        }
-        InventoryManipulator.addById(c, id, (short) amount);
-        return true;
     }
 }
