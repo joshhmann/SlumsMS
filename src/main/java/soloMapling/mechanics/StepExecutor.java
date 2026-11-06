@@ -1091,6 +1091,20 @@ final class StepExecutor {
         hitReactorAt(bot, beat, reactor, "#" + h.objectId(), now, log);
     }
 
+    /**
+     * 1.6.5 b331: whether a real client could hit this reactor now - the same rule the client follows. A state with no
+     * hit (WZ type -1, or no state data at all) is one the client never hits. The server-side hit has no such check:
+     * Reactor.hitReactor's else-branch moved ZPQ chest 2112012 (linked to 2112007, states 0-4) to a state 5 that does
+     * not exist, broadcast it, and ran act again, and every player's client on the map terminated.
+     */
+    static boolean clientCanHit(server.maps.Reactor reactor) {
+        if (reactor == null || reactor.getStats() == null) {
+            return false;
+        }
+        byte state = reactor.getState();
+        return reactor.getStats().getType(state) != -1 && reactor.getStats().getStateSize(state) > 0;
+    }
+
     /** The walk-and-click part, shared by {@link SolverStep.HitReactor} and {@link SolverStep.HitReactorNamed}. */
     private static void hitReactorAt(Character bot, Beat beat, server.maps.Reactor reactor, String label, long now,
                                      Consumer<String> log) {
@@ -1104,6 +1118,11 @@ final class StepExecutor {
             return;
         }
         beat.lastReactorMs = now;
+        if (!clientCanHit(reactor)) { // 1.6.5 b331: never a hit no client could make (see clientCanHit)
+            log.accept(bot.getName() + ": reactor " + label + " on " + bot.getMapId() + " is in state "
+                    + reactor.getState() + ", which takes no hit - not hitting it");
+            return;
+        }
         reactor.hitReactor(client.BotClient.forScripts(bot)); // a population bot's script needs a player behind the client
         log.accept(bot.getName() + ": hit reactor " + label + " on " + bot.getMapId());
     }

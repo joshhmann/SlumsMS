@@ -344,6 +344,12 @@ final class LiveStageView implements StageView {
     }
 
     @Override
+    public boolean reactorHittable(int reactorId) {
+        server.maps.Reactor reactor = map == null ? null : map.getReactorById(reactorId);
+        return reactor != null && StepExecutor.clientCanHit(reactor);
+    }
+
+    @Override
     public boolean wearing(int characterId, int itemId) {
         Character c = character(characterId);
         return c != null && soloMapling.ArtificialPlayer.BotGearSystem.BotGear.wearing(c, itemId);

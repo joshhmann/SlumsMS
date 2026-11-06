@@ -88,6 +88,16 @@ class ZakumPqSolversTest {
                 "the door is the one that leads to the stage the row walks into next");
     }
 
+    /** 1.6.5 b331: a chest standing in a state no client can hit (2112007's state 4) is spent: the miner moves on. */
+    @Test
+    void aChestInAStateNoClientCanHitIsSpentAndTheMinerMovesOn() {
+        View v = new View();
+        v.reactor = 4;
+        v.hittable = false;
+        SolverStep out = new ZakumMinesSolver().next(v, v.me);
+        assertInstanceOf(SolverStep.EnterPortalTo.class, out, "no HitReactor for a chest no client could hit");
+    }
+
     @Test
     void theFloorIsLootedBeforeTheDoorIsTaken() {
         View v = new View();
@@ -151,6 +161,7 @@ class ZakumPqSolversTest {
         MechanicsModel.Stage stage = row().stages().get(1);
         int mapId = stage.mapId();
         int reactor = 0;
+        boolean hittable = true;
         int floor;
         int ore;
         int document;
@@ -165,6 +176,7 @@ class ZakumPqSolversTest {
         @Override public int reactorState(int reactorId) {
             return reactorId > 0 && stage.hitReactors().contains(reactorId) ? reactor : -1; // only this room's chest answers
         }
+        @Override public boolean reactorHittable(int reactorId) { return hittable && reactorState(reactorId) >= 0; }
         @Override public int itemCount(int characterId, int itemId) {
             return switch (itemId) {
                 case 400_1016 -> ore;

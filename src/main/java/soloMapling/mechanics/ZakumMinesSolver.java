@@ -67,7 +67,8 @@ public final class ZakumMinesSolver implements StageSolver {
         // a chest that has been hit five times answers -1 for ever; one that was never here also answers -1
         List<Integer> chests = view.stage().hitReactors();
         int chest = chests.isEmpty() ? 0 : chests.get(0);
-        boolean chestLive = chest > 0 && view.reactorState(chest) >= 0;
+        // 1.6.5 b331: and one in a state no client can hit is spent too (2112007's state 4); hitting it crashed clients
+        boolean chestLive = chest > 0 && view.reactorHittable(chest);
         int floor = view.floorItems(0, member.characterId());
 
         if (chest == BIG_CHEST) {

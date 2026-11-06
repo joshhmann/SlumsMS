@@ -108,6 +108,15 @@ public interface StageView {
     }
 
     /**
+     * 1.6.5 b331: whether the reactor with this id stands on the stage's map in a state a real client could hit
+     * ({@link StepExecutor#clientCanHit}). A spent ZPQ chest sits in a state with no hit; a solver that reads only
+     * {@link #reactorState(int)} {@code >= 0} would keep asking to hit it.
+     */
+    default boolean reactorHittable(int reactorId) {
+        return reactorState(reactorId) >= 0;
+    }
+
+    /**
      * One reactor standing on the stage's map, by everything a script can tell it apart with: the map's own object id
      * (the key {@link SolverStep.HitReactorByOid} addresses it by), its WZ id, its WZ name ({@code ""} when it has
      * none), its current state and where it stands.
