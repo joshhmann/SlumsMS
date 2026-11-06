@@ -1038,15 +1038,50 @@ public class Client extends ChannelInboundHandlerAdapter {
     }
 
     public final void disconnect(final boolean shutdown, final boolean cashshop) {
+        if (refusedHeadlessDisconnect()) {
+            return;
+        }
         if (canDisconnect()) {
             ThreadManager.getInstance().newTask(() -> disconnectInternal(shutdown, cashshop));
         }
     }
 
     public final void forceDisconnect() {
+        if (refusedHeadlessDisconnect()) {
+            return;
+        }
         if (canDisconnect()) {
             disconnectInternal(true, false);
         }
+    }
+
+    private static final java.util.concurrent.atomic.AtomicLong HEADLESS_DISCONNECTS_REFUSED =
+            new java.util.concurrent.atomic.AtomicLong();
+
+    /**
+     * 1.6.5 b331: a headless {@link BotClient} with no player of its own (a channel's shared bot client, or an alt's
+     * private client that lost its player) has no session to end. {@link #disconnectInternal} would null
+     * {@code engines} on either of its paths, and {@link BotClient#forScripts} lends that cache to every bot script,
+     * so one disconnect left every later reactor/NPC script on that client throwing until a restart (live 2026-11-06,
+     * ZPQ reactor 2112012). Refused here; the first refusal is logged with its caller so the trigger is named.
+     */
+    private boolean refusedHeadlessDisconnect() {
+        if (!(this instanceof BotClient) || player != null) {
+            return false;
+        }
+        long n = HEADLESS_DISCONNECTS_REFUSED.incrementAndGet();
+        if (n == 1) {
+            log.warn("b331: refused a disconnect of a headless bot client with no player (channel {}); caller:",
+                    channel, new Throwable("headless disconnect caller"));
+        } else {
+            log.debug("b331: refused headless bot client disconnect #{} (channel {})", n, channel);
+        }
+        return true;
+    }
+
+    /** How many disconnects of a playerless headless bot client were refused since boot (b331). */
+    public static long headlessDisconnectsRefused() {
+        return HEADLESS_DISCONNECTS_REFUSED.get();
     }
 
     private synchronized boolean canDisconnect() {

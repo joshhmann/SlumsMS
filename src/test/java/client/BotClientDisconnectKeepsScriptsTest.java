@@ -29,4 +29,34 @@ class BotClientDisconnectKeepsScriptsTest {
                 "b331: a bot's reactor script needs the shared client's engine cache after a disconnect");
         assertDoesNotThrow(() -> forScripts.setScriptEngine("reactor/2112012.js", null));
     }
+
+    /**
+     * Server Dev, b331: an owned alt has a private BotClient (OwnedAltBackend.java:36). If that client ever loses its
+     * player while the alt is still in a run, forScripts(alt) wraps it like a population bot's, and a disconnect must
+     * not leave it without engines either (the alt early return in disconnectInternal needs a non-null player).
+     */
+    @Test
+    void aDisconnectOfAnAltsPrivateClientThatLostItsPlayerLeavesItsScriptEnginesUsable() {
+        BotClient priv = new BotClient(1, 1);
+        Character alt = Character.getDefault(priv);
+        priv.setPlayer(alt);
+        priv.setPlayer(null); // whatever took the player away: the state live b331 was in
+
+        long refusedBefore = Client.headlessDisconnectsRefused();
+        priv.disconnect(false, false);
+        priv.forceDisconnect();
+
+        assertEquals(refusedBefore + 2, Client.headlessDisconnectsRefused(), "both disconnects are refused and counted");
+        Client forScripts = BotClient.forScripts(alt);
+        assertDoesNotThrow(() -> forScripts.getScriptEngine("reactor/2112012.js"));
+    }
+
+    @Test
+    void aClientWithAPlayerOrARealClientIsNotRefused() {
+        BotClient priv = new BotClient(1, 1);
+        priv.setPlayer(Character.getDefault(priv));
+        long before = Client.headlessDisconnectsRefused();
+        priv.forceDisconnect(); // goes through the normal path (the alt / logout code), not the b331 refusal
+        assertEquals(before, Client.headlessDisconnectsRefused());
+    }
 }
