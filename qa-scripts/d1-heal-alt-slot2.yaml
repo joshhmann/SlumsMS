@@ -1,0 +1,39 @@
+# b311 prep: fill HP/MP of AqClientAlt2 with !heal (its MP was 28/1200: Bots). TEST QA account only.
+id: d1-heal-alt-slot2
+title: "Fill the HP and MP of AqClientAlt2 with !heal"
+covers: [b311]
+status: draft
+server: test
+needs: [gm, proposed_signals]
+notes: "tarkov2 QA account only (TEST). GM staging used: !level 120. Judge from the frames: character select with every slot (shows names and levels), and the HUD level after !level. Report the slot's name and level to the Coordinator."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 2}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {id: pick, do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
+  - {id: level-up, do: gm, line: "!heal"}
+  - {do: sleep, ms: 3000, reason: "let the heal land before the frame and the save"}
+captures:
+  - {id: charselect, burst: {fps: 2, ms: 2000, at: {signal: chars}}}
+  - {id: after-level, burst: {fps: 2, ms: 2000, at: {step: level-up}}}
+expect:
+  reviewer:
+    - see: "The character select screen with the account's characters (names and levels)"
+      in: [charselect]
+    - see: "The character in game at level 120"
+      in: [after-level]
+  checks:
+    - {check: client_alive}
+  judgment: "PASS = the HUD shows full HP and MP."
