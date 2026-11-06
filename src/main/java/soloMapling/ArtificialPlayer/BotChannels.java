@@ -432,6 +432,11 @@ public final class BotChannels {
         if (bot == null || bot.getMap() == null || bot.getClient() == null || bot.getEventInstance() != null) {
             return false;
         }
+        if (bot.isOwnedAlt()) {
+            // 1.6.5 b335: an owned alt has its own client (OwnedAltBackend.load), never the channel's shared one,
+            // and changes channel with its owner the alt way: saved and reloaded (OwnedAltService.ownerChangingChannel).
+            return false;
+        }
         if (soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.isDead(bot.getId())) {
             return false; // 1.5.0 rc3: lying dead - it respawns on its own channel first
         }
