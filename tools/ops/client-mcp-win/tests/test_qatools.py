@@ -485,3 +485,27 @@ class UseCashItemTest(NewToolsTest):
         with self.assertRaises(self.driver.Refusal) as caught:
             self.d.use_cash_item(5060002, '4170000')
         self.assertEqual('target_not_in_inventory', str(caught.exception))
+
+
+class MerchantOpenTest(NewToolsTest):
+    """P0-2 GP8: a hired merchant set up through the QA client."""
+
+    def test_merchant_open(self):
+        self.d.qa = FakeQa([{'ev': 'merchant.open', 'item': 2000000, 'quantity': 5, 'price': 1000, 'ok': True,
+                             'slot': 3, 'merchant_item': 5030000}])
+        self.assertEqual({'item': 2000000, 'quantity': 5, 'price': 1000, 'slot': 3, 'merchant_item': 5030000},
+                         self.d.merchant_open(2000000, 5, 1000, 'GP8 shop'))
+        self.assertEqual(['merchant_open 2000000 5 1000 GP8 shop'], self.d.qa.sent)
+
+    def test_fredrick_first_is_passed_on(self):
+        self.d.qa = FakeQa([{'ev': 'merchant.open', 'item': 2000000, 'ok': False,
+                             'error': 'retrieve_from_fredrick_first', 'check': 9}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.merchant_open(2000000, 1, 10)
+        self.assertEqual('retrieve_from_fredrick_first', str(caught.exception))
+
+    def test_a_quote_in_the_title_is_refused_before_sending(self):
+        self.d.qa = FakeQa([])
+        with self.assertRaises(self.driver.Refusal):
+            self.d.merchant_open(2000000, 1, 10, 'a "b"')
+        self.assertFalse(hasattr(self.d.qa, 'sent'))

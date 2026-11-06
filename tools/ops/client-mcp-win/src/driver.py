@@ -54,6 +54,11 @@ TOOLS = {
     'party_create': {},
     'close_dialog': {},
     'dialog_next': {},
+    # P0-2 GP8: open a hired merchant selling <quantity> of <item> at <price>, the way a player sets one up.
+    'merchant_open': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 4999999},
+                      'quantity': {'type': 'integer', 'minimum': 1, 'maximum': 2000},
+                      'price': {'type': 'integer', 'minimum': 1, 'maximum': 2147483647},
+                      'title': {'type': 'string', 'maxLength': 30}},
     # P0-6: the Incubator on a target (the egg's item id, or inv:slot for an empty slot); only 5060002 is taken.
     'use_cash_item': {'item': {'type': 'integer', 'minimum': 5000000, 'maximum': 5999999},
                       'target': {'type': 'string', 'maxLength': 12}},
@@ -71,7 +76,7 @@ REQUIRED = {'qa_wait': ('signal',), 'qa_burst': ('fps', 'ms', 'label'), 'run_scr
             'select_channel': ('channel',), 'select_character': ('slot',),
             'mouse_drag': ('x1', 'y1', 'x2', 'y2'), 'click_npc': ('npc',), 'click_option': ('option',),
             'drop_item': ('item',), 'party_invite': ('name',),
-            'use_cash_item': ('item', 'target')}
+            'use_cash_item': ('item', 'target'), 'merchant_open': ('item', 'quantity', 'price')}
 
 # Single taps only: no modifiers, so no Alt+F4, no Ctrl shortcuts. Value = (virtual key, extended).
 KEYS = {**{chr(c): (c, False) for c in range(ord('A'), ord('Z') + 1)},
@@ -197,7 +202,8 @@ SCRIPT_TOOLS = {'start_client', 'login', 'login_credentials', 'click_anchor', 's
                 'select_character', 'qa_events', 'command', 'press_key', 'mouse_click', 'mouse_drag', 'screenshot',
                 'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to', 'click_npc', 'click_option',
                 'drop_item', 'party_create', 'party_invite', 'close_dialog',
-                'dialog_next', 'use_cash_item'}
+                'dialog_next', 'use_cash_item',
+                'merchant_open'}
 # A QA vault alias (secrets/<vault>.txt) is a script name: secrets/aq-gm-1.txt. Never a path.
 VAULT = re.compile(r'^[a-z0-9][a-z0-9-]{1,31}$')
 # The QA build writes this once per login (slums.dll bypass.cpp ClientDataCaps); the manifest's caps come from it.
@@ -989,6 +995,27 @@ class Driver:
         1). Errors: no_dialog, use_click_option (a menu), no_next_button (a text or number prompt)."""
         event = self.qa_request('dialog_next', 'click.done', lambda e: e.get('op') == 'dialog_next', 'no_dialog')
         return {'op': 'dialog_next', 'type': event.get('type')}
+
+    def merchant_open(self, item, quantity, price, title='QA shop'):
+        """P0-2 GP8: sets up a hired merchant (the Fredrick check, CREATE, the item, Open) through the QA client, which
+        needs a hired merchant item (503xxxx) in the Cash tab and a free-market room. The setup takes a few seconds.
+        Errors: no_merchant_item, not_in_inventory, retrieve_from_fredrick_first, refused, timeout_<stage>."""
+        if any(ch in title for ch in '"\\') or not title.strip() or any(ord(ch) < 32 or ord(ch) > 126 for ch in title):
+            raise Refusal('title must be 1-30 printable characters without quotes')
+        pipe = self.need_qa()
+        pipe.send('merchant_open %d %d %d %s' % (item, quantity, price, title.strip()))
+        deadline = time.monotonic() + 25
+        while True:
+            left = deadline - time.monotonic()
+            event = pipe.wait('merchant.open', left) if left > 0 else None
+            if event is None:
+                raise Refusal('timeout')
+            if event.get('item') == item:
+                break
+        if not event.get('ok'):
+            raise Refusal(str(event.get('error') or 'refused'))
+        return {'item': item, 'quantity': quantity, 'price': price, 'slot': event.get('slot'),
+                'merchant_item': event.get('merchant_item')}
 
     def use_cash_item(self, item, target):
         """P0-6: uses cash item <item> on <target> (an item id, or inv:slot) through the client's USE_CASH_ITEM packet.
