@@ -142,6 +142,22 @@ class BotMemoryRefusalTest {
         assertEquals(0, s.touchesWritten(), "nothing was written, and nothing says it was");
     }
 
+    @Test
+    void theAgeSweepNeverForgetsANoteWhoseLastUsedStampIsStillQueued() {
+        long day = 86_400_000L;
+        long t0 = now.get();
+        BotMemory.remember(BOT, PLAYER, List.of("mains a hermit"), BotMemory.Source.DIRECT, 0, 0, t0); // light: 14 days idle
+        BotMemory.recall(BOT, PLAYER, t0 + 40 * day); // used: a stamp is queued
+        table.refuseWhen = sql -> sql.equals(BotMemory.TOUCH);
+        table.refuseNext.set(1_000);
+
+        assertEquals(-1, BotMemory.prune(t0 + 50 * day), "the stamp could not be written, so the sweep waits");
+        assertEquals(1, table.rows.size(), "and the note that was just used is still there");
+
+        table.refuseNext.set(0);
+        assertEquals(0, BotMemory.prune(t0 + 50 * day), "once written, the note counts as used ten days ago and is kept");
+    }
+
     // ---- b324: inserts ----
 
     @Test

@@ -228,7 +228,8 @@ public final class BotDbGate {
 
     private static void logStats() {
         try {
-            log.info("BotDbGate: {}", statsLine(stats(), DatabaseConnection.poolStats()));
+            // 1.6.5 b324: and what bot memory's own work came to, by operation (refused, queued, written, dropped)
+            log.info("BotDbGate: {}; {}", statsLine(stats(), DatabaseConnection.poolStats()), BotMemory.statsLine());
         } catch (RuntimeException e) {
             log.debug("Bot DB share stats unavailable", e);
         }

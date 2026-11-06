@@ -162,6 +162,7 @@ class BotMemoryKindsTest {
         assertEquals(2, BotMemory.dueFollowUps(SLOT, PLAYER, now + DAY).size());
         assertEquals(2, BotMemory.markFollowedUp(SLOT, PLAYER, "item:zhelm", now + DAY));
         assertTrue(BotMemory.dueFollowUps(SLOT, PLAYER, now + 2 * DAY).isEmpty());
+        BotMemory.flushAtShutdown(); // 1.6.5 b324: what the shutdown sequence writes on the way down
         reload();
         assertTrue(BotMemory.dueFollowUps(SLOT, PLAYER, now + 2 * DAY).isEmpty(), "the follow-up is stored");
     }
