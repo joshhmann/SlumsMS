@@ -95,6 +95,7 @@ class KickClosesSessionTest {
     private Character characterDroppingAfterSave(Client[] self, List<String> order) {
         Character chr = mock(Character.class, RETURNS_DEEP_STUBS);
         when(chr.isLoggedin()).thenReturn(true);
+        when(chr.getId()).thenReturn(352);
         when(chr.isOwnedAlt()).thenReturn(false);
         when(chr.getClient()).thenAnswer(inv -> self[0]);
         when(chr.getMessenger()).thenReturn(null);
@@ -140,6 +141,62 @@ class KickClosesSessionTest {
         assertEquals(List.of("save", "post-save packet"), order, "the interleaving happened");
         assertEquals(List.of("drop"), applied, "no packet after the kick began may be acted on");
         assertFalse(socket.isOpen(), "a server-side kick closes the socket");
+    }
+
+    /** Captures Client's INFO lines (the test config turns the root logger off). */
+    private static final class Capture extends org.apache.logging.log4j.core.appender.AbstractAppender {
+        final List<String> lines = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+        Capture() {
+            super("b352-capture", null, null, true, org.apache.logging.log4j.core.config.Property.EMPTY_ARRAY);
+        }
+
+        @Override
+        public void append(org.apache.logging.log4j.core.LogEvent event) {
+            lines.add(event.getMessage().getFormattedMessage());
+        }
+    }
+
+    private List<String> kickLines(Runnable action) {
+        org.apache.logging.log4j.core.Logger logger =
+                (org.apache.logging.log4j.core.Logger) org.apache.logging.log4j.LogManager.getLogger(Client.class);
+        org.apache.logging.log4j.Level level = logger.getLevel();
+        org.apache.logging.log4j.core.config.Configurator.setLevel(logger.getName(), org.apache.logging.log4j.Level.INFO);
+        Capture capture = new Capture();
+        capture.start();
+        logger.addAppender(capture);
+        try {
+            action.run();
+        } finally {
+            logger.removeAppender(capture);
+            capture.stop();
+            org.apache.logging.log4j.core.config.Configurator.setLevel(logger.getName(), level);
+        }
+        return capture.lines.stream().filter(l -> l.startsWith("Kick:")).toList();
+    }
+
+    @Test
+    void aKickLogsOneLineWithTheKickerAndTheCharacterId() throws Exception {
+        Client[] self = new Client[1];
+        Client c = loggedInClient(new EmbeddedChannel(), characterDroppingAfterSave(self, new ArrayList<>()));
+        self[0] = c;
+
+        List<String> lines = kickLines(() -> c.disconnect(false, false));
+
+        assertEquals(1, lines.size(), lines.toString());
+        assertTrue(lines.get(0).matches("Kick: chr 352 by KickClosesSessionTest\\.lambda\\$.*:\\d+|Kick: chr 352 by KickClosesSessionTest\\.\\w+:\\d+"),
+                lines.get(0));
+    }
+
+    @Test
+    void aPlayersOwnQuitIsNotLoggedAsAKick() throws Exception {
+        EmbeddedChannel socket = new EmbeddedChannel();
+        Client[] self = new Client[1];
+        Client c = loggedInClient(socket, characterDroppingAfterSave(self, new ArrayList<>()));
+        self[0] = c;
+        socket.close();
+
+        assertTrue(kickLines(() -> c.channelInactive(null)).isEmpty());
     }
 
     @Test

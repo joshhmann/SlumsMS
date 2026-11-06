@@ -1046,6 +1046,7 @@ public class Client extends ChannelInboundHandlerAdapter {
             return;
         }
         if (canDisconnect()) {
+            logKick();
             ThreadManager.getInstance().newTask(() -> disconnectInternal(shutdown, cashshop));
         }
     }
@@ -1055,8 +1056,31 @@ public class Client extends ChannelInboundHandlerAdapter {
             return;
         }
         if (canDisconnect()) {
+            logKick();
             disconnectInternal(true, false);
         }
+    }
+
+    /**
+     * b352: one line per server-side kick - which code kicked (class.method:line, the handler and its check) and the
+     * character id - so kicks can be counted. A player's own quit (the socket closed first) and bots are not kicks.
+     */
+    private void logKick() {
+        if (this instanceof BotClient) {
+            return;
+        }
+        StackWalker.StackFrame by = StackWalker.getInstance().walk(frames -> frames
+                .filter(f -> !(f.getClassName().equals(Client.class.getName())
+                        && (f.getMethodName().equals("disconnect") || f.getMethodName().equals("forceDisconnect")
+                        || f.getMethodName().equals("logKick"))))
+                .findFirst().orElse(null));
+        if (by == null || (by.getClassName().equals(Client.class.getName()) && by.getMethodName().equals("closeMapleSession"))) {
+            return;
+        }
+        String at = by.getClassName().substring(by.getClassName().lastIndexOf('.') + 1) + "." + by.getMethodName() + ":"
+                + by.getLineNumber();
+        Character chr = player;
+        log.info("Kick: chr {} by {}", chr != null ? chr.getId() : "-", at);
     }
 
     private static final java.util.concurrent.atomic.AtomicLong HEADLESS_DISCONNECTS_REFUSED =
