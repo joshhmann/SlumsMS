@@ -251,3 +251,23 @@ The text above stays as written; each line these items change carries a pointer 
 8. **Cards filed 6 Nov** (b331-b344) are placed by severity in the 1.6.5 book.
 9. **b324 and b327** (owner, 6 Nov): moved from 1.6.7 to 1.6.5 as must-ship bot-memory reliability fixes, Bots lane;
    acceptance on the b324 card.
+10. **Provisional optional allocations** (owner, 6 Nov). This is a planning baseline only: these items are not
+    must-ship and no work is authorized. Each one is deferred rather than allowed to delay its release. The release
+    objectives, must-ship requirements and acceptance gates stay authoritative, and optional work never joins the
+    critical path or becomes mandatory just because it is allocated.
+
+    | Release | Optional items | Drop order if capacity is short |
+    |---|---|---|
+    | 1.6.5 | b332 (ZPQ staging for QA, TEST only), b340 (zakumpq.yaml header documentation only), e08 (ramp-shaped bot boot fill; depends on b324, with an acceptance budget for refusals, peak contention, start-up duration and login responsiveness set from measurements before coding) | e08 to 1.6.7, then b332 to 1.6.6; b340 stays |
+    | 1.6.6 | b333 (public guide changelog page), s17 (real vs estimated kill counts) | s17, then b333 |
+    | 1.6.7 | e19, **only the repetition fix for existing dialogue**; no new dialogue content | if it cannot be done without affecting the schedule, it moves to 1.6.8 or 1.8.x |
+    | 1.6.8 | n15 (Chaos Zakum quota), e06 (training spot scoring and map lease) | e06 first |
+    | 1.6.9 | n11 (disable or re-gate the unfinished entry only; no new stages), n10 (Holiday PQ repair; optional, its seasonal relevance may justify a separate scheduling recommendation, but it never delays 1.6.9 or bypasses a gate), n12's Balrog Easy part, b338, e07, e12 | e07, e12, b338, Balrog Easy, n10; n11 last |
+
+    - **n03** (Ticket 283, quest coverage): **candidate pending owner approval.** It is outside the 1.6.9 optional
+      allocation and drop order until the owner approves admission after client, server and QA estimates.
+    - **n12, Von Leon and Cygnus:** research-only until client assets, engine compatibility and rewards are verified;
+      no implementation allocation. Hard Lotus stays 1.8.x (its maps are missing).
+    - The feature freeze covers new gameplay systems. Existing-content repairs, QA tools, reliability work and bounded
+      compatibility repairs may be candidates for earlier releases.
+    - Full ticket titles and acceptance criteria are on each card in the 1.6.5 book.
