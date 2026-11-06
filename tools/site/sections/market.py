@@ -424,7 +424,7 @@ class Market:
     def sidebar(self, root, here):
         groups = [(None, [("index.html", "Market home", "index")]),
                   ("My stuff", [("mine.html", "My market", "mine"), ("mine.html#trades", "My trades", "trades"),
-                                ("cards.html", "My cards", "cards"), ("stamps.html", "My stamps", "stamps"),
+                                ("cards.html", "OnlySlums", "cards"), ("stamps.html", "My stamps", "stamps"),
                                 ("invites.html", "My invites", "invites")]),
                   ("Market", [("sales.html", "Recent sales", "sales"), ("listings.html", "FM now", "listings"),
                               ("board.html", "Buy/Sell board", "board"),
@@ -698,15 +698,15 @@ def build_board(mk):
             '<ul class="mkmine" id="mk-trades"></ul></section></div>')
     mk.page(f"{MARKET}/mine.html", "My market", body, "mine", "Your watchlist, price alerts, posts and trades.")
     # theme.js fills it: the Slums-chan secrets this account has found, saved by the market service
-    body = ('<h1>My cards</h1><p class="lede">Slums-chan has hidden secrets all over the site. Every one you find '
+    body = ('<h1>OnlySlums</h1><p class="lede">Slums-chan has hidden secrets all over the site. Every one you find '
             'is a card, saved to your account so it shows on your other devices too. Three more come as rewards: '
             'one for unlocking her theme, one for finding the first fourteen and one for finding them all.</p>'
             '<p class="id" id="cards-n"></p>'
             '<p class="samplebar" id="cards-off" hidden>Your account&rsquo;s cards didn&rsquo;t load, so these are the '
             'ones found on this browser. Try again in a bit.</p>'
-            '<noscript><p class="small">Your cards need JavaScript turned on.</p></noscript>'
+            '<noscript><p class="small">Your OnlySlums cards need JavaScript turned on.</p></noscript>'
             '<ul class="cards" id="cards-grid"></ul>')
-    mk.page(f"{MARKET}/cards.html", "My cards", body, "cards", "The Slums-chan cards you've found.")
+    mk.page(f"{MARKET}/cards.html", "OnlySlums", body, "cards", "The OnlySlums cards you've found.")
 
 
 EXCHANGE = """<h1>Slums Exchange</h1>

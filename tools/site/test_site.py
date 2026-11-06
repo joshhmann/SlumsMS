@@ -1064,13 +1064,13 @@ console.log(JSON.stringify(out));""")
         mk = market.Market(market.load(self.market), {}, self.out)
         side = mk.sidebar("../", "board")
         side = side[:side.index('class="in"')]
-        self.assertRegex(side, r"Market home.*<h3>My stuff</h3>.*My market.*My trades.*My cards.*<h3>Market</h3>.*Recent sales"
+        self.assertRegex(side, r"Market home.*<h3>My stuff</h3>.*My market.*My trades.*OnlySlums.*<h3>Market</h3>.*Recent sales"
                                r".*FM now.*Buy/Sell board.*Price check.*NX rate.*Economy")
         self.assertIn('board.html" aria-current=page', side)
         self.assertIn('href="../market/mine.html#trades"', side)
         self.assertIn('href="../market/cards.html"', side)
         # b193: My stamps sits under My stuff; the page asks the market service for this account's own row only
-        self.assertRegex(side, r"My cards.*My stamps.*My invites")
+        self.assertRegex(side, r"OnlySlums.*My stamps.*My invites")
         self.assertIn('href="../market/stamps.html"', side)
         tmp = tempfile.mkdtemp(prefix="slums-stamps-")
         try:

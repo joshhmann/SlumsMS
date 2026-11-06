@@ -209,7 +209,7 @@
       card('<p class="secret-note"><b>There&rsquo;s a secret theme here.</b> Slums-chan has hidden ' + IDS.length +
         ' secrets around the site. Find three to unlock her theme. You&rsquo;ve found ' + n + " of " + IDS.length +
         '. <span class="muted">Hint: try a classic code, and say where you are.</span> Signed-in players only: ' +
-        'see them in <a href="' + base + 'market/cards">My cards</a>.</p>');
+        'see them in <a href="' + base + 'market/cards">OnlySlums</a>.</p>');
     });
   }
   function reveal(id, quiet) {  // quiet: no sign-in hint, and nothing if it's already found
@@ -232,7 +232,7 @@
       if (!was && unlocked()) note += " <b>The Slums-chan theme is unlocked:</b> pick it next to the colour dots up top.";
       var c = card('<img src="' + base + "secret/" + s.src + '" alt="" width="' + s.w + '" height="820">' +
         '<p class="secret-note"><b>You found a card: ' + s.name + (/[!?.]$/.test(s.name) ? "" : ".") + "</b> " + note +
-        ' <a href="' + base + 'market/cards">My cards</a></p>');
+        ' <a href="' + base + 'market/cards">OnlySlums</a></p>');
       c.querySelector("img").alt = s.alt;
       if (unlocked()) showUnlock();
     });

@@ -3,7 +3,7 @@
 Spoilers, for the team only. This file is not published: the site build copies only the page sources, assets,
 releases and secret/ pictures. Don't put these answers on the site, in patch notes or on Discord.
 
-Players see the cards in **My cards** (`market/cards.html`, in the Slums Market sidebar under "My stuff"). Found cards
+Players see the cards in **OnlySlums** (was "My cards") (`market/cards.html`, in the Slums Market sidebar under "My stuff"). Found cards
 show face up with the date. The rest show a "?" and the hint in the last column below.
 
 ## Who can find them
