@@ -9623,10 +9623,24 @@ public class Character extends AbstractCharacterObject {
     }
 
     public synchronized void saveCooldowns() {
-        List<PlayerCoolDownValueHolder> listcd = getAllCooldowns();
+        SaveExtra write = cooldownsExtra();
+        try (Connection con = DatabaseConnection.getConnection()) {
+            write.run(con);
+        } catch (SQLException se) {
+            log.error("Error saving cooldowns of chr {}", name, se);
+        }
+    }
 
-        if (!listcd.isEmpty()) {
-            try (Connection con = DatabaseConnection.getConnection()) {
+    /**
+     * Snapshots the cooldowns and diseases now and returns the write for them, to join a save's transaction
+     * (P0-5): logout takes the snapshot, then clears the debuffs, then saves, and a failed write rolls the whole
+     * save back instead of being swallowed on a connection of its own.
+     */
+    public SaveExtra cooldownsExtra() {
+        List<PlayerCoolDownValueHolder> listcd = getAllCooldowns();
+        Map<Disease, Pair<Long, MobSkill>> listds = getAllDiseases();
+        return con -> {
+            if (!listcd.isEmpty()) {
                 deleteWhereCharacterId(con, "DELETE FROM cooldowns WHERE charid = ?");
                 try (PreparedStatement ps = con.prepareStatement("INSERT INTO cooldowns (charid, SkillID, StartTime, length) VALUES (?, ?, ?, ?)")) {
                     ps.setInt(1, getId());
@@ -9638,21 +9652,13 @@ public class Character extends AbstractCharacterObject {
                     }
                     ps.executeBatch();
                 }
-            } catch (SQLException se) {
-                se.printStackTrace();
             }
-        }
-
-        Map<Disease, Pair<Long, MobSkill>> listds = getAllDiseases();
-        if (!listds.isEmpty()) {
-            try (Connection con = DatabaseConnection.getConnection()) {
+            if (!listds.isEmpty()) {
                 deleteWhereCharacterId(con, "DELETE FROM playerdiseases WHERE charid = ?");
                 try (PreparedStatement ps = con.prepareStatement("INSERT INTO playerdiseases (charid, disease, mobskillid, mobskilllv, length) VALUES (?, ?, ?, ?, ?)")) {
                     ps.setInt(1, getId());
-
                     for (Entry<Disease, Pair<Long, MobSkill>> e : listds.entrySet()) {
                         ps.setInt(2, e.getKey().ordinal());
-
                         MobSkill ms = e.getValue().getRight();
                         MobSkillId msId = ms.getId();
                         ps.setInt(3, msId.type().getId());
@@ -9660,13 +9666,10 @@ public class Character extends AbstractCharacterObject {
                         ps.setInt(5, e.getValue().getLeft().intValue());
                         ps.addBatch();
                     }
-
                     ps.executeBatch();
                 }
-            } catch (SQLException se) {
-                se.printStackTrace();
             }
-        }
+        };
     }
 
     public void saveGuildStatus() {
@@ -9868,26 +9871,34 @@ public class Character extends AbstractCharacterObject {
         return false;
     }
 
-    public void saveCharToDB() {
-        if (soloMapling.ArtificialPlayer.BotHelpers.isRosterBot(this)) return;
+    /** What a save did (P0-5): a skipped save (roster bot, not logged in, closing alt) is not a failure. */
+    public enum SaveResult { SAVED, SKIPPED, FAILED, QUEUED }
+
+    /** Saves now, or queues the save when autosave scheduling is on (then QUEUED: the outcome is not known yet). */
+    public SaveResult saveCharToDB() {
+        if (soloMapling.ArtificialPlayer.BotHelpers.isRosterBot(this)) return SaveResult.SKIPPED;
         if (YamlConfig.config.server.USE_AUTOSAVE) {
             Runnable r = new Runnable() {
                 @Override
                 public void run() {
-                    saveCharToDB(true);
+                    if (saveCharToDBResult(true, null) == SaveResult.FAILED) {
+                        log.warn("Queued save of chr {} did not commit", name);
+                    }
                 }
             };
 
             CharacterSaveService service = (CharacterSaveService) getWorldServer().getServiceAccess(WorldServices.SAVE_CHARACTER);
             service.registerSaveCharacter(this.getId(), r);
+            return SaveResult.QUEUED;
         } else {
-            saveCharToDB(true);
+            return saveCharToDBResult(true, null);
         }
     }
 
     //ItemFactory saveItems and monsterbook.saveCards are the most time consuming here.
-    public synchronized void saveCharToDB(boolean notAutosave) {
-        saveCharToDB(notAutosave, null);
+    /** True only when the save committed. */
+    public synchronized boolean saveCharToDB(boolean notAutosave) {
+        return saveCharToDB(notAutosave, null);
     }
 
     /** Extra writes that join a character save's transaction (P0-1: the buyback journal's APPLIED mark). */
@@ -9901,12 +9912,17 @@ public class Character extends AbstractCharacterObject {
      * commit. If it throws, the whole save rolls back. Returns true only when the commit succeeded.
      */
     public synchronized boolean saveCharToDB(boolean notAutosave, SaveExtra extra) {
-        if (soloMapling.ArtificialPlayer.BotHelpers.isRosterBot(this)) return false;
+        return saveCharToDBResult(notAutosave, extra) == SaveResult.SAVED;
+    }
+
+    /** Like {@link #saveCharToDB(boolean, SaveExtra)}, but tells a skipped save from a failed one. */
+    public synchronized SaveResult saveCharToDBResult(boolean notAutosave, SaveExtra extra) {
+        if (soloMapling.ArtificialPlayer.BotHelpers.isRosterBot(this)) return SaveResult.SKIPPED;
         if (!loggedIn) {
-            return false;
+            return SaveResult.SKIPPED;
         }
         // Once an alt is closing, only its one final save may write: a late autosave must not race a takeover login.
-        if (ownedAltClosing && !ownedAltFinalSave) return false;
+        if (ownedAltClosing && !ownedAltFinalSave) return SaveResult.SKIPPED;
 
         Calendar c = Calendar.getInstance();
         log.debug("Attempting to {} chr {}", notAutosave ? "save" : "autosave", name);
@@ -10055,7 +10071,7 @@ public class Character extends AbstractCharacterObject {
                 }
 
                 for (Pet pet : petList) {
-                    pet.saveToDb();
+                    pet.saveToDb(con);   // P0-5: in this transaction, a failed pet write fails the save
                 }
 
                 for (Entry<Integer, Set<Integer>> es : getExcluded().entrySet()) {    // this set is already protected
@@ -10332,7 +10348,7 @@ public class Character extends AbstractCharacterObject {
 
                 con.commit();
                 if (isOwnedAlt()) ownedAltSaveCommitted = true;
-                return true;
+                return SaveResult.SAVED;
             } catch (Exception e) {
                 con.rollback();
                 throw e;
@@ -10345,7 +10361,7 @@ public class Character extends AbstractCharacterObject {
             // Never throw here: autosave and !saveall loop over every character. saveOwnedAltToDB fails closed
             // on its own when the commit did not happen.
         }
-        return false;
+        return SaveResult.FAILED;
     }
 
     public void sendPolice(int greason, String reason, int duration) {
