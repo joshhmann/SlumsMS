@@ -33,9 +33,9 @@ steps:
   - {id: to-recruit, do: gm, line: "!warp 211042400"}
   - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 211042400}, timeout_ms: 30000}
   - {id: call-alt-1, do: chat, text: "@botme AqClientAlt1"}
-  - {id: alt-1-here, do: wait, armed_at: call-alt-1, signal: {type: server_line, topic: OWNED_ALT, regex: "AqClientAlt1", char: me}, timeout_ms: 20000}
+  - {id: alt-1-here, do: wait, armed_at: call-alt-1, signal: {type: server_line, topic: OWNED_ALT, regex: "loaded alt=105", char: me}, timeout_ms: 20000}
   - {id: call-alt-2, do: chat, text: "@botme AqClientAlt2"}
-  - {id: alt-2-here, do: wait, armed_at: call-alt-2, signal: {type: server_line, topic: OWNED_ALT, regex: "AqClientAlt2", char: me}, timeout_ms: 20000}
+  - {id: alt-2-here, do: wait, armed_at: call-alt-2, signal: {type: server_line, topic: OWNED_ALT, regex: "loaded alt=106", char: me}, timeout_ms: 20000}
   - {id: talk-1, do: click_npc, npc: 2030013}
   - {id: dialog-1, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
   - {id: lets-go, do: click, anchor: npc_dialog.option_1}
