@@ -1,0 +1,58 @@
+# Zakum end-to-end, PARTIAL (not acceptance): a human expedition leader, an owned alt and a second owned alt standing in for
+# the regular reach the altar through the real expedition NPC 2030013 (assertion (a)). Assertion (b), the leader dropping the
+# Eye of Fire, needs Client's drop_item step (P1-Q2) and the regular-in-party step needs party_create/party_invite; until
+# those exist this run only shakes out entry. Label the result "partial, not acceptance" in latest.json (Coordinator).
+# GM staging used (noted in the run record): !item 4001017 (the leader needs one Eye of Fire to open an expedition),
+# !warp 211042400, @botme for the two alts.
+id: zakum-e2e-partial
+title: Human leader and two owned alts register a Zakum expedition and reach the altar (partial, not acceptance)
+covers: [feature-zakum-e2e, b331]
+status: draft
+server: test
+needs: [gm, owned_alt, proposed_anchors, proposed_signals, proposed_steps]
+notes: "tarkov2 QA account (AqClient lv120 GM; alts AqClientAlt1 and AQALT2 at 120). TEST build with the batch 1+2 deploy; hex logger on (Server Dev decodes SPAWN_PLAYER of the alts on 280030000). NPC 2030013 is on 211042400; menu rows: first dialog 'Lets get this going!' (1); leader menu View members (1), Start the fight! (2), Stop (3). The expedition quota is spent by the attempt (assertion (e) will read it later). Needs the expedition free on the channel. Replace AQALT2 with the second alt's name from d1-raise-alt-slot2 before running."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: eye, do: gm, line: "!item 4001017 1", note: "the expedition leader must hold an Eye of Fire to register"}
+  - {id: to-recruit, do: gm, line: "!warp 211042400"}
+  - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 211042400}, timeout_ms: 30000}
+  - {id: call-alt-1, do: chat, text: "@botme AqClientAlt1"}
+  - {id: alt-1-here, do: wait, armed_at: call-alt-1, signal: {type: server_line, topic: OWNED_ALT, regex: "AqClientAlt1", char: me}, timeout_ms: 20000}
+  - {id: call-alt-2, do: chat, text: "@botme AQALT2"}
+  - {id: alt-2-here, do: wait, armed_at: call-alt-2, signal: {type: server_line, topic: OWNED_ALT, regex: "AQALT2", char: me}, timeout_ms: 20000}
+  - {id: talk-1, do: click_npc, npc: 2030013}
+  - {id: dialog-1, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: lets-go, do: click, anchor: npc_dialog.option_1}
+  - {id: closed-1, do: wait, signal: {type: client_signal, name: window.closed, window: npc_dialog}, timeout_ms: 10000}
+  - {do: sleep, ms: 8000, reason: "the alts register for the expedition by their own scripts"}
+  - {id: talk-2, do: click_npc, npc: 2030013}
+  - {id: dialog-2, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: start-fight, do: click, anchor: npc_dialog.option_2}
+  - {id: at-altar, do: wait, signal: {type: client_signal, name: field.ready, map_id: 280030000}, timeout_ms: 60000}
+  - {do: sleep, ms: 10000, reason: "give the alts time to arrive in the altar room for the frame and the hex logger"}
+captures:
+  - {id: party, burst: {fps: 2, ms: 2000, at: {step: alt-2-here}}}
+  - {id: altar, burst: {fps: 2, ms: 5000, at: {signal: at-altar}}}
+expect:
+  reviewer:
+    - see: "The leader with both alts at the Zakum recruiter before the start"
+      in: [party]
+    - see: "The leader in Zakum's altar room with the alts beside it"
+      in: [altar]
+  checks:
+    - {check: client_alive}
+  judgment: "Partial, not acceptance. PASS for this script = the leader reaches 280030000 and the hex logger shows both alts' SPAWN_PLAYER there (assertion (a) for the stand-ins). Assertions (b)-(g) are not run."
