@@ -38,6 +38,13 @@ anchors:
   npc_dialog.next:            {screen: field, status: proposed, what: "Next in an NPC dialog"}
   npc_dialog.yes:             {screen: field, status: proposed, what: "Yes in an NPC yes/no dialog"}
   npc_dialog.option_1:        {screen: field, status: proposed, what: "the first option of an NPC menu"}
+  npc_dialog.option_2:        {screen: field, status: proposed, what: "menu row 2 of an NPC menu (QA client: click_option 2, no mouse)"}
+  npc_dialog.option_3:        {screen: field, status: proposed, what: "menu row 3 of an NPC menu (QA client: click_option 3, no mouse)"}
+  npc_dialog.option_4:        {screen: field, status: proposed, what: "menu row 4 of an NPC menu (QA client: click_option 4, no mouse)"}
+  npc_dialog.option_5:        {screen: field, status: proposed, what: "menu row 5 of an NPC menu (QA client: click_option 5, no mouse)"}
+  npc_dialog.option_6:        {screen: field, status: proposed, what: "menu row 6 of an NPC menu (QA client: click_option 6, no mouse)"}
+  npc_dialog.option_7:        {screen: field, status: proposed, what: "menu row 7 of an NPC menu (QA client: click_option 7, no mouse)"}
+  npc_dialog.option_8:        {screen: field, status: proposed, what: "menu row 8 of an NPC menu (QA client: click_option 8, no mouse)"}
   npc_dialog.close:           {screen: field, status: proposed, what: "End chat / close on an NPC dialog"}
   menu.cash_shop:             {screen: field, status: proposed, what: "the Cash Shop button on the status bar (t-cl-2, t-rg-1)"}
   cash_shop.exit:             {screen: cash_shop, status: proposed, what: "Exit in the Cash Shop"}
