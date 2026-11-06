@@ -72,6 +72,31 @@ class ApproachBossPartTest {
                 "the spot is " + dx + " px from the head's centre; the run swings only within " + MELEE_REACH[0]);
     }
 
+    /**
+     * The run's own gate (StepExecutor.fight): it walks the member to {@code fightSpot}, the walk counts anywhere within
+     * reach/3 of the spot as arrived (moveNear), and it swings only when {@code BotAttackDriver.canSwingFrom} passes
+     * with {@code Approach.reach}. Wherever the walk stops, the swing must now go out.
+     */
+    @Test
+    void theRunsSwingGatePassesWhereverTheWalkToTheSpotStops() {
+        Rectangle body = new Rectangle(HEAD_X - 120, -300, 240, 300);
+        Monster headA = mob(8810000, true, body);
+        MapleMap map = mock(MapleMap.class);
+        int spotX = spotFor(headA, body)[0];
+        int tolerance = Math.max(10, MELEE_REACH[0] / 3);
+        soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver.ledges = (m, a, b) -> false;
+        try {
+            for (int stop = spotX - tolerance; stop <= spotX + tolerance; stop++) {
+                assertTrue(soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver.canSwingFrom(map,
+                                new Point(stop, 2), headA, MELEE_REACH[0], MELEE_REACH[1]),
+                        "a member that stopped at x " + stop + " (head at " + HEAD_X + ") swings");
+            }
+        } finally {
+            soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver.ledges =
+                    soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver.NAV_LEDGES;
+        }
+    }
+
     @Test
     void anOrdinaryBigMobStillHasItsFighterStandPastItsBody() {
         Rectangle body = new Rectangle(HEAD_X - 60, -120, 120, 120);
