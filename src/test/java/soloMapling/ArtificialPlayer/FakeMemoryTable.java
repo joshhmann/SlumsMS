@@ -54,6 +54,25 @@ public final class FakeMemoryTable {
         BotMemory.useConnectionSourceForTest(null);
     }
 
+    /**
+     * 1.6.5 b324/b327: the next this-many statements whose SQL {@link #refuseWhen} accepts are refused the way
+     * {@link BotDbGate} refuses a busy share (a {@link BotDbGate.RefusedException}: the work never ran). The
+     * refusal is raised where the statement is prepared, so a schema probe on the same path is never the one refused.
+     */
+    public final AtomicInteger refuseNext = new AtomicInteger();
+    public volatile java.util.function.Predicate<String> refuseWhen = sql -> true;
+    /** Statements refused so far. */
+    public final AtomicInteger refused = new AtomicInteger();
+    /** JDBC batches executed (1.6.5 b324: one per stamp column per flush). */
+    public final AtomicInteger batches = new AtomicInteger();
+
+    private void maybeRefuse(String sql) throws SQLException {
+        if (refuseWhen.test(sql) && refuseNext.getAndUpdate(n -> n > 0 ? n - 1 : 0) > 0) {
+            refused.incrementAndGet();
+            throw new BotDbGate.RefusedException("test: the bots' share is busy");
+        }
+    }
+
     public void install() {
         BotMemory.useConnectionSourceForTest(() -> {
             Connection con = mock(Connection.class);
@@ -89,6 +108,7 @@ public final class FakeMemoryTable {
     }
 
     private PreparedStatement statement(String sql) throws Exception {
+        maybeRefuse(sql);
         boolean kinds = sql.equals(BotMemory.INSERT_KINDS) || sql.equals(BotMemory.PROBE_KINDS)
                 || sql.equals(BotMemory.KIND_COUNTS) || sql.equals(BotMemory.PRUNE_LIGHT) || sql.equals(BotMemory.PRUNE_HEAVY)
                 || sql.equals(BotMemory.FOLLOWED_UP) || sql.equals(BotMemory.MERGE_KINDS)
@@ -106,6 +126,25 @@ public final class FakeMemoryTable {
         doAnswer(c -> bound.put(c.getArgument(0), c.getArgument(1))).when(ps).setDouble(anyInt(), anyDouble());
         doAnswer(c -> bound.put(c.getArgument(0), null)).when(ps).setNull(anyInt(), anyInt());
         long[] lastId = {0};
+        // 1.6.5 b324: stamps are written as one JDBC batch per flush
+        List<Map<Integer, Object>> batch = new ArrayList<>();
+        doAnswer(c -> batch.add(new HashMap<>(bound))).when(ps).addBatch();
+        when(ps.executeBatch()).thenAnswer(c -> {
+            batches.incrementAndGet();
+            int[] counts = new int[batch.size()];
+            synchronized (rows) {
+                if (sql.equals(BotMemory.TOUCH) || sql.equals(BotMemory.FOLLOWED_UP)) {
+                    String col = sql.equals(BotMemory.TOUCH) ? "LastUsedAt" : "FollowedUpAt";
+                    for (int i = 0; i < batch.size(); i++) {
+                        Map<Integer, Object> b = batch.get(i);
+                        rows.stream().filter(r -> r.get("Id").equals(b.get(2))).forEach(r -> r.put(col, b.get(1)));
+                        counts[i] = 1;
+                    }
+                }
+            }
+            batch.clear();
+            return counts;
+        });
         when(ps.executeUpdate()).thenAnswer(c -> {
             synchronized (rows) {
                 if (sql.equals(BotMemory.INSERT) || sql.equals(BotMemory.INSERT_KINDS)

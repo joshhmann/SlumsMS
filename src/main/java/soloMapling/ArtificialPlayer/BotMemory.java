@@ -363,6 +363,9 @@ public final class BotMemory {
     }
 
     private static void put(long key, List<Note> notes) {
+        if (unread.contains(key)) {
+            return; // 1.6.5 b327: the pair was never read, so these notes are not all it holds; the next look reads it
+        }
         synchronized (cache) {
             cache.put(key, List.copyOf(notes));
         }
@@ -375,7 +378,16 @@ public final class BotMemory {
         if (known != null) {
             return known;
         }
-        List<Note> loaded = List.copyOf(load(botId, charId)); // read outside the cache's lock
+        List<Note> read = load(botId, charId); // read outside the cache's lock
+        if (read == null) {
+            // 1.6.5 b327: the read did not happen (a busy share, a broken table). Nothing is cached, so the next look
+            // reads again; before this the empty list was cached and the bot "knew nothing" until eviction or restart.
+            // A writer holding the pair's lock sees the pair as unread and does not cache its partial view (put)
+            unread.add(k);
+            return List.of();
+        }
+        unread.remove(k);
+        List<Note> loaded = List.copyOf(read);
         synchronized (cache) {
             List<Note> raced = cache.get(k);
             if (raced != null) {
@@ -668,7 +680,7 @@ public final class BotMemory {
             background.execute(() -> {
                 for (Note n : done) {
                     if (n.id() > 0) {
-                        update(FOLLOWED_UP, now, n.id());
+                        queueStamp(pendingFollow, n.id(), now); // 1.6.5 b324: batched like the last-used stamp
                     }
                 }
             });
@@ -1294,6 +1306,15 @@ public final class BotMemory {
      * (-1 when the database could not answer).
      */
     static int prune(long now) {
+        // 1.6.5 b324: the sweep reads LastUsedAt from the table, so stamps still queued are written first; if the share
+        // will not take them now, this sweep is skipped (the next one is 6 h away) rather than forget a note just used
+        flushPending();
+        synchronized (PENDING) {
+            if (!pendingTouch.isEmpty()) {
+                log.debug("Bot memory sweep skipped: {} last-used stamps are still waiting to be written", pendingTouch.size());
+                return -1;
+            }
+        }
         int removed = 0;
         boolean extended = hasKinds();
         try (Connection con = connections().get()) {
@@ -1432,6 +1453,7 @@ public final class BotMemory {
         }
     }
 
+    /** The pair's notes, or null when they could not be read (1.6.5 b327: not the same thing as "none"). */
     private static List<Note> load(int botId, int charId) {
         List<Note> notes = new ArrayList<>();
         boolean extended = hasKinds();
@@ -1445,7 +1467,33 @@ public final class BotMemory {
                 }
             }
         } catch (SQLException e) {
-            log.warn("Could not read what bot {} remembers about {}", botId, charId, e);
+            if (BotDbGate.refused(e)) {
+                LOADS_REFUSED.incrementAndGet();
+                log.debug("The bots' share refused reading what bot {} remembers about {}", botId, charId);
+            } else {
+                LOADS_FAILED.incrementAndGet();
+                log.warn("Could not read what bot {} remembers about {}", botId, charId, e);
+            }
+            return null;
+        }
+        LOADS_OK.incrementAndGet();
+        // 1.6.5 b324: a stamp still queued is newer than the row: the read pair carries it, so an evicted pair read back
+        // before the flush does not bring back a follow-up that was already made
+        synchronized (PENDING) {
+            if (!pendingTouch.isEmpty() || !pendingFollow.isEmpty()) {
+                for (int i = 0; i < notes.size(); i++) {
+                    Note n = notes.get(i);
+                    Long used = pendingTouch.get(n.id());
+                    Long followed = pendingFollow.get(n.id());
+                    if (used != null && used > n.lastUsedAt()) {
+                        n = n.used(used);
+                    }
+                    if (followed != null && followed > n.followedUpAt()) {
+                        n = n.followedUp(followed);
+                    }
+                    notes.set(i, n);
+                }
+            }
         }
         return notes;
     }
@@ -1531,7 +1579,28 @@ public final class BotMemory {
         }
     }
 
+    /**
+     * Stores a new note. 1.6.5 b324: a refusal of the bots' share no longer loses it: the note is queued (capped) and
+     * written by the next flush ({@link #flushPending}), and the caller keeps it in memory with id 0 meanwhile. A
+     * queue at its cap drops the note and counts it; any other failure counts it as failed. Either way the caller gets
+     * null, never a note that looks stored.
+     */
     private static Note insert(Note note) {
+        try {
+            Note stored = insertRow(note);
+            INSERTS_WRITTEN.incrementAndGet();
+            return stored;
+        } catch (SQLException e) {
+            if (BotDbGate.refused(e)) {
+                return queueInsert(note);
+            }
+            INSERTS_FAILED.incrementAndGet();
+            log.warn("Could not store a memory of bot {}", note.botId(), e);
+            return null;
+        }
+    }
+
+    private static Note insertRow(Note note) throws SQLException {
         boolean social = hasSocial();
         boolean extended = social || hasKinds();
         try (Connection con = connections().get();
@@ -1570,14 +1639,14 @@ public final class BotMemory {
                     note.hops(), note.createdAt(), note.lastUsedAt(), note.kind(), note.weight(), note.tag(),
                     note.followedUpAt(), note.subjectType(), note.locationMapId(), note.confidence(), note.valence(),
                     note.provenance(), note.otherId());
-        } catch (SQLException e) {
-            log.warn("Could not store a memory of bot {}", note.botId(), e);
-            return null;
         }
     }
 
     private static void delete(Note note) {
         if (note.id() <= 0) {
+            synchronized (PENDING) {
+                pendingInserts.remove(note); // a queued note forgotten before it was written is never written
+            }
             return; // a memory-only slot
         }
         try (Connection con = connections().get(); PreparedStatement ps = con.prepareStatement(DELETE)) {
@@ -1610,26 +1679,297 @@ public final class BotMemory {
                 put(k, stamped);
             }
         }
-        background.execute(() -> {
-            for (Long id : ids) {
-                update(TOUCH, now, id);
-            }
-        });
-    }
-
-    private static void update(String sql, long value, long id) {
-        try (Connection con = connections().get(); PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setLong(1, value);
-            ps.setLong(2, id);
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            log.debug("Could not update memory {}", id, e);
+        // 1.6.5 b324: one queued stamp per note (the newest wins), written in one batch per flush on a platform thread,
+        // instead of one virtual-thread UPDATE per note that a busy share refused and the code then dropped
+        for (Long id : ids) {
+            queueStamp(pendingTouch, id, now);
         }
     }
 
     private static BotStore.ConnectionSource connections() {
         BotStore.ConnectionSource source = connectionSource;
         return source != null ? source : BotDbGate::connection;
+    }
+
+    // ── 1.6.5 b324/b327: refused work is kept, retried a bounded number of times, capped and counted ──
+
+    /** Pending stamps (last-used and followed-up together) the queue holds at most; past it a new one is dropped. */
+    static final int MAX_PENDING_STAMPS = 20_000;
+    /** Pending inserts the queue holds at most; past it a new note is dropped (and counted). */
+    static final int MAX_PENDING_INSERTS = 2_000;
+    /** Stamps per JDBC batch, and inserts per flush: one flush holds one permit for one bounded piece of work. */
+    static final int STAMP_BATCH = 500;
+    static final int INSERT_BATCH = 100;
+    /** How often the flusher writes what is pending. */
+    static final long FLUSH_EVERY_MS = 5_000;
+
+    private static volatile int stampCap = MAX_PENDING_STAMPS;
+    private static volatile int insertCap = MAX_PENDING_INSERTS;
+    /** Guards the three queues below. */
+    private static final Object PENDING = new Object();
+    /** Note id -> the newest stamp waiting to be written, oldest first. */
+    private static final LinkedHashMap<Long, Long> pendingTouch = new LinkedHashMap<>();
+    private static final LinkedHashMap<Long, Long> pendingFollow = new LinkedHashMap<>();
+    /** Notes whose insert the share refused, oldest first; each is in its pair's cache with id 0 meanwhile. */
+    private static final java.util.ArrayDeque<Note> pendingInserts = new java.util.ArrayDeque<>();
+    /** Pairs whose last read did not happen (b327): never cached from a writer's partial view. */
+    private static final Set<Long> unread = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private static final java.util.concurrent.atomic.AtomicBoolean flushing = new java.util.concurrent.atomic.AtomicBoolean();
+    private static final java.util.concurrent.atomic.AtomicBoolean flusherStarted = new java.util.concurrent.atomic.AtomicBoolean();
+
+    private static final java.util.concurrent.atomic.AtomicLong LOADS_OK = new java.util.concurrent.atomic.AtomicLong();
+    private static final java.util.concurrent.atomic.AtomicLong LOADS_REFUSED = new java.util.concurrent.atomic.AtomicLong();
+    private static final java.util.concurrent.atomic.AtomicLong LOADS_FAILED = new java.util.concurrent.atomic.AtomicLong();
+    private static final java.util.concurrent.atomic.AtomicLong STAMPS_QUEUED = new java.util.concurrent.atomic.AtomicLong();
+    private static final java.util.concurrent.atomic.AtomicLong STAMPS_WRITTEN = new java.util.concurrent.atomic.AtomicLong();
+    private static final java.util.concurrent.atomic.AtomicLong STAMPS_DROPPED = new java.util.concurrent.atomic.AtomicLong();
+    private static final java.util.concurrent.atomic.AtomicLong STAMPS_FAILED = new java.util.concurrent.atomic.AtomicLong();
+    private static final java.util.concurrent.atomic.AtomicLong STAMP_FLUSHES_REFUSED = new java.util.concurrent.atomic.AtomicLong();
+    private static final java.util.concurrent.atomic.AtomicLong INSERTS_WRITTEN = new java.util.concurrent.atomic.AtomicLong();
+    private static final java.util.concurrent.atomic.AtomicLong INSERTS_QUEUED = new java.util.concurrent.atomic.AtomicLong();
+    private static final java.util.concurrent.atomic.AtomicLong INSERTS_RETRIED_OK = new java.util.concurrent.atomic.AtomicLong();
+    private static final java.util.concurrent.atomic.AtomicLong INSERTS_FAILED = new java.util.concurrent.atomic.AtomicLong();
+    private static final java.util.concurrent.atomic.AtomicLong INSERTS_DROPPED = new java.util.concurrent.atomic.AtomicLong();
+
+    /**
+     * What bot memory's database work came to since boot, by operation: the {@code BotDbGate} minute line carries it
+     * ({@link #statsLine}) and the tests read it. "Written" moves only for a row that was written; every refused, failed
+     * or dropped piece of work moves its own counter, so nothing lost is ever counted as a success.
+     */
+    public record Stats(long loadsOk, long loadsRefused, long loadsFailed, long touchesQueued, long touchesWritten,
+                        long touchesDropped, long touchesFailed, long touchFlushesRefused, long insertsWritten,
+                        long insertsQueued, long insertsRetriedOk, long insertsFailed, long insertsDropped,
+                        int pendingTouches, int pendingInserts) {
+    }
+
+    public static Stats stats() {
+        int stamps;
+        int inserts;
+        synchronized (PENDING) {
+            stamps = pendingTouch.size() + pendingFollow.size();
+            inserts = pendingInserts.size();
+        }
+        return new Stats(LOADS_OK.get(), LOADS_REFUSED.get(), LOADS_FAILED.get(), STAMPS_QUEUED.get(),
+                STAMPS_WRITTEN.get(), STAMPS_DROPPED.get(), STAMPS_FAILED.get(), STAMP_FLUSHES_REFUSED.get(),
+                INSERTS_WRITTEN.get(), INSERTS_QUEUED.get(), INSERTS_RETRIED_OK.get(), INSERTS_FAILED.get(),
+                INSERTS_DROPPED.get(), stamps, inserts);
+    }
+
+    /** The memory half of the {@code BotDbGate} minute line: every operation's outcome since boot, and what waits. */
+    public static String statsLine() {
+        Stats s = stats();
+        return "memory loads ok=" + s.loadsOk() + " refused=" + s.loadsRefused() + " failed=" + s.loadsFailed()
+                + "; stamps queued=" + s.touchesQueued() + " written=" + s.touchesWritten() + " dropped="
+                + s.touchesDropped() + " failed=" + s.touchesFailed() + " flushesRefused=" + s.touchFlushesRefused()
+                + " pending=" + s.pendingTouches() + "; inserts written=" + s.insertsWritten() + " queued="
+                + s.insertsQueued() + " retriedOk=" + s.insertsRetriedOk() + " failed=" + s.insertsFailed()
+                + " dropped=" + s.insertsDropped() + " pending=" + s.pendingInserts();
+    }
+
+    /** Queues one stamp; a note already queued keeps one entry with the newest value (no cap needed for it). */
+    private static void queueStamp(LinkedHashMap<Long, Long> queue, long id, long value) {
+        if (id <= 0) {
+            return;
+        }
+        synchronized (PENDING) {
+            Long had = queue.get(id);
+            if (had != null) {
+                queue.put(id, Math.max(had, value));
+                return;
+            }
+            if (pendingTouch.size() + pendingFollow.size() >= stampCap) {
+                STAMPS_DROPPED.incrementAndGet();
+                return;
+            }
+            queue.put(id, value);
+            STAMPS_QUEUED.incrementAndGet();
+        }
+        startFlusher();
+    }
+
+    /** A refused insert: queued (with id 0, so the caller keeps it in memory), or dropped and counted at the cap. */
+    private static Note queueInsert(Note note) {
+        synchronized (PENDING) {
+            if (pendingInserts.size() >= insertCap) {
+                INSERTS_DROPPED.incrementAndGet();
+                log.debug("The bots' share refused a memory of bot {} and the retry queue is full ({}): dropped",
+                        note.botId(), insertCap);
+                return null;
+            }
+            pendingInserts.addLast(note);
+            INSERTS_QUEUED.incrementAndGet();
+        }
+        startFlusher();
+        return note;
+    }
+
+    /**
+     * Starts the 5-second flusher once, against the real pool only: a test that installs its own connection source
+     * calls {@link #flushPending} itself. The flush runs on a platform thread ({@code runBotDb}), the one kind of thread
+     * that may wait for the bots' share (BotDbGate's class notes), and at most one flush runs at a time.
+     */
+    private static void startFlusher() {
+        if (connectionSource != null || !flusherStarted.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            soloMapling.server.ExecutorServiceManager.getScheduledExecutorService().scheduleWithFixedDelay(
+                    () -> soloMapling.server.ExecutorServiceManager.runBotDb(BotMemory::flushPending),
+                    FLUSH_EVERY_MS, FLUSH_EVERY_MS, TimeUnit.MILLISECONDS);
+        } catch (RuntimeException e) {
+            flusherStarted.set(false); // no scheduler yet (early boot): the next queued write tries again
+        }
+    }
+
+    /**
+     * Writes what is pending: each stamp column as one JDBC batch of at most {@link #STAMP_BATCH}, then at most
+     * {@link #INSERT_BATCH} queued inserts, each through {@link BotDbGate#write} (a refusal is asked again a bounded
+     * number of times). Whatever the share still refuses stays queued for the next flush; a statement that fails for
+     * any other reason is dropped and counted as failed, so a bad row is never retried for ever.
+     */
+    static void flushPending() {
+        if (!flushing.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            flushStamps(TOUCH, pendingTouch);
+            flushStamps(FOLLOWED_UP, pendingFollow);
+            flushInserts();
+        } catch (RuntimeException e) {
+            log.warn("Bot memory flush failed; what is pending stays queued", e);
+        } finally {
+            flushing.set(false);
+        }
+    }
+
+    private static void flushStamps(String sql, LinkedHashMap<Long, Long> queue) {
+        List<Map.Entry<Long, Long>> batch = new ArrayList<>();
+        synchronized (PENDING) {
+            for (Map.Entry<Long, Long> e : queue.entrySet()) {
+                batch.add(Map.entry(e.getKey(), e.getValue()));
+                if (batch.size() >= STAMP_BATCH) {
+                    break;
+                }
+            }
+        }
+        if (batch.isEmpty()) {
+            return;
+        }
+        try {
+            BotDbGate.write(() -> {
+                try (Connection con = connections().get(); PreparedStatement ps = con.prepareStatement(sql)) {
+                    for (Map.Entry<Long, Long> e : batch) {
+                        ps.setLong(1, e.getValue());
+                        ps.setLong(2, e.getKey());
+                        ps.addBatch();
+                    }
+                    ps.executeBatch();
+                }
+                return null;
+            });
+            settle(queue, batch);
+            STAMPS_WRITTEN.addAndGet(batch.size());
+        } catch (SQLException e) {
+            if (BotDbGate.refused(e)) {
+                STAMP_FLUSHES_REFUSED.incrementAndGet(); // kept: the next flush asks again
+                log.debug("The bots' share refused {} memory stamps; they stay queued", batch.size());
+            } else {
+                settle(queue, batch);
+                STAMPS_FAILED.addAndGet(batch.size());
+                log.warn("Could not write {} memory stamps; dropped", batch.size(), e);
+            }
+        }
+    }
+
+    /** Takes written (or failed) stamps off the queue, unless a newer stamp arrived for that note meanwhile. */
+    private static void settle(LinkedHashMap<Long, Long> queue, List<Map.Entry<Long, Long>> batch) {
+        synchronized (PENDING) {
+            for (Map.Entry<Long, Long> e : batch) {
+                queue.remove(e.getKey(), e.getValue());
+            }
+        }
+    }
+
+    private static void flushInserts() {
+        for (int i = 0; i < INSERT_BATCH; i++) {
+            Note next;
+            synchronized (PENDING) {
+                next = pendingInserts.peekFirst();
+            }
+            if (next == null) {
+                return;
+            }
+            Note stored;
+            try {
+                stored = BotDbGate.write(() -> insertRow(next));
+            } catch (SQLException e) {
+                if (BotDbGate.refused(e)) {
+                    log.debug("The bots' share refused a queued memory of bot {}; it stays queued", next.botId());
+                    return; // the share is busy: the rest waits for the next flush too
+                }
+                synchronized (PENDING) {
+                    pendingInserts.remove(next);
+                }
+                INSERTS_FAILED.incrementAndGet();
+                log.warn("Could not store a queued memory of bot {}; dropped", next.botId(), e);
+                continue;
+            }
+            synchronized (PENDING) {
+                pendingInserts.remove(next);
+            }
+            INSERTS_WRITTEN.incrementAndGet();
+            INSERTS_RETRIED_OK.incrementAndGet();
+            long k = key(next.botId(), next.aboutCharId());
+            synchronized (lock(k)) {
+                List<Note> pair = cached(k);
+                if (pair != null && pair.contains(next)) {
+                    List<Note> swapped = new ArrayList<>(pair);
+                    swapped.set(swapped.indexOf(next), stored); // the cached note gets its real row id
+                    put(k, swapped);
+                }
+            }
+        }
+    }
+
+    /**
+     * The shutdown sequence's last write of bot memory ({@code Server}, after the bot save, under
+     * {@link BotDbGate#unmetered}): flushes until nothing is pending, or a flush makes no progress, so the last five
+     * seconds of stamps and any queued notes survive a restart.
+     */
+    public static void flushAtShutdown() {
+        for (int round = 0; round < 200; round++) {
+            Stats before = stats();
+            if (before.pendingTouches() == 0 && before.pendingInserts() == 0) {
+                return;
+            }
+            flushPending();
+            Stats after = stats();
+            if (after.pendingTouches() >= before.pendingTouches() && after.pendingInserts() >= before.pendingInserts()) {
+                log.warn("Shutdown: {} bot memory stamps and {} notes could not be written", after.pendingTouches(),
+                        after.pendingInserts());
+                return;
+            }
+        }
+    }
+
+    /** Test seam: the queues' caps ({@code <= 0} restores the default). */
+    static void useCapsForTest(int stamps, int inserts) {
+        stampCap = stamps > 0 ? stamps : MAX_PENDING_STAMPS;
+        insertCap = inserts > 0 ? inserts : MAX_PENDING_INSERTS;
+    }
+
+    private static void resetPendingForTest() {
+        synchronized (PENDING) {
+            pendingTouch.clear();
+            pendingFollow.clear();
+            pendingInserts.clear();
+        }
+        unread.clear();
+        for (java.util.concurrent.atomic.AtomicLong c : List.of(LOADS_OK, LOADS_REFUSED, LOADS_FAILED, STAMPS_QUEUED,
+                STAMPS_WRITTEN, STAMPS_DROPPED, STAMPS_FAILED, STAMP_FLUSHES_REFUSED, INSERTS_WRITTEN, INSERTS_QUEUED,
+                INSERTS_RETRIED_OK, INSERTS_FAILED, INSERTS_DROPPED)) {
+            c.set(0);
+        }
     }
 
     /** How many pairs the cache holds now. */
@@ -1642,6 +1982,7 @@ public final class BotMemory {
     /** Test seam: a mock pool (null restores the real one); forgets every cached note and the schema check. */
     static void useConnectionSourceForTest(BotStore.ConnectionSource source) {
         connectionSource = source;
+        resetPendingForTest();
         kinds = null;
         social = null;
         lastPruneAt = 0;

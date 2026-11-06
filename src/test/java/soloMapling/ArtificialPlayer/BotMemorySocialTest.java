@@ -390,6 +390,7 @@ class BotMemorySocialTest {
         assertEquals(1, out.size(), "the slot is not a note");
         assertEquals(now, BotMemory.about(SLOT, BOT_B).stream().filter(n -> n.kind() == Kind.PARTY).findFirst()
                 .orElseThrow().lastUsedAt());
+        BotMemory.flushPending(); // 1.6.5 b324: stamps are written by the flusher, in one batch
         assertEquals(now, ((Number) table.rows.get(0).get("LastUsedAt")).longValue(), "and the table");
     }
 
