@@ -1,0 +1,54 @@
+# GP8 part 2 (P0-2, real client): after the owner has bought one item by hand, close AqClient's merchant server-side like a restart (`!qa do close`), then take everything from Fredrick
+# (9030000 at the FM entrance) with fredrick_retrieve, and click Fredrick again: nothing left. Server Dev reads inventory and mesos rows before/after and the journal. TEST QA account only.
+id: gp8-close-fredrick
+title: "GP8: close the merchant the way a restart does, then collect everything from Fredrick"
+covers: [feature-p0-2-gp8]
+status: draft
+server: test
+needs: [gm, owned_alt, proposed_signals]
+notes: "tarkov2 QA account, TEST."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  - {id: revive, do: gm, line: "!heal"}
+  - {do: sleep, ms: 1000, reason: "let the revive land before the next command"}
+  - {id: stage-np3, do: gm, line: "!qa run np-3 1", note: "np-3 stages the merchant tools; it warps to FM room 1 and may give a second merchant item: harmless"}
+  - {do: sleep, ms: 2000, reason: "let the scenario stage before the close action"}
+  - {id: close-as-restart, do: gm, line: "!qa do close", note: "closes the owner's open merchant the way a server restart closes it: the unsold items and the sale mesos go to Fredrick"}
+  - {do: sleep, ms: 3000, reason: "let the server hand the merchant's contents to Fredrick"}
+  - {id: to-entrance, do: gm, line: "!warp 910000000"}
+  - {id: at-entrance, do: wait, signal: {type: client_signal, name: field.ready, map_id: 910000000}, timeout_ms: 30000}
+  - {id: talk-fredrick, do: click_npc, npc: 9030000}
+  - {id: fredrick-open, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000, optional: true}
+  - {do: sleep, ms: 2000, reason: "frame of Fredrick's retrieval window with the items and mesos"}
+  - {id: take-all, do: fredrick_retrieve}
+  - {do: sleep, ms: 3000, reason: "let the server hand over the items and mesos before the frame"}
+  - {id: talk-again, do: click_npc, npc: 9030000}
+  - {do: sleep, ms: 2000, reason: "frame of Fredrick's second answer: nothing left to retrieve"}
+captures:
+  - {id: fredrick-window, burst: {fps: 2, ms: 3000, at: {step: talk-fredrick}}}
+  - {id: after-take, burst: {fps: 2, ms: 3000, at: {step: take-all}}}
+  - {id: second-click, burst: {fps: 2, ms: 3000, at: {step: talk-again}}}
+expect:
+  reviewer:
+    - see: "Fredrick's retrieval window listing the unsold items and the sale mesos"
+      in: [fredrick-window]
+    - see: "Fredrick's second click finding nothing left"
+      in: [second-click]
+  checks:
+    - {check: client_alive}
+  judgment: "PASS = the close handed the contents to Fredrick, fredrick_retrieve answered 1E and the inventory and mesos changed by the unsold items and the sale mesos (Server Dev reads the rows before and after; judge by the inventory change, not by the 1E), and a second click finds nothing. Nothing lost, nothing duplicated."
