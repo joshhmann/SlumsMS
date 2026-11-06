@@ -1176,11 +1176,9 @@ public class Client extends ChannelInboundHandlerAdapter {
                 } else {
                     getChannelServer().removePlayer(player);
 
-                    Character.SaveExtra cooldowns = player.cooldownsExtra();
+                    player.saveCooldowns();
                     player.cancelAllDebuffs();
-                    if (!player.saveCharToDB(true, cooldowns)) {
-                        log.warn("Server-transition save of chr {} did not commit", player.getName());
-                    }
+                    player.saveCharToDB();   // queued, as before: no DB write on the channel-change path
                 }
             }
         }

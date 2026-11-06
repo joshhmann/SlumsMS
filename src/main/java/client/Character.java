@@ -9881,7 +9881,9 @@ public class Character extends AbstractCharacterObject {
             Runnable r = new Runnable() {
                 @Override
                 public void run() {
-                    saveCharToDB(true);
+                    if (saveCharToDBResult(true, null) == SaveResult.FAILED) {
+                        log.warn("Queued save of chr {} did not commit", name);
+                    }
                 }
             };
 
