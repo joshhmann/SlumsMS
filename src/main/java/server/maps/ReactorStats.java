@@ -77,6 +77,11 @@ public class ReactorStats {
         return stateInfo.get(state).get(stateInfo.get(state).size() - 1).getNextState();
     }
 
+    /** Whether the reactor's WZ defines {@code state} (a state with no event loads as inert, so it still counts). */
+    public boolean hasState(byte state) {
+        return stateInfo.containsKey(state);
+    }
+
     public byte getStateSize(byte state) {
         return (byte) stateInfo.get(state).size();
     }
