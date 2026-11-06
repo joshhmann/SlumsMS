@@ -21,6 +21,8 @@ HERE = Path(__file__).resolve().parent
 LAUNCHER = Path(os.environ.get('LAUNCHER_REPO', '/root/work/launcher'))
 NODE = shutil.which('node')
 HAVE_PUBLISHER = bool(NODE) and (LAUNCHER / 'tools/publish.mjs').is_file()
+HAVE_MIN_BUILD = HAVE_PUBLISHER and '--min-client-build' in (LAUNCHER / 'tools/publish.mjs').read_text()
+CONF_DIR = HERE.parent.parent / 'docs/release'
 
 spec = importlib.util.spec_from_file_location('publish_checks', HERE / 'publish_checks.py')
 pc = importlib.util.module_from_spec(spec)
@@ -176,6 +178,83 @@ class PublishClientRerunTest(unittest.TestCase):
                 self.assertNotEqual(out.returncode, 0)
                 self.assertIn('already published with different files', out.stderr)
                 self.assertEqual(self.manifest()['version'], 'r1')
+
+
+@unittest.skipUnless(HAVE_MIN_BUILD, "needs the launcher repo's publisher with --min-client-build (launcher-166-minbuild)")
+class MinClientBuildTest(PublishClientRerunTest):
+    """P1-L1: the release manifest's minClientBuild is the server's MIN_CLIENT_BUILD from the same release conf."""
+
+    def setUp(self):
+        super().setUp()
+        self.conf = self.root / 'conf'
+        self.conf.mkdir()
+        self.env['RELEASE_CONF_DIR'] = str(self.conf)
+
+    def conf_with(self, text):
+        (self.conf / 'r2.conf').write_text(text)
+
+    def release(self, *extra):
+        return self.publish('news-ok.json', *extra)
+
+    def test_the_manifest_repeats_the_confs_build(self):
+        self.conf_with('# r2\nSOMETHING=1\nMIN_CLIENT_BUILD=10740\n')
+        out = self.release()
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertEqual(self.manifest()['minClientBuild'], 10740)
+
+    def test_dry_run_prints_the_same_number(self):
+        self.conf_with('MIN_CLIENT_BUILD=10740\n')
+        out = self.release('--dry-run')
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertIn('--min-client-build 10740', out.stdout)
+        self.assertNotIn('minClientBuild', json.dumps(self.manifest()), 'a dry run publishes nothing')
+
+    def test_a_different_build_on_the_command_line_is_refused_and_nothing_is_published(self):
+        self.conf_with('MIN_CLIENT_BUILD=10740\n')
+        out = self.release('--min-client-build', '10720')
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn('differs from MIN_CLIENT_BUILD=10740', out.stderr)
+        self.assertFalse(self.layer().exists())
+        self.assertEqual(self.manifest()['version'], 'r1')
+
+    def test_the_same_build_on_the_command_line_is_fine(self):
+        self.conf_with('MIN_CLIENT_BUILD=10740\n')
+        self.assertEqual(self.release('--min-client-build', '10740').returncode, 0)
+        self.assertEqual(self.manifest()['minClientBuild'], 10740)
+
+    def test_no_conf_value_means_no_field_unless_given(self):
+        out = self.release()
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertIn('will not name a minimum client build', out.stdout)
+        self.assertNotIn('minClientBuild', self.manifest())
+
+    def test_the_kill_switch_leaves_the_field_out(self):
+        self.conf_with('MIN_CLIENT_BUILD=10740\n')
+        self.assertEqual(self.release('--no-min-client-build').returncode, 0)
+        self.assertNotIn('minClientBuild', self.manifest())
+
+    def test_odd_values_are_refused(self):
+        for bad in ('0', '-1', '10x40', '', '100000000'):
+            with self.subTest(bad=bad):
+                out = self.release('--min-client-build', bad)
+                self.assertNotEqual(out.returncode, 0, out.stdout)
+                self.assertIn('whole number from 1 to 99999999', out.stderr)
+                self.assertFalse(self.layer().exists())
+
+    def test_every_shipped_conf_reads_the_same_number_as_the_server_sees(self):
+        """conf_min_client_build against an independent read of every docs/release conf (the server's own line)."""
+        import re
+        checked = 0
+        for conf in sorted(CONF_DIR.glob('*.conf')):
+            m = re.findall(r'^MIN_CLIENT_BUILD=(\d+)', conf.read_text(), re.M)
+            got = subprocess.run(['bash', '-c', '. "$1/publish-lib.sh"; conf_min_client_build "$2"', 'x', str(HERE), conf.stem],
+                                 env=dict(self.env, RELEASE_CONF_DIR=str(CONF_DIR), here=str(HERE)), capture_output=True, text=True, check=True).stdout.strip()
+            self.assertEqual(got, (m[-1] if m else ''), conf.name)
+            checked += bool(m)
+        self.assertGreater(checked, 5)
+        got = subprocess.run(['bash', '-c', '. "$1/publish-lib.sh"; conf_min_client_build 1.6.4.1', 'x', str(HERE)],
+                             env=dict(self.env, RELEASE_CONF_DIR=str(CONF_DIR)), capture_output=True, text=True, check=True).stdout.strip()
+        self.assertEqual(got, '10740')
 
 
 @unittest.skipUnless(HAVE_PUBLISHER, 'needs node and the launcher repo')

@@ -12,6 +12,15 @@ h() { ssh -o BatchMode=yes "$RELEASE_HOST" "$@"; }
 # arguments and once made stage-client run `cp -a <layer> /. <out> /.`, copying the client layer into / (1.4.0).
 q() { local out="" a; for a in "$@"; do out+="${out:+ }$(printf '%q' "$a")"; done; printf '%s' "$out"; }
 
+# The server's MIN_CLIENT_BUILD for a release, read from its release conf (docs/release/<release>.conf, the line
+# MIN_CLIENT_BUILD=N that set-release-config applies to the server): the one value the manifest's minClientBuild must
+# repeat (P1-L1). Empty when the conf is missing or has none. RELEASE_CONF_DIR overrides the folder (tests).
+conf_min_client_build() {
+  local f="${RELEASE_CONF_DIR:-$here/../../docs/release}/$1.conf"
+  [ -f "$f" ] || return 0
+  sed -nE 's/^MIN_CLIENT_BUILD=([0-9]+)[[:space:]]*(#.*)?\r?$/\1/p' "$f" | tail -1
+}
+
 # The host's publisher must be the launcher repo's: same tools/ and src/ bytes. --sync-publisher copies them over.
 check_publisher() {
   local sync=$1 l r
