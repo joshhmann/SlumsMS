@@ -200,6 +200,13 @@ grep -E '^\[|ABORT|FAIL|ok |downtime' "$RC/deploy.out" || true
 s1=$(sed -n 's/^\[\([0-9:]*\) .*\] start$/\1/p' "$RC/deploy.out" | tail -1)
 snapshot > "$RC/state-after-deploy.tsv"; bots | tee "$RC/bots-after-deploy.txt"
 
+step "3c2. P1-C1a: every script a map references exists (wz and scripts as the deploy left them)"
+# Fails the rehearsal on a NEW missing portal/map script reference (the baseline is tools/release/script-refs.baseline).
+refs_rc=0
+python3 "$here/script-refs" --wz "$SRV/wz" --scripts "$SRV/scripts" --baseline "$here/script-refs.baseline" > "$RC/script-refs.txt" 2>&1 || refs_rc=$?
+cat "$RC/script-refs.txt"
+[ "$refs_rc" = 0 ] || echo "script-refs exited $refs_rc"
+
 step "3d. soak ${SOAK}s on the new version"
 sleep "$SOAK"
 if [ -n "$s1" ]; then
@@ -229,7 +236,7 @@ diff "$RC/state-before.tsv" "$RC/state-after-deploy.tsv" > "$RC/diff-before-vs-d
 echo "player rows before == after rollback: $same"; cat "$RC/diff-before-vs-rollback.txt"
 deploy_result=$(grep -m1 -oE 'Result: \*\*[^*]*\*\*' "$RC/DEPLOY-RECEIPT.md" 2>/dev/null | sed 's/Result: //; s/\*//g' || echo "no receipt")
 overall=PASS
-[ "$deploy_rc" = 0 ] && [ "$same" = PASS ] && [ "$deploy_result" = PASS ] || overall=FAIL
+[ "$deploy_rc" = 0 ] && [ "$same" = PASS ] && [ "$deploy_result" = PASS ] && [ "$refs_rc" = 0 ] || overall=FAIL
 {
   echo "# SlumsMS $VERSION rehearsal on a copy of live (live untouched)"
   echo
@@ -261,6 +268,7 @@ overall=PASS
   echo "- old version boot: $(tr '\n' ' ' < "$RC/old-boot.txt" | grep -oE 'SlumsMS v[^ ]*' | head -1), ERROR/Exception lines $old_errs"
   echo "- deploy.sh exit $deploy_rc; smoke $deploy_result; new version ERROR/Exception lines over the soak: $new_errs"
   echo "- after rollback: ERROR/Exception lines $rb_errs"
+  echo "- script references (P1-C1a, \`script-refs\` exit $refs_rc, 0 = no new missing portal or map script): $(head -1 "$RC/script-refs.txt")"
   echo "- player rows before == after rollback: **$same** (state-before.tsv vs state-after-rollback.tsv)"
   echo "- bots: before \`$(cat "$RC/bots-before.txt" | tr '\t' ' ')\`, after deploy \`$(cat "$RC/bots-after-deploy.txt" | tr '\t' ' ')\`, after rollback \`$(cat "$RC/bots-after-rollback.txt" | tr '\t' ' ')\`"
   echo "- before vs after deploy (expected changes from this release's migrations):"
