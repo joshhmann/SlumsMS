@@ -64,4 +64,39 @@ class BbDropTablesMigrationIT {
             assertEquals(3 + generated - 1, count(db, "SELECT COUNT(*) FROM drop_data"));
         }
     }
+
+    /** Card b349: 067 removes the 16 useless ETC rows 050 added (4000704 and kin), twice is a no-op, rollback restores it exactly. */
+    @Test
+    void uselessEtcRemovalAppliesTwiceAndRollsBackExactly() throws Exception {
+        Assumptions.assumeTrue(URL != null && !URL.isBlank(), "no scratch MySQL given");
+        try (Connection db = DriverManager.getConnection(URL)) {
+            exec(db, "DROP TABLE IF EXISTS drop_data, bb_drops_050_rows, useless_etc_067_rows, mapleroot_integration_migrations");
+            exec(db, "CREATE TABLE drop_data (id bigint AUTO_INCREMENT PRIMARY KEY, dropperid int NOT NULL, itemid int NOT NULL"
+                    + " DEFAULT 0, minimum_quantity int NOT NULL DEFAULT 1, maximum_quantity int NOT NULL DEFAULT 1,"
+                    + " questid int NOT NULL DEFAULT 0, chance int NOT NULL DEFAULT 0, UNIQUE KEY (dropperid, itemid))"
+                    + " ENGINE=MyISAM");
+            script(db, "050-bb-drop-tables.sql");
+            int before = count(db, "SELECT COUNT(*) FROM drop_data");
+            String row = "SELECT COUNT(*) FROM drop_data WHERE dropperid = 2400000 AND itemid = 4000704 AND minimum_quantity = 1"
+                    + " AND maximum_quantity = 1 AND questid = 0 AND chance = 400000";
+            assertEquals(1, count(db, row));
+            int removed = 16;
+
+            for (int i = 0; i < 2; i++) {
+                script(db, "067-drop-useless-etc.sql");
+            }
+            assertEquals(before - removed, count(db, "SELECT COUNT(*) FROM drop_data"));
+            assertEquals(0, count(db, "SELECT COUNT(*) FROM drop_data WHERE dropperid = 2400000 AND itemid = 4000704"));
+            assertEquals(1, count(db, "SELECT COUNT(*) FROM mapleroot_integration_migrations WHERE migration_id ="
+                    + " '067-drop-useless-etc'"));
+
+            for (int i = 0; i < 2; i++) {
+                script(db, "067-drop-useless-etc.rollback.sql");
+            }
+            assertEquals(before, count(db, "SELECT COUNT(*) FROM drop_data"));
+            assertEquals(1, count(db, row), "restored exactly");
+            assertEquals(0, count(db, "SELECT COUNT(*) FROM mapleroot_integration_migrations WHERE migration_id ="
+                    + " '067-drop-useless-etc'"));
+        }
+    }
 }

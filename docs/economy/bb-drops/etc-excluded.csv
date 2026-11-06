@@ -1,5 +1,18 @@
 itemid,name,reason,mobs
+4000649,Knight Mask,no use in scripts and no NPC price,Official Knight A
+4000650,Knight Robe,no use in scripts and no NPC price,Official Knight B
+4000651,Knight Bandana,no use in scripts and no NPC price,Official Knight C
+4000704,Sleepy Grobbler Stalk,no use in scripts and no NPC price,Sleepy Grobbler
+4000705,Alert Grobbler Stalk,no use in scripts and no NPC price,Alert Grobbler
+4000706,Grumpy Grobbler Stalk,no use in scripts and no NPC price,Grumpy Grobbler
+4000707,Boulder Fragment,no use in scripts and no NPC price,Limestone Tokka
 4000708,Rubble,no use in scripts and no NPC price,Amethyst Tokka
+4000709,Laloong Tail,no use in scripts and no NPC price,Laloong
+4000710,Kaloong Wing,no use in scripts and no NPC price,Kaloong
+4000711,Onyx Stonegar Piece,no use in scripts and no NPC price,Onyx Stonegar
+4000712,Gravi Stonegar Guard,no use in scripts and no NPC price,Gravi Stonegar
+4000732,Hard Back Horn,no use in scripts and no NPC price,Power Specter
+4000734,Specter's Sword Piece,no use in scripts and no NPC price,Warrior Specter
 4000742,Dinogoth Tail,no use in scripts and no NPC price,Dinogoth
 4000828,Giant Firewood,no use in scripts and no NPC price,Swollen Axe Stump
 4000829,Mutated Tooth,no use in scripts and no NPC price,Pillaging Wild Boar
@@ -9,6 +22,7 @@ itemid,name,reason,mobs
 4000834,Cursed Plate,no use in scripts and no NPC price,Sinister Steel Mask
 4000896,Thunder Spear,no use in scripts and no NPC price,Thunder
 4009169,Frozen Rose Petal,no use in scripts and no NPC price,Frozen Rose
+4009221,Sparrow Egg,no use in scripts and no NPC price,Sparrow
 4009222,Mouse Tail,no use in scripts and no NPC price,Balloon Mouse
 4009223,Red Frog Legs,no use in scripts and no NPC price,Red Poison Frog
 4009224,Green Frog Legs,no use in scripts and no NPC price,Green Poison Frog

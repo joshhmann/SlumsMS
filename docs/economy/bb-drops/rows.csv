@@ -1,6 +1,5 @@
 dropperid,mob,region,tier,level,itemid,item,category,minimum_quantity,maximum_quantity,questid,chance
 2400000,Sleepy Grobbler,grandis,normal,113,0,mesos,meso,723,1085,0,400000
-2400000,Sleepy Grobbler,grandis,normal,113,4000704,Sleepy Grobbler Stalk,etc,1,1,0,400000
 2400000,Sleepy Grobbler,grandis,normal,113,2000005,Power Elixir,potion,1,1,0,20000
 2400000,Sleepy Grobbler,grandis,normal,113,2000006,Mana Elixir,potion,1,1,0,20000
 2400000,Sleepy Grobbler,grandis,normal,113,2020013,Reindeer Milk,potion,1,1,0,20000
@@ -21,7 +20,6 @@ dropperid,mob,region,tier,level,itemid,item,category,minimum_quantity,maximum_qu
 2400000,Sleepy Grobbler,grandis,normal,113,2290005,[Mastery Book] Rush 30,book,1,1,0,500
 2400000,Sleepy Grobbler,grandis,normal,113,2290040,[Mastery Book] Meteor Shower 20,book,1,1,0,750
 2400001,Alert Grobbler,grandis,normal,120,0,mesos,meso,768,1152,0,400000
-2400001,Alert Grobbler,grandis,normal,120,4000705,Alert Grobbler Stalk,etc,1,1,0,400000
 2400001,Alert Grobbler,grandis,normal,120,2000006,Mana Elixir,potion,1,1,0,20000
 2400001,Alert Grobbler,grandis,normal,120,2020013,Reindeer Milk,potion,1,1,0,20000
 2400001,Alert Grobbler,grandis,normal,120,2022003,Unagi,potion,1,1,0,20000
@@ -44,7 +42,6 @@ dropperid,mob,region,tier,level,itemid,item,category,minimum_quantity,maximum_qu
 2400001,Alert Grobbler,grandis,normal,120,1004223,Eclectic Conrad Henkel,bbgear,1,1,0,800
 2400001,Alert Grobbler,grandis,normal,120,1072959,Eclectic Rontano,bbgear,1,1,0,800
 2400002,Grumpy Grobbler,grandis,normal,123,0,mesos,meso,787,1181,0,400000
-2400002,Grumpy Grobbler,grandis,normal,123,4000706,Grumpy Grobbler Stalk,etc,1,1,0,400000
 2400002,Grumpy Grobbler,grandis,normal,123,2000004,Elixir,potion,1,1,0,20000
 2400002,Grumpy Grobbler,grandis,normal,123,2020015,Sunset Dew,potion,1,1,0,20000
 2400002,Grumpy Grobbler,grandis,normal,123,2022003,Unagi,potion,1,1,0,20000
@@ -67,7 +64,6 @@ dropperid,mob,region,tier,level,itemid,item,category,minimum_quantity,maximum_qu
 2400002,Grumpy Grobbler,grandis,normal,123,1004223,Eclectic Conrad Henkel,bbgear,1,1,0,800
 2400002,Grumpy Grobbler,grandis,normal,123,1082598,Eclectic Bergamot,bbgear,1,1,0,800
 2400003,Limestone Tokka,grandis,normal,115,0,mesos,meso,736,1104,0,400000
-2400003,Limestone Tokka,grandis,normal,115,4000707,Boulder Fragment,etc,1,1,0,400000
 2400003,Limestone Tokka,grandis,normal,115,2000004,Elixir,potion,1,1,0,20000
 2400003,Limestone Tokka,grandis,normal,115,2000005,Power Elixir,potion,1,1,0,20000
 2400003,Limestone Tokka,grandis,normal,115,2000006,Mana Elixir,potion,1,1,0,20000
@@ -110,7 +106,6 @@ dropperid,mob,region,tier,level,itemid,item,category,minimum_quantity,maximum_qu
 2400004,Amethyst Tokka,grandis,normal,122,1004223,Eclectic Conrad Henkel,bbgear,1,1,0,800
 2400004,Amethyst Tokka,grandis,normal,122,1072960,Eclectic Moonsteed,bbgear,1,1,0,800
 2400005,Laloong,grandis,normal,121,0,mesos,meso,774,1162,0,400000
-2400005,Laloong,grandis,normal,121,4000709,Laloong Tail,etc,1,1,0,400000
 2400005,Laloong,grandis,normal,121,2000004,Elixir,potion,1,1,0,20000
 2400005,Laloong,grandis,normal,121,2000005,Power Elixir,potion,1,1,0,20000
 2400005,Laloong,grandis,normal,121,2000006,Mana Elixir,potion,1,1,0,20000
@@ -133,7 +128,6 @@ dropperid,mob,region,tier,level,itemid,item,category,minimum_quantity,maximum_qu
 2400005,Laloong,grandis,normal,121,1004223,Eclectic Conrad Henkel,bbgear,1,1,0,800
 2400005,Laloong,grandis,normal,121,1082601,Eclectic Lubav,bbgear,1,1,0,800
 2400006,Kaloong,grandis,normal,124,0,mesos,meso,794,1190,0,400000
-2400006,Kaloong,grandis,normal,124,4000710,Kaloong Wing,etc,1,1,0,400000
 2400006,Kaloong,grandis,normal,124,2000004,Elixir,potion,1,1,0,20000
 2400006,Kaloong,grandis,normal,124,2020013,Reindeer Milk,potion,1,1,0,20000
 2400006,Kaloong,grandis,normal,124,2022003,Unagi,potion,1,1,0,20000
@@ -291,7 +285,6 @@ dropperid,mob,region,tier,level,itemid,item,category,minimum_quantity,maximum_qu
 2400012,Heretic Leader,grandis,normal,141,1082605,Muspell Bowman Gloves,bbgear,1,1,0,800
 2400012,Heretic Leader,grandis,normal,141,1102719,Pensalir Mage Cape,bbrare,1,1,0,60
 2400013,Onyx Stonegar,grandis,normal,140,0,mesos,meso,896,1344,0,400000
-2400013,Onyx Stonegar,grandis,normal,140,4000711,Onyx Stonegar Piece,etc,1,1,0,400000
 2400013,Onyx Stonegar,grandis,normal,140,2000005,Power Elixir,potion,1,1,0,20000
 2400013,Onyx Stonegar,grandis,normal,140,2000006,Mana Elixir,potion,1,1,0,20000
 2400013,Onyx Stonegar,grandis,normal,140,2022003,Unagi,potion,1,1,0,20000
@@ -315,7 +308,6 @@ dropperid,mob,region,tier,level,itemid,item,category,minimum_quantity,maximum_qu
 2400013,Onyx Stonegar,grandis,normal,140,1082605,Muspell Bowman Gloves,bbgear,1,1,0,800
 2400013,Onyx Stonegar,grandis,normal,140,1302315,Utgard Saber,bbrare,1,1,0,60
 2400014,Gravi Stonegar,grandis,normal,141,0,mesos,meso,902,1354,0,400000
-2400014,Gravi Stonegar,grandis,normal,141,4000712,Gravi Stonegar Guard,etc,1,1,0,400000
 2400014,Gravi Stonegar,grandis,normal,141,2000004,Elixir,potion,1,1,0,20000
 2400014,Gravi Stonegar,grandis,normal,141,2000005,Power Elixir,potion,1,1,0,20000
 2400014,Gravi Stonegar,grandis,normal,141,2022003,Unagi,potion,1,1,0,20000
@@ -597,7 +589,6 @@ dropperid,mob,region,tier,level,itemid,item,category,minimum_quantity,maximum_qu
 2400110,Guerrilla Specter,grandis,normal,200,1052796,Muspell Bowman Suit,bbgear,1,1,0,800
 2400110,Guerrilla Specter,grandis,normal,200,1082609,Pensalir Mage Gloves,bbrare,1,1,0,60
 2400111,Power Specter,grandis,normal,200,0,mesos,meso,1024,1536,0,400000
-2400111,Power Specter,grandis,normal,200,4000732,Hard Back Horn,etc,1,1,0,400000
 2400111,Power Specter,grandis,normal,200,2000006,Mana Elixir,potion,1,1,0,20000
 2400111,Power Specter,grandis,normal,200,2020013,Reindeer Milk,potion,1,1,0,20000
 2400111,Power Specter,grandis,normal,200,2020015,Sunset Dew,potion,1,1,0,20000
@@ -644,7 +635,6 @@ dropperid,mob,region,tier,level,itemid,item,category,minimum_quantity,maximum_qu
 2400112,Specter Engineer,grandis,normal,200,1082607,Muspell Pirate Gloves,bbgear,1,1,0,800
 2400112,Specter Engineer,grandis,normal,200,1072969,Pensalir Sentinel Boots,bbrare,1,1,0,60
 2400113,Warrior Specter,grandis,normal,200,0,mesos,meso,1024,1536,0,400000
-2400113,Warrior Specter,grandis,normal,200,4000734,Specter's Sword Piece,etc,1,1,0,400000
 2400113,Warrior Specter,grandis,normal,200,2000005,Power Elixir,potion,1,1,0,20000
 2400113,Warrior Specter,grandis,normal,200,2020013,Reindeer Milk,potion,1,1,0,20000
 2400113,Warrior Specter,grandis,normal,200,2022003,Unagi,potion,1,1,0,20000
@@ -846,7 +836,6 @@ dropperid,mob,region,tier,level,itemid,item,category,minimum_quantity,maximum_qu
 2400201,Lady Bug,grandis,normal,114,2290030,[Mastery Book] Paralyze 20,book,1,1,0,500
 2400201,Lady Bug,grandis,normal,114,2290139,[Mastery Book] Combo Barrier 30,book,1,1,0,1500
 2400202,Sparrow,grandis,normal,116,0,mesos,meso,742,1114,0,400000
-2400202,Sparrow,grandis,normal,116,4009221,Sparrow Egg,etc,1,1,0,400000
 2400202,Sparrow,grandis,normal,116,2000004,Elixir,potion,1,1,0,20000
 2400202,Sparrow,grandis,normal,116,2000006,Mana Elixir,potion,1,1,0,20000
 2400202,Sparrow,grandis,normal,116,2020013,Reindeer Milk,potion,1,1,0,20000
@@ -1966,7 +1955,6 @@ dropperid,mob,region,tier,level,itemid,item,category,minimum_quantity,maximum_qu
 2400360,Magician Specter,grandis,normal,126,1052791,Eclectic Evernew,bbgear,1,1,0,800
 2400360,Magician Specter,grandis,normal,126,1082598,Eclectic Bergamot,bbgear,1,1,0,800
 2400361,Warrior Specter,grandis,normal,128,0,mesos,meso,819,1229,0,400000
-2400361,Warrior Specter,grandis,normal,128,4000734,Specter's Sword Piece,etc,1,1,0,400000
 2400361,Warrior Specter,grandis,normal,128,2000005,Power Elixir,potion,1,1,0,20000
 2400361,Warrior Specter,grandis,normal,128,2020013,Reindeer Milk,potion,1,1,0,20000
 2400361,Warrior Specter,grandis,normal,128,2020015,Sunset Dew,potion,1,1,0,20000
@@ -3475,7 +3463,6 @@ dropperid,mob,region,tier,level,itemid,item,category,minimum_quantity,maximum_qu
 8610004,Thunder,future,normal,177,1072963,Muspell Magician Shoes,bbgear,1,1,0,800
 8610004,Thunder,future,normal,177,1332260,Utgard Dagger,bbrare,1,1,0,60
 8610005,Official Knight A,future,normal,168,0,mesos,meso,1123,1685,0,400000
-8610005,Official Knight A,future,normal,168,4000649,Knight Mask,etc,1,1,0,400000
 8610005,Official Knight A,future,normal,168,2000006,Mana Elixir,potion,1,1,0,20000
 8610005,Official Knight A,future,normal,168,2020013,Reindeer Milk,potion,1,1,0,20000
 8610005,Official Knight A,future,normal,168,2022003,Unagi,potion,1,1,0,20000
@@ -3499,7 +3486,6 @@ dropperid,mob,region,tier,level,itemid,item,category,minimum_quantity,maximum_qu
 8610005,Official Knight A,future,normal,168,1082606,Muspell Thief Gloves,bbgear,1,1,0,800
 8610005,Official Knight A,future,normal,168,1412164,Utgard Two-handed Axe,bbrare,1,1,0,60
 8610006,Official Knight B,future,normal,170,0,mesos,meso,870,1306,0,400000
-8610006,Official Knight B,future,normal,170,4000650,Knight Robe,etc,1,1,0,400000
 8610006,Official Knight B,future,normal,170,2000004,Elixir,potion,1,1,0,20000
 8610006,Official Knight B,future,normal,170,2000005,Power Elixir,potion,1,1,0,20000
 8610006,Official Knight B,future,normal,170,2020015,Sunset Dew,potion,1,1,0,20000
@@ -3523,7 +3509,6 @@ dropperid,mob,region,tier,level,itemid,item,category,minimum_quantity,maximum_qu
 8610006,Official Knight B,future,normal,170,1082607,Muspell Pirate Gloves,bbgear,1,1,0,800
 8610006,Official Knight B,future,normal,170,1312185,Utgard Axe,bbrare,1,1,0,60
 8610007,Official Knight C,future,normal,172,0,mesos,meso,881,1321,0,400000
-8610007,Official Knight C,future,normal,172,4000651,Knight Bandana,etc,1,1,0,400000
 8610007,Official Knight C,future,normal,172,2000004,Elixir,potion,1,1,0,20000
 8610007,Official Knight C,future,normal,172,2000005,Power Elixir,potion,1,1,0,20000
 8610007,Official Knight C,future,normal,172,2000006,Mana Elixir,potion,1,1,0,20000
@@ -3715,7 +3700,6 @@ dropperid,mob,region,tier,level,itemid,item,category,minimum_quantity,maximum_qu
 8610014,Advanced Knight E,future,normal,184,1072965,Muspell Thief Shoes,bbgear,1,1,0,800
 8610014,Advanced Knight E,future,normal,184,1322235,Jaihin Hair,bbrare,1,1,0,60
 8610022,Official Knight A,future,normal,168,0,mesos,meso,1025,1538,0,400000
-8610022,Official Knight A,future,normal,168,4000649,Knight Mask,etc,1,1,0,400000
 8610022,Official Knight A,future,normal,168,2000006,Mana Elixir,potion,1,1,0,20000
 8610022,Official Knight A,future,normal,168,2020013,Reindeer Milk,potion,1,1,0,20000
 8610022,Official Knight A,future,normal,168,2022003,Unagi,potion,1,1,0,20000

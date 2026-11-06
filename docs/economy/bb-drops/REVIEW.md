@@ -540,11 +540,19 @@ Boss:
     decision.
   - The Dawn, Blaze, Wind and Night Stones are used by `scripts/item/dreamkey.js` (5 of each). Hedgehog Balls have an
     NPC price (235).
-- **ETC left out** by the use-or-price rule (16 items, `etc-excluded.csv`):
+- **ETC left out** by the use-or-price rule (30 items, `etc-excluded.csv`; 14 of them were added after 050 shipped, see "Added after 050" below):
   - **No use in scripts and no NPC price (15):** Rubble (Amethyst Tokka), Dinogoth Tail, Giant Firewood (Swollen Axe
     Stump), Mutated Tooth (Pillaging Wild Boar), Heavy Armor Fragment (both Pillaging Boars), Cursed Plank, Slate and
     Plate (the Sinister Masks), Thunder Spear (Thunder), Mouse Tail (Balloon Mouse), Red and Green Frog Legs (the
     Poison Frogs), Mohawk Feather (Delinquent Chick), Rocker Feather (Punk Chick), Frozen Rose Petal (Frozen Rose).
+  - **Added after 050 shipped (card b349, 14 items, 16 mob rows):** these had only an old forge recipe as their use
+    (Amaterasu Shoes and kin), which the Nov 2 rebirth-forge change (21df468eb) replaced, so they now have no use in
+    scripts and no NPC price: Sleepy/Alert/Grumpy Grobbler Stalk (4000704-4000706), Boulder Fragment, Laloong Tail,
+    Kaloong Wing, Onyx Stonegar Piece, Gravi Stonegar Guard (4000707-4000712), Hard Back Horn and Specter's Sword Piece
+    (4000732, 4000734; the latter from two mobs), Sparrow Egg (4009221) and the Official Knight Mask, Robe and Bandana
+    (4000649-4000651; 4000649 from two mobs). Migration 067 deletes exactly those rows (050 is applied and stays as it
+    is). Regenerating from the current scripts leaves them out by itself; `rows.csv` and `etc-excluded.csv` already
+    match, but a fresh 050 would no longer be byte-equal to 050 + 067.
   - **Post-Big-Bang system (1):** Core Blaze Tip (4032358, Blaze).
   - Never candidates (the name and description matching does not reach them, and the system filter would refuse
     them): Spell Trace (4000999/4001832), Arcane Symbols (1712xxx/1713xxx are not in the server's Character.wz at
