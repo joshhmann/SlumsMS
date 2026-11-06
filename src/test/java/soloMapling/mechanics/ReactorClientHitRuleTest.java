@@ -25,13 +25,16 @@ import static org.mockito.Mockito.*;
  */
 class ReactorClientHitRuleTest {
 
-    /** 2112007's shape: four hittable states, then a state with no hit. */
+    /**
+     * 2112007's shape as ReactorFactory loads it: four hittable states, then the WZ state with no event, which
+     * addInertState records as type 999 (INERT_STATE), next state -1 (Server Dev review; ReactorLastStateTest.rock()).
+     */
     static Reactor chest(byte state) {
         ReactorStats stats = new ReactorStats();
         for (byte s = 0; s < 4; s++) {
             stats.addState(s, 0, null, (byte) (s + 1), -1, (byte) 0);
         }
-        stats.addState((byte) 4, -1, null, (byte) -1, -1, (byte) 0);
+        stats.addState((byte) 4, 999, null, (byte) -1, 0, (byte) 0); // what addInertState records
         Reactor r = spy(new Reactor(stats, 2_112_012));
         r.setState(state);
         r.setPosition(new Point(100, 0));
