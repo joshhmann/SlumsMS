@@ -408,7 +408,92 @@ public final class Orchestrator implements RunOrchestrator {
         if (leader != null && !leader.bot() && onThisStage(view, solver, stage, leader.characterId())) {
             realLeader(run, view, solver, stage, leader, steps, nowMs);
         }
+        if (!boss && noProgress(run, view, steps, nowMs)) {
+            giveUp(run, "no progress for " + NO_PROGRESS_MS / 60_000 + " min (" + doing(steps) + ")");
+            return new LinkedHashMap<>();
+        }
         return steps;
+    }
+
+    /**
+     * 1.6.5 b344c: how long a stage may go on with the bots all busy at something (hitting, walking to a door, looting,
+     * talking) and nothing in the room changing - no member changing map, no reactor changing state, no item gained or
+     * lost - before the bots give the stage up. TEST 6 Nov: Zakum PQ stage 31's miner could not reach its ore rock and
+     * the party waited behind it until QA stopped the run; nothing in the run would ever have ended it short of the
+     * PQ's own 30 minutes.
+     */
+    public static final long NO_PROGRESS_MS = 180_000;
+    /** The line a real player in the instance sees when the bots give up a stage (the name rule: "regulars"). */
+    public static final String GAVE_UP_TO_PLAYERS =
+            "Your regular can't reach that spot. You'll need to finish this part yourselves.";
+    /** The prefix of {@link RunState#endedBecause()} for a run the bots gave up. */
+    public static final String GAVE_UP = "gave up stage ";
+
+    /**
+     * Ends the bots' part of the run: the run fails with "gave up stage N: why", MechanicsRuns releases the bots to their
+     * own brains (an owned alt goes back to its owner) and leaves the instance to the real players in it, and tells
+     * them {@link #GAVE_UP_TO_PLAYERS}.
+     */
+    public void giveUp(Run r, String why) {
+        RunState run = (RunState) r;
+        fail(run, GAVE_UP + run.currentStage() + ": " + why);
+    }
+
+    /** A step that is the bot doing something in the room, not waiting, fighting or talking in chat. */
+    private static boolean busy(SolverStep s) {
+        return s instanceof SolverStep.HitReactor || s instanceof SolverStep.HitReactorNamed
+                || s instanceof SolverStep.HitReactorByOid || s instanceof SolverStep.EnterPortalTo
+                || s instanceof SolverStep.EnterPortal || s instanceof SolverStep.Loot
+                || s instanceof SolverStep.PlaceItemOn || s instanceof SolverStep.TouchReactor
+                || s instanceof SolverStep.TouchReactorNamed || s instanceof SolverStep.MoveTo;
+    }
+
+    private static String doing(Map<Integer, SolverStep> steps) {
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<Integer, SolverStep> e : steps.entrySet()) {
+            if (busy(e.getValue())) {
+                sb.append(sb.length() > 0 ? ", " : "").append(e.getKey()).append(' ')
+                        .append(e.getValue().getClass().getSimpleName());
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Whether every bot step this tick is a {@link #busy} one and the room has not changed for {@link #NO_PROGRESS_MS}.
+     * The room's state is every member's map, every reactor's state on the stage's maps and each member's count of the
+     * stage's items; any change restarts the clock, and so does a tick with a bot waiting or fighting (a stage that is
+     * waiting on the leader or on a mob is not a stall).
+     */
+    static boolean noProgress(RunState run, StageView view, Map<Integer, SolverStep> steps, long nowMs) {
+        Map<String, Object> mem = run.stageMemory();
+        boolean allBusy = !steps.isEmpty() && steps.values().stream().allMatch(Orchestrator::busy);
+        if (!allBusy) {
+            mem.remove("progressSince");
+            mem.remove("progressSig");
+            return false;
+        }
+        StringBuilder sig = new StringBuilder();
+        for (RunMember m : view.members()) {
+            sig.append(m.characterId()).append('@').append(view.mapOf(m.characterId()));
+            for (MechanicsModel.ItemUse need : run.stageData().items()) {
+                sig.append(':').append(view.itemCount(m.characterId(), need.itemId()));
+            }
+            sig.append(';');
+        }
+        for (int mapId : run.stageData().mapSet()) {
+            for (StageView.ReactorPlacement rp : view.reactorsOn(mapId)) {
+                sig.append(rp.objectId()).append('=').append(rp.state()).append(',');
+            }
+        }
+        String now = sig.toString();
+        if (!now.equals(mem.get("progressSig"))) {
+            mem.put("progressSig", now);
+            mem.put("progressSince", nowMs);
+            return false;
+        }
+        Object since = mem.get("progressSince");
+        return since instanceof Long t && nowMs - t >= NO_PROGRESS_MS;
     }
 
     /**

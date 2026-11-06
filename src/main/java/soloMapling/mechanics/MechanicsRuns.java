@@ -743,6 +743,12 @@ public final class MechanicsRuns {
                 BotTypeManager.manuallyStartBot(bot);
             }
         }
+        String why = a.run.endedBecause();
+        if (why != null && why.startsWith(Orchestrator.GAVE_UP)) {
+            // 1.6.5 b344c: the bots gave a stage up; the real players keep the instance and are told so, plainly
+            a.reporter.accept("RUN " + why);
+            tellRealPlayers(a.eim, Orchestrator.GAVE_UP_TO_PLAYERS);
+        }
         try {
             closeInstance(a);
         } catch (RuntimeException e) {
@@ -793,6 +799,19 @@ public final class MechanicsRuns {
     }
 
     /** Ends the run's instance when {@link #shouldEndInstance} says so; reports what it did. */
+    /** One pink line to every real player (not a bot, not an owned alt) still in the instance. */
+    static void tellRealPlayers(EventInstanceManager eim, String line) {
+        try {
+            for (Character c : eim.getPlayers()) {
+                if (!drivable(c)) {
+                    c.dropMessage(5, line);
+                }
+            }
+        } catch (RuntimeException e) {
+            log("[Mechanics] could not tell the players: " + e);
+        }
+    }
+
     private void closeInstance(Active a) {
         EventInstanceManager eim = a.eim;
         if (!eim.isEventDisposed() && a.run.content().kind() == MechanicsModel.Kind.BOSS) {

@@ -51,7 +51,7 @@ final class BotNavigationGraphProvider {
     //     inside an 8.93 x fs px/s band (no walkSpeed air cap; counter-strafe pins at the
     //     band edge) and no-input flight drags 1 x fs (100 x fs at terminal fall). Committed
     //     arcs still fly the launch key held, so constant-stepX arc sims stay exact.
-    static final int GRAPH_VERSION = 70; // 51: kinetic slippery model + snowshoes; 52: brake-to-stop landings; 53: glide-unless-edge stop policy (slipperyStopDir); 56: uncap straight-drop launch windows (full droppable span, no +/-20 fragmentation); 57: remove the (empirically wrong) 300px down-jump drop cap - down-jumps fall until landing; 58: rope-grab reach counts descent below the ledge (mid-rope jump-grabs from adjacent platforms); 59: fall-sim caps to map height not 1500ms - long single-fall descents (tall shafts: Ellinia tree, Perion) now generate DROP/JUMP/ROPE edges; 60: re-cap drops for organic descent - walk-offs capped at MAX_DROP_PX, down-jumps at the tighter DOWN_JUMP_MAX_DROP_PX, and down-jumps carry DOWN_JUMP_COST_PENALTY_MS so the pathfinder prefers ropes/walk-offs over plummeting an entire vertical map; 61: widened rope top-exit probe (BotPhysicsEngine.findTopExitLanding) - accept a step-off foothold slightly above/below the rope top and a few px off-axis, so uneven/slanted ladder heads mint a clean CLIMB step-off edge instead of only ballistic top jump-offs; 68: nutnnut/Cosmic graph v60-v67 merged onto ours v60-v61 - their 66 (ground walk follows the standing foothold's prev/next chain across a joined fork), 67 (skip phantom cross-region JUMP/FLASH_JUMP edges landing on the source region's own ground), 62 (rope-exit/transfer CLIMB edges carry a Y launch window with per-endpoint cost), 60/61/64/65 (TELEPORT + FLASH_JUMP skill edges with X launch windows; teleport landing SSOT BotPhysicsEngine.teleportLanding, down-teleport to the furthest platform, y-snap 75), keeping our 60 drop caps and 61 widened rope top-exit; their 63 (baked portal route buckets) is not ported; 69: nutnnut/Cosmic v68+v69+v71 walk-off DROP fixes (credit NutNNut) - a directional walk-off's landing is authored with the executor's walk-off sim from the runway anchor on the source region's own foothold (not a lip-pixel fall), and only when every live launch state (sub-pixel phase, carry, arrival speed) lands the same region (stableWalkOffLanding); their v70 zMass walls are not ported; 70 (b109, dead-end pits): ledges narrower than two edge insets get an anchor at every pixel (wall-bound notches get their jump out), regions narrower than the walk-off runway walk off from their far end, and a portal with no ground under it serves the floor up to 100 px above it
+    static final int GRAPH_VERSION = 71; // 51: kinetic slippery model + snowshoes; 52: brake-to-stop landings; 53: glide-unless-edge stop policy (slipperyStopDir); 56: uncap straight-drop launch windows (full droppable span, no +/-20 fragmentation); 57: remove the (empirically wrong) 300px down-jump drop cap - down-jumps fall until landing; 58: rope-grab reach counts descent below the ledge (mid-rope jump-grabs from adjacent platforms); 59: fall-sim caps to map height not 1500ms - long single-fall descents (tall shafts: Ellinia tree, Perion) now generate DROP/JUMP/ROPE edges; 60: re-cap drops for organic descent - walk-offs capped at MAX_DROP_PX, down-jumps at the tighter DOWN_JUMP_MAX_DROP_PX, and down-jumps carry DOWN_JUMP_COST_PENALTY_MS so the pathfinder prefers ropes/walk-offs over plummeting an entire vertical map; 61: widened rope top-exit probe (BotPhysicsEngine.findTopExitLanding) - accept a step-off foothold slightly above/below the rope top and a few px off-axis, so uneven/slanted ladder heads mint a clean CLIMB step-off edge instead of only ballistic top jump-offs; 68: nutnnut/Cosmic graph v60-v67 merged onto ours v60-v61 - their 66 (ground walk follows the standing foothold's prev/next chain across a joined fork), 67 (skip phantom cross-region JUMP/FLASH_JUMP edges landing on the source region's own ground), 62 (rope-exit/transfer CLIMB edges carry a Y launch window with per-endpoint cost), 60/61/64/65 (TELEPORT + FLASH_JUMP skill edges with X launch windows; teleport landing SSOT BotPhysicsEngine.teleportLanding, down-teleport to the furthest platform, y-snap 75), keeping our 60 drop caps and 61 widened rope top-exit; their 63 (baked portal route buckets) is not ported; 69: nutnnut/Cosmic v68+v69+v71 walk-off DROP fixes (credit NutNNut) - a directional walk-off's landing is authored with the executor's walk-off sim from the runway anchor on the source region's own foothold (not a lip-pixel fall), and only when every live launch state (sub-pixel phase, carry, arrival speed) lands the same region (stableWalkOffLanding); their v70 zMass walls are not ported; 70 (b109, dead-end pits): ledges narrower than two edge insets get an anchor at every pixel (wall-bound notches get their jump out), regions narrower than the walk-off runway walk off from their far end, and a portal with no ground under it serves the floor up to 100 px above it; 71 (1.6.5 b344c): a ground floor a portal stands on, with no walk-only way out, gets its down-jump without the DOWN_JUMP_MAX_DROP_PX cap (Zakum PQ 280011005: the entry floor's only way down is a 360 px down-jump), every other floor keeps the cap
 
     // Drop caps for organic descent (re-added; v57 had removed the old single cap). A bot must
     // never plummet down a whole vertical map. Two distinct downward moves, treated differently:
@@ -64,6 +64,15 @@ final class BotNavigationGraphProvider {
     static final int MAX_DROP_PX = 300;
     static final int DOWN_JUMP_MAX_DROP_PX = 200;
     static final int DOWN_JUMP_COST_PENALTY_MS = 2000;
+    /**
+     * 1.6.5 b344c (graph v71): the cap above is for a floor that has another way down. A floor whose only walk-only
+     * way out is a longer down-jump (Zakum PQ 280011005's entry floor: 360 px to the floor below, no rope, walls both
+     * ends) would otherwise be a cage for every bot without Teleport or Flash Jump, so for such a floor - one a
+     * portal stands on, see portalFloor - the down-jump is built uncapped, still cost-penalized. Set only during that pass of the build.
+     */
+    private static final ThreadLocal<Boolean> DEAD_END_DOWN_JUMP = ThreadLocal.withInitial(() -> false);
+    /** Test seam: false builds the v70 graph, so a test can show v71 only adds edges out of dead-end floors. */
+    static volatile boolean deadEndDownJumps = true;
     private static final int ENDPOINT_ANCHOR_SPACING_PX = 10;
     private static final int SAME_SOLID_NEST_GAP_PX = 8;
     private static final int ROPE_ANCHOR_INTERVAL_PX = 30;
@@ -839,6 +848,20 @@ final class BotNavigationGraphProvider {
             }
             buildProfile.buildRopeExitEdgesNs = System.nanoTime() - phaseStartedAt;
 
+            // v71 (1.6.5 b344c): a floor nothing walk-only leaves gets its long down-jump (see DEAD_END_DOWN_JUMP)
+            for (BotNavigationGraph.Region region : groundRegions) {
+                if (!deadEndDownJumps || hasWalkOnlyExit(region.id, outgoing) || !portalFloor(region, map)) {
+                    continue;
+                }
+                DEAD_END_DOWN_JUMP.set(true);
+                try {
+                    addDropEdges(region, map, regionsById, regionIdByFootholdId,
+                            anchorsByRegionId.getOrDefault(region.id, List.of()), outgoing, edgeKeys, movementProfile);
+                } finally {
+                    DEAD_END_DOWN_JUMP.set(false);
+                }
+            }
+
             phaseStartedAt = System.nanoTime();
             for (Portal portal : map.getPortals()) {
                 addPortalEdges(portal, map, regionsById, regionIdByFootholdId, outgoing, edgeKeys);
@@ -1168,6 +1191,37 @@ final class BotNavigationGraphProvider {
         int cost = estimateWalkCost(start, end, movementProfile);
         addEdge(from.id, to.id, BotNavigationGraph.EdgeType.WALK, start, end, 0, 0, cost, outgoing, edgeKeys);
         addEdge(to.id, from.id, BotNavigationGraph.EdgeType.WALK, end, start, 0, 0, cost, outgoing, edgeKeys);
+    }
+
+    /**
+     * Whether a portal stands on this floor (or up to 100 px above it, as v70's portal edges read it): a floor a door
+     * puts the party on. Only such a floor gets v71's long down-jump: a hollow nobody is put into (Lith Harbor's crates,
+     * 104000000 r48) stays the trap b109 made it, and no ordinary map's walker route changes.
+     */
+    static boolean portalFloor(BotNavigationGraph.Region region, MapleMap map) {
+        for (Portal portal : map.getPortals()) {
+            Point at = portal.getPosition();
+            if (at == null || at.x < region.minX || at.x > region.maxX) {
+                continue;
+            }
+            Point ground = region.pointAt(at.x);
+            if (ground != null && ground.y >= at.y && ground.y - at.y <= 100) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether some edge a walker can take (no Teleport, no Flash Jump, no portal) leaves the region. */
+    static boolean hasWalkOnlyExit(int regionId, Map<Integer, List<BotNavigationGraph.Edge>> outgoing) {
+        for (BotNavigationGraph.Edge e : outgoing.getOrDefault(regionId, List.of())) {
+            if (e.toRegionId != regionId && (e.type == BotNavigationGraph.EdgeType.WALK
+                    || e.type == BotNavigationGraph.EdgeType.JUMP || e.type == BotNavigationGraph.EdgeType.DROP
+                    || e.type == BotNavigationGraph.EdgeType.CLIMB)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void addDropEdges(BotNavigationGraph.Region from,
@@ -2077,7 +2131,7 @@ final class BotNavigationGraphProvider {
             return null;
         }
         // Short-fallback cap: don't crouch-drop down a tall shaft - that's what ropes are for.
-        if (landing.point().y - launchPoint.y > DOWN_JUMP_MAX_DROP_PX) {
+        if (!DEAD_END_DOWN_JUMP.get() && landing.point().y - launchPoint.y > DOWN_JUMP_MAX_DROP_PX) {
             return null;
         }
 
