@@ -1,0 +1,91 @@
+# sw-exped-door check (Bots' CHECKS-exped-door-damagefloor-2026-11-06.md, book card sw-exped-door): with -Dslums.exped.door ON, a dismissed owned
+# alt leaves the Horntail expedition's member list and spends no boss-log entry, and a registered bot that is not at the recruiter's map
+# is named "[Expedition] <name> is not at the altar and will not join." and not warped in. Run it once with the switch OFF (the fail-before:
+# the list still names the dismissed alt, no warning, a boss-log row for it) and once ON; only that switch differs. TEST QA account only.
+# Staging (noted for latest.json): !heal, !warp, !roster login, !bot followbot and manualstop (fillers only), @botme, @dismiss.
+id: exped-door-check
+title: "exped.door: a dismissed alt leaves the expedition and a bot off the map is named"
+covers: [feature-exped-door]
+status: draft
+server: test
+needs: [gm, owned_alt, proposed_anchors, proposed_signals, proposed_steps]
+notes: "tarkov2 QA account; hex logger on; alts gm 3 (as in H1 runs 1-2), weapons equipped. Fillers thunder54 (1000553099, registered and at the door) and MSbeta (1000551094, stopped in Leafre so it is NOT at the recruiter map). BEFORE the run and again AFTER it, Server Dev reads bosslog_daily (count of Horntail rows today) for the human, 105 and 106 and the Horntail daily cap, and clears QA rows on TEST if a cap would fail the run (logged). Judge by the difference per id: switch ON = 105 +1, 106 +0; OFF = 106 +1 too. Then run h1-cleanup. Read the roster frame and the chat log for the warning."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
+  # the three level 100+ filler regulars (Bots: BabyRanger is too low): the expedition needs 6 members; fillers are not under
+  # test, so GM followbot staging is fine. Judge b311 only from the two alts' own attack packets and positions.
+  - {id: revive, do: gm, line: "!heal", note: "AqClient may log in dead (saved at 0 HP after dying in Horntail): !warp is refused while dead"}
+  - {do: sleep, ms: 1000, reason: "let the revive land before the next command"}
+  - {id: in-leafre, do: gm, line: "!warp 240000000"}
+  - {id: at-leafre, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240000000}, timeout_ms: 30000}
+  - {id: login-thunder54, do: gm, line: "!roster login thunder54"}
+  - {id: logged-thunder54, do: wait, armed_at: login-thunder54, signal: {type: client_signal, name: chat.received, regex: "login 1000553099: "}, timeout_ms: 20000}
+  - {id: follow-thunder54, do: gm, line: "!bot followbot 1000553099"}
+  - {id: login-msbeta, do: gm, line: "!roster login MSbeta"}
+  - {id: logged-msbeta, do: wait, armed_at: login-msbeta, signal: {type: client_signal, name: chat.received, regex: "login 1000551094: "}, timeout_ms: 20000}
+  - {id: follow-msbeta, do: gm, line: "!bot followbot 1000551094"}
+  - {id: call-alt-1, do: chat, text: "@botme AqClientAlt1"}
+  - {id: alt-1-here, do: wait, armed_at: call-alt-1, signal: {type: server_line, topic: OWNED_ALT, regex: "loaded alt=105", char: me}, timeout_ms: 20000}
+  - {id: call-alt-2, do: chat, text: "@botme AqClientAlt2"}
+  - {id: alt-2-here, do: wait, armed_at: call-alt-2, signal: {type: server_line, topic: OWNED_ALT, regex: "loaded alt=106", char: me}, timeout_ms: 20000}
+  - {id: invite-thunder54, do: party_invite, name: thunder54}
+  - {id: joined-thunder54, do: sleep, ms: 3000, reason: "the join is a client notice with no chat or server line: the hex logger shows it"}
+  - {id: invite-msbeta, do: party_invite, name: MSbeta}
+  - {id: joined-msbeta, do: sleep, ms: 3000, reason: "the join is a client notice with no chat or server line: the hex logger shows it"}
+  - {id: stop-msbeta, do: gm, line: "!bot 1000551094 manualstop", note: "MSbeta stays in Leafre while the leader goes to the door"}
+  - {id: to-door, do: gm, line: "!warp 240050400"}
+  - {id: at-door, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240050400}, timeout_ms: 30000}
+  - {id: stand-by-npc, do: gm, line: "!tp 860 246"}
+  - {id: gather, do: sleep, ms: 8000, reason: "the active follower thunder54 travels to the recruiter map after the leader"}
+  - {id: talk-1, do: click_npc, npc: 2083004}
+  - {id: dialog-1, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: lets-go, do: click, anchor: npc_dialog.option_1}
+  - {id: created, do: wait, armed_at: lets-go, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: close-created, do: click, anchor: npc_dialog.close}
+  - {id: closed-1, do: wait, armed_at: close-created, signal: {type: client_signal, name: window.closed, window: npc_dialog}, timeout_ms: 10000}
+  # (b) dismiss Alt2, then look at the member list
+  - {id: dismiss-alt-2, do: chat, text: "@dismiss AqClientAlt2"}
+  - {do: sleep, ms: 4000, reason: "the dismissal removes the alt from the expedition list on the server"}
+  - {id: talk-roster, do: click_npc, npc: 2083004}
+  - {id: dialog-roster, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: view-members, do: click, anchor: npc_dialog.option_1}
+  - {do: sleep, ms: 2500, reason: "frame of the member list: Alt2 must be absent with the switch on"}
+  - {id: close-roster, do: click, anchor: npc_dialog.close}
+  - {id: roster-closed, do: wait, armed_at: close-roster, signal: {type: client_signal, name: window.closed, window: npc_dialog}, timeout_ms: 10000}
+  # (a) start the run: MSbeta is not at the altar
+  - {id: talk-2, do: click_npc, npc: 2083004}
+  - {id: dialog-2, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: start-fight, do: click, anchor: npc_dialog.option_2}
+  - {id: after-start, do: wait, armed_at: start-fight, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: ok-after-start, do: click, anchor: npc_dialog.next}
+  - {id: warned, do: wait, armed_at: start-fight, signal: {type: client_signal, name: chat.received, regex: "MSbeta is not at the altar and will not join"}, timeout_ms: 20000, optional: true}
+  - {id: in-fight, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240060000}, timeout_ms: 60000}
+captures:
+  - {id: roster, burst: {fps: 2, ms: 3000, at: {step: view-members}}}
+  - {id: answer, burst: {fps: 2, ms: 2500, at: {signal: after-start}}}
+  - {id: in-room, burst: {fps: 2, ms: 4000, at: {signal: in-fight}}}
+  - {id: chat, chat_log: {span: {from: stop-msbeta, to: in-fight}}}
+expect:
+  reviewer:
+    - see: "The expedition's member list without AqClientAlt2 (switch on) or still naming it (switch off)"
+      in: [roster]
+    - see: "The party entering the Horntail room"
+      in: [in-room]
+  checks:
+    - {check: client_alive}
+  judgment: "Record: the switch state; roster frame (Alt2 absent?); the warning line for MSbeta (signal.timed_out on step warned means no line); and Server Dev's boss-log difference per id (before/after). PASS with the switch ON = Alt2 absent, the warning once, 106 +0, 105 +1, the run plays on; the OFF run is the fail-before. Then run h1-cleanup."
