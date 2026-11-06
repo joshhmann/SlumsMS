@@ -29,7 +29,7 @@ PLACEHOLDER = re.compile(r"\$\{([a-z][a-z0-9_]*)(?:\.([a-z]+))?\}")
 CLIENT_FIELDS = {"name", "id"}
 # client pipe signals the QA module sends today (client-170-qa-module 502f9f5); the rest of the schema's names are proposed
 BUILT_SIGNALS = {"worldselect.ready", "channels.ready", "charselect.ready", "field.ready"}
-RETRYABLE = {"select_world", "select_channel", "click", "key"}
+RETRYABLE = {"select_world", "select_channel", "click", "key", "gm"}
 # step kinds the client-mcp driver cannot do yet (the Silvia worker's run_script must add them)
 PROPOSED_STEPS = {"wheel", "type", "key_down", "key_up"}
 
@@ -298,12 +298,15 @@ def rule_errors(doc, raw_text, file_stem, anchors, windows):
             if retry:
                 if t_kind(s) != "client_signal":
                     errors.append("%s: retry is for client signals only" % where)
-                target = retry.get("step")
-                if target not in ids or ids[target] >= i:
-                    errors.append("%s: retry step %r is not an earlier step" % (where, target))
-                elif steps[ids[target]].get("do") not in RETRYABLE:
-                    errors.append("%s: retry may resend only %s" % (where, ", ".join(sorted(RETRYABLE))))
-                elif retry.get("every_ms", 0) * retry.get("times", 0) >= s.get("timeout_ms", 0):
+                targets = retry.get("steps") if "steps" in retry else [retry.get("step")]
+                if ("step" in retry) == ("steps" in retry):
+                    errors.append("%s: retry needs exactly one of step and steps" % where)
+                for target in targets or []:
+                    if target not in ids or ids[target] >= i:
+                        errors.append("%s: retry step %r is not an earlier step" % (where, target))
+                    elif steps[ids[target]].get("do") not in RETRYABLE:
+                        errors.append("%s: retry may resend only %s" % (where, ", ".join(sorted(RETRYABLE))))
+                if retry.get("every_ms", 0) * retry.get("times", 0) >= s.get("timeout_ms", 0):
                     errors.append("%s: every_ms x times must fit inside timeout_ms" % where)
             if s.get("armed_at") and s["armed_at"] not in ids:
                 errors.append("%s: armed_at %r is not an earlier step" % (where, s["armed_at"]))

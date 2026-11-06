@@ -123,6 +123,17 @@ class ValidatorTest(unittest.TestCase):
         self.assertRefused(GOOD.replace("bind: {healer: who},", "retry: {step: hurt, every_ms: 1000, times: 1}, bind: {healer: who},"),
                            "client signals only")
 
+    def test_retry_may_resend_a_short_list_of_steps(self):
+        listed = GOOD.replace("retry: {step: pick-world, every_ms: 4000, times: 4}",
+                              "retry: {steps: [pick-world, pick-world], every_ms: 4000, times: 4}")
+        errors, _ = check(listed)
+        self.assertEqual([], errors)
+        self.assertRefused(GOOD.replace("retry: {step: pick-world,", "retry: {step: pick-world, steps: [pick-world],"),
+                           "exactly one of step and steps")
+        self.assertRefused(GOOD.replace("retry: {step: pick-world,", "retry: {steps: [chars],"), "not an earlier step")
+        too_many, _ = check(GOOD.replace("every_ms: 4000, times: 4", "every_ms: 4000, times: 70"))
+        self.assertTrue(too_many)
+
     def test_placeholders_and_binds_resolve(self):
         self.assertRefused(GOOD.replace("!hurt ${me.name} 40", "!hurt ${you.name} 40"), "no client")
         self.assertRefused(GOOD.replace("!hurt ${me.name} 40", "!hurt ${me.password} 40"), "a client has only")

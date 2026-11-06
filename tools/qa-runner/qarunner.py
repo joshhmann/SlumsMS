@@ -886,8 +886,9 @@ class Run:
                 self.sleep(0.05)   # a worker that answers "not yet" at once must not spin
                 if retry and tries < retry["times"] and time.monotonic() < deadline:
                     tries += 1
-                    target = next(s for s in self.doc["steps"] if s.get("id") == retry["step"])
-                    self.worker.send(alias, dict(target))
+                    for tid in (retry.get("steps") or [retry["step"]]):   # one step, or a short list in order
+                        target = next(s for s in self.doc["steps"] if s.get("id") == tid)
+                        self.worker.send(alias, dict(target))
         else:
             regex = fill(sig["regex"], self.values, regex=True)
             armed = step.get("armed_at")

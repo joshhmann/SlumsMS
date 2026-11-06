@@ -153,6 +153,21 @@ class OrchestratorTest(unittest.TestCase):
         self.assertEqual(2, worker.world_clicks)
         self.assertEqual(1, next(s for s in m["steps"] if s["id"] == "channels")["retries"])
 
+    def test_a_retry_may_resend_a_list_of_steps_in_order(self):
+        text = SCRIPT.read_text().replace("retry: {step: pick-world, every_ms: 4000, times: 4}",
+                                          "retry: {steps: [pick-world, pick-world], every_ms: 4000, times: 4}")
+        self.assertIn("steps: [pick-world, pick-world]", text)
+        alt = Path(tempfile.mkdtemp()) / SCRIPT.name
+        alt.write_text(text)
+        feed = FakeFeed()
+        worker = FakeWorker(feed, lose_world_clicks=1)
+        run = qarunner.Run(alt, feed, worker, runs_root=tempfile.mkdtemp(), commit="d4f103b0e", clock=clock,
+                           sleep=lambda s: None)
+        m = run.run()
+        self.assertEqual("PASS", m["result"])
+        self.assertEqual(3, worker.world_clicks)   # the first click, then both listed steps once
+        self.assertEqual(1, next(s for s in m["steps"] if s["id"] == "channels")["retries"])
+
     def test_a_missing_signal_fails_the_run_at_that_step(self):
         feed = FakeFeed()
         worker = FakeWorker(feed, missing={"charselect.ready"})
