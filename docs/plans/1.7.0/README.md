@@ -12,6 +12,7 @@ live.** The released commit becomes the baseline, tagged `v1.6.4`.
 | [D-qa-capability-spec.md](D-qa-capability-spec.md) | QA tiers on existing tools, impact selection, golden paths, capability inventory, AMPR and rates |
 | [E-release-readiness.md](E-release-readiness.md) | baseline rule, gates G0-G5 with proof, obligations, exclusions, rollback |
 | [F-decision-record.md](F-decision-record.md) | 20 decisions, rejected alternatives, risks, blocking questions (none) |
+| [G-release-schedule.md](G-release-schedule.md) | D23: the plan ships as 1.6.5 -> 1.6.9, then 1.7.0 certification; owner's six conditions, scope and exit criteria per release, card allocation |
 
 Strategy and corrections: [../1.7.0-stabilization.md](../1.7.0-stabilization.md).
 
