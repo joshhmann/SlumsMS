@@ -472,7 +472,15 @@ class SilviaWorker:
         elif kind == "jump":
             return {"result": "refused", "detail": "a jump step needs the client's jump key and timing: not "
                                                    "available in this client build"}
-        elif kind in ("click_npc", "wheel", "type", "key_down", "key_up"):
+        elif kind == "click_npc":
+            name, arguments = "click_npc", {"npc": step["npc"]}
+        elif kind == "drop_item":   # P1-Q2: the QA client calls the item window's own sender (QA build 3)
+            name, arguments = "drop_item", {"item": step["item"], "count": step.get("count", 1)}
+        elif kind == "party_create":
+            name, arguments = "party_create", {}
+        elif kind == "party_invite":
+            name, arguments = "party_invite", {"name": step["name"]}
+        elif kind in ("wheel", "type", "key_down", "key_up"):
             return {"result": "refused", "detail": "%s is not available in this client build" % kind}
         answer = self.tool(name, arguments)
         text = "\n".join(answer.get("text") or []).strip()
@@ -832,7 +840,7 @@ class Run:
             self.wait(i, step, alias, entry)
             return
         sent = dict(step)
-        for key in ("text", "line"):
+        for key in ("text", "line", "name"):   # name: party_invite ${regular}
             if key in sent:
                 sent[key] = fill(sent[key], self.values)
         if kind == "select_character":

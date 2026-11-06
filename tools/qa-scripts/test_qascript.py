@@ -102,7 +102,7 @@ class ValidatorTest(unittest.TestCase):
                                         "  - {do: select_character}\n  - {id: c, do: wait, signal: {type: client_signal, name: chat.received, regex: x}, timeout_ms: 5000}\n"),
                            "proposed_signals")
         self.assertRefused(GOOD.replace("  - {do: select_character}\n",
-                                        "  - {do: select_character}\n  - {do: click_npc, npc: 9020001}\n"),
+                                        "  - {do: select_character}\n  - {do: type, text: x}\n"),
                            "proposed_steps")
 
     def test_no_credentials_in_the_file(self):

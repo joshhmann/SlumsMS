@@ -815,6 +815,88 @@
      "type": "object",
      "properties": {
       "do": {
+       "const": "drop_item"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "item": {
+       "type": "integer",
+       "minimum": 1000000,
+       "maximum": 5999999
+      },
+      "count": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 32767
+      }
+     },
+     "required": [
+      "do",
+      "item"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "party_create"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      }
+     },
+     "required": [
+      "do"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "party_invite"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "name": {
+       "type": "string",
+       "pattern": "^([A-Za-z0-9]{4,12}|\\$\\{[A-Za-z0-9_.]+\\})$"
+      }
+     },
+     "required": [
+      "do",
+      "name"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
        "const": "wheel"
       },
       "id": {

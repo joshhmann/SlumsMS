@@ -84,6 +84,22 @@ class WorkerCallsTest(unittest.TestCase):
             ('press_key', {'name': 'Z', 'hold_ms': 250}), ('press_key', {'name': 'LEFT', 'hold_ms': 400}),
         ], transport.calls)
 
+    def test_the_p1q2_steps_call_the_qa_client_tools(self):
+        worker, transport = self.make()
+        for step in ({'do': 'click_npc', 'npc': 2030008}, {'do': 'drop_item', 'item': 4001017},
+                     {'do': 'drop_item', 'item': 2000000, 'count': 3}, {'do': 'party_create'},
+                     {'do': 'party_invite', 'name': 'Bishbot'}):
+            self.assertEqual('ok', worker.send('me', step)['result'])
+        self.assertEqual([
+            ('click_npc', {'npc': 2030008}), ('drop_item', {'item': 4001017, 'count': 1}),
+            ('drop_item', {'item': 2000000, 'count': 3}), ('party_create', {}), ('party_invite', {'name': 'Bishbot'}),
+        ], transport.calls)
+
+    def test_a_qa_client_refusal_fails_the_step(self):
+        worker, _ = self.make({'drop_item': answer('not_in_inventory', is_error=True)})
+        self.assertEqual({'result': 'refused', 'detail': 'not_in_inventory'},
+                         worker.send('me', {'do': 'drop_item', 'item': 4001017}))
+
     def test_a_step_the_build_cannot_play_is_refused_not_skipped(self):
         worker, transport = self.make()
         for step, word in (({'do': 'jump', 'dir': 'right'}, 'jump'),

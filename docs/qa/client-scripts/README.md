@@ -122,12 +122,15 @@ At most two clients (`two_clients` in `needs`); with two, every step, capture an
 | `wait` | `signal`, `timeout_ms`, `armed_at`, `bind`, `retry` | see Waits |
 | `sleep` | `ms`, `reason` | discouraged; see Timers |
 | `mark` | `id` | a named point for captures and spans |
-| `click_npc`* | `npc` | clicks an NPC by id (the QA module knows where it stands) |
+| `click_npc` | `npc` | clicks an NPC by id where the QA client draws it; it never walks (`out_of_view`: move, then again) |
+| `drop_item` | `item`, `count` | drops `count` (default 1) of the item's first stack through the client's own sender (QA build 3) |
+| `party_create` | | creates a party through the client's own sender, as the party window's Create does |
+| `party_invite` | `name` | invites a character by name the same way; `!bot <cid> acceptinv` answers it for a bot |
 | `wheel`* | `anchor`, `notches` | mouse wheel over a target |
 | `type`* | `text` | types into the focused box (no Enter) |
 | `key_down`* / `key_up`* | `key` | hold a key across steps; every `key_down` needs its `key_up` |
 
-\* proposed: the Silvia worker does not do it yet; a script using one lists `proposed_steps` in `needs`.
+\* proposed: the worker does not do it yet; a script using one lists `proposed_steps` in `needs`.
 
 `${me.name}`, `${me.id}` (any client alias) and `${var}` (bound by an earlier wait) may appear in `text`, `line` and
 regexes; in a regex the value is inserted escaped. A plain `{2}` stays a regex quantifier.

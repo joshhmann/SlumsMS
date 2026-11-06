@@ -354,3 +354,60 @@ class ClickOptionTest(NewToolsTest):
         with self.assertRaises(self.driver.Refusal) as caught:
             self.d.click_anchor('npc_dialog.option_9')
         self.assertIn('not a calibrated point', str(caught.exception))
+
+
+class DropAndPartyTest(NewToolsTest):
+    """P1-Q2 (Zakum run): drop_item, party_create, party_invite ride the QA client's own senders."""
+
+    def test_drop_item_sends_the_item_and_count(self):
+        self.d.qa = FakeQa([{'ev': 'item.drop', 'item': 4001017, 'count': 1, 'type': 4, 'slot': 3, 'ok': True}])
+        self.assertEqual({'item': 4001017, 'count': 1, 'slot': 3}, self.d.drop_item(4001017))
+        self.assertEqual(['drop_item 4001017 1'], self.d.qa.sent)
+
+    def test_drop_item_passes_the_client_error_on(self):
+        self.d.qa = FakeQa([{'ev': 'item.drop', 'item': 4001017, 'count': 1, 'ok': False, 'error': 'not_in_inventory'}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.drop_item(4001017)
+        self.assertEqual('not_in_inventory', str(caught.exception))
+
+    def test_drop_item_skips_an_older_answer(self):
+        self.d.qa = FakeQa([{'ev': 'item.drop', 'item': 2000000, 'count': 1, 'ok': True, 'slot': 1},
+                            {'ev': 'item.drop', 'item': 4001017, 'count': 2, 'ok': True, 'slot': 5}])
+        self.assertEqual(5, self.d.drop_item(4001017, 2)['slot'])
+
+    def test_no_answer_is_no_character(self):
+        self.d.qa = FakeQa([])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.drop_item(4001017)
+        self.assertEqual('no_character', str(caught.exception))
+
+    def test_party_create(self):
+        self.d.qa = FakeQa([{'ev': 'party.sent', 'op': 'create', 'ok': True}])
+        self.assertEqual({'op': 'create'}, self.d.party_create())
+        self.assertEqual(['party_create'], self.d.qa.sent)
+
+    def test_party_invite(self):
+        self.d.qa = FakeQa([{'ev': 'party.sent', 'op': 'invite', 'name': 'Bishbot', 'ok': True}])
+        self.assertEqual({'op': 'invite', 'name': 'Bishbot'}, self.d.party_invite('Bishbot'))
+        self.assertEqual(['party_invite Bishbot'], self.d.qa.sent)
+
+    def test_party_invite_refuses_a_bad_name_before_sending(self):
+        self.d.qa = FakeQa([])
+        for name in ('abc', 'Bish bot', 'Bish;bot', 'abcdefghijklm'):
+            with self.assertRaises(self.driver.Refusal):
+                self.d.party_invite(name)
+        self.assertFalse(hasattr(self.d.qa, 'sent'))
+
+    def test_party_invite_field_not_ready(self):
+        self.d.qa = FakeQa([{'ev': 'party.sent', 'op': 'invite', 'name': 'Bishbot', 'ok': False,
+                             'error': 'field_not_ready'}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.party_invite('Bishbot')
+        self.assertEqual('field_not_ready', str(caught.exception))
+
+    def test_the_new_tools_are_script_steps_with_arguments(self):
+        for tool in ('drop_item', 'party_create', 'party_invite'):
+            self.assertIn(tool, self.driver.SCRIPT_TOOLS)
+            self.assertIn(tool, self.driver.TOOLS)
+        self.assertEqual(('item',), self.driver.REQUIRED['drop_item'])
+        self.assertEqual(('name',), self.driver.REQUIRED['party_invite'])
