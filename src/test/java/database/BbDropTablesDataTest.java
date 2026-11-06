@@ -36,6 +36,9 @@ class BbDropTablesDataTest {
     static final Path SQL = Path.of("database/migrations/050-bb-drop-tables.sql");
     static final Pattern ROW = Pattern.compile("^\\((\\d+), (\\d+), (\\d+), (\\d+), (\\d+), (\\d+)\\)[,;]$");
 
+    static final Path REMOVALS = Path.of("database/migrations/067-drop-useless-etc.sql");
+    static final Pattern PAIR = Pattern.compile("^\\((\\d+), (\\d+)\\)[,;]$");
+
     record Row(int mob, int item, int min, int max, int quest, int chance) {
     }
 
@@ -53,6 +56,26 @@ class BbDropTablesDataTest {
                         Integer.parseInt(m.group(4)), Integer.parseInt(m.group(5)), Integer.parseInt(m.group(6))));
             }
         }
+        return out;
+    }
+
+    /**
+     * 050's rows minus the (mob, item) pairs later migrations delete (card b349: 067 removes ETC drops whose only use
+     * was an old forge recipe). 050 is applied everywhere and never edited, so the checks that describe the table as it
+     * stands after every migration use this.
+     */
+    static List<Row> netRows() throws Exception {
+        Set<Long> removed = new HashSet<>();
+        for (String line : Files.readAllLines(REMOVALS)) {
+            Matcher m = PAIR.matcher(line.strip());
+            if (m.matches()) {
+                removed.add((Long.parseLong(m.group(1)) << 32) | Long.parseLong(m.group(2)));
+            }
+        }
+        List<Row> out = new ArrayList<>(rows());
+        int before = out.size();
+        out.removeIf(r -> removed.contains(((long) r.mob << 32) | r.item));
+        assertEquals(removed.size(), before - out.size(), "every pair 067 removes is a row 050 added");
         return out;
     }
 
@@ -110,7 +133,7 @@ class BbDropTablesDataTest {
         WzTestData.assumePresent("Item.wz");
         WzTestData.assumePresent("Character.wz");
         WzTestData.assumePresent("Mob.wz");
-        assertItemsReal(rows());
+        assertItemsReal(netRows());
     }
 
     static void assertItemsReal(List<Row> rows) throws Exception {
@@ -161,7 +184,7 @@ class BbDropTablesDataTest {
     @Test
     void everyEtcItemHasAUseHereOrAnNpcPrice() throws Exception {
         WzTestData.assumePresent("Item.wz");
-        assertEtcUseful(rows());
+        assertEtcUseful(netRows());
     }
 
     static void assertEtcUseful(List<Row> rows) throws Exception {
