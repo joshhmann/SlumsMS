@@ -271,3 +271,19 @@ The text above stays as written; each line these items change carries a pointer 
     - The feature freeze covers new gameplay systems. Existing-content repairs, QA tools, reliability work and bounded
       compatibility repairs may be candidates for earlier releases.
     - Full ticket titles and acceptance criteria are on each card in the 1.6.5 book.
+11. **Cooperative PvE readiness** (owner, 6 Nov; full send 10:30 UTC). Implementation complete is not gameplay complete.
+    - **1.6.5:** b311 (Horntail alts idle) is carried from the 1.6.4 book and **re-tested on the current build before any new
+      code**. b344 (Zakum PQ stage 1 bots never enter the mine rooms) is **must-ship**, together with b331's remainder
+      (bots don't hit broken reactors; ore route), behind the existing safety gates.
+    - **1.6.6:** b337 (run start and end logging) plus one QA card for boss-completion assertions (the `t-ex-2` check must
+      assert the defeat flag, loot and instance cleanup, not only swings). Real-client runs through DSH on TEST: Zakum
+      (human, owned alt, regular: entry, Eye of Fire summon, arms then body, defeat, rewards, cleanup, persistence after
+      relog), Horntail, and the 1.6.4 level 120+ hands-on checks (`t-ng-1`..`t-ng-7`, `t-ng-9`, the Lion King's Castle
+      chain).
+    - **1.6.8:** b232 (a follower stays inside when its leader warps out) is verified; owned alts and regulars in
+      expeditions re-run on the ledger.
+    - **1.6.9:** other encounters reuse the verified Zakum/Horntail capabilities, one at a time.
+    - **Expedition structure:** the flat 30-member roster (`ExpeditionType.ZAKUM`, 6-30 members) is the baseline. Its
+      documented limitation: regulars auto-join only from the expedition leader's own party
+      (`ExpeditionBots.autoJoin`). No six-party structure unless evidence shows a concrete limitation.
+    - **1.8.x** keeps the deeper living-world bot expansion; nothing of it enters the 1.7.0 freeze.
