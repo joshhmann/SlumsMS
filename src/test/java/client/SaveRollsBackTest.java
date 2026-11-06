@@ -26,12 +26,15 @@ import static org.mockito.Mockito.when;
 class SaveRollsBackTest {
 
     private static Character loggedInChar() throws Exception {
-        Character chr = Character.getDefault(new BotClient(1, 1));
+        Character chr = Character.getDefault(mock(Client.class));   // a human's client, so not a roster bot
         chr.setID(7);
         chr.setName("Saver");
         Field f = Character.class.getDeclaredField("loggedIn");
         f.setAccessible(true);
         f.set(chr, true);
+        Field mb = Character.class.getDeclaredField("monsterbook");
+        mb.setAccessible(true);
+        mb.set(chr, mock(MonsterBook.class));
         return chr;
     }
 
@@ -65,6 +68,7 @@ class SaveRollsBackTest {
         Connection con = connection();
 
         assertEquals(SaveResult.FAILED, save(chr, con, null));
+        verify(pet).saveToDb(con);   // it failed at the pet, not somewhere unrelated
         verify(con).rollback();
         verify(con, never()).commit();
     }
@@ -73,9 +77,11 @@ class SaveRollsBackTest {
     void aFailingCooldownWriteFailsAndRollsBackTheCharacterSave() throws Exception {
         Character chr = loggedInChar();
         Connection con = connection();
-        Character.SaveExtra cooldowns = c -> { throw new SQLException("injected cooldown failure"); };
+        java.util.concurrent.atomic.AtomicBoolean ran = new java.util.concurrent.atomic.AtomicBoolean();
+        Character.SaveExtra cooldowns = c -> { ran.set(true); throw new SQLException("injected cooldown failure"); };
 
         assertEquals(SaveResult.FAILED, save(chr, con, cooldowns));
+        org.junit.jupiter.api.Assertions.assertTrue(ran.get(), "the cooldown write ran inside the save");
         verify(con).rollback();
         verify(con, never()).commit();
     }
