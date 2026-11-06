@@ -417,6 +417,7 @@ public class CommandsExecutor {
         addCommand("tp", 3, client.command.commands.gm3.TpCommand.class);   // 1.6.1: same-map move to x y (client NPC screenshot pass)
         if (soloMapling.server.MapleRootSolo.isEnabled()) {
             addCommand("bot", 4, client.command.commands.gm4.ArtificialPlayerCommand.class);
+        addCommand("followfor", 4, client.command.commands.gm4.FollowForCommand.class);
             addCommand("opq", 4, client.command.commands.gm4.OPQCommands.class);
             addCommand("reactor", 4, client.command.commands.gm4.ReactorCommands.class);
             addCommand("move", 4, client.command.commands.gm4.BotMoveCommand.class);
