@@ -44,7 +44,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * in with the shared approach step ({@link Approach}) and swings with its own rotation ({@link BotAttackDriver#botAttack}:
  * the human skill choice and rotation extras, its cooldowns setting the pace). It never starts on a quiet mob alone.
  */
-final class FollowerFight {
+public final class FollowerFight {
 
     /** Tick of a follower while it fights: the attack driver's own cooldown sets the real swing rate. */
     static final long FIGHT_TICK_MS = 200;
@@ -61,9 +61,9 @@ final class FollowerFight {
      * checked, so grinding and party quests pay one {@code isBoss()}/{@code hasBossMechanics} test per candidate and no
      * walk.
      */
-    static final String REACH_SWITCH = "slums.bossfight.reach";
+    public static final String REACH_SWITCH = "slums.bossfight.reach";
 
-    static boolean reachGateOn() {
+    public static boolean reachGateOn() {
         return Boolean.getBoolean(REACH_SWITCH);
     }
 
@@ -153,7 +153,7 @@ final class FollowerFight {
     }
 
     /** A boss or one of its parts: the big, multi-part mobs whose position is not where the bot has to stand to hit. */
-    static boolean isBossPart(Monster m) {
+    public static boolean isBossPart(Monster m) {
         return m != null && (m.isBoss() || MapleMap.hasBossMechanics(m.getId()));
     }
 
@@ -164,7 +164,7 @@ final class FollowerFight {
      * nav planner's route to it ({@link BotAttackDriver#pathCost}, the cost {@link BotAttackDriver#costTo} ranks by) -
      * {@link GCMovement#UNREACHABLE} when no walk gets there (a part hovering over a platform, or sealed off).
      */
-    static boolean canGetInReach(MapleMap map, Point at, Monster m, BotAttackProfile profile) {
+    public static boolean canGetInReach(MapleMap map, Point at, Monster m, BotAttackProfile profile) {
         Point mp = m == null ? null : m.getPosition();
         if (mp == null) {
             return false;

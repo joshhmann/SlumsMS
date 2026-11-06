@@ -273,6 +273,11 @@ public final class OwnedAltCombat {
         }
         Monster best = null;
         double bestSq = Double.MAX_VALUE;
+        // 1.6.5 b311: the population followers' boss-part reach gate (FollowerFight, ticket 130 fix 2), same switch.
+        // H1 run 2b: two flying Red Wyverns were the nearest engaged mobs and a melee Hero alt walked under them for
+        // four minutes (STALL_MS, then GIVE_UP_MS, then the other one) and never swung at the head it could reach.
+        boolean reachGate = soloMapling.ArtificialPlayer.BotTypes.FollowerFight.reachGateOn();
+        soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile profile = null;
         for (Monster m : map.getAllMonsters()) {
             Point mp = m == null ? null : m.getPosition();
             if (mp == null || !m.isAlive() || !BotAttackDriver.botMayTarget(m)) {
@@ -284,6 +289,14 @@ public final class OwnedAltCombat {
             if (!engaged(m, owner, alt, party, now) || skip.test(m) || !BotAttackDriver.onAttackableSurface(map, at, m)
                     || strangers(m, map, party, now)) {
                 continue;
+            }
+            if (reachGate && soloMapling.ArtificialPlayer.BotTypes.FollowerFight.isBossPart(m)) {
+                if (profile == null) {
+                    profile = BotAttackDriver.primaryAttack(alt);
+                }
+                if (!soloMapling.ArtificialPlayer.BotTypes.FollowerFight.canGetInReach(map, at, m, profile)) {
+                    continue; // a part it can never get in reach of: the next-nearest instead
+                }
             }
             double d = at.distanceSq(mp);
             if (d < bestSq) {
