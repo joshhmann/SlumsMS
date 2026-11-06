@@ -95,7 +95,7 @@
         "null"
       ],
       "pattern": "^[A-Z][A-Z0-9_]*$",
-      "description": "One reason on every non-success terminal state (RFC 2.1 Reason enum); null otherwise."
+      "description": "One reason on every non-success terminal state (RFC 2.1 Reason enum): required on FAILED, TIMED_OUT, REJECTED and INTERRUPTED; null on SUCCEEDED."
     },
     "cause": {
       "type": [
@@ -111,9 +111,10 @@
         "FEASIBILITY",
         "CONTENTION",
         "EXECUTION",
+        "TEST_INFRA",
         null
       ],
-      "description": "Non-null iff state is FAILED, TIMED_OUT or REJECTED. Interruptions (INTERRUPTED) carry none and never teach."
+      "description": "Non-null iff state is FAILED, TIMED_OUT or REJECTED. TEST_INFRA is set only by the QA harness (missing evidence, harness fault); the emitter never sets it. Interruptions (INTERRUPTED) carry none and never teach."
     },
     "evidence": {
       "type": [
@@ -225,6 +226,10 @@
         ]
       },
       "then": {
+        "required": [
+          "failureClass",
+          "reason"
+        ],
         "properties": {
           "failureClass": {
             "type": "string"
@@ -233,10 +238,73 @@
             "type": "string"
           }
         }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "INTERRUPTED"
+          }
+        },
+        "required": [
+          "state"
+        ]
       },
-      "else": {
+      "then": {
+        "required": [
+          "failureClass",
+          "reason"
+        ],
         "properties": {
           "failureClass": {
+            "type": "null"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "PROPOSED",
+              "ADMITTED",
+              "RUNNING",
+              "COMPENSATING",
+              "SUCCEEDED"
+            ]
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "failureClass": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "SUCCEEDED"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reason": {
             "type": "null"
           }
         }
