@@ -160,8 +160,9 @@ public final class Orchestrator implements RunOrchestrator {
             run.end("the party needs exactly one leader");
             return run;
         }
-        if (members.size() < minimum(content, members.size()) || members.size() > content.maxPlayers()) {
-            run.end(content.id() + " takes " + content.minPlayers() + "-" + content.maxPlayers() + " members, not "
+        int floor = minimum(content, members.size());
+        if (members.size() < floor || members.size() > content.maxPlayers()) {
+            run.end(content.id() + " takes " + floor + "-" + content.maxPlayers() + " members, not "
                     + members.size());
             return run;
         }

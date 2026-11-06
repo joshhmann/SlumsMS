@@ -63,6 +63,16 @@ class BossRoomMinimumTest {
     }
 
     @Test
+    void aRegularAloneIsRefusedWithTheFloorItWasCheckedAgainst() {
+        // Server Dev review: the refusal quotes the boss floor (2), not the row's 6
+        RunState run = new Orchestrator(Orchestrator.allSolvers(), new Random(1), 0, 0).start(
+                MechanicsRuns.contentFor("HorntailBattle"), Tier.NORMAL,
+                List.of(new RunMember(1, true, true, MechanicsPersona.PERFECT)));
+        assertTrue(run.ended(), "one is not a room");
+        assertTrue(run.endedBecause().contains("takes 2-30 members, not 1"), run.endedBecause());
+    }
+
+    @Test
     void aPartyQuestKeepsItsRowsMinimum() {
         Content kpq = MechanicsRuns.contentFor("KerningPQ");
         int min = kpq.minPlayers();
