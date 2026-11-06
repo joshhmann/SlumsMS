@@ -2811,6 +2811,8 @@ public class MapleMap {
         }
     }
 
+    static volatile java.util.function.Consumer<Character> afterSpawnBroadcast; // null in production
+
     public void addPlayer(final Character chr) {
         if (chr.getClient() instanceof client.SyntheticClient) { // auto-QA's pretend players land like a client would
             soloMapling.autoqa.SyntheticPlayers.groundOnEntry(this, chr);
@@ -3026,6 +3028,9 @@ public class MapleMap {
             broadcastSpawnPlayerMapObjectMessage(chr, chr, true);
         }
 
+        if (afterSpawnBroadcast != null) {
+            afterSpawnBroadcast.accept(chr); // test seam (b350): lets a test run a second entry in the gap before mapobjects.put
+        }
         sendObjectPlacement(chr.getClient());
         server.weather.WeatherPackets.sendTo(chr);
 
