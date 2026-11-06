@@ -220,6 +220,7 @@ public class Character extends AbstractCharacterObject {
     private final Map<Short, QuestStatus> quests;
     private final Set<Monster> controlled = new LinkedHashSet<>();
     private final Map<Integer, String> entered = new LinkedHashMap<>();
+    private volatile Set<Integer> entrySpawns; // b350: ids this (real-player) character was sent an entry spawn for on its current map entry
     private final Set<MapObject> visibleMapObjects = Collections.newSetFromMap(new ConcurrentHashMap<>());
     private final Map<Skill, SkillEntry> skills = new LinkedHashMap<>();
     private final Map<Integer, Integer> activeCoupons = new LinkedHashMap<>();
@@ -7606,6 +7607,23 @@ public class Character extends AbstractCharacterObject {
                 this.getPosition().getY() > 0 &&
                 ItemConstants.canFishFromChair(chair.get()) &&
                 this.getWorldServer().registerFisherPlayer(this, baitLevel);
+    }
+
+    public void resetEntrySpawns() {
+        entrySpawns = ConcurrentHashMap.newKeySet();
+    }
+
+    /** True when the spawn for `id` should be sent now (first time this entry); a character without a set always gets it. */
+    public boolean markEntrySpawn(int id) {
+        Set<Integer> set = entrySpawns;
+        return set == null || set.add(id);
+    }
+
+    public void forgetEntrySpawn(int id) {
+        Set<Integer> set = entrySpawns;
+        if (set != null) {
+            set.remove(id);
+        }
     }
 
     public void leaveMap() {
