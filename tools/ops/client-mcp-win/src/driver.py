@@ -52,6 +52,7 @@ TOOLS = {
     'drop_item': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 5999999},
                   'count': {'type': 'integer', 'minimum': 1, 'maximum': 32767}},
     'party_create': {},
+    'close_dialog': {},
     'party_invite': {'name': {'type': 'string', 'maxLength': 12}},
     'mouse_drag': {'x1': {'type': 'integer', 'minimum': 0, 'maximum': 799},
                    'y1': {'type': 'integer', 'minimum': 0, 'maximum': 599},
@@ -190,7 +191,7 @@ SCRIPT_NAME = re.compile(r'^[a-z0-9][a-z0-9_-]{0,47}$')
 SCRIPT_TOOLS = {'start_client', 'login', 'login_credentials', 'click_anchor', 'select_world', 'select_channel',
                 'select_character', 'qa_events', 'command', 'press_key', 'mouse_click', 'mouse_drag', 'screenshot',
                 'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to', 'click_npc', 'click_option',
-                'drop_item', 'party_create', 'party_invite'}
+                'drop_item', 'party_create', 'party_invite', 'close_dialog'}
 # A QA vault alias (secrets/<vault>.txt) is a script name: secrets/aq-gm-1.txt. Never a path.
 VAULT = re.compile(r'^[a-z0-9][a-z0-9-]{1,31}$')
 # The QA build writes this once per login (slums.dll bypass.cpp ClientDataCaps); the manifest's caps come from it.
@@ -736,10 +737,13 @@ class Driver:
 
     def click_anchor(self, name):
         """Clicks one calibrated ui.json point (docs/qa/client-scripts/anchors.yaml). x,y never come from a script.
-        npc_dialog.option_<n> is not a point: it picks menu row n through the QA client (click_option)."""
+        npc_dialog.option_<n> is not a point: it picks menu row n through the QA client (click_option); nor is
+        npc_dialog.close, which ends the dialog the way its close button does (close_dialog)."""
         option = NPC_OPTION_ANCHOR.match(str(name))
         if option:
             return self.click_option(int(option.group(1)))
+        if name == 'npc_dialog.close':
+            return self.close_dialog()
         if name not in (self.ui.get('points') or {}):
             raise Refusal('Anchor ' + str(name) + ' is not a calibrated point in ui.json: add it to '
                           'docs/qa/client-scripts/anchors.yaml first.')
@@ -963,6 +967,12 @@ class Driver:
         if not event.get('ok'):
             raise Refusal(str(event.get('error') or timeout_error))
         return event
+
+    def close_dialog(self):
+        """D1: ends the open npc dialog the way its close button does (any type; the server gets "end chat"). For the
+        welcome dialog that blocks a new character's chat. Error: no_dialog."""
+        self.qa_request('close_dialog', 'click.done', lambda e: e.get('op') == 'close_dialog', 'no_dialog')
+        return {'op': 'close_dialog'}
 
     def drop_item(self, item, count=1):
         """P1-Q2: drops <count> of the first stack of <item> through the client's own item-move sender (the packet a

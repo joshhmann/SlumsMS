@@ -411,3 +411,28 @@ class DropAndPartyTest(NewToolsTest):
             self.assertIn(tool, self.driver.TOOLS)
         self.assertEqual(('item',), self.driver.REQUIRED['drop_item'])
         self.assertEqual(('name',), self.driver.REQUIRED['party_invite'])
+
+
+class CloseDialogTest(NewToolsTest):
+    """D1: the welcome dialog on a new character blocks chat; close_dialog ends any npc dialog."""
+
+    def test_close_dialog(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'close_dialog', 'ok': True}])
+        self.assertEqual({'op': 'close_dialog'}, self.d.close_dialog())
+        self.assertEqual(['close_dialog'], self.d.qa.sent)
+
+    def test_the_close_anchor_goes_to_close_dialog(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'close_dialog', 'ok': True}])
+        self.assertEqual({'op': 'close_dialog'}, self.d.click_anchor('npc_dialog.close'))
+
+    def test_no_dialog_is_passed_on(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'close_dialog', 'ok': False, 'error': 'no_dialog'}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.close_dialog()
+        self.assertEqual('no_dialog', str(caught.exception))
+
+    def test_an_option_answer_is_not_a_close_answer(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'click_option', 'option': 1, 'ok': True, 'value': 0}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.close_dialog()
+        self.assertEqual('no_dialog', str(caught.exception))
