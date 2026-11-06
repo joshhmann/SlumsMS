@@ -126,7 +126,25 @@ final class StepExecutor {
         boolean stallTold;
         int stallGain;
         final Chase chase = new Chase();
+        /** 1.6.5 b344c: the last route check toward a reactor (when, and how many in a row said "no route"). */
+        long routeCheckedMs;
+        int noRouteTimes;
+        /** Set when the planner twice in a row has no route to the reactor this bot must hit; the run gives up. */
+        String noRoute;
     }
+
+    /** A route check: can this bot get to (x, y) on its map? {@code null} reason means yes. Tests swap it. */
+    interface RouteCheck {
+        String noRoute(Character bot, int x, int y);
+    }
+
+    static volatile RouteCheck routeCheck = (bot, x, y) -> {
+        soloMapling.ArtificialPlayer.GCMoveSystem.NavProbe.Result r =
+                soloMapling.ArtificialPlayer.GCMoveSystem.NavProbe.probe(bot, x, y);
+        return r.reachable() ? null : r.reason();
+    };
+    /** How often a bot walking to a reactor re-checks that a route exists; two "no route" in a row give the stage up. */
+    static final long ROUTE_CHECK_MS = 10_000;
 
     void forget(int botId) {
         beats.remove(botId);
@@ -179,6 +197,12 @@ final class StepExecutor {
             case SolverStep.Abandon a -> {
                 // the orchestrator ends the run on this reason before any executor sees it
             }
+        }
+        if (beat.noRoute != null && orchestrator != null && run != null) {
+            String why = beat.noRoute;
+            beat.noRoute = null;
+            log.accept(why);
+            orchestrator.giveUp(run, why);
         }
     }
 
@@ -1109,15 +1133,46 @@ final class StepExecutor {
         return type >= 0 && type < 999 && reactor.getStats().getStateSize(state) > 0;
     }
 
+    /**
+     * 1.6.5 b344c: a bot walking to a reactor asks the planner every {@link #ROUTE_CHECK_MS} whether a route exists. Two
+     * "no route" answers in a row (one can be a bot in mid-air) mean it never will - Zakum PQ's big room had no walk-only
+     * way down to its ore rock - and the stage is given up at once rather than after the no-progress window.
+     */
+    private static void checkRoute(Character bot, Beat beat, Point rp, String label, long now) {
+        if (now - beat.routeCheckedMs < ROUTE_CHECK_MS) {
+            return;
+        }
+        beat.routeCheckedMs = now;
+        String reason;
+        try {
+            reason = routeCheck.noRoute(bot, rp.x, rp.y);
+        } catch (RuntimeException e) {
+            reason = null; // a probe that cannot run says nothing either way
+        }
+        if (reason == null) {
+            beat.noRouteTimes = 0;
+            return;
+        }
+        if (++beat.noRouteTimes >= 2) {
+            beat.noRoute = bot.getName() + " can't reach reactor " + label + " at (" + rp.x + ", " + rp.y + ") on "
+                    + bot.getMapId() + ": " + reason;
+            beat.noRouteTimes = 0;
+        }
+    }
+
     /** The walk-and-click part, shared by {@link SolverStep.HitReactor} and {@link SolverStep.HitReactorNamed}. */
     private static void hitReactorAt(Character bot, Beat beat, server.maps.Reactor reactor, String label, long now,
                                      Consumer<String> log) {
         Point at = bot.getPosition();
         Point rp = reactor.getPosition();
         if (at != null && rp != null && (Math.abs(rp.x - at.x) > 45 || Math.abs(rp.y - at.y) > 60)) {
-            moveNear(bot, beat, rp.x, rp.y, 30, now);
+            checkRoute(bot, beat, rp, label, now);
+            if (beat.noRouteTimes == 0 && beat.noRoute == null) {
+                moveNear(bot, beat, rp.x, rp.y, 30, now); // no new walk on a route the planner just said is not there
+            }
             return;
         }
+        beat.noRouteTimes = 0;
         if (now - beat.lastReactorMs < 3_000) {
             return;
         }

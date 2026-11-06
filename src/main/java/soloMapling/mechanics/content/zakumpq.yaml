@@ -10,7 +10,10 @@
 # and 280010070's - so the 040 -> 041 -> 050 wing is walked through and out to the hub, never back, and the wing
 # returns to the hub from its own door. MechanicsRowWzIntegrityTest checks every walked clear is one real door away.
 # A regenerate must keep that order. Known limit (Coordinator, B7): zero margin - an ore a player takes, or ores
-# split across two bots' bags, stalls the run at the big chest (the stall guard ends it; no crash, no loss).
+# split across two bots' bags, stalls the run at the big chest: the miner waits for ore, which the b344c no-progress
+# guard does not count as a stall (a waiting bot is not a busy one), so only the PQ's own 30 minutes end it (no crash,
+# no loss). b344c: a bot that is busy and changes nothing for 3 minutes, or has no route to its rock, gives the stage
+# up and leaves the PQ to the players (Orchestrator.NO_PROGRESS_MS, StepExecutor.checkRoute).
 # The walk is the row: the maze is a hub (280010000) with fifteen numbered doors and a wing (280011000) behind two of
 # them, and every room's doors are published in its own WZ portal block (pt-1 portals; the hub's are in01..in15). So
 # each stage is one room and its clear is the map the party walks into next - the solver leaves through whichever door
