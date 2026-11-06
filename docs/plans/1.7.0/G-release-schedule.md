@@ -125,7 +125,7 @@ Scope:
 - **P1-A1** (outcome reasons + honest learning);
 - **P1-A2** (the ledger + the HELP_FRIEND vertical slice + the town-EXP root fix, b240);
 - **b324 + b327** (the bot DB write path: batched touches, refused writes queued or retried, no caching of a
-  refused load);
+  refused load); *(Moved to 1.6.5: see Amendments, 6 Nov, item 9.)*
 - related small bot bugs: P2-1, P2-2, b303, b317, b318, b319.
 
 The A1 deviation question (the GRIND auto-complete kept as a legacy end, per RFC section 5) goes to the owner before
@@ -249,3 +249,5 @@ The text above stays as written; each line these items change carries a pointer 
    - evidence: both extracts, with population, commit and jar hash.
    The conf's "stay at 0" bar is a separate goal, not this exit criterion.
 8. **Cards filed 6 Nov** (b331-b344) are placed by severity in the 1.6.5 book.
+9. **b324 and b327** (owner, 6 Nov): moved from 1.6.7 to 1.6.5 as must-ship bot-memory reliability fixes, Bots lane;
+   acceptance on the b324 card.
