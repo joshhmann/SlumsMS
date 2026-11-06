@@ -1,0 +1,40 @@
+# b311 prep (D1): log in as character slot 1 of the tarkov2 QA account and raise it to level 120 with !level, so the
+# Horntail run has two 120+ owned alts. Slot 0 is AqClient (the human, already 120), slot 1 AqClientAlt1.
+# If slot 1 does not exist the select_character wait for field.ready times out and the character-select frame shows why.
+id: d1-raise-alt-slot1
+title: "Raise the account's character in slot 1 to level 120"
+covers: [b311]
+status: draft
+server: test
+needs: [gm, proposed_signals]
+notes: "tarkov2 QA account only (TEST). GM staging used: !level 120. Judge from the frames: character select with every slot (shows names and levels), and the HUD level after !level. Report the slot's name and level to the Coordinator."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 1}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {id: pick, do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: level-up, do: gm, line: "!level 120"}
+  - {do: sleep, ms: 3000, reason: "let the level-up effect and HUD settle for the frame"}
+captures:
+  - {id: charselect, burst: {fps: 2, ms: 2000, at: {signal: chars}}}
+  - {id: after-level, burst: {fps: 2, ms: 2000, at: {step: level-up}}}
+expect:
+  reviewer:
+    - see: "The character select screen with the account's characters (names and levels)"
+      in: [charselect]
+    - see: "The character in game at level 120"
+      in: [after-level]
+  checks:
+    - {check: client_alive}
+  judgment: "PASS = the slot exists, logs in, and the HUD shows level 120. Report the character's name and level."
