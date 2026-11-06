@@ -878,6 +878,7 @@ class Run:
                 if left <= 0:
                     if step.get("optional"):   # a time-boxed window (heal retries while the alts fight), not a check
                         entry["signal"] = {"type": "client_signal", "name": sig["name"], "timed_out": True}
+                        entry["note"] = "optional wait timed out after %d s (the expected path for a time-boxed window)" % timeout_s
                         entry["retries"] = tries if retry else 0
                         return
                     raise RunFailed("timed out waiting for %s after %d s" % (sig["name"], timeout_s))

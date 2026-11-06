@@ -193,6 +193,7 @@ def rule_errors(doc, raw_text, file_stem, anchors, windows):
         errors.append("each client needs its own vault account")
 
     ids, wait_ids, bound = {}, set(), set()
+    optional_ids = set()
     sleep_total = 0
     channel_ready = {a: False for a in aliases}
     logged_in = {a: False for a in aliases}
@@ -294,8 +295,12 @@ def rule_errors(doc, raw_text, file_stem, anchors, windows):
             sig = s.get("signal", {})
             if "timeout_ms" not in s:
                 errors.append("%s: a wait needs timeout_ms" % where)
-            if s.get("optional") and t_kind(s) != "client_signal":
-                errors.append("%s: optional is for client signals only" % where)
+            if s.get("optional"):
+                optional_ids.add(sid)
+                if t_kind(s) != "client_signal":
+                    errors.append("%s: optional is for client signals only" % where)
+                if s.get("bind"):
+                    errors.append("%s: an optional wait may not bind (a timeout binds nothing)" % where)
             retry = s.get("retry")
             if retry:
                 if t_kind(s) != "client_signal":
@@ -376,6 +381,9 @@ def rule_errors(doc, raw_text, file_stem, anchors, windows):
                 errors.append("%s: at.step %r is not a step id" % (where, on["step"]))
             if "signal" in on and on["signal"] not in wait_ids:
                 errors.append("%s: at.signal %r is not a wait step" % (where, on["signal"]))
+            elif "signal" in on and on["signal"] in optional_ids:
+                errors.append("%s: at.signal %r is an optional wait, which may time out: anchor on at.step instead"
+                              % (where, on["signal"]))
         span = body.get("span") if isinstance(body, dict) else None
         for k in ("from", "to"):
             if span and k in span and span[k] not in ids:

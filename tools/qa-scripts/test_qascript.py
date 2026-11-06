@@ -141,6 +141,9 @@ class ValidatorTest(unittest.TestCase):
                                        "retry: {step: pick-world, every_ms: 4000, times: 4}, optional: true, timeout_ms: 30000"))
         self.assertEqual([], errors)
 
+    def test_an_optional_wait_may_not_bind_or_anchor_a_capture(self):
+        self.assertRefused(GOOD.replace("bind: {healer: who},", "optional: true, bind: {healer: who},"), "may not bind")
+
     def test_placeholders_and_binds_resolve(self):
         self.assertRefused(GOOD.replace("!hurt ${me.name} 40", "!hurt ${you.name} 40"), "no client")
         self.assertRefused(GOOD.replace("!hurt ${me.name} 40", "!hurt ${me.password} 40"), "a client has only")
