@@ -456,6 +456,9 @@ class SilviaWorker:
         elif kind == "click" and re.fullmatch(r"npc_dialog\.option_[1-8]", step["anchor"]):
             # the QA client ends the open NPC menu on that row through the dialog's own reply path: no ui.json point
             name, arguments = "click_option", {"option": int(step["anchor"][-1])}
+        elif kind == "click" and step["anchor"] == "npc_dialog.next":
+            # OK / Next / Yes / Accept on the open NPC dialog, by the QA client's reply path (the button's own packet)
+            name, arguments = "dialog_next", {}
         elif kind == "click" and step["anchor"] == "npc_dialog.close":
             # the QA client ends any open NPC dialog the way its End Chat button does: no ui.json point needed
             name, arguments = "close_dialog", {}
