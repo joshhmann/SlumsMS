@@ -1,0 +1,246 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://slumsms.local/qa/bot-action-event.schema.json",
+  "title": "Bot action event v1",
+  "description": "One line per attempt state change from the bot action layer (docs/plans/1.7.0/A-architecture-rfc.md, section 2). camelCase fields, UPPER_SNAKE enums, times in epoch ms UTC. Invariant: failureClass is non-null exactly when state is FAILED, TIMED_OUT or REJECTED. The Reason to failureClass table is owned by the Bots lane (action/); the failureClass values here follow the RFC's reason groups and change only with a schemaVersion bump.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "legacy",
+    "attemptId",
+    "parentId",
+    "rootId",
+    "decisionId",
+    "actorId",
+    "activity",
+    "policy",
+    "state",
+    "reason",
+    "cause",
+    "failureClass",
+    "evidence",
+    "claims",
+    "timestamps",
+    "probe",
+    "qaTag",
+    "capabilityId",
+    "commit",
+    "env",
+    "runId"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "legacy": {
+      "type": "boolean",
+      "description": "true for an activity not yet migrated onto the action layer (synthesised from the old executor); counters keep migrated and legacy apart."
+    },
+    "attemptId": {
+      "type": "string",
+      "pattern": "^[0-9]+-[a-z0-9]+-[0-9]+$",
+      "description": "actorId-bootEpoch-seq, unique per process run, e.g. 1000421-k3f-42."
+    },
+    "parentId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+-[a-z0-9]+-[0-9]+$",
+      "description": "null on a root attempt."
+    },
+    "rootId": {
+      "type": "string",
+      "pattern": "^[0-9]+-[a-z0-9]+-[0-9]+$",
+      "description": "The trace id. Equal to attemptId on a root."
+    },
+    "decisionId": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "description": "The LifeDecision.Result that chose the root; null on children."
+    },
+    "actorId": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "activity": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]*$"
+    },
+    "policy": {
+      "enum": [
+        "AUTONOMOUS",
+        "OWNER_DIRECTED"
+      ]
+    },
+    "state": {
+      "enum": [
+        "PROPOSED",
+        "REJECTED",
+        "ADMITTED",
+        "RUNNING",
+        "COMPENSATING",
+        "SUCCEEDED",
+        "FAILED",
+        "INTERRUPTED",
+        "TIMED_OUT"
+      ]
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Z][A-Z0-9_]*$",
+      "description": "One reason on every non-success terminal state (RFC 2.1 Reason enum); null otherwise."
+    },
+    "cause": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Z][A-Z0-9_]*$",
+      "description": "The child reason behind CHILD_FAILED; otherwise null."
+    },
+    "failureClass": {
+      "enum": [
+        "STRUCTURAL",
+        "FEASIBILITY",
+        "CONTENTION",
+        "EXECUTION",
+        null
+      ],
+      "description": "Non-null iff state is FAILED, TIMED_OUT or REJECTED. Interruptions (INTERRUPTED) carry none and never teach."
+    },
+    "evidence": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2000
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "BODY",
+          "HANDS",
+          "BAG",
+          "DIALOG",
+          "PARTY"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "timestamps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "at"
+      ],
+      "properties": {
+        "at": {
+          "type": "integer",
+          "description": "when this event was emitted"
+        },
+        "admittedAt": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "deadlineAt": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "endedAt": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      }
+    },
+    "probe": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Name of a QA probe that forced or observed this attempt; null in normal play."
+    },
+    "qaTag": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Free tag a QA run sets so its events can be pulled out of the stream."
+    },
+    "capabilityId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Capability row this attempt exercises (G1 and later); null until the capability list lands."
+    },
+    "commit": {
+      "type": "string",
+      "description": "Server commit, stamped by the emitter."
+    },
+    "env": {
+      "enum": [
+        "TEST",
+        "RC",
+        "LIVE",
+        "UNIT"
+      ],
+      "description": "Stamped by the emitter."
+    },
+    "runId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Auto-QA or soak run this event belongs to; null outside a run."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "FAILED",
+              "TIMED_OUT",
+              "REJECTED"
+            ]
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "failureClass": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "failureClass": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}
