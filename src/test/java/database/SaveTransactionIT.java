@@ -54,7 +54,7 @@ class SaveTransactionIT {
         }
         Character chr = org.mockito.Mockito.mock(Character.class, org.mockito.Mockito.CALLS_REAL_METHODS);
         org.mockito.Mockito.doReturn(1).when(chr).getId();
-        org.mockito.Mockito.doReturn(java.util.List.of(new client.Character.PlayerCoolDownValueHolder(666, 1L, 1000L)))
+        org.mockito.Mockito.doReturn(java.util.List.of(new net.server.PlayerCoolDownValueHolder(666, 1L, 1000L)))
                 .when(chr).getAllCooldowns();
         org.mockito.Mockito.doReturn(java.util.Map.of()).when(chr).getAllDiseases();
         Character.SaveExtra cooldowns = chr.cooldownsExtra();
