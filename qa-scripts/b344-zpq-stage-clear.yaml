@@ -2,7 +2,7 @@
 # only when every member was in the next room. After cdff69129 a stage clears on the bots: wherever the human walks. This is
 # the real-client proof on TEST: the human leader starts the run through Adobis-style NPC 2030008 with ONE owned alt in the
 # party (@botme: the alt is a RunMember with bot=true, as in the 02:37 TEST failure), the leader then stands on the hub
-# 280010000 the whole run and does not walk the mines, and the run advances stage by stage to the end (59 stages).
+# 280010000 the whole run and does not walk the mines, and the run advances stage by stage to the end (55 stages after Bots' route fix b6fbea638).
 # Pass (Bots): RUN start, stage 1 cleared and the later stages in order, no warp-back loop (the alt never goes
 # 280010100 -> 280010000 -> 280010100 repeatedly: at most one hub return per hub row of zakumpq.yaml), the big chest opens
 # (2112014 hit, 4001018 dropped, final line "RUN zakumpq cleared"), client alive, no REACTOR_HIT past a reactor's last WZ
@@ -108,10 +108,6 @@ steps:
   - {id: stage-53, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 53 cleared in \\d+ s", char: me}, timeout_ms: 300000}
   - {id: stage-54, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 54 cleared in \\d+ s", char: me}, timeout_ms: 300000}
   - {id: stage-55, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 55 cleared in \\d+ s", char: me}, timeout_ms: 300000}
-  - {id: stage-56, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 56 cleared in \\d+ s", char: me}, timeout_ms: 300000}
-  - {id: stage-57, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 57 cleared in \\d+ s", char: me}, timeout_ms: 300000}
-  - {id: stage-58, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 58 cleared in \\d+ s", char: me}, timeout_ms: 300000}
-  - {id: stage-59, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 59 cleared in \\d+ s", char: me}, timeout_ms: 300000}
   - {id: finished, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN zakumpq cleared in \\d+ s; prizes, bonus and out", char: me}, timeout_ms: 300000}
   - {id: end-run, do: gm, line: "!mechanics stop", note: "clean up: end the run after the last wait"}
   - {id: dismiss-alt, do: chat, text: "@dismiss AqClientAlt1"}
