@@ -24,6 +24,8 @@ public final class MerchantFakeDb {
     /** One log per connection handed out, in order. */
     public final List<Conn> conns = Collections.synchronizedList(new ArrayList<>());
     public volatile String failOn;
+    /** SQLState of the injected failure ("40001" = deadlock/serialization, "08S01" = link failure); null for none. */
+    public volatile String failState;
 
     public static final class Conn {
         public final List<String> sql = new ArrayList<>();
@@ -75,7 +77,7 @@ public final class MerchantFakeDb {
         when(ps.executeUpdate()).thenAnswer(a -> {
             String f = failOn;
             if (f != null && sql.contains(f)) {
-                throw new SQLException("injected failure on: " + sql);
+                throw new SQLException("injected failure on: " + sql, failState);
             }
             log.sql.add(sql);
             (log.autoCommitOff ? log.pending : log.durable).add(sql);

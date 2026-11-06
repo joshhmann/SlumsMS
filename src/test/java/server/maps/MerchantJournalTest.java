@@ -388,4 +388,133 @@ class MerchantJournalTest {
         assertEquals(0, journal.rollBacks);
         assertEquals(1, durableFlagWrites());
     }
+
+    // ---- autosave race (P0-2) ----
+
+    private static final class Sink implements java.util.function.Consumer<String> {
+        final List<String> lines = java.util.Collections.synchronizedList(new ArrayList<>());
+        @Override public void accept(String l) { lines.add(l); }
+    }
+
+    /**
+     * The owner's autosave holds row locks on its characters row while a sale tries to credit MerchantMesos on that
+     * row: MySQL kills one side with SQLState 40001. Modelled by a deadlock on the credit statement, with a real
+     * thread holding the buyer's save monitor first (the sale must wait for it, not interleave).
+     */
+    @Test
+    void aPurchaseHitByADeadlockWithTheOwnersAutosaveIsRefusedAndUndoneThenRetried() throws Exception {
+        HiredMerchant[] h = new HiredMerchant[1];
+        Character o = owner(h);
+        HiredMerchant shop = shop(o);
+        Character b = buyer();
+        Sink sink = new Sink();
+        MarketLog.tap = sink;
+        try {
+            java.util.concurrent.CountDownLatch holding = new java.util.concurrent.CountDownLatch(1);
+            Thread autosave = new Thread(() -> {
+                synchronized (b) {   // saveCharToDB is synchronized on the character
+                    holding.countDown();
+                    try { Thread.sleep(150); } catch (InterruptedException ignored) { }
+                }
+            });
+            autosave.start();
+            assertTrue(holding.await(5, java.util.concurrent.TimeUnit.SECONDS));
+
+            db.failOn = "MerchantMesos";
+            db.failState = "40001";
+            shop.buy(b.getClient(), 0, (short) 1);
+            autosave.join();
+
+            assertEquals(10_000, buyerMesos.get(), "buyer mesos unchanged");
+            inv.verify(() -> InventoryManipulator.removeById(any(Client.class), any(), eq(4000000), eq(5), eq(false), eq(false)));
+            assertEquals(3, bundles(shop), "shop stock unchanged");
+            assertTrue(shop.getItems().get(0).isExist());
+            assertFalse(db.anyCommitted("MerchantMesos"), "owner MerchantMesos unchanged in the database");
+            assertFalse(db.anyCommitted("INSERT INTO `inventoryitems`"), "no stock rows committed");
+            verify(o, never()).mirrorMerchantMesosCredit(anyInt());
+            assertEquals("ROLLED_BACK", journal.state(0));
+            assertEquals(0, journal.started());
+            verify(b, atLeastOnce()).dropMessage(eq(1), contains("not charged"));
+            assertEquals(List.of(MarketLog.refusedLine("merchant", "real", "real", "save-failed")), sink.lines);
+
+            db.failOn = null;
+            db.failState = null;
+            shop.buy(b.getClient(), 0, (short) 1);
+
+            assertEquals(9_900, buyerMesos.get(), "the retry sells exactly once");
+            assertEquals(2, bundles(shop));
+            assertEquals("APPLIED", journal.state(1));
+            long credits = db.conns.stream().flatMap(c -> c.durable.stream()).filter(q -> q.contains("MerchantMesos")).count();
+            assertEquals(1, credits);
+            assertEquals(MarketLog.saleLine("merchant", "real", "real"), sink.lines.get(1));
+        } finally {
+            MarketLog.tap = null;
+        }
+    }
+
+    @Test
+    void theSaleLogLinesCarryNoNamesIdsItemsOrMesos() throws Exception {
+        HiredMerchant[] h = new HiredMerchant[1];
+        HiredMerchant shop = shop(owner(h));
+        Character b = buyer();
+        Sink sink = new Sink();
+        MarketLog.tap = sink;
+        try {
+            shop.buy(b.getClient(), 0, (short) 1);
+            shop.buy(b.getClient(), 99, (short) 1);
+        } finally {
+            MarketLog.tap = null;
+        }
+        assertEquals(List.of("[Market] merchant sale committed: buyer=real owner=real",
+                "[Market] merchant sale refused: reason=bad-line buyer=real owner=real"), sink.lines);
+        for (String l : sink.lines) {
+            assertFalse(l.matches(".*\\d.*"), "no digits at all, so no id or meso amount: " + l);
+            assertFalse(l.contains("Buyer"));
+        }
+    }
+
+    // ---- kill the JVM mid-close (P0-2) ----
+
+    /** The real SQL of the store over the fake database, reading its open rows from the fake journal table. */
+    private final class BootStore extends server.transactions.JdbcJournalStore {
+        @Override
+        public List<OpenRow> openRows() {
+            return journal.openRows();
+        }
+
+        @Override
+        public void rollBackRow(long id, String kind, int actorId, String note) throws SQLException {
+            super.rollBackRow(id, kind, actorId, note);   // the real SQL: HasMerchant + the journal UPDATE, one commit
+            journal.rollBackRow(id, kind, actorId, note); // and the fake table follows
+        }
+    }
+
+    @Test
+    void killingTheJvmMidCloseThenBootLeavesNoStartedRowAndTheGoodsWhereTheyWere() throws Exception {
+        HiredMerchant[] h = new HiredMerchant[1];
+        Character o = owner(h);
+        HiredMerchant shop = shop(o);
+        h[0] = shop;
+        ownerSave = Save.CRASH;   // STARTED written, goods handed over in memory, the process dies before the commit
+
+        assertThrows(Crash.class, () -> shop.closeOwnerMerchant(o));
+        assertEquals(1, journal.started(), "the dead close left its STARTED row");
+        assertFalse(db.anyCommitted("DELETE FROM `inventorymerchant`"), "Fredrick's rows were not touched");
+        assertFalse(db.anyCommitted("DELETE `inventoryitems`"));
+        assertFalse(db.anyCommitted("HasMerchant"));
+
+        // --- boot ---
+        db.conns.clear();
+        OperationJournal.reconcile(new BootStore());
+
+        assertEquals(0, journal.started(), "no STARTED rows after boot");
+        assertEquals("ROLLED_BACK", journal.state(0));
+        assertFalse(db.anyCommitted("DELETE FROM `inventorymerchant`"), "the goods are still in the merchant/Fredrick tables");
+        assertFalse(db.anyCommitted("INSERT INTO `inventoryitems`"), "and nothing was stored twice");
+        assertFalse(db.anyCommitted("DELETE `inventoryitems`"));
+        long flagWrites = db.conns.stream().flatMap(c -> c.durable.stream()).filter(q -> q.contains("HasMerchant = 0")).count();
+        assertEquals(1, flagWrites, "HasMerchant is cleared once: the merchant died with the JVM, the goods wait with Fredrick");
+        assertTrue(db.conns.stream().anyMatch(c -> c.committedAny("HasMerchant") && c.committedAny("UPDATE operation_journal")),
+                "flag and journal flip in one commit");
+    }
 }

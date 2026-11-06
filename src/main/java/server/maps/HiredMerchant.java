@@ -346,6 +346,7 @@ public class HiredMerchant extends AbstractMapObject {
         synchronized (items) {
             PlayerShopItem pItem = itemAt(item);   // P0-2: a bad or stale index is refused before anything changes
             if (pItem == null || quantity < 1 || !pItem.isExist() || pItem.getBundles() < 1 || pItem.getBundles() < quantity) {
+                MarketLog.refused(marketKind(), c.getPlayer(), ownerKind(), "bad-line");
                 c.sendPacket(PacketCreator.enableActions());
                 return;
             }
@@ -353,10 +354,12 @@ public class HiredMerchant extends AbstractMapObject {
 
             newItem.setQuantity((short) ((pItem.getItem().getQuantity() * quantity)));
             if (newItem.getInventoryType().equals(InventoryType.EQUIP) && newItem.getQuantity() > 1) {
+                MarketLog.refused(marketKind(), c.getPlayer(), ownerKind(), "bad-line");
                 c.sendPacket(PacketCreator.enableActions());
                 return;
             }
             if (!server.ShopMath.isSaleablePrice(pItem.getPrice())) {   // 1.5.0 rc6: never free, never paid to buy
+                MarketLog.refused(marketKind(), c.getPlayer(), ownerKind(), "price");
                 c.getPlayer().dropMessage(1, "That item isn't for sale right now.");
                 c.sendPacket(PacketCreator.enableActions());
                 return;
@@ -366,12 +369,14 @@ public class HiredMerchant extends AbstractMapObject {
 
             long total = server.ShopMath.total(pItem.getPrice(), quantity);   // 1.5.0 rc3 review: exact
             if (total < 0) {
+                MarketLog.refused(marketKind(), c.getPlayer(), ownerKind(), "price");
                 c.getPlayer().dropMessage(1, "That costs more mesos than anyone can carry at once.");
                 c.sendPacket(PacketCreator.enableActions());
                 return;
             }
             int price = (int) total;
             if (c.getPlayer().getMeso() < price) {
+                MarketLog.refused(marketKind(), c.getPlayer(), ownerKind(), "funds");
                 c.getPlayer().dropMessage(1, "You don't have enough mesos to purchase this item.");
                 c.sendPacket(PacketCreator.enableActions());
                 return;
@@ -403,14 +408,26 @@ public class HiredMerchant extends AbstractMapObject {
                 soloMapling.ArtificialPlayer.BotScrollSystem.BotConsignment.onSold(pItem, price);
                 soloMapling.Economy.BotShops.onSold(pItem, price);   // 1.5.0 rc3: a bot's own FM shop
 
+                MarketLog.sale(marketKind(), c.getPlayer(), ownerKind());
                 if (YamlConfig.config.server.USE_ANNOUNCE_SHOPITEMSOLD) {   // idea thanks to Vcoc
                     announceItemSold(newItem, price, getQuantityLeft(pItem.getItem().getItemId()));
                 }
             } else {
+                MarketLog.refused(marketKind(), c.getPlayer(), ownerKind(), "inventory-full");
                 c.getPlayer().dropMessage(1, "Your inventory is full. Please clear a slot before buying this item.");
                 c.sendPacket(PacketCreator.enableActions());
             }
         }
+    }
+
+    private String marketKind() {
+        return "merchant";
+    }
+
+    /** real or bot, for the one-line sale log; an offline owner of a stored shop is a real player. */
+    private String ownerKind() {
+        Character o = onlineOwner();
+        return o != null ? MarketLog.who(o) : (isPersistent() ? "real" : "bot");
     }
 
     private Character onlineOwner() {
@@ -432,6 +449,7 @@ public class HiredMerchant extends AbstractMapObject {
     private void buyPersistent(Client c, PlayerShopItem pItem, Item newItem, short quantity, int price) {
         Character buyer = c.getPlayer();
         if (!InventoryManipulator.checkSpace(c, newItem.getItemId(), newItem.getQuantity(), newItem.getOwner())) {
+            MarketLog.refused(marketKind(), buyer, ownerKind(), "inventory-full");
             buyer.dropMessage(1, "Your inventory is full. Please clear a slot before buying this item.");
             c.sendPacket(PacketCreator.enableActions());
             return;
@@ -450,6 +468,7 @@ public class HiredMerchant extends AbstractMapObject {
         } catch (SQLException | RuntimeException e) {
             log.error("Merchant buy: could not start the journal row for buyer {} at owner {}'s shop, nothing changed",
                     buyer.getId(), ownerId, e);
+            MarketLog.refused(marketKind(), buyer, ownerKind(), "journal-start");
             refuseBuy(c, "The purchase could not be started. You were not charged. Please try again.");
             return;
         }
@@ -500,11 +519,13 @@ public class HiredMerchant extends AbstractMapObject {
             }
         }
         if (!saved) {
+            MarketLog.refused(marketKind(), buyer, ownerKind(), "save-failed");
             refuseBuy(c, "The purchase could not be completed. You were not charged and the item is still for sale.");
             return;
         }
 
         // Committed: only memory-side bookkeeping is left, and none of it can undo the sale.
+        MarketLog.sale(marketKind(), buyer, ownerKind());
         Character owner = onlineOwner();
         if (owner != null) {
             owner.mirrorMerchantMesosCredit(net);
@@ -1275,6 +1296,7 @@ public class HiredMerchant extends AbstractMapObject {
                     log.error("Merchant botBuy: saving the sale at owner {}'s shop failed, sale refused", ownerId, e);
                     pItem.setBundles(before);
                     pItem.setDoesExist(existed);
+                    MarketLog.refused(marketKind(), fakechar, ownerKind(), "save-failed");
                     return false;
                 }
                 if (!BotHoldings.spendMeso(fakechar, paid) || !BotHoldings.grantItem(fakechar, newItem)) {
@@ -1303,6 +1325,7 @@ public class HiredMerchant extends AbstractMapObject {
                 }
             }
 
+            MarketLog.sale(marketKind(), fakechar, ownerKind());
             soloMapling.Economy.MesoSinks.onShopSale(newItem, paid, fee, isPersistent(), false, !isPersistent());
             soloMapling.achievements.Achievements.onMarketBuy(fakechar); // 1.6.1 ticket 93: a bot buying
 
