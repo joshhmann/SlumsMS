@@ -124,7 +124,22 @@ At most two clients (`two_clients` in `needs`); with two, every step, capture an
 | `mark` | `id` | a named point for captures and spans |
 | `click_npc` | `npc` | clicks an NPC by id where the QA client draws it; it never walks (`out_of_view`: move, then again) |
 | `drop_item` | `item`, `count` | drops `count` (default 1) of the item's first stack through the client's own sender (QA build 3) |
+| `pickup_item` | `item` | picks up the newest drop of the item on the field through the client's own pickup sender; passes only when the server gives it to this character (QA build 15) |
+| `shop_buy` | `item`, `quantity` | (an NPC shop open, e.g. after `click_npc`) buys `quantity` of `item` with the packet the shop's Buy button sends; passes only on the server's answer 0. Refusals: `not_enough_mesos`, `inventory_full`, `not_in_shop`, `no_shop`, `timeout` (QA build 16) |
+| `shop_sell` | `item`, `quantity` | sells by item id; no `quantity` (or 0) sells every stack of it, one request per stack, each answered by the server (8). Refusals: `not_in_inventory`, `not_enough_items (sold n)`, `not_sold`, `no_shop`, `timeout` (QA build 16) |
+| `shop_close` | | closes the open shop as its close button does (the server gets NPC_SHOP leave). Refusal: `no_shop` (QA build 16) |
+| `use_item` | `item` | uses the item's first USE stack (drinks a potion) with USE_ITEM; passes when the server took one. Refusals: `not_in_inventory`, `not_used` (QA build 17) |
+| `trade_invite` | `name` | opens a trade window and invites that player (on this field). Their accepting shows as the `trade.joined` client signal. Refusal: `not_on_map` (QA build 17) |
+| `trade_accept` | | accepts the last trade invite (`trade.invited` signal). Refusal: `no_invite` |
+| `trade_add_item` | `item`, `quantity` | puts the item's first stack in the trade (no `quantity` = the whole stack); passes once the server shows it. Refusals: `no_trade`, `not_in_inventory`, `not_enough_items`, `trade_full` |
+| `trade_add_meso` | `meso` | offers mesos; passes once the server shows them. Refusals: `no_trade`, `timeout` (amount refused) |
+| `trade_confirm` | `timeout_ms` | presses Trade and waits (default 120 s, at most 300 s) for the partner and the result; passes on done (7). Refusals: `partner_cancelled`, `unsuccessful`, `unique_item_limit`, `different_maps`, `timeout` |
+| `trade_cancel` | | closes the open trade |
 | `party_create` | | creates a party through the client's own sender, as the party window's Create does |
+| `merchant_open` | `item`, `quantity`, `price`, `title` | sets up a hired merchant selling `quantity` of `item` (Fredrick check, CREATE, item, Open), as a player does; needs a 503xxxx item and an FM room (P0-2 GP8) |
+| `merchant_close` | | closes this character's hired merchant as its owner does (visit, then close); the rest goes to Fredrick |
+| `fredrick_retrieve` | | Fredrick's Retrieve button (click Fredrick 9030000 first): takes what a closed merchant left; fails with the server's code |
+| `use_cash_item` | `item`, `target` | the Incubator (5060002 only) on `target`: an item id (its first stack) or `inv:slot` (P0-6) |
 | `party_invite` | `name` | invites a character by name the same way; `!bot <cid> acceptinv` answers it for a bot |
 | `wheel`* | `anchor`, `notches` | mouse wheel over a target |
 | `type`* | `text` | types into the focused box (no Enter) |

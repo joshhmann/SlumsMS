@@ -54,6 +54,36 @@ TOOLS = {
     'party_create': {},
     'close_dialog': {},
     'dialog_next': {},
+    # P0-2 GP8: open a hired merchant selling <quantity> of <item> at <price>, the way a player sets one up.
+    'merchant_open': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 4999999},
+                      'quantity': {'type': 'integer', 'minimum': 1, 'maximum': 2000},
+                      'price': {'type': 'integer', 'minimum': 1, 'maximum': 2147483647},
+                      'title': {'type': 'string', 'maxLength': 30}},
+    'merchant_close': {},
+    'fredrick_retrieve': {},
+    # b344: picks up the newest drop of <item> on the field with the client's own pickup sender (QA build 15).
+    'pickup_item': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 5999999}},
+    # 1.6.5 GP4: the open NPC shop's own buy / sell / close packets (QA build 16). A sell without a quantity (0) sells
+    # every stack of the item.
+    'shop_buy': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 5999999},
+                 'quantity': {'type': 'integer', 'minimum': 1, 'maximum': 32767}},
+    'shop_sell': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 4999999},
+                  'quantity': {'type': 'integer', 'minimum': 0, 'maximum': 32767}},
+    'shop_close': {},
+    # 1.6.5 GP4 leg B: uses the item's first USE stack (a potion), as a double-click does (QA build 17).
+    'use_item': {'item': {'type': 'integer', 'minimum': 2000000, 'maximum': 2999999}},
+    # 1.6.5 GP6: a trade with a player on the field by the trade window's own packets (QA build 17). trade_add_item
+    # without a quantity (0) puts the whole stack; trade_confirm waits up to timeout_s for the partner and the result.
+    'trade_invite': {'name': {'type': 'string', 'maxLength': 12}},
+    'trade_accept': {},
+    'trade_add_item': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 4999999},
+                       'quantity': {'type': 'integer', 'minimum': 0, 'maximum': 32767}},
+    'trade_add_meso': {'meso': {'type': 'integer', 'minimum': 1, 'maximum': 2147483647}},
+    'trade_confirm': {'timeout_s': {'type': 'integer', 'minimum': 1, 'maximum': 300}},
+    'trade_cancel': {},
+    # P0-6: the Incubator on a target (the egg's item id, or inv:slot for an empty slot); only 5060002 is taken.
+    'use_cash_item': {'item': {'type': 'integer', 'minimum': 5000000, 'maximum': 5999999},
+                      'target': {'type': 'string', 'maxLength': 12}},
     'party_invite': {'name': {'type': 'string', 'maxLength': 12}},
     'mouse_drag': {'x1': {'type': 'integer', 'minimum': 0, 'maximum': 799},
                    'y1': {'type': 'integer', 'minimum': 0, 'maximum': 599},
@@ -67,7 +97,10 @@ REQUIRED = {'qa_wait': ('signal',), 'qa_burst': ('fps', 'ms', 'label'), 'run_scr
             'login_credentials': ('vault',), 'click_anchor': ('name',), 'select_world': ('world',),
             'select_channel': ('channel',), 'select_character': ('slot',),
             'mouse_drag': ('x1', 'y1', 'x2', 'y2'), 'click_npc': ('npc',), 'click_option': ('option',),
-            'drop_item': ('item',), 'party_invite': ('name',)}
+            'drop_item': ('item',), 'party_invite': ('name',), 'pickup_item': ('item',),
+            'shop_buy': ('item', 'quantity'), 'shop_sell': ('item',), 'use_item': ('item',),
+            'trade_invite': ('name',), 'trade_add_item': ('item',), 'trade_add_meso': ('meso',),
+            'use_cash_item': ('item', 'target'), 'merchant_open': ('item', 'quantity', 'price')}
 
 # Single taps only: no modifiers, so no Alt+F4, no Ctrl shortcuts. Value = (virtual key, extended).
 KEYS = {**{chr(c): (c, False) for c in range(ord('A'), ord('Z') + 1)},
@@ -193,7 +226,11 @@ SCRIPT_TOOLS = {'start_client', 'login', 'login_credentials', 'click_anchor', 's
                 'select_character', 'qa_events', 'command', 'press_key', 'mouse_click', 'mouse_drag', 'screenshot',
                 'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to', 'click_npc', 'click_option',
                 'drop_item', 'party_create', 'party_invite', 'close_dialog',
-                'dialog_next'}
+                'dialog_next', 'use_cash_item',
+                'merchant_open', 'merchant_close', 'fredrick_retrieve', 'pickup_item',
+                'shop_buy', 'shop_sell', 'shop_close', 'use_item', 'trade_invite', 'trade_accept',
+                'trade_add_item', 'trade_add_meso', 'trade_confirm', 'trade_cancel'}
+NAME = re.compile(r'^[A-Za-z0-9]{4,12}$')   # a v83 character name (trade_invite)
 # A QA vault alias (secrets/<vault>.txt) is a script name: secrets/aq-gm-1.txt. Never a path.
 VAULT = re.compile(r'^[a-z0-9][a-z0-9-]{1,31}$')
 # The QA build writes this once per login (slums.dll bypass.cpp ClientDataCaps); the manifest's caps come from it.
@@ -201,7 +238,8 @@ BUILD_STAMP_CAPS = re.compile(r'Build stamp: caps (0x[0-9A-Fa-f]{8})')
 QA_EVENTS_MAX = 200
 NPC_POS_TIMEOUT = 3.0   # the client answers npc_pos / click_option on its next frame
 NPC_OPTION_ANCHOR = re.compile(r'^npc_dialog\.option_([1-8])$')
-CHAR_NAME = re.compile(r'^[A-Za-z0-9]{4,12}$')   # v83 character names; the QA client checks the same
+CHAR_NAME = re.compile(r'^[A-Za-z0-9]{4,12}$')
+CASH_TARGET = re.compile(r'^([1-5]:[0-9]{1,3}|[1-5][0-9]{6})$')   # inv:slot, or an inventory item id   # v83 character names; the QA client checks the same
 
 
 def utc(epoch):
@@ -984,6 +1022,178 @@ class Driver:
         1). Errors: no_dialog, use_click_option (a menu), no_next_button (a text or number prompt)."""
         event = self.qa_request('dialog_next', 'click.done', lambda e: e.get('op') == 'dialog_next', 'no_dialog')
         return {'op': 'dialog_next', 'type': event.get('type')}
+
+    def merchant_open(self, item, quantity, price, title='QA shop'):
+        """P0-2 GP8: sets up a hired merchant (the Fredrick check, CREATE, the item, Open) through the QA client, which
+        needs a hired merchant item (503xxxx) in the Cash tab and a free-market room. The setup takes a few seconds.
+        Errors: no_merchant_item, not_in_inventory, retrieve_from_fredrick_first, refused, timeout_<stage>."""
+        if any(ch in title for ch in '"\\') or not title.strip() or any(ord(ch) < 32 or ord(ch) > 126 for ch in title):
+            raise Refusal('title must be 1-30 printable characters without quotes')
+        pipe = self.need_qa()
+        pipe.send('merchant_open %d %d %d %s' % (item, quantity, price, title.strip()))
+        deadline = time.monotonic() + 25
+        while True:
+            left = deadline - time.monotonic()
+            event = pipe.wait('merchant.open', left) if left > 0 else None
+            if event is None:
+                raise Refusal('timeout')
+            if event.get('item') == item:
+                break
+        if not event.get('ok'):
+            raise Refusal(str(event.get('error') or 'refused'))
+        return {'item': item, 'quantity': quantity, 'price': price, 'slot': event.get('slot'),
+                'merchant_item': event.get('merchant_item')}
+
+    def merchant_close(self):
+        """P0-2 GP8: closes this character's hired merchant the way its owner does: visit it (maintenance), then the
+        owner window's close; the unsold items and mesos go to Fredrick. Errors: no_merchant, timeout_<stage>."""
+        pipe = self.need_qa()
+        pipe.send('merchant_close')
+        event = pipe.wait('merchant.close', 15)
+        if event is None:
+            raise Refusal('timeout')
+        if not event.get('ok'):
+            raise Refusal(str(event.get('error') or 'refused'))
+        return {'closed': True}
+
+    def fredrick_retrieve(self):
+        """P0-2 GP8: Fredrick's Retrieve button (click Fredrick, 9030000, first, as a player would). Takes everything the
+        closed merchant left; the answer is the server's FREDRICK_MESSAGE code (0x1E = handed over). Errors: refused
+        (with the code), timeout, field_not_ready."""
+        pipe = self.need_qa()
+        pipe.send('fredrick_retrieve')
+        event = pipe.wait('item.fredrick', 10)
+        if event is None:
+            raise Refusal('timeout')
+        if not event.get('ok'):
+            raise Refusal('%s (code %s)' % (event.get('error') or 'refused', event.get('code')))
+        return {'retrieved': True, 'code': event.get('code')}
+
+    def pickup_item(self, item):
+        """b344: picks up the newest drop of <item> on the field through the client's own pickup sender (0x00A09118),
+        the way a player's pickup key does. Passes only when the server's REMOVE_ITEM_FROM_MAP names this character as
+        the picker. Errors: no_drop, taken_by_other (with the picker), drop_gone, field_changed, site_mismatch,
+        field_not_ready, timeout."""
+        pipe = self.need_qa()
+        pipe.send('pickup_item %d' % item)
+        event = pipe.wait('item.picked', 12)
+        if event is None:
+            raise Refusal('timeout')
+        if not event.get('ok'):
+            error = str(event.get('error') or 'refused')
+            raise Refusal('%s (picker %s)' % (error, event.get('picker')) if event.get('picker') else error)
+        return {'picked': True, 'item': event.get('item'), 'oid': event.get('oid'), 'type': event.get('type'),
+                'slot': event.get('slot')}
+
+    def shop_wait(self, command, timeout):
+        pipe = self.need_qa()
+        pipe.send(command)
+        event = pipe.wait('shop.result', timeout)
+        if event is None:
+            raise Refusal('timeout')
+        return event
+
+    def shop_buy(self, item, quantity):
+        """1.6.5 GP4: buys <quantity> of <item> from the open NPC shop with the packet the shop's Buy button sends.
+        Passes on the server's answer 0. Errors: not_enough_mesos, inventory_full, code_<n>, not_in_shop, no_shop,
+        timeout, site_mismatch."""
+        event = self.shop_wait('shop_buy %d %d' % (item, quantity), 10)
+        if not event.get('ok'):
+            raise Refusal(str(event.get('error') or 'refused'))
+        return {'op': 'buy', 'item': event.get('item'), 'quantity': event.get('quantity'), 'code': event.get('code')}
+
+    def shop_sell(self, item, quantity=0):
+        """1.6.5 GP4: sells <quantity> of <item> at the open NPC shop (0 = every stack), one Sell request per stack, each
+        answered by the server (8 = sold). Errors: not_in_inventory, not_enough_items / not_sold / timeout (with how many
+        were sold before), no_shop, site_mismatch."""
+        command = 'shop_sell %d %d' % (item, quantity) if quantity else 'shop_sell %d' % item
+        event = self.shop_wait(command, 60)
+        if not event.get('ok'):
+            error = str(event.get('error') or 'refused')
+            raise Refusal('%s (sold %s)' % (error, event.get('sold')) if event.get('sold') else error)
+        return {'op': 'sell', 'item': event.get('item'), 'sold': event.get('sold'), 'stacks': event.get('stacks')}
+
+    def shop_close(self):
+        """1.6.5 GP4: closes the open NPC shop the way its close button does (NPC_SHOP [3]). Error: no_shop."""
+        event = self.shop_wait('shop_close', 10)
+        if not event.get('ok'):
+            raise Refusal(str(event.get('error') or 'refused'))
+        return {'op': 'close'}
+
+    def use_item(self, item):
+        """1.6.5 GP4 leg B: uses <item>'s first USE stack with USE_ITEM, as a double-click on it does. Passes once the
+        stack's count dropped (the server took one). Errors: not_in_inventory, not_used, field_not_ready."""
+        pipe = self.need_qa()
+        pipe.send('use_item %d' % item)
+        event = pipe.wait('item.used', 8)
+        if event is None:
+            raise Refusal('timeout')
+        if not event.get('ok'):
+            raise Refusal(str(event.get('error') or 'refused'))
+        return {'used': True, 'item': event.get('item'), 'slot': event.get('slot'), 'left': event.get('left')}
+
+    def trade_request(self, command):
+        pipe = self.need_qa()
+        pipe.send(command)
+        event = pipe.wait('trade.result', 10)
+        if event is None:
+            raise Refusal('timeout')
+        if not event.get('ok'):
+            raise Refusal(str(event.get('error') or 'refused'))
+        return event
+
+    def trade_invite(self, name):
+        """1.6.5 GP6: opens a trade and invites <name> (a player on this field), as the trade window's Invite does.
+        Whether they accept shows as the trade.joined event. Errors: not_on_map, timeout."""
+        if not NAME.match(str(name)):
+            raise Refusal('name must be 4-12 letters or digits')
+        event = self.trade_request('trade_invite %s' % name)
+        return {'op': 'invite', 'name': event.get('name'), 'cid': event.get('cid')}
+
+    def trade_accept(self):
+        """1.6.5 GP6: accepts the last trade invite. Errors: no_invite, already_trading, timeout."""
+        self.trade_request('trade_accept')
+        return {'op': 'accept'}
+
+    def trade_add_item(self, item, quantity=0):
+        """1.6.5 GP6: puts <quantity> of <item>'s first stack into the trade (0 = the whole stack). Passes once the
+        server shows it in the window. Errors: no_trade, not_in_inventory, not_enough_items, trade_full, timeout."""
+        command = 'trade_add_item %d %d' % (item, quantity) if quantity else 'trade_add_item %d' % item
+        event = self.trade_request(command)
+        return {'op': 'add_item', 'item': event.get('item'), 'slot': event.get('slot'), 'quantity': event.get('quantity')}
+
+    def trade_add_meso(self, meso):
+        """1.6.5 GP6: offers <meso> mesos in the trade. Errors: no_trade, timeout (the server refused the amount)."""
+        event = self.trade_request('trade_add_meso %d' % meso)
+        return {'op': 'add_meso', 'meso': event.get('set')}
+
+    def trade_confirm(self, timeout_s=120):
+        """1.6.5 GP6: presses Trade, then waits up to <timeout_s> for the partner and the server's result. Passes on
+        result 7 (done). Errors: no_trade, partner_cancelled, unsuccessful, unique_item_limit, ..., timeout."""
+        self.trade_request('trade_confirm')
+        event = self.need_qa().wait('trade.done', timeout_s)
+        if event is None:
+            raise Refusal('timeout')
+        if not event.get('ok'):
+            raise Refusal(str(event.get('error') or 'refused'))
+        return {'op': 'confirm', 'done': True, 'result': event.get('result')}
+
+    def trade_cancel(self):
+        """1.6.5 GP6: closes the open trade, as its window's close does. Error: no_trade."""
+        self.trade_request('trade_cancel')
+        return {'op': 'cancel'}
+
+    def use_cash_item(self, item, target):
+        """P0-6: uses cash item <item> on <target> (an item id, or inv:slot) through the client's USE_CASH_ITEM packet.
+        The QA client takes only the Incubator (5060002). Errors: not_in_inventory, target_not_in_inventory,
+        field_not_ready. The answer says the request was sent; what the server did shows in the inventory and chat."""
+        target = str(target)
+        if not CASH_TARGET.match(target):
+            raise Refusal('target must be an item id or inv:slot')
+        event = self.qa_request('use_cash_item %d %s' % (item, target), 'item.use',
+                                lambda e: e.get('item') == item, 'no_character')
+        return {'item': item, 'slot': event.get('slot'), 'target_type': event.get('target_type'),
+                'target_slot': event.get('target_slot')}
 
     def drop_item(self, item, count=1):
         """P1-Q2: drops <count> of the first stack of <item> through the client's own item-move sender (the packet a

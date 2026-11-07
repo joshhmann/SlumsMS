@@ -183,7 +183,7 @@
       "type",
       "name"
      ],
-     "description": "A client pipe signal from the QA module, relayed by the Silvia worker. Built (client-170-qa-module): worldselect.ready (world list handled and drawn), channels.ready (SERVERSTATUS 0x03, the reply to clicking a world: a lost world click shows as its absence), charselect.ready, field.ready (map_id narrows it). Proposed: chat.received (regex), window.open / window.closed (window).",
+     "description": "A client pipe signal from the QA module, relayed by the Silvia worker. Built (client-170-qa-module): worldselect.ready (world list handled and drawn), channels.ready (SERVERSTATUS 0x03, the reply to clicking a world: a lost world click shows as its absence), charselect.ready, field.ready (map_id narrows it). Proposed: chat.received (regex), window.open / window.closed (window). Built (QA build 16/17, 1.6.5 GP4/GP6): shop.open (an NPC shop opened), trade.invited (a trade invite arrived), trade.open (the trade window opened), trade.joined (the partner sat down), trade.item / trade.meso (an item or mesos put in; who 0 = this client, 1 = the partner), trade.partner_confirmed (the partner pressed Trade), trade.done (the trade ended; ok true on result 7).",
      "properties": {
       "type": {
        "const": "client_signal"
@@ -196,7 +196,15 @@
         "field.ready",
         "chat.received",
         "window.open",
-        "window.closed"
+        "window.closed",
+        "shop.open",
+        "trade.invited",
+        "trade.open",
+        "trade.joined",
+        "trade.item",
+        "trade.meso",
+        "trade.partner_confirmed",
+        "trade.done"
        ]
       },
       "map_id": {
@@ -693,18 +701,29 @@
        },
        "description": "var -> named regex group: later text may use ${var}."
       },
+      "optional": {
+       "type": "boolean",
+       "description": "Client signals only: a timeout is recorded (signal.timed_out) and the script goes on instead of failing. For a time-boxed window with retry steps (heal pulses while the alts fight); never for a check."
+      },
       "retry": {
        "type": "object",
        "additionalProperties": false,
        "required": [
-        "step",
         "every_ms",
         "times"
        ],
-       "description": "Client signals only: when the signal has not come within every_ms, send that earlier step again, up to times (the lost world click). timeout_ms still bounds the whole wait.",
+       "description": "Client signals only: when the signal has not come within every_ms, send that earlier step again (`step`) or those earlier steps in order (`steps`, 1-3: a heal plus a key press at a portal), up to times (the lost world click). Exactly one of step and steps. timeout_ms still bounds the whole wait.",
        "properties": {
         "step": {
          "$ref": "#/$defs/id"
+        },
+        "steps": {
+         "type": "array",
+         "minItems": 1,
+         "maxItems": 3,
+         "items": {
+          "$ref": "#/$defs/id"
+         }
         },
         "every_ms": {
          "type": "integer",
@@ -714,7 +733,7 @@
         "times": {
          "type": "integer",
          "minimum": 1,
-         "maximum": 5
+         "maximum": 60
         }
        }
       }
@@ -844,6 +863,320 @@
       "item"
      ],
      "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "pickup_item"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "item": {
+       "type": "integer",
+       "minimum": 1000000,
+       "maximum": 5999999
+      }
+     },
+     "required": [
+      "do",
+      "item"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "shop_buy"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "item": {
+       "type": "integer",
+       "minimum": 1000000,
+       "maximum": 5999999
+      },
+      "quantity": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 32767
+      }
+     },
+     "required": [
+      "do",
+      "item",
+      "quantity"
+     ],
+     "additionalProperties": false,
+     "description": "1.6.5 GP4: buy from the open NPC shop (QA build 16); passes on the server's answer 0"
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "shop_sell"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "item": {
+       "type": "integer",
+       "minimum": 1000000,
+       "maximum": 4999999
+      },
+      "quantity": {
+       "type": "integer",
+       "minimum": 0,
+       "maximum": 32767
+      }
+     },
+     "required": [
+      "do",
+      "item"
+     ],
+     "additionalProperties": false,
+     "description": "1.6.5 GP4: sell at the open NPC shop by item id; no quantity (or 0) sells every stack"
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "shop_close"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      }
+     },
+     "required": [
+      "do"
+     ],
+     "additionalProperties": false,
+     "description": "1.6.5 GP4: close the open NPC shop the way its close button does"
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "use_item"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "item": {
+       "type": "integer",
+       "minimum": 2000000,
+       "maximum": 2999999
+      }
+     },
+     "required": [
+      "do",
+      "item"
+     ],
+     "additionalProperties": false,
+     "description": "1.6.5 GP4: use the item's first USE stack (a potion); passes when the server took one (QA build 17)"
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "trade_invite"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "name": {
+       "type": "string",
+       "pattern": "^[A-Za-z0-9]{4,12}$"
+      }
+     },
+     "required": [
+      "do",
+      "name"
+     ],
+     "additionalProperties": false,
+     "description": "1.6.5 GP6: open a trade and invite a player on this field (QA build 17)"
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "trade_accept"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      }
+     },
+     "required": [
+      "do"
+     ],
+     "additionalProperties": false,
+     "description": "1.6.5 GP6: accept the last trade invite"
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "trade_add_item"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "item": {
+       "type": "integer",
+       "minimum": 1000000,
+       "maximum": 4999999
+      },
+      "quantity": {
+       "type": "integer",
+       "minimum": 0,
+       "maximum": 32767
+      }
+     },
+     "required": [
+      "do",
+      "item"
+     ],
+     "additionalProperties": false,
+     "description": "1.6.5 GP6: put an item's first stack in the trade; no quantity (or 0) = the whole stack"
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "trade_add_meso"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "meso": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 2147483647
+      }
+     },
+     "required": [
+      "do",
+      "meso"
+     ],
+     "additionalProperties": false,
+     "description": "1.6.5 GP6: offer mesos in the trade"
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "trade_confirm"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "timeout_ms": {
+       "type": "integer",
+       "minimum": 1000,
+       "maximum": 300000
+      }
+     },
+     "required": [
+      "do"
+     ],
+     "additionalProperties": false,
+     "description": "1.6.5 GP6: press Trade and wait for the partner and the result (passes on trade done)"
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "trade_cancel"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      }
+     },
+     "required": [
+      "do"
+     ],
+     "additionalProperties": false,
+     "description": "1.6.5 GP6: close the open trade"
     },
     {
      "type": "object",
@@ -1142,6 +1475,132 @@
      "required": [
       "do",
       "key"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "use_cash_item"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "item": {
+       "const": 5060002
+      },
+      "target": {
+       "type": [
+        "integer",
+        "string"
+       ],
+       "pattern": "^([1-5]:[0-9]{1,3}|[1-5][0-9]{6})$",
+       "minimum": 1000000,
+       "maximum": 5999999
+      }
+     },
+     "required": [
+      "do",
+      "item",
+      "target"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "merchant_open"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "item": {
+       "type": "integer",
+       "minimum": 1000000,
+       "maximum": 4999999
+      },
+      "quantity": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 2000
+      },
+      "price": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 2147483647
+      },
+      "title": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 30,
+       "pattern": "^[ -!#-\\[\\]-~]+$"
+      }
+     },
+     "required": [
+      "do",
+      "item",
+      "quantity",
+      "price"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "merchant_close"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      }
+     },
+     "required": [
+      "do"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "fredrick_retrieve"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      }
+     },
+     "required": [
+      "do"
      ],
      "additionalProperties": false
     }

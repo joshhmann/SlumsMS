@@ -489,6 +489,33 @@ class SilviaWorker:
             name, arguments = "party_create", {}
         elif kind == "party_invite":
             name, arguments = "party_invite", {"name": step["name"]}
+        elif kind == "merchant_open":   # P0-2 GP8: a hired merchant, set up the way a player does it
+            name, arguments = "merchant_open", {"item": step["item"], "quantity": step["quantity"],
+                                                "price": step["price"], "title": step.get("title", "QA shop")}
+        elif kind == "merchant_close":
+            name, arguments = "merchant_close", {}
+        elif kind == "fredrick_retrieve":
+            name, arguments = "fredrick_retrieve", {}
+        elif kind == "pickup_item":   # b344: the newest drop of that item, picked up by the client's own sender
+            name, arguments = "pickup_item", {"item": step["item"]}
+        elif kind in ("shop_buy", "shop_sell"):   # 1.6.5 GP4: the open NPC shop (shop_sell without quantity: all)
+            name, arguments = kind, {"item": step["item"], "quantity": step.get("quantity", 0)}
+        elif kind == "shop_close":
+            name, arguments = "shop_close", {}
+        elif kind == "use_item":   # 1.6.5 GP4 leg B: a potion's first USE stack
+            name, arguments = "use_item", {"item": step["item"]}
+        elif kind in ("trade_accept", "trade_cancel"):   # 1.6.5 GP6
+            name, arguments = kind, {}
+        elif kind == "trade_invite":
+            name, arguments = "trade_invite", {"name": step["name"]}
+        elif kind == "trade_add_item":
+            name, arguments = "trade_add_item", {"item": step["item"], "quantity": step.get("quantity", 0)}
+        elif kind == "trade_add_meso":
+            name, arguments = "trade_add_meso", {"meso": step["meso"]}
+        elif kind == "trade_confirm":
+            name, arguments = "trade_confirm", {"timeout_s": max(1, int(step.get("timeout_ms", 120000)) // 1000)}
+        elif kind == "use_cash_item":   # P0-6: the Incubator on an egg (item id) or on inv:slot
+            name, arguments = "use_cash_item", {"item": step["item"], "target": str(step["target"])}
         elif kind in ("wheel", "type", "key_down", "key_up"):
             return {"result": "refused", "detail": "%s is not available in this client build" % kind}
         answer = self.tool(name, arguments)
@@ -835,6 +862,17 @@ class Run:
         return bool(nxt and nxt.get("do") == "wait" and (nxt.get("signal") or {}).get("type") == "server_line"
                     and "armed_at" not in nxt)
 
+    def prepared(self, step, alias):
+        """The step as the worker gets it: placeholders filled, the character slot set. The first send and every retry
+        resend go through here, so a resent `!warp ${room}` carries its value."""
+        sent = dict(step)
+        for key in ("text", "line", "name"):   # name: party_invite ${regular}
+            if key in sent:
+                sent[key] = fill(sent[key], self.values)
+        if step["do"] == "select_character":
+            sent["slot"] = (self.doc["clients"][alias].get("character") or {}).get("slot", 0)
+        return sent
+
     def do(self, i, step, alias, entry):
         kind = step["do"]
         if kind == "mark":
@@ -848,13 +886,7 @@ class Run:
         if kind == "wait":
             self.wait(i, step, alias, entry)
             return
-        sent = dict(step)
-        for key in ("text", "line", "name"):   # name: party_invite ${regular}
-            if key in sent:
-                sent[key] = fill(sent[key], self.values)
-        if kind == "select_character":
-            sent["slot"] = (self.doc["clients"][alias].get("character") or {}).get("slot", 0)
-        r = self.worker.send(alias, sent) or {}
+        r = self.worker.send(alias, self.prepared(step, alias)) or {}
         if r.get("result", "ok") != "ok":
             raise RunFailed("%s refused: %s" % (kind, r.get("detail", "")), "refused")
 
@@ -871,6 +903,11 @@ class Run:
             while True:
                 left = deadline - time.monotonic()
                 if left <= 0:
+                    if step.get("optional"):   # a time-boxed window (heal retries while the alts fight), not a check
+                        entry["signal"] = {"type": "client_signal", "name": sig["name"], "timed_out": True}
+                        entry["note"] = "optional wait timed out after %d s (the expected path for a time-boxed window)" % timeout_s
+                        entry["retries"] = tries if retry else 0
+                        return
                     raise RunFailed("timed out waiting for %s after %d s" % (sig["name"], timeout_s))
                 got = self.worker.wait_signal(alias, sig["name"], min(every, left), extra)
                 if got:
@@ -886,8 +923,11 @@ class Run:
                 self.sleep(0.05)   # a worker that answers "not yet" at once must not spin
                 if retry and tries < retry["times"] and time.monotonic() < deadline:
                     tries += 1
-                    target = next(s for s in self.doc["steps"] if s.get("id") == retry["step"])
-                    self.worker.send(alias, dict(target))
+                    for tid in (retry.get("steps") or [retry["step"]]):   # one step, or a short list in order
+                        target = next(s for s in self.doc["steps"] if s.get("id") == tid)
+                        sent = self.worker.send(alias, self.prepared(target, alias)) or {}
+                        if sent.get("result", "ok") != "ok":   # the first thing to read when the wait times out
+                            entry["last_resend_refusal"] = "%s: %s" % (target.get("do"), str(sent.get("detail", ""))[:160])
         else:
             regex = fill(sig["regex"], self.values, regex=True)
             armed = step.get("armed_at")
