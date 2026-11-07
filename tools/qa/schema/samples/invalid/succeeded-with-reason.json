@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "legacy": false,
+  "attemptId": "1000421-k3f-42",
+  "parentId": null,
+  "rootId": "1000421-k3f-42",
+  "decisionId": 7,
+  "actorId": 1000421,
+  "activity": "GRIND",
+  "policy": "AUTONOMOUS",
+  "state": "SUCCEEDED",
+  "reason": "BUSY",
+  "cause": null,
+  "failureClass": null,
+  "evidence": null,
+  "claims": [
+    "BODY"
+  ],
+  "timestamps": {
+    "at": 1762400000000
+  },
+  "probe": null,
+  "qaTag": null,
+  "capabilityId": null,
+  "commit": "62869d593",
+  "env": "TEST",
+  "runId": null
+}
