@@ -39,7 +39,7 @@ steps:
   - {id: leave-sweetkairi, do: gm, line: "!bot leaveparty 1000536762"}
   - {id: out-sweetkairi, do: gm, line: "!roster logout SweetKairi"}
   - {id: home, do: gm, line: "!warp 240000000"}
-  - {id: left, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240000000}, timeout_ms: 30000}
+  - {id: left, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240000000}, timeout_ms: 30000, optional: true, note: "no field change when the character is already in 240000000"}
   - {id: settle, do: sleep, ms: 3000, reason: "let the server apply the last command before the client stops"}
 captures:
   - {id: after, burst: {fps: 2, ms: 2000, at: {signal: left}}}
