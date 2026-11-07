@@ -167,6 +167,23 @@ function start() {
         # dropItems takes meso/coordinate flags, never an item id; variables and expressions are not guessed.
         self.assertNotIn("dropItems", json.dumps(row["mentions"]))
 
+    def test_event_script_calls(self):
+        src = (
+            "function setup(level, lobbyid) {\n"
+            "    var eim = em.newInstance('Test');\n"
+            "    eim.getInstanceMap(990000100);\n"
+            "    var m = eim.getMapInstance(910010000);\n"
+            "    m.spawnMonsterOnGroundBelow(MapleLifeFactory.getMonster(9300012), new Point(1, 2));\n"
+            "    eim.spawnNpc(9250000, new Point(0, 0), m);\n"
+            "    eim.warpEventTeam(930000100);\n"
+            "    m.getMonsterById(9300001);\n"
+            "    eim.getMapInstance(i);\n"
+            "}\n")
+        _, row = self.row("scripts/event/Test.js", src)
+        got = [(m["k"], m["id"]) for m in row["mentions"]]
+        self.assertEqual(got, [("map", 990000100), ("map", 910010000), ("mob", 9300012), ("npc", 9250000),
+                               ("map", 930000100), ("mob", 9300001)])
+
     def test_mentions_ignore_non_literals(self):
         src = ("function start() {\n    cm.gainItem(itemId, 1);\n"
                "    cm.warp(100000000 + offset, 0);\n    cm.forceStartQuest(getQuest());\n}\n")

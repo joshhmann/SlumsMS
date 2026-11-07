@@ -34,6 +34,14 @@ CALLS = {
     "warp": ("map", (0,)),
     "warpParty": ("map", (0,)),
     "spawnMonster": ("mob", (0,)),
+    # event (PQ / boss) instance scripts: the em / eim / map objects
+    "getInstanceMap": ("map", (0,)),
+    "getMapInstance": ("map", (0,)),
+    "warpEventTeam": ("map", (0,)),
+    "spawnNpc": ("npc", (0,)),
+    "getMonster": ("mob", (0,)),
+    "getMonsterById": ("mob", (0,)),
+    "spawnMonsterOnGroundBelow": None,  # its mob id is the argument of the nested getMonster call
     "teachSkill": ("skill", (0,)),
     "openShop": ("shop", (0,)),
     "gainExp": None,
