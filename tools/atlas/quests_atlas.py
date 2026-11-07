@@ -127,7 +127,7 @@ def build(wz_root, script_ids=frozenset(), npc_ids=None):
         for fname, node in (("Check", c), ("Act", a), ("Say", s), ("QuestInfo", i)):
             if node:
                 row["src"].append({"kind": "wz", "path": f"Quest.wz/{fname}.img.xml", "line": node["line"]})
-        if HANGUL.search(" ".join(row["text"]["start"] + row["text"]["end"])):
+        if HANGUL.search(" ".join([name] + row["text"]["summary"] + row["text"]["start"] + row["text"]["end"])):
             row["lang"] = "ko"
         rows[str(qid)] = row
     # chain links: next_quest forward, and quests that list another as a prerequisite are its "next"

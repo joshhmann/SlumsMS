@@ -51,6 +51,17 @@ class QuestsAtlasTest(unittest.TestCase):
         self.assertEqual(r["text"]["start"], ["Hello <NPC 2000>, take <item 1092000>."])
         self.assertEqual([(s["path"], s["line"]) for s in r["src"]][0], ("Quest.wz/Check.img.xml", 2))
 
+    def test_korean_text_anywhere_sets_lang(self):
+        info = INFO.replace('<string name="0" value="Go."/>', '<string name="0" value="\ub9d0 \uac78\uc5b4\uc694"/>')
+        d = tempfile.mkdtemp()
+        os.makedirs(os.path.join(d, "Quest.wz"))
+        for n, x in (("Check", CHECK), ("Act", ACT), ("Say", SAY), ("QuestInfo", info)):
+            with open(os.path.join(d, "Quest.wz", f"{n}.img.xml"), "w", encoding="utf-8") as f:
+                f.write(x)
+        rows = Q.build(d)
+        self.assertEqual(rows["1021"].get("lang"), "ko")
+        self.assertNotIn("lang", self.build()["1021"])
+
     def test_chain_links_both_ways(self):
         rows = self.build()
         self.assertEqual(rows["1021"]["chain"]["next"], [{"k": "quest", "id": 1022}])
