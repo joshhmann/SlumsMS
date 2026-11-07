@@ -29,6 +29,13 @@ from common import esc, layout, write
 ATLAS = "admin/atlas"
 KINDS = ("quests", "npcs", "items", "mobs", "maps", "scripts", "pq", "bosses")
 KIND_FILES = {k: k + ".json" for k in KINDS}
+# the atlas names a kind in the singular: a reference is {"k": "item", "id": 2010007}, dangling.json is keyed by the
+# same words, and so is the page's URL hash (#item/2010007). KINDS stays the file names.
+KIND_KEY = {"quests": "quest", "npcs": "npc", "items": "item", "mobs": "mob", "maps": "map",
+            "scripts": "script", "pq": "pq", "bosses": "boss"}
+KEY_KIND = {v: k for k, v in KIND_KEY.items()}
+LABELS = {"quests": "Quest", "npcs": "NPC", "items": "Item", "mobs": "Mob", "maps": "Map", "scripts": "Script",
+          "pq": "PQ", "bosses": "Boss"}
 META, DANGLING, MANIFEST = "meta.json", "dangling.json", "MANIFEST.sha256"
 # every file a built atlas folder may hold (docs/atlas/SCHEMA.md); MANIFEST is allowed but not copied
 KNOWN = set(KIND_FILES.values()) | {META, DANGLING, MANIFEST}
@@ -93,11 +100,13 @@ SCRIPT = r"""/* The content atlas (admin/atlas/): search every row, open one, fo
 (function () {
   "use strict";
 
-  var KINDS = ["quests", "npcs", "items", "mobs", "maps", "scripts", "pq", "bosses"];
-  var FILE = {quests: "quests.json", npcs: "npcs.json", items: "items.json", mobs: "mobs.json", maps: "maps.json",
-              scripts: "scripts.json", pq: "pq.json", bosses: "bosses.json"};
-  var LABEL = {quests: "Quest", npcs: "NPC", items: "Item", mobs: "Mob", maps: "Map", scripts: "Script",
-               pq: "PQ", bosses: "Boss"};
+  /* kinds are named the way the atlas names them, in the singular: a reference is {"k": "item", "id": 2010007} and so
+     is dangling.json and the URL hash (#item/2010007). The files and the header counts use the plural. */
+  var KINDS = ["quest", "npc", "item", "mob", "map", "script", "pq", "boss"];
+  var FILE = {quest: "quests.json", npc: "npcs.json", item: "items.json", mob: "mobs.json", map: "maps.json",
+              script: "scripts.json", pq: "pq.json", boss: "bosses.json"};
+  var LABEL = {quest: "Quest", npc: "NPC", item: "Item", mob: "Mob", map: "Map", script: "Script",
+               pq: "PQ", boss: "Boss"};
   var REACH = {player: "player", gm: "GM only", event: "event", unobtainable: "No known source"};
   // owner-approved wording (docs/site/ADMIN-ATLAS.md): the flag is about what the data shows, not about the game
   var NOTE = "no drop, shop, quest reward, script or cash-shop source was found in the data; not proof it cannot be obtained";
@@ -534,7 +543,7 @@ def index_rows(atlas_dir, files):
             if not isinstance(row_name, str) or not row_name:
                 row_name = str(row.get("id") or key)
             reach = row.get("reach")
-            out.append([kind, int(key) if str(key).isdigit() else str(key), row_name,
+            out.append([KIND_KEY[kind], int(key) if str(key).isdigit() else str(key), row_name,
                         reach if isinstance(reach, str) else ""])
     out.sort(key=lambda e: (e[0], 0, e[1], "") if isinstance(e[1], int) else (e[0], 1, 0, str(e[1])))
     return out
@@ -568,7 +577,7 @@ def body(meta, counts, root):
         return (head + '<section class="panel"><h2 class="bar">Atlas</h2><div class="in">'
                 f'<p class="empty">{EMPTY}</p><p class="small">Build the site with <code>--atlas-dir DIR</code> '
                 'pointing at a built atlas folder (docs/site/ADMIN-ATLAS.md); the folder is not in git.</p></div></section>')
-    kinds = "".join(f'<option value="{k}">{esc(k.capitalize())}</option>' for k in KINDS)
+    kinds = "".join(f'<option value="{esc(KIND_KEY[k])}">{esc(LABELS[k])}</option>' for k in KINDS)
     reach = "".join(f'<option value="{k}">{esc(v)}</option>' for k, v in REACH_LABEL.items())
     return head + f"""<link rel="stylesheet" href="atlas.css">
 <div class="at" id="atlas" data-root="{esc(root)}">
@@ -615,7 +624,7 @@ def build(out, atlas_dir=None):
     rows = index_rows(atlas_dir, files)
     counts = {k: 0 for k in KINDS}
     for row in rows:
-        counts[row[0]] += 1
+        counts[KEY_KIND[row[0]]] += 1
     target = os.path.join(out, ATLAS, "data", folder)
     os.makedirs(target, exist_ok=True)
     for name in [META, DANGLING] + [KIND_FILES[k] for k in KINDS]:
