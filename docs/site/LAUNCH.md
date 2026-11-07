@@ -141,9 +141,12 @@ rsync -a dist/site-private/market/ root@192.168.0.164:/srv/slums-site/market/   
 `--exclude market/ --exclude world/` because step 6 keeps those two fresh on 164.
 Check: signed out, `/database/` and `/market/` redirect to `/login/`; signed in with a game username and password, they open, and
 on a price page "Watch" works; a test post on the Buy/Sell board shows on the board NPC at the FM entrance.
-Cards (`GET /api/market/cards`, signed in): `/market/cards.html` says "N of 25 found" with no "didn't load" bar (that
+Cards (`GET /api/market/cards`, signed in): `/market/cards.html` says "N of 68 found" with no "didn't load" bar (that
 bar means the GET failed). Type `slums` on any page (not in a text box): the card pops up, and after a reload My cards
-counts it. In the browser's network tab, `api/market/cards` answers 200 with `"found"` and `"total": 16`.
+counts it. In the browser's network tab, `api/market/cards` answers 200 with `"found"` and `"total": 68`.
+Type `hmm` (a Slums-chan sticker) and `hello` (a Pia one) the same way: each pops up at its own size. My cards
+then shows them in the sticker row, and the twelve "Dynamic duo" polaroid pairs at the bottom, face down until the
+account has 3, 6, ... 36 secrets.
 **From now on every publish from 187 uses `--private --world` and `--exclude market/ --exclude world/`** (DEPLOY.md
 says so too).
 
