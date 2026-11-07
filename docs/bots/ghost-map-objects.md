@@ -25,6 +25,8 @@ window.
    when it warps a bot elsewhere: it only removes the bot from the map it lands on) is not sent either. It stays in
    the lists, because removing it would run leave-map logic against its real map. Logged once per map and
    character: `ghost map object skipped: map=<id> char=<id> kind=<bot|player> realMap=<id>`.
+   The once-per-pair memory (`MapleMap.loggedMisplaced`) keeps one Integer per distinct character skipped on that map,
+   for the map's life: bounded by the roster (Server Dev review, 2026-11-07).
 4. This holds for a ghost regular and for a ghost real player who logged out. It holds with the entry trickle on
    and off.
 5. Nothing else changes. Characters really on the map are sent exactly as before, once per entry (the b350 tests
