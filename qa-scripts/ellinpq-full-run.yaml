@@ -6,7 +6,7 @@
 # everyone to the exit map 930000800 (EllinPQ.js:30 exitMap, :226-241 clearPQ).
 # Pass (card): `RUN start ellinpq`, the stage 1..6 cleared lines in order tagged [ellinpq, leader AqClient], the final
 # `RUN end ellinpq in ...: cleared after N s`, and the client on 930000800.
-# STAGING: `!mechanics pq ellinpq me 3 ranged1` (Bots, 166-bots-pq-staging) builds the party and starts the run; the leader must be gm 3 (Server Dev). Needs the 1.6.6 build with that command and the row's mechanics flag.
+# STAGING: AqClient stays gm 0 and may log in anywhere. QA runs `tools/ops/mechanics-stage pq ellinpq for AqClient 3 ranged1` with `for AqClient` after login (Bots, 166-bots-pq-staging-for @ 8317b1da6); staging moves the leader to the recruit map. Needs the 1.6.6 TEST build with -Dslums.qa, -Dslums.mechanics and the row switch.
 id: ellinpq-full-run
 title: "Ellin PQ: the leader starts the Forest of Poison Haze run and the party clears all six stages"
 covers: [feature-ellinpq]
@@ -20,7 +20,7 @@ clients:
     character: {slot: 0}
     world: Bera
     channel: 5
-    gm: true
+    gm: false
 steps:
   - {do: login}
   - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
@@ -31,11 +31,8 @@ steps:
   - {do: select_character}
   - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
   - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
-  - {id: revive, do: gm, line: "!heal"}
-  - {do: sleep, ms: 1000, reason: "let the revive land before the next command"}
-  - {id: to-recruit, do: gm, line: "!warp 300030100", note: "the recruit map"}
-  - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 300030100}, timeout_ms: 20000}
-  - {id: stage-party, do: gm, line: "!mechanics pq ellinpq me 3 ranged1", note: "Bots 166-bots-pq-staging: spawns the regulars, forms the party with AqClient leading and starts the run"}
+  - {id: stage-party, do: sleep, ms: 10000, reason: "QA runs tools/ops/mechanics-stage pq ellinpq 3 ranged1 from the shell with `for AqClient`; TEST picks it up within 30 s"}
+  - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 300030100}, timeout_ms: 60000, note: "staging itself moves the leader to the recruit map, so AqClient may log in anywhere"}
   - id: run-start
     do: wait
     armed_at: stage-party
@@ -50,7 +47,6 @@ steps:
   - {id: finished, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN end ellinpq in .*: cleared after \\d+ s", char: me}, timeout_ms: 300000}
   - {id: out, do: wait, signal: {type: client_signal, name: field.ready, map_id: 930000800}, timeout_ms: 60000}
   - {do: sleep, ms: 3000, reason: "frame of the exit map before the cleanup line"}
-  - {id: end-run, do: gm, line: "!mechanics stop", note: "clean up after the last wait"}
 captures:
   - {id: start, burst: {fps: 2, ms: 3000, at: {step: stage-party}}}
   - {id: exit-map, burst: {fps: 2, ms: 3000, at: {step: out}}}
