@@ -56,6 +56,34 @@ class SessionsTest(unittest.TestCase):
             f.write("3\n7\n")
         self.assertIsNone(self.s.check(tok))
 
+    def test_a_ban_ends_the_session_and_an_unban_restores_it(self):
+        """P0-7: the game server rewrites banned.txt next to revoked.txt; no database, no game call."""
+        banned = os.path.join(self.tmp, "banned.txt")
+        tok = self.s.issue({"account_id": 7})
+        self.assertIsNotNone(self.s.check(tok))
+        with open(banned, "w") as f:
+            f.write("3\n7\n")
+        self.assertIsNone(self.s.check(tok))                     # banned: signed out
+        self.assertTrue(self.s.revoked_account(tok))             # and answered 403, not 401
+        with open(banned, "w") as f:
+            f.write("3\n")                                       # the server's sweep rewrote it without 7
+        self.assertIsNotNone(self.s.check(tok))                  # unbanned: the same cookie works again
+        self.assertFalse(self.s.revoked_account(tok))
+        with open(self.revoked, "w") as f:
+            f.write("7\n")                                       # revoked.txt still works on its own
+        self.assertIsNone(self.s.check(tok))
+
+    def test_a_ban_ends_a_download_pass_too(self):
+        passes = ls.Passes(b"p" * 48, self.s, self.clock)
+        banned = os.path.join(self.tmp, "banned.txt")
+        token, _ = passes.issue({"a": 7, "exp": self.clock.t + 3600})
+        self.assertEqual(passes.check(token), 7)
+        with open(banned, "w") as f:
+            f.write("7\n")
+        self.assertIsNone(passes.check(token))                   # the patch download cache sees the new file
+        os.remove(banned)
+        self.assertEqual(passes.check(token), 7)
+
 
 class FakeGameAuth:
     """The game server's auth API (ticket 105) as the login service sees it: POST /verify and /signup."""

@@ -67,7 +67,8 @@ on to the game's read-only inspect endpoint on this host's loopback (--inspect-u
 Only a loopback --inspect-url (127.x, ::1, localhost) is used; anything else keeps it off.
 
 Listens on 127.0.0.1 only. Sessions are HMAC-SHA256 signed with --key-file (32+ random bytes; the service refuses to
-start without it). An account listed in --revoked (one account id per line, e.g. banned accounts) is signed out.
+start without it). An account listed in --revoked (one account id per line) or in banned.txt next to it (the game server
+writes that one: banned accounts) is signed out.
 
 Settings (argument beats environment beats default):
     --key-file / SLUMS_LOGIN_KEY_FILE     /etc/slums-login/key   (required)
@@ -129,6 +130,9 @@ class Sessions:
         self.ended_file = os.path.join(os.path.dirname(revoked_file), "revoked-sessions.txt") if revoked_file else None
         # password resets: "<account> <time>" per line; sessions of that account issued before the time stop working
         self.before_file = os.path.join(os.path.dirname(revoked_file), "revoked-before.txt") if revoked_file else None
+        # banned accounts: the game server rewrites this whole file (a ban adds the id, an unban drops it), so a ban
+        # ends the account's site sessions and an unban lets it sign in again; revoked.txt stays hand-edited
+        self.banned_file = os.path.join(os.path.dirname(revoked_file), "banned.txt") if revoked_file else None
         self.ended_mem, self.before_mem, self.lock = {}, {}, threading.Lock()
 
     def sign(self, payload):
@@ -152,11 +156,19 @@ class Sessions:
             payload["gl"] = min(int(approval["gm"]), 99)
         return self.sign(payload)
 
-    def revoked(self):
-        if not self.revoked_file or not os.path.isfile(self.revoked_file):
+    @staticmethod
+    def ids(path):
+        """Account ids (one per line) in path; none when the file is missing or unreadable."""
+        try:
+            with open(path, encoding="utf-8") as f:
+                return {line.strip() for line in f if line.strip().isdigit()}
+        except OSError:
             return set()
-        with open(self.revoked_file, encoding="utf-8") as f:
-            return {line.strip() for line in f if line.strip().isdigit()}
+
+    def revoked(self):
+        if not self.revoked_file:
+            return set()
+        return self.ids(self.revoked_file) | self.ids(self.banned_file)
 
     def stale_admin(self, s):
         """GM level ADMIN_LEVEL or up, but signed in more than ADMIN_TTL ago: needs a fresh sign-in, not a refusal."""
@@ -279,7 +291,9 @@ class Passes:
         return value
 
     def revoked(self):
-        return self._load(self.sessions.revoked_file, self.sessions.revoked)
+        s = self.sessions
+        return self._load(s.revoked_file, lambda: s.ids(s.revoked_file)) | \
+            self._load(s.banned_file, lambda: s.ids(s.banned_file))
 
     def before(self):
         if not self.sessions.before_file:
