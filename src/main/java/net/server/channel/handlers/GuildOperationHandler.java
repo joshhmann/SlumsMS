@@ -208,7 +208,7 @@ public final class GuildOperationHandler extends AbstractPacketHandler {
             case 0x07:
                 cid = p.readInt();
                 String name = p.readString();
-                if (cid != mc.getId() || !name.equals(mc.getName()) || mc.getGuildId() <= 0) {
+                if (cid != mc.getId() || !name.equals(mc.getName()) || mc.getGuildId() <= 0 || mc.getGuild() == null) { // 1.6.5 P1-E2: no guild object, no leave
                     log.warn("[Hack] Chr {} tried to quit guild under the name {} and current guild id of {}", mc.getName(), name, mc.getGuildId());
                     return;
                 }
@@ -229,14 +229,14 @@ public final class GuildOperationHandler extends AbstractPacketHandler {
                 mc.getMap().broadcastPacket(mc, GuildPackets.guildNameChanged(mc.getId(), ""));
                 break;
             case 0x08:
-                allianceId = mc.getGuild().getAllianceId();
-
                 cid = p.readInt();
                 name = p.readString();
-                if (mc.getGuildRank() > 2 || mc.getGuildId() <= 0) {
+                // 1.6.5 P1-E2: the guild was dereferenced before this check, so a guildless expel packet threw
+                if (mc.getGuildRank() > 2 || mc.getGuildId() <= 0 || mc.getGuild() == null) {
                     log.warn("[Hack] Chr {} is trying to expel without rank 1 or 2", mc.getName());
                     return;
                 }
+                allianceId = mc.getGuild().getAllianceId();
 
                 Server.getInstance().expelMember(mc.getMGC(), name, cid);
                 if (allianceId > 0) {
@@ -268,7 +268,7 @@ public final class GuildOperationHandler extends AbstractPacketHandler {
                 Server.getInstance().changeRank(mc.getGuildId(), cid, newRank);
                 break;
             case 0x0f:
-                if (mc.getGuildId() <= 0 || mc.getGuildRank() != 1 || mc.getMapId() != MapId.GUILD_HQ) {
+                if (mc.getGuildId() <= 0 || mc.getGuild() == null || mc.getGuildRank() != 1 || mc.getMapId() != MapId.GUILD_HQ) { // 1.6.5 P1-E2: guild object checked before use below
                     log.warn("[Hack] Chr {} tried to change guild emblem without being the guild leader", mc.getName());
                     return;
                 }

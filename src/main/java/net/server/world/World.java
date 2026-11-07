@@ -1052,7 +1052,15 @@ public class World {
                 party.updateMember(target);
                 break;
             case CHANGE_LEADER:
-                Character mc = party.getLeader().getPlayer();
+                if (target == null) {
+                    // 1.6.5 P1-E2: nobody to hand the party to
+                    changed = false;
+                    break;
+                }
+                // 1.6.5 P1-E2: the old leader can be offline or missing from the member list; the event and
+                // mini-dungeon follow-up needs an online Character, the stored leader change does not
+                PartyCharacter oldLeader = party.getLeader();
+                Character mc = oldLeader != null ? oldLeader.getPlayer() : null;
                 if (mc != null) {
                     EventInstanceManager eim = mc.getEventInstance();
 
@@ -1070,8 +1078,8 @@ public class World {
                             }
                         }
                     }
-                    party.setLeader(target);
                 }
+                party.setLeader(target);
                 break;
             default:
                 log.warn("Unhandled updateParty operation: {}", operation.name());
