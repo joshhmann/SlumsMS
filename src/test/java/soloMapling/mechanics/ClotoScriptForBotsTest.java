@@ -154,22 +154,35 @@ class ClotoScriptForBotsTest {
         var stage = StageData.loadDir(java.nio.file.Path.of(Mechanics.DEFAULT_DIR)).content().stream()
                 .filter(c -> "kpq".equals(c.id())).findFirst().orElseThrow().stage(1).orElseThrow();
 
-        talk(bot, eim, items);
-        int q = eim.grid.get(2);
-        assertTrue(q >= 1 && q <= 7, "a question id in the grid: " + q);
-        int answer = stage.answer(q).orElseThrow();
+        // The first talk draws a question 1..6 at random and writes it into the grid.
+        for (int draw = 0; draw < 30; draw++) {
+            FakeEim fresh = new FakeEim();
+            talk(bot, fresh, new HashMap<>());
+            int q = fresh.grid.get(2);
+            assertTrue(q >= 1 && q <= stage.answers().size(), "a question id in the grid: " + q);
+        }
 
-        items.put(4001007, answer - 1);
-        BotSafeCm wrong = talk(bot, eim, items);
-        assertTrue(wrong.said.get(0).startsWith("I'm sorry, but that is not the right answer!"), wrong.said.toString());
-        assertEquals(answer - 1, items.get(4001007), "a wrong count takes nothing");
-        assertEquals(q, eim.grid.get(2));
+        // Questions 1 and 2 are live world settings (channels, EXP rate): this fake has no world, so KpqFullRunTest
+        // covers them through KpqQuizFake.WORLD. Each fixed question is pinned here, so no draw decides the outcome.
+        int passes = 0;
+        for (int q = 3; q <= stage.answers().size(); q++) {
+            eim.grid.put(2, q);
+            int answer = stage.answer(q).orElseThrow();
 
-        items.put(4001007, answer);
-        talk(bot, eim, items);
-        assertEquals(0, items.get(4001007));
-        assertEquals(1, items.get(4001008), "one pass");
-        assertEquals(0, eim.grid.get(2), "grid 0 = done");
+            items.put(4001007, answer - 1);
+            BotSafeCm wrong = talk(bot, eim, items);
+            assertTrue(wrong.said.get(0).startsWith("I'm sorry, but that is not the right answer!"),
+                    "question " + q + ": " + wrong.said);
+            assertEquals(answer - 1, items.get(4001007), "question " + q + ": a wrong count takes nothing");
+            assertEquals(q, eim.grid.get(2));
+
+            items.put(4001007, answer);
+            talk(bot, eim, items);
+            passes++;
+            assertEquals(0, items.get(4001007), "question " + q + ": the right count is taken");
+            assertEquals(passes, items.get(4001008), "question " + q + ": one pass");
+            assertEquals(0, eim.grid.get(2), "grid 0 = done");
+        }
 
         FakePlayer leader = new FakePlayer(1);
         Map<Integer, Integer> leaderItems = new HashMap<>(Map.of(4001008, 2));
