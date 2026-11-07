@@ -358,6 +358,35 @@ class BossPhasesSolverTest {
     }
 
     /**
+     * 1.6.6 b365: Latanica's 5411000 is an item reactor (Reactor.wz state 0 type 100, 1 x 4000381 White Essence). A
+     * player opens it by dropping the essence on it; the row's bot clicked it, a hit no client can make, which ran the
+     * summon without the item. The member holding the essence now places it, once.
+     */
+    @Test
+    void latanicasReactorIsOpenedWithTheWhiteEssenceNotAClick() {
+        MechanicsModel.Stage room = MechanicsRuns.contentFor("LatanicaBattle").stages().get(0);
+        View holds = new View(room, List.of(), Map.of());
+        holds.hold(4000381, 1);
+        holds.takes.put(5411000, new int[]{4000381, 1});
+
+        SolverStep.PlaceItemOn place = assertInstanceOf(SolverStep.PlaceItemOn.class, solver.next(holds, member()),
+                "a reactor that takes an item is opened with the item");
+        assertEquals(5411000, place.reactorId());
+        assertEquals(4000381, place.itemId());
+        assertEquals(1, place.count());
+        assertFalse(solver.next(holds, member()) instanceof SolverStep.PlaceItemOn, "placed once per stage");
+    }
+
+    /** b365: with nobody holding the item the old click stays, until the owner decides Papulatus, Scarga and Showa. */
+    @Test
+    void anItemReactorNobodyHasTheItemForKeepsItsClickForNow() {
+        MechanicsModel.Stage room = MechanicsRuns.contentFor("PapulatusBattle").stages().get(0);
+        View none = new View(room, List.of(), Map.of());
+        none.takes.put(2201004, new int[]{4031179, 1});
+        assertEquals(2201004, assertInstanceOf(SolverStep.HitReactor.class, solver.next(none, member())).reactorId());
+    }
+
+    /**
      * Round 10 (Chaos Zakum): the body's phase order comes from the row's own {@code mobs:} list, not from a hardcoded
      * normal-Zakum family. A chaos row (8800100 -> 8800101 -> 8800102) had no rank in the old family and fell back to
      * the order the parts happened to arrive in.
@@ -459,6 +488,8 @@ class BossPhasesSolverTest {
         private final Map<String, String> props;
         private final Map<String, Object> memory = new HashMap<>();
         private final Map<Integer, Integer> held = new HashMap<>();
+        /** b365: what an item reactor on the map takes in its current state (Reactor.wz type 100). */
+        final Map<Integer, int[]> takes = new HashMap<>();
         long now;
 
         View(List<Part> parts, Map<String, String> props) {
@@ -479,6 +510,11 @@ class BossPhasesSolverTest {
         @Override
         public long nowMs() {
             return now;
+        }
+
+        @Override
+        public int[] reactorTakes(int reactorId) {
+            return takes.get(reactorId);
         }
 
         @Override

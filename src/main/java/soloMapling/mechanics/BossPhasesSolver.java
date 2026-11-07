@@ -50,6 +50,16 @@ public final class BossPhasesSolver implements StageSolver {
         return ID;
     }
 
+    /** b365: whether any member of the run holds the stack a reactor takes. */
+    static boolean someoneHolds(StageView view, int[] takes) {
+        for (RunMember m : view.members()) {
+            if (view.itemCount(m.characterId(), takes[0]) >= takes[1]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public SolverStep next(StageView view, RunMember member) {
         int stageMap = view.stage().mapId();
@@ -84,9 +94,26 @@ public final class BossPhasesSolver implements StageSolver {
             // reach it. Once per stage: a reactor script is not written to be clicked twice (scripts/reactor/
             // 2201004.js:22-29 has no guard at all), so the click is remembered in the stage's own scratch memory.
             for (int reactorId : reactors) {
-                if (view.stageMemory().putIfAbsent(K_REACTOR + reactorId, view.nowMs()) == null) {
-                    return new SolverStep.HitReactor(reactorId);
+                if (view.stageMemory().containsKey(K_REACTOR + reactorId)) {
+                    continue;
                 }
+                // 1.6.6 b365: a reactor waiting for an item (Reactor.wz type 100) opens the way a player opens it, by
+                // the stack dropped inside its box (Latanica's 5411000 takes the White Essence the door asked for). The
+                // member holding it places it; the others wait for it rather than hitting what no client can hit.
+                // Nobody holding it keeps the old click for now: Papulatus, Scarga and Showa wait on the owner's call.
+                int[] takes = view.reactorTakes(reactorId);
+                if (takes != null) {
+                    if (view.itemCount(member.characterId(), takes[0]) >= takes[1]) {
+                        view.stageMemory().put(K_REACTOR + reactorId, view.nowMs());
+                        return new SolverStep.PlaceItemOn(reactorId, takes[0], takes[1],
+                                "the reactor opens on " + takes[1] + " x " + takes[0] + ", the way a player opens it");
+                    }
+                    if (someoneHolds(view, takes)) {
+                        return new SolverStep.Wait(1_000, "the member with " + takes[0] + " opens the room");
+                    }
+                }
+                view.stageMemory().put(K_REACTOR + reactorId, view.nowMs());
+                return new SolverStep.HitReactor(reactorId);
             }
         }
         List<Integer> order = order(view, parts, view.fighterOf(member.characterId()), phase);

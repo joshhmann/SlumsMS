@@ -117,6 +117,15 @@ public interface StageView {
     }
 
     /**
+     * 1.6.6 b365: the item and quantity the reactor with this id takes in its current state, when that state is an item
+     * trigger (Reactor.wz type 100: a player opens it by dropping the stack inside its box, never by hitting it), or
+     * {@code null}. {@code [itemId, quantity]}, as {@code MapleMap.activateItemReactors} matches it.
+     */
+    default int[] reactorTakes(int reactorId) {
+        return null;
+    }
+
+    /**
      * One reactor standing on the stage's map, by everything a script can tell it apart with: the map's own object id
      * (the key {@link SolverStep.HitReactorByOid} addresses it by), its WZ id, its WZ name ({@code ""} when it has
      * none), its current state and where it stands.
