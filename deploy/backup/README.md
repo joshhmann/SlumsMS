@@ -56,7 +56,8 @@ Roots and rules (`slumsms-rotate-backups`, `KEEP_DEPLOYS=3`, `TEST_KEEP_DAYS=14`
 - `/opt/mapleroot-dev/*/` (depth ≤ 4): `backup-*` and `Cosmic.jar.pre-*` older than 14 days; never under a `mysql/`
   datadir or `integration-db/`.
 - Never: `backups/nightly`, the other files in `backups/`, the live server folder.
-- Protected paths (`PROTECT_PATHS`, default `PreviousServer`): never listed as candidates and refused again at delete
+- Protected paths (`PROTECT_PATHS`, default `PreviousServer pre-live-baseline-20261019T070109Z`, the latter the only
+  copy of the original server before SoloMapling, pinned 2026-11-07): never listed as candidates and refused again at delete
   time, and neither is a folder that contains one (e.g. a `backup/` holding a `PreviousServer/`). A bare name matches
   that name anywhere under the roots; an entry with a `/` is a glob on the full path, e.g.
   `PROTECT_PATHS="PreviousServer /opt/mapleroot-deployments/baseline-*/staging"`. Setting it in the conf replaces the
