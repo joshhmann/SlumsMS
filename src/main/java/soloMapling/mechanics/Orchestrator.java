@@ -124,6 +124,21 @@ public final class Orchestrator implements RunOrchestrator {
         return Map.copyOf(all);
     }
 
+    /**
+     * 1.6.5 run-min-room: the fewest members a run plays with. A party quest's row minimum is the script's own entry
+     * rule, so it holds. A boss room's is not: the expedition NPC already counted the registered members at the altar,
+     * and the room holds whoever was standing there when the fight started - exped.door leaves out a regular that was
+     * not (TEST 6 Nov 21:33: Horntail started with 5 of 6, the row's 6-member minimum refused the run, and the four
+     * regulars that went in fought on follower AI, outside b311's stand-spot fix). So a boss run plays with the members
+     * it started with, never more than the row asks.
+     */
+    static int minimum(Content content, int startedWith) {
+        if (content.kind() == MechanicsModel.Kind.BOSS) {
+            return Math.min(content.minPlayers(), Math.max(2, startedWith)); // a leader and one regular at least
+        }
+        return content.minPlayers();
+    }
+
     @Override
     public RunState start(Content content, Tier tier, List<RunMember> members) {
         int last = lastPlayable(content);
@@ -145,8 +160,9 @@ public final class Orchestrator implements RunOrchestrator {
             run.end("the party needs exactly one leader");
             return run;
         }
-        if (members.size() < content.minPlayers() || members.size() > content.maxPlayers()) {
-            run.end(content.id() + " takes " + content.minPlayers() + "-" + content.maxPlayers() + " members, not "
+        int floor = minimum(content, members.size());
+        if (members.size() < floor || members.size() > content.maxPlayers()) {
+            run.end(content.id() + " takes " + floor + "-" + content.maxPlayers() + " members, not "
                     + members.size());
             return run;
         }
@@ -761,8 +777,9 @@ public final class Orchestrator implements RunOrchestrator {
             abort(run, "the leader left (" + why + ")");
             return;
         }
-        if (run.members().size() < run.content().minPlayers()) {
-            abort(run, "too few members left (" + run.members().size() + " < " + run.content().minPlayers() + ")");
+        int floor = minimum(run.content(), run.startedWith());
+        if (run.members().size() < floor) {
+            abort(run, "too few members left (" + run.members().size() + " < " + floor + ")");
             return;
         }
         if (run.members().stream().noneMatch(RunMember::bot)) {

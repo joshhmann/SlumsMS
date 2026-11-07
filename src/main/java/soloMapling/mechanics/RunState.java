@@ -58,6 +58,14 @@ public final class RunState implements RunOrchestrator.Run {
         this.members = new CopyOnWriteArrayList<>(members);
         this.budgetMs = budgetMs;
         this.lastStage = lastStage;
+        this.startedWith = members.size();
+    }
+
+    /** How many members the run started with (1.6.5 run-min-room: a boss room's floor, see Orchestrator.minimum). */
+    private final int startedWith;
+
+    public int startedWith() {
+        return startedWith;
     }
 
     /**
