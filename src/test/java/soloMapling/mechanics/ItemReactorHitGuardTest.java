@@ -101,6 +101,23 @@ class ItemReactorHitGuardTest {
     }
 
     @Test
+    void afterFirstItemOpensScarlionOnlyOnceTargasReactorHasTakenTheSpirit() {
+        server.maps.MapleMap map = mock(server.maps.MapleMap.class);
+        server.maps.Reactor targa = mock(server.maps.Reactor.class);
+        when(map.getReactorById(5511000)).thenReturn(targa);
+        server.maps.Reactor scarlion = itemReactor(5511001, new java.awt.Point(0, 0));
+        when(scarlion.getMap()).thenReturn(map);
+        RunState playerLed = run("ScargaBattle", true, 1, 0);
+        when(targa.getState()).thenReturn((byte) 0);
+        assertNotNull(StepExecutor.itemReactorHitRefused(playerLed, scarlion), "Targa's reactor has not taken a Spirit");
+        when(targa.getState()).thenReturn((byte) 1);
+        assertNull(StepExecutor.itemReactorHitRefused(playerLed, scarlion), "one Spirit opens both");
+        when(targa.getState()).thenReturn((byte) 0);
+        assertNull(StepExecutor.itemReactorHitRefused(run("ScargaBattle", false, 1, 0), scarlion),
+                "regulars on their own may hit both");
+    }
+
+    @Test
     void aReactorThatIsNotInAnItemStateIsNotTheGuardsBusiness() {
         server.maps.Reactor rock = mock(server.maps.Reactor.class);
         when(rock.getStats()).thenReturn(mock(server.maps.ReactorStats.class));

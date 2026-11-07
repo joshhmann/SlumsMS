@@ -1174,6 +1174,20 @@ final class StepExecutor {
             return members.stream().anyMatch(m -> !m.bot())
                     ? "waits for its item: a player is in the run (opensByHit: botOnly)" : null;
         }
+        if (MechanicsModel.Stage.AFTER_FIRST_ITEM.equals(opens)) {
+            if (members.stream().noneMatch(m -> !m.bot())) {
+                return null;
+            }
+            server.maps.MapleMap map = reactor.getMap();
+            boolean firstTaken = map != null && stage.hitReactors().stream().anyMatch(other -> {
+                if (other == reactor.getId()) {
+                    return false;
+                }
+                server.maps.Reactor r = map.getReactorById(other);
+                return r != null && r.getState() > 0;
+            });
+            return firstTaken ? null : "waits for its item: the first reactor has not taken one (opensByHit: afterFirstItem)";
+        }
         if (MechanicsModel.Stage.REGULAR_JOBS_ONLY.equals(opens)) {
             int job = stage.objectives().stream()
                     .filter(o -> o.hasReactor() && o.job() > 0

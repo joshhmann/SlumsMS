@@ -405,8 +405,10 @@ class BossPhasesSolverTest {
     @Test
     void theOwnersThreeBossRowsAreTheOnlyOnesThatMayOpenByHitAndOnlyForRegulars() {
         for (Object[] row : BOSS_ROWS) {
-            assertEquals(MechanicsModel.Stage.BOT_ONLY,
-                    MechanicsRuns.contentFor((String) row[0]).stages().get(0).opensByHit(), (String) row[0]);
+            String expected = row[0].equals("ScargaBattle") ? MechanicsModel.Stage.AFTER_FIRST_ITEM
+                    : MechanicsModel.Stage.BOT_ONLY;
+            assertEquals(expected, MechanicsRuns.contentFor((String) row[0]).stages().get(0).opensByHit(),
+                    (String) row[0]);
         }
         assertEquals(null, MechanicsRuns.contentFor("LatanicaBattle").stages().get(0).opensByHit(),
                 "Latanica's item is the door's: it is always in hand");
@@ -429,6 +431,38 @@ class BossPhasesSolverTest {
                 assertFalse(next instanceof SolverStep.Say, row[0] + ": said once");
             }
         }
+    }
+
+    /**
+     * The owner's Scarga rule (7 Nov): one Spirit opens both. With a player leading and one Spirit, it goes on Targa's
+     * reactor; once that has taken it, Scarlion's reactor opens by a hit (opensByHit: afterFirstItem).
+     */
+    @Test
+    void oneSpiritOpensBothOfScargasReactors() {
+        View v = bossRoom(BOSS_ROWS[1]);
+        v.party = List.of(RunMember.player(7, true), regular(REGULAR, false));
+        v.heldBy.put(7, 0);
+        v.heldBy.put(REGULAR, 4032246);
+        assertEquals(5511000, assertInstanceOf(SolverStep.PlaceItemOn.class,
+                solver.next(v, regular(REGULAR, false))).reactorId(), "the one Spirit goes on Targa's reactor");
+        v.heldBy.put(REGULAR, 0); // taken by the reactor
+        v.states.put(5511000, 1);
+        v.takes.remove(5511000);
+        assertEquals(5511001, assertInstanceOf(SolverStep.HitReactor.class,
+                solver.next(v, regular(REGULAR, false))).reactorId(), "Scarlion's opens after the first took its item");
+    }
+
+    /** ...and with no Spirit at all, a player-led Scarga does not open by a hit: the first reactor waits for it. */
+    @Test
+    void aPlayerLedScargaWithNoSpiritOpensNothing() {
+        View v = bossRoom(BOSS_ROWS[1]);
+        v.party = List.of(RunMember.player(7, true), regular(REGULAR, false));
+        List<SolverStep> steps = new ArrayList<>();
+        for (int t = 0; t < 5; t++) {
+            v.now += 2_000;
+            steps.add(solver.next(v, regular(REGULAR, false)));
+        }
+        assertFalse(steps.stream().anyMatch(st -> st instanceof SolverStep.HitReactor), "no Spirit, no hit: " + steps);
     }
 
     /** (b) Regulars on their own: the written exception, the old click. */

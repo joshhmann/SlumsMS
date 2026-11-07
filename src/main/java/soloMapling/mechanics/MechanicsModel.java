@@ -370,6 +370,16 @@ public final class MechanicsModel {
          * real player of that job is in the run - the job is the regulars' - and never when one is.
          */
         public static final String REGULAR_JOBS_ONLY = "regularJobsOnly";
+        /**
+         * b365 (owner, 7 Nov: Scarga): the stage's first item reactor takes its item; once one of the stage's reactors has
+         * taken it, the others open by a hit. Regulars on their own may hit them all, as with {@link #BOT_ONLY}.
+         */
+        public static final String AFTER_FIRST_ITEM = "afterFirstItem";
+
+        /** b365: whether this row lets a run of regulars alone open its item reactors by a hit. */
+        public boolean botsMayHit() {
+            return BOT_ONLY.equals(opensByHit) || AFTER_FIRST_ITEM.equals(opensByHit);
+        }
 
         public Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
                      List<Objective> objectives, List<Position> positions, List<ItemUse> items,

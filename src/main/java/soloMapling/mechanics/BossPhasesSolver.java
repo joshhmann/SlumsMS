@@ -116,7 +116,12 @@ public final class BossPhasesSolver implements StageSolver {
                     // item, as in the real game; a run of regulars alone may open it by a hit only where the row says
                     // so (opensByHit: botOnly), so the exception is written down
                     boolean human = view.members().stream().anyMatch(m -> !m.bot());
-                    if (human || !MechanicsModel.Stage.BOT_ONLY.equals(view.stage().opensByHit())) {
+                    // Scarga (owner, 7 Nov): one Spirit opens both - once a reactor of the stage has taken its item,
+                    // the others open by a hit (opensByHit: afterFirstItem)
+                    boolean afterFirst = MechanicsModel.Stage.AFTER_FIRST_ITEM.equals(view.stage().opensByHit())
+                            && reactors.stream().anyMatch(other -> other != reactorId && view.reactorState(other) > 0);
+                    boolean mayHit = human ? afterFirst : view.stage().botsMayHit();
+                    if (!mayHit) {
                         if (view.stageMemory().putIfAbsent(K_NEEDS + reactorId, view.nowMs()) == null) {
                             return new SolverStep.Say("You'll need " + view.itemName(takes[0]) + " to open this.");
                         }

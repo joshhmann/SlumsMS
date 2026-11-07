@@ -718,8 +718,13 @@ public final class StageData {
         List<MechanicsModel.Branch> branches = readBranches(m, at, p);
         // 1.6.6 b365: whether an item reactor nobody brought the item for may still be opened by a hit
         String opensByHit = m.get("opensByHit") == null ? null : String.valueOf(m.get("opensByHit")).trim();
-        if (opensByHit != null && !opensByHit.equals(Stage.BOT_ONLY) && !opensByHit.equals(Stage.REGULAR_JOBS_ONLY)) {
-            p.add(at + "opensByHit: " + Stage.BOT_ONLY + " or " + Stage.REGULAR_JOBS_ONLY + ", not " + opensByHit);
+        if (opensByHit != null && !List.of(Stage.BOT_ONLY, Stage.REGULAR_JOBS_ONLY, Stage.AFTER_FIRST_ITEM)
+                .contains(opensByHit)) {
+            p.add(at + "opensByHit: " + Stage.BOT_ONLY + ", " + Stage.REGULAR_JOBS_ONLY + " or "
+                    + Stage.AFTER_FIRST_ITEM + ", not " + opensByHit);
+        }
+        if (Stage.AFTER_FIRST_ITEM.equals(opensByHit) && hitReactors.size() < 2) {
+            p.add(at + "opensByHit: " + Stage.AFTER_FIRST_ITEM + " needs a first reactor and another to open after it");
         }
         if (Stage.REGULAR_JOBS_ONLY.equals(opensByHit)
                 && objectives.stream().noneMatch(o -> o.job() > 0)) {
