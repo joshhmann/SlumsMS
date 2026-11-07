@@ -193,6 +193,11 @@ class WorkerCallsTest(unittest.TestCase):
             self.assertEqual('refused', caught.exception.result)
         self.assertEqual([], transport.calls)   # no timeout was burned waiting for it
 
+    def test_every_signal_the_validator_calls_built_is_one_the_runner_waits_on(self):
+        # GP6 run gp6-trade-20261107T202252Z: qascript accepted trade.invited as built, the runner refused it at once.
+        # The validator may be stricter (it still calls chat.received / window.* proposed), never looser.
+        self.assertEqual(set(), set(qascript.BUILT_SIGNALS) - set(qarunner.SilviaWorker.SIGNALS))
+
     def test_signals_match_their_filters(self):
         events = [{'ev': 'field.ready', 'map_id': 100000000}, {'ev': 'chat.received', 'kind': 255, 'text': 'hi'},
                   {'ev': 'field.ready', 'map_id': 104040000},
