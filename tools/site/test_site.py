@@ -863,6 +863,36 @@ class WorldTest(unittest.TestCase):
         with open(os.path.join(os.path.dirname(market.__file__), "market.py"), encoding="utf-8") as f:
             self.assertIn("Dynamic duo", f.read())  # OnlySlums' intro counts the polaroid pairs
 
+    def test_every_card_has_a_server_side_hint_and_none_of_it_ships(self):
+        # 2026-11-07: free hints live only in market_service.HINTS, handed out one step at a time; the page must carry
+        # none of it, only the plumbing that asks the service.
+        import market_service
+        with open(os.path.join(build.SRC, "assets", "theme.js"), encoding="utf-8") as f:
+            js = f.read()
+        block = js[js.index("var SECRETS = {"):js.index("var IDS = ")]
+        ids = re.findall(r"^    (\w+): \{ src", block, re.M)
+        self.assertEqual(list(market_service.HINTS), list(market_service.SECRET_CARDS))
+        self.assertEqual(sorted(ids), sorted(market_service.HINTS), "every secret card, no reward and no polaroid")
+        words = re.findall(r'"([a-z]+)"', re.search(r'\[("slums".*?)\]\.forEach\(function \(w\)', js, re.S).group(1))
+        click = {"konami", "clicks", "sidekick", "wake", "colours", "afk", "footer", "bubble", "shh", "owl", "sunday"}
+        self.assertEqual(set(words), set(market_service.TYPED_CARDS))     # the typed words are the typed cards
+        self.assertEqual(set(words) | click, set(market_service.HINTS))    # and the rest are click or wait cards
+        for card, h in market_service.HINTS.items():
+            self.assertEqual(h["word"], card)                              # the card's own word, never another's
+            self.assertIn(h["who"], ("cap", "pia"))
+            self.assertTrue(h["clue"] and h["page"])
+            self.assertNotIn(h["word"], h["clue"].lower().split())          # the clue does not just say it
+            self.assertNotIn(h["clue"], js)                                # no clue and no page name in the page source
+            self.assertNotIn(h["page"], js)
+        pia = ("news", "idea", "book", "meso", "bug", "huh", "mail", "music", "gasp", "hugs", "hello")
+        self.assertEqual(tuple(c for c, h in market_service.HINTS.items() if h["who"] == "pia"), pia)
+        # and the page asks the service: 30 clicks in a row, 3 seconds apart, 8 seconds of bubble
+        self.assertIn("api/market/hint", js)
+        self.assertRegex(js, r"NEED = 30, GAP = 3000, HOLD = 8000")
+        self.assertIn('.sidekick[data-who="pia"]', js)
+        self.assertIn('credentials: "same-origin"', js)
+        self.assertIn('j.line', js)
+
     def test_every_buddy_picture_exists_and_the_chibis_have_their_topics(self):
         # 2026-11-04: the owner's chibi stickers take the topics that borrowed a general picture
         from sections import buddy
