@@ -67,6 +67,7 @@ HS_DATA = None  # --hs-data: the build_data.py output for the database (default:
 DASHBOARD_WEB = None  # --dashboard-web: the staff dashboard to put in admin/ (default: tools/dashboard/web)
 MARKET_DATA = None  # --market-data: the server's market export (default: sections/market.py DEFAULT_DIR, the samples)
 SITE_DATA = None  # --site-data: the server's site export, Server/data/site (default: sections/world.py DEFAULT_DIR)
+ATLAS_DIR = None  # --atlas-dir: a built content atlas for the staff Atlas page (sections/atlas.py); none: the empty state
 
 
 def site_version():
@@ -117,7 +118,7 @@ def build_section(name, out, rels, site_root=None):
     if name == "market":
         return market.build(out, dbdata.load(HS_DATA), MARKET_DATA, site_root)
     if name == "admin":
-        return admin.build(out, DASHBOARD_WEB)
+        return admin.build(out, DASHBOARD_WEB, ATLAS_DIR)
     if name == "world":
         return world.build(out, SITE_DATA, MARKET_DATA, dbdata.load(HS_DATA) if "database" in common.BUILT else None,
                            site_root)
@@ -239,13 +240,16 @@ def main():
     ap.add_argument("--hs-data", help="Hidden Street dataset folder for the database section")
     ap.add_argument("--market-data", help="market export folder (default: the samples from tools/site/market_sample.py)")
     ap.add_argument("--dashboard-web", help="the staff dashboard copied into admin/ (default: tools/dashboard/web)")
+    ap.add_argument("--atlas-dir", help="a built content atlas (meta.json, quests.json ...) for the staff Atlas page; "
+                                       "the folder is copied into admin/atlas/data/, it is not in git")
     ap.add_argument("--world", action="store_true", help="include World (live world, feed, rankings, economy)")
     ap.add_argument("--site-data", help="site export folder, Server/data/site (default: tools/site/site_sample.py's)")
     ap.add_argument("--nx", choices=["off", "mock", "on"],
                     help="the NX desk on the exchange page (default: SLUMS_MARKET_NX_DESK, else off)")
     args = ap.parse_args()
-    global HS_DATA, MARKET_DATA, SITE_DATA, DASHBOARD_WEB
+    global HS_DATA, MARKET_DATA, SITE_DATA, DASHBOARD_WEB, ATLAS_DIR
     HS_DATA, MARKET_DATA, SITE_DATA = args.hs_data, args.market_data, args.site_data
+    ATLAS_DIR = args.atlas_dir
     market.NX_DESK = args.nx
     DASHBOARD_WEB = args.dashboard_web
     out = args.out or os.path.join(REPO, "dist", "site-private" if args.private else "site")
