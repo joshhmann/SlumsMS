@@ -19,6 +19,27 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ZakumPqSolversTest {
 
+    /**
+     * 1.6.6 zpq-fire-ore-name: the mines' three items go by their String.wz names. The code had 4001018 as the
+     * "document", 4001016 as the "ore" and 4001015 as the "key"; String.wz says Fire Ore, The Key and Paper Document.
+     */
+    @Test
+    void theMinesItemsAreNamedAsTheGameNamesThem() throws Exception {
+        soloMapling.WzTestData.assumePresent("String.wz");
+        String wz = System.getProperty("wz-path", "wz");
+        String etc = java.nio.file.Files.readString(Path.of(wz, "String.wz", "Etc.img.xml"));
+        assertEquals("Fire Ore", etcName(etc, ZakumMinesSolver.FIRE_ORE));
+        assertEquals("The Key", etcName(etc, ZakumMinesSolver.KEY));
+        assertEquals(7, ZakumMinesSolver.KEYS_NEEDED, "Reactor.wz 2112014 takes seven");
+        assertEquals("Paper Document", etcName(etc, 4001015));
+    }
+
+    private static String etcName(String etcXml, int itemId) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("<imgdir name=\"" + itemId
+                + "\">\\s*<string name=\"name\" value=\"([^\"]*)\"").matcher(etcXml);
+        return m.find() ? m.group(1) : null;
+    }
+
     private static final int HUB = 280_010_000;
     private static final int ROOM = 280_010_010;
 
@@ -165,7 +186,7 @@ class ZakumPqSolversTest {
         SolverStep settling = new ZakumMinesSolver().next(v, v.me);
         assertInstanceOf(SolverStep.Wait.class, settling, "inside the server's window the drop is left alone");
 
-        v.now = 1_000 + ZakumMinesSolver.ORE_TAKE_WINDOW_MS + 1;
+        v.now = 1_000 + ZakumMinesSolver.KEY_TAKE_WINDOW_MS + 1;
         assertInstanceOf(SolverStep.Loot.class, new ZakumMinesSolver().next(v, v.me),
                 "past it, the ores did not take: pick them up and place again");
     }
