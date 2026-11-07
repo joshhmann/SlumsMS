@@ -26,6 +26,8 @@ steps:
   - {id: open-shop, do: click_npc, npc: 1011100}
   - {id: shop-open, do: sleep, ms: 3000, reason: "the shop window opens"}
   - {id: sell-spore, do: shop_sell, item: 4000011}
+  - {id: sell-shell, do: shop_sell, item: 4000000}
+  - {id: sell-4000001, do: shop_sell, item: 4000001}
   - {do: sleep, ms: 2000, reason: "frame after the sale"}
   - {id: close, do: shop_close}
   - {do: sleep, ms: 2000, reason: "frame after closing"}
