@@ -6,7 +6,7 @@ Release pipeline (ticket 44, `docs/tickets/44-release-pipeline.md`). Each script
 |---|---|---|
 | 1 | `build` (suite + jar + `BUILD.txt`) | workstation |
 | 2 | `stage <version>` (jar, scripts, data, migrations, generated `deploy.sh`/`rollback.sh` on 164) | workstation -> 164 |
-| 3 | `rehearse <version>` (fresh copy of live, deploy + rollback, receipt) | workstation -> 164 |
+| 3 | `rehearse <version>` (fresh copy of live, deploy + extra steps + WZ + rollback, receipt with digests) | workstation -> 164 |
 | 3b | `stage-client <client-version> --build-dir 'Z:\...\build\Release'` | workstation: Silvia -> 164 |
 | 4 | owner: `release <version>` (server + client in MMO order, see `docs/release/README.md`) | workstation -> 164 |
 | 4 (old way) | owner: `bash /opt/mapleroot-deployments/v<version>/deploy.sh`, then `publish-client` | 164, workstation |
@@ -119,6 +119,30 @@ in the release conf. A catalogue and a jar must go live together (1.5.0: the par
 knows `CashShopPartnerRings`). `stage` copies the file into `staging/` (in `SHA256SUMS`); the deploy pre-checks that
 `Server/cashshop/` exists, backs up the old `cashshop/catalog.tsv` in `server-runtime.tgz`, and copies the new one in
 the apply step next to the jar. `rollback.sh` puts the old catalogue back with the old jar. Unset: no catalogue change.
+
+## Rehearsal covers the extra steps and WZ; the receipt binds the staged bytes
+
+Conf (`templates/release.conf.example`): `EXTRA_STEPS` (+ `EXTRA_FILES`), `WZ_TARGETS` (files the extra step edits in place),
+`WZ_REPLACE` (`"repo/file=Map.wz/Map/Map2/x.xml"`, copied over `wz/` by `deploy.sh`). `stage` puts them in `staging/extra/`,
+`staging/wz/` and `staging/wz-targets.txt` (all in `SHA256SUMS`). The extra-steps contract is at the top of the P1-R1 block
+in `lib.sh`: env `SRV`, `WZ`, `SQL_CMD`, `ST`, `EXTRA_DIR`, `REHEARSAL`; cwd `staging/extra/`; no arguments; never a live path
+(`extra_steps_lint` refuses one at stage time and before every run). One helper runs it everywhere: `run_extra_steps`.
+
+- `rehearse-host.sh`: with extras, deploy.sh runs by phase like release night (stop-backup, extra, apply-start, smoke) on the
+  scratch copy; a non-zero exit fails the rehearsal and is in `REHEARSAL.md`. WZ targets are real copies in the scratch
+  `wz/` (everything else symlinked to live's, never written); they must equal live's bytes again after `rollback.sh`.
+- The extra step runs in the rehearsal inside `rehearsal_sandbox` (`systemd-run --wait --pipe --collect`, live's server folder
+  and `/opt/mapleroot` `ReadOnlyPaths`), because every non-target file in the scratch `wz/` is a symlink into live's. A
+  write to an unlisted wz file then fails the step and the rehearsal. Live runs are not sandboxed. Unproven on a host.
+- `cp -rs` makes one symlink per file of live's wz (big XML trees: many thousands of files, one `cp` process). How long
+  that takes has not been measured; expect seconds to a minute or two, and time it on the first real rehearsal.
+- `deploy.sh` backs the WZ targets up in `stop-backup` (`backup/wz-backup`), copies `staging/wz/` in `apply-start`;
+  `restart-old` and `rollback.sh` put them back.
+- `REHEARSAL.md` records `Staging digest` (sha256 of `staging/SHA256SUMS`) and `Scripts digest` (`deploy.sh` + `rollback.sh`).
+  `release` (step 1), `release-live.sh` and `check-rehearsal.sh` refuse unless it says `Result: PASS` and both match now:
+  "rehearsal is for different staged bytes (stale or tampered): rerun tools/release/rehearse". Re-stage means re-rehearse.
+- `UNIT_EDITS` run in order through `unit-edit` (a removal is `"s# -Dflag=true##g"`); an edit that changes nothing aborts the
+  pre-check; `UNIT_FLAGS_ABSENT=(-Dflag)` / `UNIT_FLAGS_PRESENT` assert the result (b328).
 
 Offline tests (fixture config only; no SSH or deploy execution):
 

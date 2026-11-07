@@ -8,7 +8,8 @@
 # $RELEASE_HOST:/opt/mapleroot-deployments/v<version>/:
 #   staging/   Cosmic.jar, scripts.tar (+.list), srcdata.tar (+.list: every non-.java file git tracks under src/main),
 #              migrations/ (every repo migration and rollback), config files, the Cash Shop catalogue (CASHSHOP_CATALOG),
-#              BUILD.txt, COMMIT, release.conf, SHA256SUMS
+#              extra/ (EXTRA_STEPS + EXTRA_FILES: the one hand step, contract in lib.sh), wz/ + wz-targets.txt (WZ_REPLACE,
+#              WZ_TARGETS), unit-edit, BUILD.txt, COMMIT, release.conf, SHA256SUMS
 #   deploy.sh, rollback.sh (generated, see gen-deploy), DEPLOY-NOTES.md, CHECKLIST.md, tools/ (this folder)
 # A version folder that already has a deploy.log or a backup is never touched (versions are immutable once deployed).
 # --replace re-stages a version that was staged but never deployed.
@@ -55,7 +56,8 @@ tar --owner=0 --group=0 -cf "$ST/scripts.tar" -T "$ST/scripts.list"
 tar --owner=0 --group=0 -cf "$ST/srcdata.tar" -T "$ST/srcdata.list"
 cp database/migrations/*.sql "$ST/migrations/"
 ( . "$CONF"; for f in "${CONFIG_HEAD:-}" "${CONFIG_APPEND:-}" "${CASHSHOP_CATALOG:-}"; do [ -z "$f" ] || cp "$REPO/$f" "$ST/"; done )
-cp "$here/set-min-client-build" "$here/set-release-config" "$ST/"
+cp "$here/set-min-client-build" "$here/set-release-config" "$here/unit-edit" "$ST/"
+stage_extras "$CONF" "$REPO" "$ST"   # staging/extra/ (EXTRA_STEPS), staging/wz/ + wz-targets.txt (WZ_*): hashed below, so rehearsed and gated
 (cd "$ST" && find . -type f ! -name SHA256SUMS -printf '%P\n' | LC_ALL=C sort | xargs -d '\n' sha256sum > SHA256SUMS)
 "$here/gen-deploy" "$CONF" "$BUILD" "$OUT" "$VERSION"
 cp -r "$here"/. "$OUT/tools/"

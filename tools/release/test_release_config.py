@@ -281,8 +281,9 @@ class ReleaseConfigTest(unittest.TestCase):
         self.assertLess(rollback.index('tar -xzf'), rollback.index('step "start"'))
         self.assertIn('cmp -s "$B/config.yaml" "$SRV/config.yaml"', rollback)
         stage = (HERE / 'stage').read_text()
-        self.assertLess(stage.index('cp "$here/set-min-client-build" "$here/set-release-config" "$ST/"'),
+        self.assertLess(stage.index('cp "$here/set-min-client-build" "$here/set-release-config" "$here/unit-edit" "$ST/"'),
                         stage.index('find . -type f ! -name SHA256SUMS'))
+        self.assertLess(stage.index('stage_extras "$CONF"'), stage.index('find . -type f ! -name SHA256SUMS'))   # extras + WZ are hashed
         release = (HERE / 'release').read_text()
         self.assertLess(release.index('# ---- 3. client publish'), release.index('# ---- 4. apply + start'))
 

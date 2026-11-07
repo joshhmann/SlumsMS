@@ -30,6 +30,24 @@ SERVER_SET=()
 # change something or the deploy aborts before the stop. Rollback puts the backed-up unit back.
 UNIT_EDITS=()
 #UNIT_EDITS=("s#-Xmx4G#-Xmx6G#")
+# Edits run in order on a copy (tools/release/unit-edit), so a REMOVAL is just an edit with an empty replacement:
+#UNIT_EDITS=("s# -Dslums.some.flag=true##g")
+# Optional post-conditions, checked in the pre-check and again when applying: flags the unit must lack / carry afterwards.
+# A removal that matched a different value than live has still fails here (an edit that "changed something" is not enough).
+UNIT_FLAGS_ABSENT=()
+UNIT_FLAGS_PRESENT=()
+#UNIT_FLAGS_ABSENT=(-Dslums.some.flag)
+
+# The one hand step (P1-R1): a script and its helper files, staged into staging/extra/ (hashed, rehearsed, gated), run
+# between stop-backup and apply-start by release/release-live.sh and by the rehearsal on the scratch copy. Contract
+# (env SRV, WZ, SQL_CMD, ST, EXTRA_DIR, REHEARSAL; never a live path) is written at the top of tools/release/lib.sh.
+EXTRA_STEPS=""            # repo path, e.g. docs/release/1.6.4-extra-steps.sh
+EXTRA_FILES=()            # repo paths copied next to it, e.g. (tools/data-align/wz_set_values.py)
+# WZ files the release writes, relative to the server's wz/. WZ_TARGETS: edited in place by the extra steps. WZ_REPLACE:
+# "repo/file=Dir.wz/rel/path" staged under staging/wz/ and copied over wz/ by deploy.sh. Both are backed up by stop-backup,
+# restored by rollback.sh, and are real copies in the rehearsal (the rest of wz/ stays symlinked, read-only).
+WZ_TARGETS=()
+WZ_REPLACE=()
 
 # Extra read-only pre-checks, "label|SQL returning one value|expected value". Failing ones abort before the stop.
 PRECHECK_SQL=()

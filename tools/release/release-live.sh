@@ -5,7 +5,7 @@
 #   bash /opt/mapleroot-deployments/v<ver>/release-live.sh --go
 #
 # Order (docs/release/RUNBOOK.md section 2): pre-flight checks -> stop-backup (maintenance on, Cody "going down",
-# stop, DB + runtime backup) -> extra/extra-steps.sh if the release has one -> apply-start -> smoke -> maintenance end
+# stop, DB + runtime backup) -> staging/extra/extra-steps.sh if the release has one -> apply-start -> smoke -> maintenance end
 # (Cody "back up"). It checks before every step and stops at the first problem with what to do next.
 # Before the stop, nothing has changed. A failure in the extra steps restarts the old version automatically (the
 # data steps are compatible with it). A failure in apply-start or smoke does NOT roll back by itself: it prints the
@@ -26,10 +26,14 @@ say "SlumsMS $VER live release from $HERE"
 for f in deploy.sh rollback.sh REHEARSAL.md; do [ -f "$HERE/$f" ] || stop_here "missing $f in $HERE (stage it first)"; done
 # the receipt's overall line (rehearse-host.sh): "smoke PASS" alone also shows on a rehearsal that FAILED its data check
 grep -q '\*\*Result: PASS\*\*' "$HERE/REHEARSAL.md" || stop_here "REHEARSAL.md does not show Result: PASS: rehearse first"
+# ... and it was written for exactly the bytes staged now (P1-R1): not yesterday's staging, not an edited receipt
+[ -f "$HERE/tools/check-rehearsal.sh" ] || stop_here "$HERE/tools/check-rehearsal.sh missing (staged by an older tools/release): restage and rehearse"
+bash "$HERE/tools/check-rehearsal.sh" "$HERE" || stop_here "rehearsal is for different staged bytes (stale or tampered): rerun tools/release/rehearse"
 systemctl is-active --quiet slumsms || stop_here "live (slumsms) is not running now; check it before releasing"
 NAV=$(sed -n "s/^NAV_CACHE_SRC='\(.*\)'/\1/p" "$HERE/deploy.sh")
 if [ -n "$NAV" ]; then [ -d "$NAV" ] || stop_here "nav cache $NAV missing"; say "nav cache: $(ls "$NAV" | wc -l) graphs in $NAV"; fi
-if [ -f "$HERE/extra/extra-steps.sh" ]; then bash -n "$HERE/extra/extra-steps.sh" || stop_here "extra-steps.sh has a syntax error"; say "extra steps: present"; fi
+# the one class of hand step: staged (EXTRA_STEPS in the conf), hashed, and run by the rehearsal with the same helper
+bash "$HERE/tools/extra-steps-host.sh" "$HERE" --check || stop_here "extra steps are not usable (see above)"
 FREE=$(df -Pk /opt | awk 'NR==2{print $4}'); [ "$FREE" -gt 5000000 ] || stop_here "less than 5 GB free on /opt"
 say "pre-flight OK"
 [ "$MODE" = "--check" ] && { say "check only: nothing was changed"; exit 0; }
@@ -41,9 +45,9 @@ systemctl is-active --quiet slumsms && stop_here "slumsms still running after st
 say "live stopped and backed up"
 
 # --- 2. extra steps (data + config the deploy has no slot for) ---
-if [ -f "$HERE/extra/extra-steps.sh" ]; then
+if [ -f "$HERE/staging/extra/extra-steps.sh" ]; then
   say "2/4 extra steps"
-  if ! bash "$HERE/extra/extra-steps.sh"; then
+  if ! bash "$HERE/tools/extra-steps-host.sh" "$HERE"; then
     say "extra steps failed: restarting the old version"
     bash "$HERE/deploy.sh" --phase restart-old && stop_here "extra steps failed; the OLD version is back up (maintenance still on: slumsms-monitor maintenance live end when checked)"
     stop_here "extra steps failed AND restart-old failed: live is DOWN. Check journalctl -u slumsms"

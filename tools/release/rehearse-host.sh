@@ -11,11 +11,17 @@
 #     or a dump file. Loaded into scratch schema rh_<version> in the TEST DB (127.0.0.1:3307) with its own user.
 #     If the copy's ledger lacks migrations the release expects live to have (an older dump), they are applied first
 #     ("catch-up", listed in the receipt).
-#  2. Server copy: live Server/ without wz/ logs/ .git, wz/ symlinked read-only; config.yaml pointed at the scratch
+#  2. Server copy: live Server/ without wz/ logs/ .git, wz/ symlinked read-only (file by file; the files in the release's
+#     staging/wz-targets.txt are real COPIES, so the steps that write WZ run for real without touching live's wz); config.yaml pointed at the scratch
 #     schema, LLM/decide URLs blanked. Transient unit slumsms-rh-<version> on spare ports with CPUQuota=200% Nice=19
 #     MemoryMax=6G, ExecStart taken from a copy of live's unit (so UNIT_EDITS are rehearsed too).
 #  3. Boot the old version (as live runs now), snapshot player rows, then the staged deploy.sh --dry-run and deploy.sh
-#     with overrides, soak, rollback.sh --dry-run and rollback.sh, snapshot again: player rows must match.
+#     with overrides, soak, rollback.sh --dry-run and rollback.sh, snapshot again: player rows must match. When the
+#     release stages extra steps (staging/extra/extra-steps.sh) deploy.sh runs by phase, like release night: stop-backup,
+#     the extra steps (lib.sh run_extra_steps, SRV/SQL_CMD = the scratch copy; non-zero = FAIL), apply-start, smoke.
+#     The WZ target files must be byte-identical to live's again after rollback.sh.
+#     REHEARSAL.md records the staging digest and scripts digest: `release` / release-live.sh refuse a receipt whose
+#     digests differ from the folder (stale or tampered). An older REHEARSAL.md is removed when a real run starts.
 #  4. Cleanup: unit stopped, schema and user dropped, Server copy/backups/dump deleted. Kept: $R/receipt/ and
 #     /opt/mapleroot-deployments/v<version>/REHEARSAL.md.
 set -euo pipefail
@@ -42,6 +48,12 @@ LIVE_DB=buns-clean-db-1
 step "checks"
 [ -f "$D/deploy.sh" ] && [ -f "$D/rollback.sh" ] && [ -f "$D/staging/SHA256SUMS" ] || die "$VERSION is not staged in $D (run tools/release/stage)"
 (cd "$D/staging" && sha256sum -c --quiet SHA256SUMS) || die "staging does not match SHA256SUMS"
+DIGEST0=$(staging_digest "$D") SCRIPTS0=$(scripts_digest "$D")
+HAS_EXTRA=0 HAS_WZ=0
+[ ! -f "$D/staging/extra/extra-steps.sh" ] || HAS_EXTRA=1
+[ ! -s "$D/staging/wz-targets.txt" ] || HAS_WZ=1
+[ ! -e "$D/extra/extra-steps.sh" ] || die "$D/extra/extra-steps.sh sits outside staging/ (not hashed, not rehearsed): use EXTRA_STEPS in the release conf and restage"
+if [ "$HAS_EXTRA" = 1 ]; then extra_steps_lint "$D/staging/extra" || die "the staged extra steps hard-code a live path"; fi
 [ -f "$ROOTCNF" ] || die "no test DB credentials $ROOTCNF"
 mysql "${TESTDB[@]}" -N -e "SELECT 1" > /dev/null || die "test DB 127.0.0.1:3307 not reachable"
 [ -z "$(mysql "${TESTDB[@]}" -N -e "SHOW DATABASES LIKE '$SCHEMA'")" ] || die "scratch schema $SCHEMA already exists (an earlier rehearsal not cleaned up?)"
@@ -60,11 +72,13 @@ case $SOURCE in
 esac
 echo "source: $SRC_DESC"
 echo "copy: $R (schema $SCHEMA, unit $UNIT, login $LOGIN_PORT, channels $CHANNEL_BASE+)"
+echo "extra steps: $([ "$HAS_EXTRA" = 1 ] && echo "staged, will run between stop-backup and apply-start" || echo none); WZ targets: $([ "$HAS_WZ" = 1 ] && wc -l < "$D/staging/wz-targets.txt" || echo none)"
 if [ "$DRY_RUN" = 1 ]; then
   step "DRY RUN OK: would load the source into $SCHEMA, copy $SERVER_SRC, boot the old version, run deploy.sh --dry-run, deploy.sh, soak ${SOAK}s, rollback.sh --dry-run, rollback.sh, compare snapshots, clean up; receipt $RC"
   exit 0
 fi
 
+rm -f "$D/REHEARSAL.md"   # only a run that finishes leaves a receipt; an older PASS must not outlive a failed rerun
 mkdir -p "$RC"
 [ -z "$(ls -A "$RC")" ] || { mv "$RC" "$R/receipt-$(date -u +%Y%m%dT%H%M%SZ)"; mkdir -p "$RC"; }
 exec > >(tee -a "$RC/rehearse.log") 2>&1
@@ -121,7 +135,11 @@ step "2. Server copy"
 T[cp0]=$(now)
 mkdir -p "$R/Server"
 rsync -a --exclude /wz --exclude /logs --exclude /.git --exclude /reports "$SERVER_SRC/" "$R/Server/"
-ln -s "$SERVER_SRC/wz" "$R/Server/wz"
+if [ "$HAS_WZ" = 1 ]; then
+  rehearsal_wz_setup "$SERVER_SRC/wz" "$R/Server/wz" "$D/staging/wz-targets.txt" || die "could not build the scratch wz/ (targets as real copies)"
+  TG=$D/staging/wz-targets.txt; wz_hashes "$R/Server/wz" "$TG" > "$RC/wz-before.txt"; wz_hashes "$SERVER_SRC/wz" "$TG" | cmp -s - "$RC/wz-before.txt" || die "scratch WZ targets differ from live's"
+  echo "wz: $(wc -l < "$D/staging/wz-targets.txt") target file(s) copied for real, everything else symlinked to $SERVER_SRC/wz"
+else ln -s "$SERVER_SRC/wz" "$R/Server/wz"; fi
 C=$R/Server/config.yaml
 sed -i -E \
   -e "s#^([[:space:]]*DB_HOST:).*(\r?)\$#\1 127.0.0.1\2#" \
@@ -191,14 +209,45 @@ step "3b. deploy.sh --dry-run against the copy"
 LOG=$RC/deploy-dryrun.log bash "$D/deploy.sh" --dry-run > "$RC/deploy-dryrun.out" 2>&1 || { cat "$RC/deploy-dryrun.out"; die "deploy.sh --dry-run failed on the copy"; }
 tail -12 "$RC/deploy-dryrun.out"
 
+fail_receipt() {   # $1 = why: a short receipt that says FAIL (and binds the same staged bytes) when the run stops early
+  {
+    echo "# SlumsMS $VERSION rehearsal on a copy of live (live untouched)"
+    echo
+    echo "- When: $(date -u '+%Y-%m-%d %H:%M UTC') on $(hostname). **Result: FAIL** ($1)"
+    echo "- Staged: commit $(cat "$D/staging/COMMIT"), jar $(sha256sum "$D/staging/Cosmic.jar" | cut -c1-16)"
+    rehearsal_binding_lines "$D"
+    [ ! -f "$RC/extra-steps.log" ] || { echo "- Extra steps output (last 40 lines of \`extra-steps.log\`):"; echo; tail -40 "$RC/extra-steps.log" | sed 's/^/    /'; }
+  } > "$RC/REHEARSAL.md"
+  cp "$RC/REHEARSAL.md" "$D/REHEARSAL.md"; cat "$RC/REHEARSAL.md"
+}
 step "3c. deploy.sh (stops the old version with its bots, like live)"
 T[dep0]=$(now)
-deploy_rc=0; bash "$D/deploy.sh" > "$RC/deploy.out" 2>&1 || deploy_rc=$?
+deploy_rc=0 extra_rc=n/a
+if [ "$HAS_EXTRA" = 1 ]; then
+  # release night's order (release-live.sh / release): stop-backup, the staged extra steps, apply-start, smoke
+  bash "$D/deploy.sh" --phase stop-backup > "$RC/deploy.out" 2>&1 || deploy_rc=$?
+  if [ "$deploy_rc" = 0 ]; then
+    step "3c1. staged extra steps (staging/extra/extra-steps.sh) on the copy: SRV=$SRV"
+    extra_rc=0; REHEARSAL_LIVE_SRV="$SERVER_SRC" REHEARSAL=1 run_extra_steps "$D/staging/extra" "$RC/extra-steps.out" > "$RC/extra-steps.log" 2>&1 || extra_rc=$?
+    tail -40 "$RC/extra-steps.log"
+    if [ "$extra_rc" != 0 ]; then
+      echo "extra steps FAILED (exit $extra_rc): restarting the old version, like release night"
+      bash "$D/deploy.sh" --phase restart-old >> "$RC/deploy.out" 2>&1 || echo "restart-old failed too"
+      fail_receipt "the staged extra steps exited $extra_rc"
+      die "rehearsal FAILED: extra steps exit $extra_rc; receipt $RC/REHEARSAL.md"
+    fi
+    bash "$D/deploy.sh" --phase apply-start >> "$RC/deploy.out" 2>&1 || deploy_rc=$?
+    [ "$deploy_rc" != 0 ] || bash "$D/deploy.sh" --phase smoke >> "$RC/deploy.out" 2>&1 || deploy_rc=$?
+  fi
+else
+  bash "$D/deploy.sh" > "$RC/deploy.out" 2>&1 || deploy_rc=$?
+fi
 T[dep1]=$(now)
 grep -E '^\[|ABORT|FAIL|ok |downtime' "$RC/deploy.out" || true
 [ "$deploy_rc" = 0 ] || echo "deploy.sh exited $deploy_rc"
 s1=$(sed -n 's/^\[\([0-9:]*\) .*\] start$/\1/p' "$RC/deploy.out" | tail -1)
 snapshot > "$RC/state-after-deploy.tsv"; bots | tee "$RC/bots-after-deploy.txt"
+[ "$HAS_WZ" = 0 ] || { wz_hashes "$SRV/wz" "$TG" > "$RC/wz-after-deploy.txt"; diff "$RC/wz-before.txt" "$RC/wz-after-deploy.txt" > "$RC/wz-diff-deploy.txt" || true; echo "wz targets changed by the release:"; sed 's/^/  /' "$RC/wz-diff-deploy.txt"; }
 
 step "3c2. P1-C1a: every script a map references exists (wz and scripts as the deploy left them)"
 # Fails the rehearsal on a NEW missing portal/map script reference (the baseline is tools/release/script-refs.baseline).
@@ -227,6 +276,8 @@ sleep 20
 rb_errs=$(journalctl -u "$UNIT" --since "@${T[rb0]%.*}" --no-pager | grep -E 'ERROR|Exception' | grep -cvE '\] WARN ' || true)
 journalctl -u "$UNIT" --since "-90s" --no-pager | grep -E "SlumsMS v|Starting world|is now online" | tail -4
 snapshot > "$RC/state-after-rollback.tsv"; bots | tee "$RC/bots-after-rollback.txt"
+wz_same=n/a
+if [ "$HAS_WZ" = 1 ]; then wz_same=PASS; wz_hashes "$SRV/wz" "$TG" > "$RC/wz-after-rollback.txt"; cmp -s "$RC/wz-before.txt" "$RC/wz-after-rollback.txt" || wz_same=FAIL; fi
 systemctl stop "$UNIT" || true
 
 step "4. compare player rows: before vs after rollback"
@@ -237,14 +288,19 @@ echo "player rows before == after rollback: $same"; cat "$RC/diff-before-vs-roll
 deploy_result=$(grep -m1 -oE 'Result: \*\*[^*]*\*\*' "$RC/DEPLOY-RECEIPT.md" 2>/dev/null | sed 's/Result: //; s/\*//g' || echo "no receipt")
 overall=PASS
 [ "$deploy_rc" = 0 ] && [ "$same" = PASS ] && [ "$deploy_result" = PASS ] && [ "$refs_rc" = 0 ] || overall=FAIL
+[ "$extra_rc" = 0 ] || [ "$extra_rc" = n/a ] || overall=FAIL
+[ "$wz_same" != FAIL ] || overall=FAIL
+# the receipt binds the staged bytes: they must still be the ones this run started with
+[ "$(staging_digest "$D")" = "$DIGEST0" ] && [ "$(scripts_digest "$D")" = "$SCRIPTS0" ] || { overall=FAIL; echo "staging changed during the rehearsal"; }
 {
   echo "# SlumsMS $VERSION rehearsal on a copy of live (live untouched)"
   echo
   echo "- When: $(date -u -d @"$t0" '+%Y-%m-%d %H:%M') - $(date -u '+%H:%M UTC') on $(hostname). **Result: $overall**"
   echo "- Staged: commit $(cat "$D/staging/COMMIT"), jar $(sha256sum "$D/staging/Cosmic.jar" | cut -c1-16)"
+  rehearsal_binding_lines "$D"
   echo "- DB source: $SRC_DESC -> scratch schema \`$SCHEMA\` in the test DB (3307)"
   [ "${#catchup[@]}" = 0 ] || echo "- Catch-up (source older than the release's expected live ledger): ${catchup[*]}"
-  echo "- Server: copy of \`$SERVER_SRC\` (wz symlinked), unit copy of \`$UNIT_SRC\`; transient \`$UNIT\` login $LOGIN_PORT, channels $CHANNEL_BASE+, CPUQuota=200% Nice=19 MemoryMax=6G; LLM/decide URLs blanked"
+  echo "- Server: copy of \`$SERVER_SRC\` (wz symlinked file by file$([ "$HAS_WZ" = 1 ] && echo ", the $(wc -l < "$TG") WZ target file(s) copied for real")), unit copy of \`$UNIT_SRC\`; transient \`$UNIT\` login $LOGIN_PORT, channels $CHANNEL_BASE+, CPUQuota=200% Nice=19 MemoryMax=6G; LLM/decide URLs blanked"
   echo "- Ran the staged \`$D/deploy.sh\` and \`rollback.sh\` (each \`--dry-run\` first) with the overrides in env.txt"
   echo
   echo "| Step | Seconds |"
@@ -268,6 +324,13 @@ overall=PASS
   echo "- old version boot: $(tr '\n' ' ' < "$RC/old-boot.txt" | grep -oE 'SlumsMS v[^ ]*' | head -1), ERROR/Exception lines $old_errs"
   echo "- deploy.sh exit $deploy_rc; smoke $deploy_result; new version ERROR/Exception lines over the soak: $new_errs"
   echo "- after rollback: ERROR/Exception lines $rb_errs"
+  echo "- extra steps (\`staging/extra/extra-steps.sh\`, run between stop-backup and apply-start with SRV=the copy, SQL_CMD=scratch schema): $([ "$HAS_EXTRA" = 1 ] && echo "exit $extra_rc, output \`extra-steps.log\`" || echo "none staged")"
+  if [ "$HAS_EXTRA" = 1 ]; then echo; tail -40 "$RC/extra-steps.log" | sed 's/^/    /'; echo; fi
+  if [ "$HAS_WZ" = 1 ]; then
+    echo "- WZ targets (staging/wz-targets.txt, real copies in the scratch server): after rollback.sh equal to live's: **$wz_same**; changed by the release (before -> after deploy):"
+    echo; sed 's/^/    /' "$RC/wz-diff-deploy.txt"; echo
+    [ -s "$RC/wz-diff-deploy.txt" ] || echo "  WARNING: no WZ target changed (the release does not write what it declares, or live already has it)"
+  fi
   echo "- script references (P1-C1a, \`script-refs\` exit $refs_rc, 0 = no new missing portal or map script): $(head -1 "$RC/script-refs.txt")"
   echo "- player rows before == after rollback: **$same** (state-before.tsv vs state-after-rollback.tsv)"
   echo "- bots: before \`$(cat "$RC/bots-before.txt" | tr '\t' ' ')\`, after deploy \`$(cat "$RC/bots-after-deploy.txt" | tr '\t' ' ')\`, after rollback \`$(cat "$RC/bots-after-rollback.txt" | tr '\t' ' ')\`"

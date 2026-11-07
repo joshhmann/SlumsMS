@@ -52,6 +52,7 @@ tar -tzf "$B/server-runtime.tgz" | has -x 'target/Cosmic.jar' || die "server-run
 tar -tzf "$B/server-runtime.tgz" | has -x 'config.yaml' || die "server-runtime.tgz has no config.yaml"
 for f in "${MIGRATION_FILES[@]}"; do [ -f "$ST/migrations/$f.rollback.sql" ] || die "no migrations/$f.rollback.sql"; done
 if [ "${#UNIT_EDITS[@]}" -gt 0 ]; then [ -f "$B/slumsms.service" ] || die "no unit backup $B/slumsms.service"; fi
+if [ -f "$ST/wz-targets.txt" ]; then [ -d "$B/wz-backup" ] && [ -f "$B/wz-absent.txt" ] || die "no WZ backup $B/wz-backup (the release writes WZ files)"; fi
 l=$(ledger); echo "ledger: $l"
 todo=()
 for (( i=${#MIGRATION_IDS[@]}-1; i>=0; i-- )); do
@@ -135,6 +136,15 @@ echo "restore config.yaml (client gate, channels, channel load) from backup"
 cmp -s "$B/config.yaml" "$SRV/config.yaml" || die "restored config.yaml differs from the backup copy"
 if [ "${#UNIT_EDITS[@]}" -gt 0 ]; then
   cp "$B/slumsms.service" "$UNIT_FILE"; eval "$DAEMON_RELOAD_CMD"; grep -E "ExecStart|TimeoutStopSec" "$UNIT_FILE"
+fi
+WZT="$ST/wz-targets.txt"
+if [ -f "$WZT" ]; then   # the WZ files stop-backup saved go back; the ones that did not exist before are removed
+  while IFS= read -r rel || [ -n "$rel" ]; do
+    [ -n "$rel" ] || continue
+    if grep -qxF -- "$rel" "$B/wz-absent.txt"; then rm -f "$SRV/wz/$rel"
+    else mkdir -p "$SRV/wz/$(dirname "$rel")"; cp -p "$B/wz-backup/$rel" "$SRV/wz/$rel"; cmp -s "$B/wz-backup/$rel" "$SRV/wz/$rel" || die "restored WZ file $rel differs from the backup"; fi
+  done < "$WZT"
+  echo "wz: $(wc -l < "$WZT") target file(s) restored from $B/wz-backup"
 fi
 echo "the deploy's files are in $aside"
 T[restore1]=$(now)

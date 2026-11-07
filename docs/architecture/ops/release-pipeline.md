@@ -65,11 +65,14 @@ the dump is ahead of the release (`:107-118`). It starts from live's `ExecStart`
 Then `deploy.sh --dry-run` (`:192`), `deploy.sh` (`:196`), a soak with ERROR counting (`:203-210`), `rollback.sh
 --dry-run` and real (`:212-223`), with `MONITOR=""` so nothing is posted (`:159`).
 
-**PASS is three conditions**: identical `state-before.tsv`/`state-after-rollback.tsv` (characters, items, equips, skills,
-storages, accounts, ledger), `deploy_rc=0`, and receipt `Result: **PASS**` (`:225-232`). It cannot prove the real
-`slumsms-monitor` posts (`:159`), the client publish (never invoked), `extra/extra-steps.sh`, a player's in-game list
+**PASS is these conditions**: identical `state-before.tsv`/`state-after-rollback.tsv` (characters, items, equips, skills,
+storages, accounts, ledger), `deploy_rc=0`, the extra steps exit 0, WZ targets restored by rollback, staging unchanged during the run, and receipt
+`Result: **PASS**` with the digests (`:225-232`). It cannot prove the real
+`slumsms-monitor` posts (`:159`), the client publish (never invoked), a player's in-game list
 (`IN_GAME_CHECK` is only printed), live downtime (the copy runs under `systemd-run` with
-`CPUQuota=200% Nice=19 MemoryMax=6G`, `:147-148`), or any WZ-data step — live's `wz` is only symlinked.
+`CPUQuota=200% Nice=19 MemoryMax=6G`, `:147-148`). Since P1-R1 it also runs the staged `extra/extra-steps.sh` (phases, scratch
+`SRV`/`SQL_CMD`) and checks the WZ target files return to live's bytes after `rollback.sh`; the rest of `wz` is symlinked
+read-only, the targets are real copies. A release with no extra steps and no WZ targets rehearses as before.
 
 ## Data
 
@@ -163,7 +166,7 @@ and `docs/release/README.md` at `0ff53df38` ("One release command…"); `release
 ## Tests and QA
 
 `python3 -m unittest discover -s tools/release -p 'test_*.py'` (`tools/release/README.md:123-127`): offline, fixture
-config only, no SSH, no deploy execution. 56 methods in 6 files:
+config only, no SSH, no host. 97 tests in 7 files:
 
 | File | Tests | Covers |
 |---|---|---|
@@ -173,6 +176,7 @@ config only, no SSH, no deploy execution. 56 methods in 6 files:
 | `test_publish_client_rerun.py` | 6 | 11-entry news refusal, same verdict on rerun, bad news stops before the layer, identical layer reused |
 | `test_stage_client_lib.py` | 5 | `slums-build.txt` parsing, client path and data-spec handling |
 | `test_rehearsal_cmd.py` | 3 | `rehearsal_cmd` leaves no live port or directory, adds each flag once |
+| `test_rehearsal_gate.py` | 37 | receipt/digest gate (stale, tampered, missing refused), extra-steps env and exit code, WZ copy on temp dirs, `unit-edit` removal and no-op, generated `deploy.sh --dry-run` and stop-backup/restart-old on stubs |
 
 (all under `tools/release/`). Not covered: nothing executes `deploy.sh`, `rollback.sh`, `release`, `rehearse-host.sh` or
 any host call. The only end-to-end proof is `rehearse-release-flow` (scratch feed, fake monitor, three scenarios,
@@ -186,14 +190,25 @@ any host call. The only end-to-end proof is `rehearse-release-flow` (scratch fee
   list; the guard lives on the branch, only the rerun/reuse tests are here.
 - **L18** (doing: one migration list, one 1.6.4 conf) and **L19** (open: nothing from 1.6.4 on TEST yet)
   (`/root/work/STATUS-1.6.4.md:109-110`).
-- NEW-FINDING: no template has a WZ step since 1.4.1, so the b300 portal fix is a hand step on release night
-  (`docs/release/1.6.4.conf:263-266`), and nothing rehearses it — `rehearse-host.sh` runs `deploy.sh` directly and
-  `release` never runs `extra/extra-steps.sh`, so the one class of step 1.6.4 needs is never exercised.
+- CLOSED (P1-R1, branch `165-p1r1-rehearsal`): the WZ/extra-step hole. `stage` now stages the one hand step into
+  `staging/extra/` (conf `EXTRA_STEPS`, `EXTRA_FILES`) and WZ files into `staging/wz/` + `wz-targets.txt` (`WZ_REPLACE`,
+  `WZ_TARGETS`); all are in `SHA256SUMS`. `release` (step 2b) and `release-live.sh` run it through
+  `tools/extra-steps-host.sh`, `rehearse-host.sh` through the same `run_extra_steps` (`lib.sh`), on the scratch copy, in
+  release night's order (stop-backup, extra, apply-start, smoke); non-zero fails the rehearsal. The rehearsal's wz/ is
+  symlinked file by file with the target files as real copies (`rehearsal_wz_setup`). Before this, `release` never ran
+  `extra/extra-steps.sh` at all (only `release-live.sh` did, from an unstaged `extra/` folder). Needs a real host to prove.
 - NEW-FINDING: `stage` copies `tools/` wholesale (`stage:61`), yet `RUNBOOK.md:40` tells the operator to "stage
   `tools/release/release-live.sh` into the release folder" by hand; nothing enforces it, and `VER="${HERE##*/v}"`
   (`release-live.sh:15`) works only from the version folder root.
-- NEW-FINDING: `release` never checks `REHEARSAL.md` — only `release-live.sh:27` greps it for `rehearsal PASS|smoke PASS`;
-  the five-phase hand route (`RUNBOOK.md:47-53`) has no rehearsal check at all.
+- CLOSED (P1-R1): `release` never checked `REHEARSAL.md`. Now `REHEARSAL.md` records the staging digest (sha256 of
+  `staging/SHA256SUMS`) and a scripts digest (`deploy.sh` + `rollback.sh`); `release` step 1 and `release-live.sh` run
+  `tools/check-rehearsal.sh` (`rehearsal_gate`, `lib.sh`): receipt present, `Result: PASS` (b323's grep kept), both digests
+  equal to the folder now, `SHA256SUMS` still verifies. The five-phase hand route (`RUNBOOK.md:47-53`) still has no check.
+  The receipt is not signed: someone who can edit `REHEARSAL.md` and knows the digest can still forge it.
+- CLOSED (P1-R1): unit flags could only be added (b328: `-Dslums.exchange.tickers` stayed on live's unit through 1.6.4 and
+  narrowed the exchange to 5 tickers until removed by hand; `627878895`). `UNIT_EDITS` now run through `tools/release/unit-edit`
+  in order on a copy (a no-op edit at its step aborts the pre-check), and `UNIT_FLAGS_ABSENT`/`UNIT_FLAGS_PRESENT` assert the
+  result, so a removal that missed the flag's value fails before the stop.
 - NEW-FINDING: `docs/release/1.6.4.conf:10` says "MIN_CLIENT_BUILD stays 10721" and `:297` says "build 10721 or later",
   while `:279-284` sets 10740. Comment drift, but the lines an operator reads first disagree.
 
@@ -212,12 +227,11 @@ has run on TEST.
 - **Which route is sanctioned for the night.** `AGENTS.md:141-143` ends at `deploy.sh`, `docs/release/README.md:3-6` makes
   `release` the one command, `RUNBOOK.md:40-43` recommends `release-live.sh --go` (not staged automatically). One of the
   three should be named the route for 1.6.4.
-- **Rehearsal as a gate.** `docs/architecture/ops/README.md:74` says "`rehearse` must PASS before a release is staged for
-  live", but `stage` never reads `REHEARSAL.md` (`stage:31-46`) and the rehearsal writes into the already staged folder.
-  Tooling invariant or checklist convention?
+- **Rehearsal as a gate.** Settled for the live run (P1-R1: `release`/`release-live.sh` refuse a stale or missing receipt);
+  `stage` still does not read `REHEARSAL.md`, and the hand route has no check.
 - **Monitor posts unproven.** `release:129-138` only probes the installed binary; no rehearsal runs the real
   `maintenance start --minutes` or combined `end --client` post (`rehearse-host.sh:159`,
   `rehearse-release-flow-host.sh:101-126` use a blank/fake monitor).
 - **Partial extra step.** `extra/extra-steps.sh` runs after `stop-backup` and before `apply-start`
-  (`release-live.sh:43-49`); a failure restarts the old version, but a *partially* applied data change is not covered by
-  `rollback.sh`. Whether such a step must ship an inverse is written down nowhere.
+  (`release-live.sh:43-49`); a failure restarts the old version, but a *partially* applied change to a declared `WZ_TARGETS` file is now restored (`restart-old`, `rollback.sh`); any other
+  data change is not. Whether such a step must ship an inverse is written down nowhere.
