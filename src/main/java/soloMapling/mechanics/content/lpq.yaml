@@ -376,14 +376,10 @@ stages:
       - id: key
         kind: KILL_FOR_ITEM
         role: all
-        mob: 9300006
+        mob: 9300012
         item: 4001023
         count: 1
-        note: 922010900 holds one 9300006 and one reactor (2201003), the Alishar fight; the loser leaves the key
-      - id: boxes
-        kind: HIT_REACTOR
-        role: all
-        reactor: "2201003"
+        note: "1.6.6 b359: only Alishar (9300012) drops the key (drop_data). He is summoned, not placed: the shelf mob 9300006 at (588,-3) drops a pass (4001022) inside reactor 2201003's box, a mob drop sets off an item reactor too (MapleMap.spawnDrop -> activateItemReactors), and 5 s later scripts/reactor/2201003.js spawns him at (941,184). 2201003 is an item reactor (Reactor.wz state 0 type 100, 1 x 4001022): nothing hits it, so the row names no HIT_REACTOR here - a server-side hit would move it to a state no client could have made"
       - id: give-key
         kind: GIVE_TO_LEADER
         role: collector
