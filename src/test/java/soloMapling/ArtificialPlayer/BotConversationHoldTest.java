@@ -181,12 +181,15 @@ class BotConversationHoldTest {
         int id = bot.getChr().getId();
         assertTrue(BotConversation.isHoldingChat(bot.getChr()), "a short hold is still a hold");
         waitFor(() -> !said.isEmpty()); // the reply goes out ...
-        waitFor(() -> BotConversation.holdMs(id) > 0); // ... and arms the hold right after it: no later arm can come
-        // the lapse is the hold clock's, not the test's: jump past it instead of sleeping and hoping the reply's
-        // virtual thread does not arm it again in the meantime
+        // the lapse is the hold clock's, not the test's: jump past it instead of sleeping 45 s
         java.util.concurrent.atomic.AtomicLong ahead =
                 new java.util.concurrent.atomic.AtomicLong(BotConversation.HOLD_MS + 1_000);
         BotConversation.clockForTest(() -> System.currentTimeMillis() + ahead.get());
+        // b354: the reply's virtual thread hands the line over (said fills) and arms the hold one statement later
+        // (BotConversation's delivery step), so that arm can land after the jump. Arming then holds for the short 60 ms
+        // from the jumped clock and no longer: wait for it to wear off instead of checking once. Before this, the one
+        // check sometimes caught that last arm (TEST suite 6 Nov, run-min-room: "expected false but was true").
+        waitFor(() -> !BotConversation.isHoldingChat(bot.getChr()));
         assertFalse(BotConversation.isHoldingChat(bot.getChr()), "after the hold the bot wanders again");
         assertEquals(0, BotConversation.holdMs(id), "a lapsed hold reports nothing left");
     }
