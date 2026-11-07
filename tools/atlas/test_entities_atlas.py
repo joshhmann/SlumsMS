@@ -251,6 +251,22 @@ class FixtureTest(unittest.TestCase):
         self.assertIn({"kind": "db-export", "snapshot": "test-1.6.5", "date": "2026-11-07",
                        "table": "drop_data", "key": 100}, r["src"])
 
+    def test_the_best_placement_wins(self):
+        reach = {1: ("player", None), 2: ("gm", "x"), 3: ("event", "y"), 4: ("unobtainable", "z")}
+        self.assertEqual(E._placement_reach(reach, [4, 3, 2, 1])[0], "player")
+        self.assertEqual(E._placement_reach(reach, [3, 2])[0], "gm")
+        self.assertEqual(E._placement_reach(reach, [4, 3])[0], "event")
+        self.assertEqual(E._placement_reach(reach, [4]), (None, None))
+
+    def test_an_item_with_one_reachable_source_is_reachable(self):
+        mob_reach = {1: ("player", None), 2: ("unobtainable", "x")}
+        npc_reach = {5: ("event", "y")}
+        items = {"10": {"name": "A", "drops": [{"mob_id": 2}, {"mob_id": 1}], "shops": []},
+                 "11": {"name": "B", "drops": [{"mob_id": 2}], "shops": [{"npc_id": 5}]},
+                 "12": {"name": "C", "drops": [{"mob_id": 2}], "shops": []}}
+        got = E._item_reaches(items, mob_reach, npc_reach, {})
+        self.assertEqual((got[10][0], got[11][0], got[12][0]), ("player", "event", "unobtainable"))
+
     def test_mob_reach(self):
         self.assertEqual(self.mobs["101"]["reach"], "event")
         self.assertEqual(self.mobs["102"]["reach"], "player")
