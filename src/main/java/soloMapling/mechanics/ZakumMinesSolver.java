@@ -34,6 +34,13 @@ public final class ZakumMinesSolver implements StageSolver {
     /** Adobis's hand-in clerk, standing on the hub. */
     static final int CLERK = 2032002;
     static final int HUB = 280010000;
+    /** b344e: what a real leader is told when a regular drops the fire ore for him ({@code {name}}: the regular). */
+    static final String HAND_IN_NOTE = "[Zakum] {name} dropped the Fire Ore at your feet. Pick it up and bring it to Aura.";
+    /**
+     * b344e: how long ores lying in front of a closed big chest are left for the server to take. It takes an item
+     * reactor's drop 5 s after it lands ({@code MapleMap.activateItemReactors}); past this window the drop did not take.
+     */
+    static final long ORE_TAKE_WINDOW_MS = 10_000;
 
     @Override
     public String id() {
@@ -55,10 +62,20 @@ public final class ZakumMinesSolver implements StageSolver {
         }
         if (isHandIn(view.stage())) {
             int held = view.itemCount(member.characterId(), DOCUMENT);
+            // b344e: Aura takes the fire ore only from the event leader (2032002.js:67-71). When that is a real player,
+            // the regular holding it walks it over and drops it at his feet, as a party member would.
+            RunMember lead = view.leader().orElse(null);
+            boolean realLeader = lead != null && !lead.bot();
             if (held <= 0) {
+                if (realLeader) {
+                    return new SolverStep.Wait(2_000, "the fire ore is the leader's to bring to Aura");
+                }
                 return new SolverStep.Abandon("no document: the big chest on 280011005 was never opened");
             }
             if (!leader) {
+                if (realLeader && view.mapOf(lead.characterId()) == mapId) {
+                    return new SolverStep.DropFor(DOCUMENT, held, lead.characterId(), HAND_IN_NOTE);
+                }
                 return new SolverStep.Wait(1_500, "the hand-in is the leader's");
             }
             return new SolverStep.TalkNpc(CLERK, DOCUMENT, 1);
@@ -71,16 +88,27 @@ public final class ZakumMinesSolver implements StageSolver {
         boolean chestLive = chest > 0 && view.reactorHittable(chest);
         int floor = view.floorItems(0, member.characterId());
 
-        if (chest == BIG_CHEST) {
+        // b344e: only a closed chest (state 0) wants ore. Once the seven took (state 1, the document dropped) or it is
+        // gone (-1), the room is an ordinary one: loot the floor, then the door. TEST 7 Nov stage 33 sat after its
+        // drop saying "I have 0" for good, because this wait came before everything else.
+        if (chest == BIG_CHEST && view.reactorState(BIG_CHEST) == 0) {
             int ore = view.itemCount(member.characterId(), ORE);
-            if (ore >= ORE_NEEDED && view.reactorState(BIG_CHEST) >= 0) {
+            String key = "bigChestPlacedMs:" + member.characterId();
+            if (ore >= ORE_NEEDED) {
+                view.stageMemory().put(key, view.nowMs());
                 return new SolverStep.PlaceItemOn(BIG_CHEST, ORE, ORE_NEEDED,
                         "the seven ores the big chest wants");
             }
-            if (ore < ORE_NEEDED) {
+            Object placed = view.stageMemory().get(key);
+            if (floor > 0 && placed instanceof Long at && view.nowMs() - at < ORE_TAKE_WINDOW_MS) {
+                return new SolverStep.Wait(1_500, "the chest takes the ores a few seconds after they land");
+            }
+            if (floor <= 0) {
                 return new SolverStep.Wait(1_500, "this chest wants seven ores and I have " + ore
                         + ": the ore is in the rooms we have already walked");
             }
+            // ores on the floor past the window did not take: pick them up and place again (PLACE_ON_TRIES bounds it)
+            return new SolverStep.Loot(0);
         }
         if (floor > 0) {
             return new SolverStep.Loot(0);

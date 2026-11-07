@@ -793,9 +793,14 @@ final class StepExecutor {
             // a real leader may be anywhere on the map: say where the NPC who takes the passes stands (TEST 10-30:
             // the tester waited by the spawn on the far left, Cloto is on the far right)
             beat.toldLeader = true;
-            int[] npc = npcOn(bot, view.stage().npcId());
-            beat.lastSayMs = now;
-            SocialCommands.BotSpeak(bot, passLine(to.getName(), npc == null ? null : npc[0], to.getPosition().x));
+            if (d.note() != null) {
+                // b344e: a hand-in that is not KPQ's says what it is, as a notice to the leader alone
+                to.dropMessage(6, noteFor(d.note(), bot.getName()));
+            } else {
+                int[] npc = npcOn(bot, view.stage().npcId());
+                beat.lastSayMs = now;
+                SocialCommands.BotSpeak(bot, passLine(to.getName(), npc == null ? null : npc[0], to.getPosition().x));
+            }
         }
     }
 
@@ -822,6 +827,11 @@ final class StepExecutor {
             beat.toldLeader = false; // the next drop tells him again
             log.accept("TAKE BACK " + bot.getName() + " picks its " + t.itemId() + " back up (" + t.why() + ")");
         }
+    }
+
+    /** A {@link SolverStep.DropFor#note()} with the dropper's name in it. */
+    static String noteFor(String note, String dropper) {
+        return note.replace("{name}", dropper);
     }
 
     /** What a bot says once to a real leader when it drops its pass at his feet. */
