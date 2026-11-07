@@ -172,4 +172,15 @@ class DueyProcessorTest {
         sent.setSentTime(DueyProcessor.sentStamp(System.currentTimeMillis()), false);
         assertFalse(sent.isDeliveringTime(), "a normal package can be claimed straight away");
     }
+
+    @Test
+    void aPackageStampedOnTheVeryMillisecondOfTheClaimCanBeClaimed() {
+        // b358: when the claim lands exactly on the whole second the stamp was rounded to, stamp == now; that is not
+        // "still delivering" (the suite flaked about 1 run in 1,000 on this)
+        long now = 1_792_936_096_000L;
+        server.DueyPackage sent = new server.DueyPackage(1);
+        sent.setSentTime(DueyProcessor.sentStamp(now), false);
+        assertFalse(sent.isDeliveringTime(now));
+        assertTrue(sent.isDeliveringTime(now - 1), "a stamp still in the future is delivering");
+    }
 }

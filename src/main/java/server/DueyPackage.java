@@ -91,9 +91,13 @@ public class DueyPackage {
     }
 
     public boolean isDeliveringTime() {
+        return isDeliveringTime(System.currentTimeMillis());
+    }
+
+    public boolean isDeliveringTime(long now) {
         Calendar ts = timestamp;
         if (ts != null) {
-            return ts.getTimeInMillis() >= System.currentTimeMillis();
+            return ts.getTimeInMillis() > now; // b358: a stamp equal to now has arrived
         } else {
             return false;
         }
