@@ -38,11 +38,15 @@ import static soloMapling.BotLogger.log;
  *                                         TOO_FEW, SWITCH_OFF, REFUSED) and a sentence. Refused when
  *                                         -Dslums.mechanics.boss is off or the type has no content row. This command is
  *                                         the ONLY trigger for a bot-captained run: nothing opens a boss room on its own.
- *   !mechanics pq ROW [me] [N] [rangedK]  1.6.6 mechanics-pq-staging: any party quest row by id (lpq, ellinpq,
- *                                         magatiapq, opq, zakumpq, ...): N regulars (the row's minimum party when
- *                                         omitted) on the row's recruit map, K of them bowmen/magicians, the party made
- *                                         and the PQ started at the row's entry NPC; "me": you lead it. Refused when the
- *                                         row's own switch is off. One [Mechanics] log line per use.
+ *   !mechanics pq ROW [me | for NAME] [N] [rangedK]  1.6.6 mechanics-pq-staging: any party quest row by id (lpq,
+ *                                         ellinpq, magatiapq, opq, zakumpq, ...): N regulars (the row's minimum party
+ *                                         when omitted) on the row's recruit map, K of them bowmen/magicians, the party
+ *                                         made and the PQ started at the row's entry NPC; "me": you lead it. "for NAME":
+ *                                         that character leads, and must be online on your channel (QA's leader is a
+ *                                         level-0 pretend player who cannot type a GM 3 command; tools/ops/
+ *                                         mechanics-stage queues the same request on TEST). Refused when the row's own
+ *                                         switch is off. One [Mechanics] log line per use, naming the issuer and the
+ *                                         leader.
  *   !mechanics status                     the runs going on
  *   !mechanics release                    let every held run go on (the leader checks, the stage clears)
  *   !mechanics stop                       end every run now (bots released, staged bots despawned); a run that
@@ -72,14 +76,27 @@ public class MechanicsCommand extends Command {
     }
 
     static final String USAGE = "Syntax: !mechanics kpq [me] [bots 2-4] [perfect] [stage1-5] [to1-5] [hold]"
-            + " | pq ROW [me] [regulars] [rangedN] | boss TYPE [bots] | status | release | stop | dispose kpq [channel]";
+            + " | pq ROW [me | for NAME] [regulars] [rangedN] | boss TYPE [bots] | status | release | stop"
+            + " | dispose kpq [channel]";
 
     /**
-     * 1.6.6 mechanics-pq-staging: a parsed {@code !mechanics pq ROW [me] [regulars] [rangedN]} - any party quest row
-     * by its id (lpq, ellinpq, magatiapq, opq, zakumpq...), the GM leading with "me", how many regulars to add (0 = the
-     * row's minimum party), and how many of them are ranged (bowman/magician, alternating).
+     * 1.6.6 mechanics-pq-staging: a parsed {@code !mechanics pq ROW [me | for NAME] [regulars] [rangedN]} - any party
+     * quest row by its id (lpq, ellinpq, magatiapq, opq, zakumpq...), who leads (the GM with "me", the character named
+     * after "for", or nobody: a spawned regular does), how many regulars to add (0 = the row's minimum party), and how
+     * many of them are ranged (bowman/magician, alternating).
+     *
+     * <p>{@code leaderName} is the character a {@code for NAME} request names and {@code null} otherwise; together with
+     * {@code withGm} it says who leads - see {@link #leads()}.
      */
-    public record PqRequest(String rowId, boolean withGm, int regulars, int ranged) {
+    public record PqRequest(String rowId, boolean withGm, int regulars, int ranged, String leaderName) {
+        public PqRequest(String rowId, boolean withGm, int regulars, int ranged) {
+            this(rowId, withGm, regulars, ranged, null);
+        }
+
+        /** True when a character the request names leads the party: the issuer ("me") or the one after "for". */
+        public boolean leads() {
+            return withGm || leaderName != null;
+        }
     }
 
     /** {@code null} when the arguments do not parse; the row and the party size are checked against the row later. */
@@ -89,11 +106,19 @@ public class MechanicsCommand extends Command {
         }
         String row = params[from].toLowerCase(Locale.ROOT);
         boolean me = false;
+        String leaderName = null;
         int regulars = 0;
         int ranged = 0;
         for (int i = from + 1; i < params.length; i++) {
             String p = params[i].toLowerCase(Locale.ROOT);
-            if (p.equals("me")) {
+            if (p.equals("for")) {
+                // 1.6.6 QA: the leader a QA run needs is a level-0 pretend player who cannot type a GM 3 command
+                String name = i + 1 < params.length ? params[++i].trim() : "";
+                if (leaderName != null || !name.matches("[A-Za-z0-9]{3,13}") || name.matches("(?i)me|for|perfect|hold")) {
+                    return null;
+                }
+                leaderName = name;
+            } else if (p.equals("me")) {
                 me = true;
             } else if (p.matches("ranged\\d")) {
                 ranged = p.charAt(6) - '0';
@@ -103,14 +128,17 @@ public class MechanicsCommand extends Command {
                 return null;
             }
         }
+        if (me && leaderName != null) {
+            return null; // two leaders: the issuer and the named character
+        }
         if (regulars < 0 || regulars > 30 || (regulars > 0 && ranged > regulars)) {
             return null;
         }
-        return new PqRequest(row, me, regulars, ranged);
+        return new PqRequest(row, me, regulars, ranged, leaderName);
     }
 
     /** The party quest row this id names, or null (boss rows have !mechanics boss; KPQ keeps !mechanics kpq too). */
-    static soloMapling.mechanics.MechanicsModel.Content pqRow(String id) {
+    public static soloMapling.mechanics.MechanicsModel.Content pqRow(String id) {
         for (soloMapling.mechanics.MechanicsModel.Content c : soloMapling.mechanics.StageData.load().content()) {
             if (c.id().equalsIgnoreCase(id) && c.kind() == soloMapling.mechanics.MechanicsModel.Kind.PQ) {
                 return c;
@@ -121,6 +149,79 @@ public class MechanicsCommand extends Command {
 
     /** A parsed {@code !mechanics boss TYPE [bots]}: the expedition type and how many bots to spawn. */
     public record BossRequest(ExpeditionType type, int bots) {
+    }
+
+    /**
+     * The row's own-switch refusal sentence, or {@code null} when this row may be staged here. Shared with the TEST
+     * stage queue, so a queued request refuses exactly what the command refuses.
+     */
+    public static String pqSwitchOff(soloMapling.mechanics.MechanicsModel.Content row) {
+        if (row == null) {
+            return "No such party quest row.";
+        }
+        return soloMapling.mechanics.Mechanics.enabledFor(row) ? null
+                : row.name() + " is switched off on this server (-D" + row.flag() + "=true).";
+    }
+
+    /**
+     * The character of that name online on any of the world's channels, or {@code null}. The stage queue names no
+     * channel, and the leader it stages for is where the leader is; the command looks on the issuer's channel only.
+     */
+    public static Character findOnline(String name) {
+        for (net.server.world.World w : net.server.Server.getInstance().getWorlds()) {
+            Character chr = w.getPlayerStorage().getCharacterByName(name);
+            if (chr != null) {
+                return chr;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * How many regulars the request adds: the count it names, or the row's minimum party minus the leader's seat when it
+     * names none (never below 1). Shared by the command's "Staging ..." line, the staging itself and the stage queue.
+     */
+    public static int regularsFor(soloMapling.mechanics.MechanicsModel.Content row, PqRequest req) {
+        return req.regulars() > 0 ? req.regulars() : Math.max(1, row.minPlayers() - (req.leads() ? 1 : 0));
+    }
+
+    /**
+     * 1.6.6 mechanics-pq-staging: stages one pq run and answers the issuer - the one path for {@code !mechanics pq} and
+     * the TEST stage queue ({@link soloMapling.mechanics.StageQueue}), so a queued request runs exactly what a GM's
+     * command runs. {@code leader} leads when the request names one ("me" or "for NAME"); otherwise a spawned regular
+     * does. Blocking (it spawns regulars and starts the quest), so the caller runs it off the packet thread. Returns
+     * the answer sentence, which is also handed to {@code tell}. The [Mechanics] line names the issuer and the leader.
+     */
+    public static String runPq(soloMapling.mechanics.MechanicsModel.Content row, net.server.channel.Channel on,
+                               Character leader, String issuer, PqRequest req,
+                               java.util.function.Consumer<String> tell) {
+        String refused = pqSwitchOff(row);
+        if (refused != null) {
+            tell.accept(refused);
+            return refused;
+        }
+        boolean leads = req.leads();
+        int regulars = regularsFor(row, req);
+        // one line per use: live arms -Dslums.mechanics too, so every staging is on the record; both names, because a
+        // queued request's issuer is not the leader and QA reads these lines back (a bot-led run names no one)
+        log("[Mechanics] PQ staging by " + issuer + ": " + row.id() + ", " + regulars + " regular(s), " + req.ranged()
+                + " ranged, channel " + on.getId() + (leads ? ", " + leader.getName() + " leading" : ""));
+        String answer;
+        try {
+            KpqStaging.Staged s = KpqStaging.startPq(row, on, leader, leads, regulars, req.ranged(), line -> {
+                log("[Mechanics] " + line);
+                tell.accept(line);
+            }, active -> {
+            });
+            answer = s.ok() ? row.name() + " started in " + s.active().instanceName()
+                    + ": progress lines follow; !mechanics status any time, !mechanics stop to end it."
+                    : row.name() + " did not start: " + s.error();
+        } catch (RuntimeException e) { // never leave the issuer at "Staging..." with no answer
+            log("[Mechanics] PQ staging failed: " + e);
+            answer = row.name() + " did not start: " + e.getMessage();
+        }
+        tell.accept(answer);
+        return answer;
     }
 
     /** Parses {@code boss TYPE [bots]} after the subcommand; null when the words make no sense. */
@@ -294,37 +395,32 @@ public class MechanicsCommand extends Command {
                 PqRequest req = parsePq(params, 1);
                 soloMapling.mechanics.MechanicsModel.Content row = req == null ? null : pqRow(req.rowId());
                 if (req == null || row == null) {
-                    gm.yellowMessage("Syntax: !mechanics pq ROW [me] [regulars] [rangedN]  (ROW: a party quest row id,"
-                            + " e.g. lpq, ellinpq, magatiapq, opq, zakumpq)");
+                    gm.yellowMessage("Syntax: !mechanics pq ROW [me | for NAME] [regulars] [rangedN]  (ROW: a party"
+                            + " quest row id, e.g. lpq, ellinpq, magatiapq, opq, zakumpq)");
                     return;
                 }
-                if (!soloMapling.mechanics.Mechanics.enabledFor(row)) {
-                    gm.yellowMessage(row.name() + " is switched off on this server (-D" + row.flag() + "=true).");
-                    return;
-                }
-                int regulars = req.regulars() > 0 ? req.regulars()
-                        : Math.max(1, row.minPlayers() - (req.withGm() ? 1 : 0));
-                // one line per use: live arms -Dslums.mechanics too, so every staging is on the record
-                log("[Mechanics] PQ staging by " + gm.getName() + ": " + row.id() + (req.withGm() ? " with you leading" : "")
-                        + ", " + regulars + " regular(s), " + req.ranged() + " ranged, channel " + c.getChannel());
-                gm.yellowMessage("Staging " + row.name() + ": " + (req.withGm() ? "you + " : "") + regulars
-                        + " regular(s)" + (req.ranged() > 0 ? ", " + req.ranged() + " ranged" : "") + "...");
-                ExecutorServiceManager.getExecutorService().execute(() -> {
-                    try {
-                        KpqStaging.Staged s = KpqStaging.startPq(row, c.getChannelServer(), gm, req.withGm(), regulars,
-                                req.ranged(), line -> {
-                                    log("[Mechanics] " + line);
-                                    gm.yellowMessage(line);
-                                }, active -> {
-                                });
-                        gm.yellowMessage(s.ok() ? row.name() + " started in " + s.active().instanceName()
-                                + ": progress lines follow; !mechanics status any time, !mechanics stop to end it."
-                                : row.name() + " did not start: " + s.error());
-                    } catch (RuntimeException e) { // never leave the GM at "Staging..." with no answer
-                        log("[Mechanics] PQ staging failed: " + e);
-                        gm.yellowMessage(row.name() + " did not start: " + e.getMessage());
+                Character named = null;
+                if (req.leaderName() != null) {
+                    named = c.getChannelServer().getPlayerStorage().getCharacterByName(req.leaderName());
+                    if (named == null) {
+                        // the same lookup other GM commands use; a character on another channel is not a typo
+                        Character elsewhere = c.getWorldServer().getPlayerStorage()
+                                .getCharacterByName(req.leaderName());
+                        gm.yellowMessage(elsewhere == null
+                                ? "Nobody called " + req.leaderName() + " is online. Staged nothing."
+                                : req.leaderName() + " is on channel " + elsewhere.getClient().getChannel()
+                                        + ", not yours (" + c.getChannel() + "). Staged nothing.");
+                        return;
                     }
-                });
+                }
+                String whose = req.withGm() ? "you" : req.leaderName();
+                gm.yellowMessage("Staging " + row.name() + ": " + (req.leads() ? whose + " + " : "")
+                        + regularsFor(row, req) + " regular(s)"
+                        + (req.ranged() > 0 ? ", " + req.ranged() + " ranged" : "") + "...");
+                Character leader = named != null ? named : gm;
+                net.server.channel.Channel on = c.getChannelServer();
+                ExecutorServiceManager.getExecutorService().execute(
+                        () -> runPq(row, on, leader, gm.getName(), req, gm::yellowMessage));
             }
             case "boss" -> {
                 BossRequest req = parseBoss(params, 1);

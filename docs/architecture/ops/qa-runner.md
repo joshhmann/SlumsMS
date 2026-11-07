@@ -14,6 +14,7 @@ reach live, and the guard that enforces it is `tools/ops/client-mcp-win/src/test
 | Command | Arguments | Reaches |
 |---|---|---|
 | `tools/ops/autoqa-run` | `[--feature] [all\|smoke\|<id\|family\|id,id>] [--fast] [--failed] [--release]` | TEST `data/autoqa/run-queue.txt` over ssh (`tools/ops/autoqa-run:4,62`) |
+| `tools/ops/mechanics-stage` | `pq ROW for NAME [N] [rangedK]` | TEST `data/mechanics/stage-queue.txt` over ssh (`tools/ops/mechanics-stage:87`) |
 | `tools/ops/test-status` | `[--feature] [--since "1 hour ago"] [--checks]` | TEST read-only: unit state, `latest.json`, journal (`tools/ops/test-status:5,25`) |
 | `tools/ops/autoqa-proof` | `[<base>..<head>]` \| `--files PATH...` \| bare (worktree) `[--map] [--root] [--json] [--quiet]` | nothing — local git + files (`tools/ops/autoqa-proof:246-279`) |
 | `tools/ops/feature-health` | `[--file live.json] [--host mapletest] [--only a,b] [--json] [--live-readonly] [--rules TSV]` | `ssh mapletest cat …/live.json` (`tools/ops/feature-health:134-137`) |
@@ -81,6 +82,17 @@ Client-MCP worker start (owner, on the Windows box): `Start-QA.cmd` — self-ele
    (`:137-143`). The worker side records, it does not judge: the manifest `result` is `RECORDED` or `ERROR`
    (`tools/ops/client-mcp-win/src/driver.py:965-972`), and `tools/qa-runner/verdict` turns a folder into PASS/FAIL/SKIP
    per covered t-id (`tools/qa-runner/qaverdict.py:2-20`).
+10. **Stage a party quest for a leader that cannot type.** `mechanics-stage` validates `pq ROW for NAME [N] [rangedK]`
+    locally (no `me`: nobody is typing; 1-30 regulars; ranged ≤ regulars) and appends `"<id>\t<UTC stamp>\t<request>"`
+    to TEST `data/mechanics/stage-queue.txt` under `flock` (`tools/ops/mechanics-stage:71-88`; `MECHANICS_LOCAL_DIR`
+    keeps it local, `tools/ops/test_mechanics_stage.sh`). On the server, `StageQueue` polls every 30 s only with
+    `-Dslums.qa=true` and `-Dslums.mechanics=true` (`StageQueue.java:70-73`; booted from
+    `EnvironmentManager.java:152`), takes one request per poll off `-Dslums.mechanics.stagequeue.dir` (default
+    `data/mechanics`, `:66-68`) with the auto-QA rename-then-work-file rule (`:136-160`), and runs it through
+    `MechanicsCommand.runPq` — the same method `!mechanics pq ... for NAME` calls — with `stage-queue` as the issuer.
+    The log line is `[Mechanics] PQ staging from the stage queue: <request> -> <outcome>` (`:120`); a line that does
+    not parse, names no row or no online character is dropped once, never retried (`:167-190`). Why: QA's leader is the
+    level-0 pretend player `AqClient`, a `SyntheticClient` with no game client, so it cannot type a GM 3 command.
 
 ## Data
 
@@ -88,6 +100,8 @@ Client-MCP worker start (owner, on the Windows box): `Start-QA.cmd` — self-ele
 |---|---|---|
 | `Server/data/autoqa/run-queue.txt`, `run-queue.seq`, `.run-queue.lock` | `autoqa-run:52-55` | on each queued request |
 | `Server/data/autoqa/run-queue.work`, `run-request.txt` | server only (`AutoQaRunQueue.java:14-20,51`) | at pickup |
+| `Server/data/mechanics/stage-queue.txt`, `stage-queue.seq`, `.stage-queue.lock` | `mechanics-stage:72-82` | on each queued request |
+| `Server/data/mechanics/stage-queue.work`, `stage-queue.txt.merge` | server only (`StageQueue.java:136-160`) | at pickup |
 | `Server/data/autoqa/report-<day>.json`, `latest.json` | `AutoQaReport.write` (`AutoQaReport.java:368-372`), one per run | after every run |
 | `Server/data/autoqa/health-latest.json`, `health/<day>.jsonl` | health sweeps (`AutoQa.java:48-60`) | every `AUTOQA_SWEEP_MINUTES` |
 | `Server/data/autoqa/client-verdicts/<t-id>.json` | `tools/qa-runner/verdict --out` (`ClientScriptVerdicts.java:30-31`) | on review |
@@ -112,6 +126,8 @@ branch is recorded anywhere** in the report or the journal; a run is attributed 
 |---|---|---|
 | `SLUMS_TEST_HOST` | `192.168.0.111` | read only by `testhost.py:48-58`; `lib.sh:12-15` aborts before any ssh when refused |
 | `AUTOQA_LOCAL_DIR` | unset | makes `autoqa-run` queue locally (`autoqa-run:59-61`) |
+| `MECHANICS_LOCAL_DIR` | unset | makes `mechanics-stage` queue locally, no ssh (`mechanics-stage:84-86`) |
+| `-Dslums.mechanics.stagequeue.dir` | `data/mechanics` | `StageQueue.java:66-68`; the queue also needs `-Dslums.qa` and `-Dslums.mechanics` (`:70-73`) |
 | `QA_RUNS_ROOT` | `/root/work/qa-runs` | `qa-run-collect:30` |
 | `CLIENT_MCP_TARGET` | `vm` | `qa-run:17`, `client-mcp:36`; `silvia` is the owner's PC |
 | `CLIENT_MCP_WAIT` / `CLIENT_MCP_QUEUE_WAIT` | `120` / `3600` s (`900` in `qa-run`) | `client-mcp:35`, `qa-run:26` |
