@@ -22,15 +22,20 @@
 #      release, host publisher = $LAUNCHER_REPO); slumsms-monitor installed and answering (maintenance start
 #      --dry-run), with `maintenance end --client` for the one combined post.
 #   2. deploy.sh --phase stop-backup: maintenance on + Cody "going down" (one post), stop, backup.
+#   2b. the staged extra steps (staging/extra/extra-steps.sh), if the release has any, via tools/extra-steps-host.sh: the
+#      same helper the rehearsal ran (contract in lib.sh). A failure = same as a step 2 failure (old version restarts).
 #   3. publish-client --no-announce: client layer, release manifest (old one saved as
 #      $STAGING_DIR/manifest-before-<version>.json), /launcher-test/ mirror. Server still DOWN.
 #   4. deploy.sh --phase apply-start (migrations, config, install, start, online), then --phase smoke.
 #   5. slumsms-monitor maintenance <target> end --client <version>: maintenance off + ONE Cody post
 #      ("back up, press Play to update if you haven't").
 #
+# Gate (P1-R1): step 1 refuses unless <version dir>/REHEARSAL.md says Result: PASS and was written for exactly the bytes
+# staged now (staging digest + scripts digest, tools/check-rehearsal.sh). Skipped only in a rehearsal env (--host-env).
+#
 # Failures (each leaves old server + old client, or says exactly what it could not do):
 #   step 1            nothing changed; fix and rerun.
-#   step 2            deploy.sh --phase restart-old: the untouched old version starts again, maintenance off ("back up").
+#   step 2, 2b        deploy.sh --phase restart-old: the untouched old version starts again, maintenance off ("back up").
 #                     Nothing published.
 #   step 3            if manifest.json changed: publish-client --restore-manifest manifest-before-<version>.json; then
 #                     deploy.sh --phase restart-old (old server back, "back up"). The new server is never started.
@@ -111,6 +116,17 @@ hx "test -f $(q "$D/deploy.sh") && test -f $(q "$D/rollback.sh")" || die "$VERSI
 hx "grep -q -- '--phase stop-backup' $(q "$D/deploy.sh")" \
   || die "$D/deploy.sh has no --phase (generated before ops-release-flow, or hand-written): restage it, or deploy the old way (deploy.sh, then publish-client)"
 hx "bash -n $(q "$D/deploy.sh") && bash -n $(q "$D/rollback.sh")" || die "deploy.sh/rollback.sh do not parse"
+if [ -z "$HOST_ENV" ]; then
+  echo "-- rehearsal receipt (must be PASS and for exactly the staged bytes)"
+  hx "test -f $(q "$D/tools/check-rehearsal.sh")" || die "$D/tools/check-rehearsal.sh missing (staged by an older tools/release): restage and rehearse"
+  hx "bash $(q "$D/tools/check-rehearsal.sh") $(q "$D")" || die "rehearsal is for different staged bytes (stale or tampered), or missing / not PASS: rerun tools/release/rehearse $VERSION"
+else echo "-- rehearsal receipt: not checked (rehearsal env $HOST_ENV)"; fi
+HAS_EXTRA=0
+if hx "test -f $(q "$D/staging/extra/extra-steps.sh") || test -f $(q "$D/extra/extra-steps.sh")"; then
+  HAS_EXTRA=1
+  hx "test -f $(q "$D/tools/extra-steps-host.sh")" || die "$D has extra steps but no tools/extra-steps-host.sh (staged by an older tools/release): restage"
+  hx "bash $(q "$D/tools/extra-steps-host.sh") $(q "$D") --check" || die "the staged extra steps are not usable: nothing changed"
+fi
 echo "-- deploy.sh --dry-run (against the server it will deploy to)"
 hx "bash $(q "$D/deploy.sh") --dry-run" || die "deploy.sh --dry-run failed: nothing changed"
 MANIFEST0=$(manifest_sha)
@@ -144,6 +160,7 @@ if [ "$NOCLIENT" = 0 ] && [ "$COMBINED" = 1 ]; then end_post+=" --client $VERSIO
 echo
 echo "PLAN:"
 echo "  2. ssh $RELEASE_HOST bash $D/deploy.sh --phase stop-backup     maintenance on + ONE 'going down' post, stop, backup"
+[ "$HAS_EXTRA" = 0 ] || echo "  2b. ssh $RELEASE_HOST bash $D/tools/extra-steps-host.sh $D   the staged extra steps (rehearsed), server DOWN"
 if [ "$NOCLIENT" = 0 ]; then
   echo "  3. tools/release/publish-client ${pc_args[*]} --no-announce   (server DOWN)"
   echo "       layer client/$CV, $BEFORE, manifest.json -> $VERSION, /launcher-test/ mirror"
@@ -165,6 +182,17 @@ if ! hx "bash $(q "$D/deploy.sh") --phase stop-backup"; then
   if hx "bash $(q "$D/deploy.sh") --phase restart-old"; then event "old version back up"; summary "FAILED at step 2; old server back, nothing published"
   else event "restart-old FAILED"; summary "FAILED at step 2; old server NOT back: see the log; bash $D/rollback.sh if a backup exists"; fi
   exit 1
+fi
+
+# ---- 2b. the staged extra steps (server down, nothing installed yet) ----
+if [ "$HAS_EXTRA" = 1 ]; then
+  event "2b. staged extra steps (tools/extra-steps-host.sh)"
+  if ! hx "bash $(q "$D/tools/extra-steps-host.sh") $(q "$D")"; then
+    event "extra steps FAILED: restarting the old version (nothing installed, nothing published)"
+    if hx "bash $(q "$D/deploy.sh") --phase restart-old"; then event "old version back up"; summary "FAILED at step 2b; old server back, nothing published; WZ_TARGETS files restored from the backup"
+    else event "restart-old FAILED"; summary "FAILED at step 2b; old server NOT back: see the log; bash $D/rollback.sh if a backup exists"; fi
+    exit 1
+  fi
 fi
 
 # ---- 3. client publish while the server is down ----

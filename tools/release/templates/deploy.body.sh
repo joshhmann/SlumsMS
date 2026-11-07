@@ -3,7 +3,10 @@
 # Order: pre-checks (live still up; any failure aborts before the stop) -> stop -> backup (DB with table locks,
 # runtime incl. cashshop/catalog.tsv, unit) -> ledger-checked migrations -> stage jar + scripts + src/main data +
 # config (+ the Cash Shop catalogue when CASHSHOP_CATALOG is set) together -> unit ->
-# start -> smoke test -> receipt. After the stop every abort says "server is DOWN" and what to run.
+# start -> smoke test -> receipt. WZ files (staging/wz-targets.txt, from the conf's WZ_TARGETS/WZ_REPLACE) are backed
+# up in stop-backup ($B/wz-backup), staged replacements (staging/wz/) are copied over $SRV/wz in apply-start, and the
+# extra steps (staging/extra/, run between the two phases by release/release-live.sh) may edit the listed files in
+# place; rollback.sh and restart-old put the backed-up files back. After the stop every abort says "server is DOWN" and what to run.
 #
 # Phases (tools/release/release runs them one by one, with the client publish between stop-backup and apply-start).
 # Without --phase the script runs everything in one go exactly as before (maintenance end right after "is now online").
@@ -72,6 +75,18 @@ head_hash() { awk '/^server:/{exit} {print}' "$1" | sha256sum | cut -c1-16; }
 LEDGER_AFTER=$LEDGER_BEFORE
 for id in "${MIGRATION_IDS[@]}"; do LEDGER_AFTER=$(printf '%s\n' ${LEDGER_AFTER//,/ } "$id" | LC_ALL=C sort | paste -sd,); done
 C="$SRV/config.yaml"
+WZT="$ST/wz-targets.txt"   # WZ files this release writes (relative to wz/); absent = the release touches no WZ
+wz_restore() {   # put back the WZ files stop-backup saved (and remove the ones that did not exist); idempotent
+  [ -f "$WZT" ] && [ -d "$B/wz-backup" ] || return 0
+  local rel
+  while IFS= read -r rel || [ -n "$rel" ]; do
+    [ -n "$rel" ] || continue
+    if grep -qxF -- "$rel" "$B/wz-absent.txt" 2>/dev/null; then rm -f "$SRV/wz/$rel"
+    else mkdir -p "$SRV/wz/$(dirname "$rel")"; cp -p "$B/wz-backup/$rel" "$SRV/wz/$rel"; fi
+  done < "$WZT"
+}
+UE_ARGS=(); for f in "${UNIT_FLAGS_ABSENT[@]}"; do UE_ARGS+=(--absent "$f"); done
+for f in "${UNIT_FLAGS_PRESENT[@]}"; do UE_ARGS+=(--present "$f"); done
 declare -A T
 mark() { T[$1]=$(now); echo "$1=${T[$1]}" >> "$B/.timings"; }   # timings survive between phases
 if [ "$PHASE" != all ] && [ -f "$B/.timings" ]; then while IFS== read -r k v; do T[$k]=$v; done < "$B/.timings"; fi
@@ -91,6 +106,7 @@ if [ "$PHASE" = restart-old ]; then
   step "restart the OLD version (nothing of $VERSION installed)"
   [ ! -e "$B/.apply-start.started" ] || die "apply-start has begun: files may be half installed. Run: bash $D/rollback.sh"
   if [ -f "$B/old-jar.sha256" ]; then (cd "$SRV" && sha256sum -c --quiet "$B/old-jar.sha256") || die "the installed jar is not the backed-up old one; run rollback.sh"; fi
+  wz_restore   # the extra steps may have half-written a WZ file
   if eval "$IS_ACTIVE_CMD"; then echo "server is already running"
   else
     START_TS=$(date '+%Y-%m-%d %H:%M:%S'); eval "$START_CMD"; wait_online
@@ -137,9 +153,17 @@ if [ -n "$CONFIG_APPEND" ]; then
 fi
 if [ "${#UNIT_EDITS[@]}" -gt 0 ]; then
   [ -f "$UNIT_FILE" ] || die "no unit file $UNIT_FILE"
-  for e in "${UNIT_EDITS[@]}"; do
-    [ "$(sed -e "$e" "$UNIT_FILE" | sha256sum)" != "$(sha256sum < "$UNIT_FILE")" ] || die "unit edit '$e' changes nothing in $UNIT_FILE"
-  done
+  # in order, on a copy: an edit that changes nothing at its step, or an UNIT_FLAGS_ABSENT/PRESENT flag in the wrong state
+  # afterwards, aborts here (before the stop). A removal edit works like any other: s# -Dflag=value##g (b328).
+  "$ST/unit-edit" --check "$UNIT_FILE" "${UE_ARGS[@]}" -- "${UNIT_EDITS[@]}" || die "unit edits do not apply cleanly to $UNIT_FILE"
+fi
+if [ -f "$WZT" ]; then
+  [ -d "$SRV/wz" ] || die "server folder has no wz/"
+  while IFS= read -r rel || [ -n "$rel" ]; do
+    [ -n "$rel" ] || continue
+    case $rel in /*|..|../*|*/..|*/../*) die "bad WZ target '$rel'";; esac
+    [ -f "$ST/wz/$rel" ] || [ -f "$SRV/wz/$rel" ] || echo "wz target $rel is not in $SRV/wz yet (an extra step must create it; rollback removes it)"
+  done < "$WZT"
 fi
 if [ -n "$NAV_CACHE_SRC" ]; then [ -d "$NAV_CACHE_SRC" ] || die "nav cache source $NAV_CACHE_SRC missing"; fi
 if [ -n "$CASHSHOP_CATALOG" ]; then   # the Cash Shop catalogue goes live with the jar (tools/cashshop)
@@ -171,6 +195,8 @@ if [ "$DRY_RUN" = 1 ]; then
   [ -n "$CONFIG_APPEND" ] && echo "  append to config.yaml: $(grep -oE '^[[:space:]]+[A-Z][A-Z0-9_]*:' "$ST/$CONFIG_APPEND" | tr -d ' :\t' | paste -sd' ')"
   [ "${#SERVER_SET[@]}" -gt 0 ] && echo "  config.yaml server: values (set-release-config --set): ${SERVER_SET[*]}"
   for e in "${UNIT_EDITS[@]}"; do echo "  unit: sed '$e'"; done
+  for f in "${UNIT_FLAGS_ABSENT[@]}"; do echo "  unit: $f must be gone afterwards"; done
+  [ ! -f "$WZT" ] || echo "  wz: back up $(wc -l < "$WZT") target file(s); copy $(find "$ST/wz" -type f 2>/dev/null | wc -l) staged file(s) over $SRV/wz"
   [ -n "$NAV_CACHE_SRC" ] && echo "  nav cache from $NAV_CACHE_SRC"
   [ -n "$CASHSHOP_CATALOG" ] && echo "  cashshop/catalog.tsv from staging ($(sha256sum "$ST/$CASHSHOP_CATALOG" | cut -c1-16); now $( [ -f "$SRV/cashshop/catalog.tsv" ] && sha256sum "$SRV/cashshop/catalog.tsv" | cut -c1-16 || echo none))"
   echo "  start ($START_CMD), wait for 'is now online', smoke test ${SMOKE_SECONDS}s, receipt $RECEIPT"
@@ -200,6 +226,15 @@ rt=(target/Cosmic.jar config.yaml scripts src/main)
 tar -czf "$B/server-runtime.tgz" -C "$SRV" "${rt[@]}"
 tar -tzf "$B/server-runtime.tgz" > /dev/null || down "runtime backup unreadable"
 cp "$C" "$B/config.yaml"
+if [ -f "$WZT" ]; then   # the WZ files this release writes: saved while the server is down, before any extra step
+  mkdir -p "$B/wz-backup"; : > "$B/wz-absent.txt"
+  while IFS= read -r rel || [ -n "$rel" ]; do
+    [ -n "$rel" ] || continue
+    if [ -f "$SRV/wz/$rel" ]; then mkdir -p "$B/wz-backup/$(dirname "$rel")"; cp -p "$SRV/wz/$rel" "$B/wz-backup/$rel"
+    else echo "$rel" >> "$B/wz-absent.txt"; fi
+  done < "$WZT"
+  echo "wz backup: $(find "$B/wz-backup" -type f | wc -l) file(s) saved, $(wc -l < "$B/wz-absent.txt") not present"
+fi
 [ -f "$UNIT_FILE" ] && cp "$UNIT_FILE" "$B/slumsms.service" || true
 sha256sum "$SRV/target/Cosmic.jar" > "$B/old-jar.sha256"
 echo "$LEDGER_BEFORE" > "$B/ledger-before.txt"
@@ -249,13 +284,21 @@ if [ "${#SERVER_SET[@]}" -gt 0 ]; then
   "$ST/set-release-config" "$C" "${SET_ARGS[@]}" || down "server config edit failed"
 fi
 if [ -n "$NAV_CACHE_SRC" ]; then mkdir -p "$SRV/cache/bot-nav"; cp -a "$NAV_CACHE_SRC" "$SRV/cache/bot-nav/"; fi
+if [ -d "$ST/wz" ]; then   # staged WZ replacements; the originals are in $B/wz-backup (rollback.sh puts them back)
+  while IFS= read -r rel || [ -n "$rel" ]; do
+    [ -f "$ST/wz/$rel" ] || continue
+    mkdir -p "$SRV/wz/$(dirname "$rel")"; cp -p "$ST/wz/$rel" "$SRV/wz/$rel"
+    cmp -s "$ST/wz/$rel" "$SRV/wz/$rel" || down "staged WZ file $rel did not land"
+    echo "wz: $rel replaced"
+  done < "$WZT"
+fi
 if [ -n "$CASHSHOP_CATALOG" ]; then
   cp "$ST/$CASHSHOP_CATALOG" "$SRV/cashshop/catalog.tsv"
   cmp -s "$ST/$CASHSHOP_CATALOG" "$SRV/cashshop/catalog.tsv" || down "staged catalogue did not land"
 fi
 cmp -s "$ST/Cosmic.jar" "$SRV/target/Cosmic.jar" || down "staged jar did not land"
 if [ "${#UNIT_EDITS[@]}" -gt 0 ]; then
-  for e in "${UNIT_EDITS[@]}"; do sed -i -e "$e" "$UNIT_FILE"; done
+  "$ST/unit-edit" --apply "$UNIT_FILE" "${UE_ARGS[@]}" -- "${UNIT_EDITS[@]}" || down "unit edits failed"
   grep -E "ExecStart|TimeoutStopSec" "$UNIT_FILE"
   eval "$DAEMON_RELOAD_CMD"
 fi

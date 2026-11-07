@@ -17,7 +17,7 @@ valid_version "$VERSION" || die "bad version $VERSION"
 # defaults, then the release's settings
 MIGRATIONS=() LEDGER_NOT_LIVE=() LEDGER_BEFORE=__auto__ CONFIG_APPEND="" CONFIG_HEAD="" CONFIG_HEAD_BEFORE=""
 MIN_CLIENT_BUILD="" CHANNELS="" CHANNEL_LOAD="" SERVER_SET=()
-UNIT_EDITS=() PRECHECK_SQL=() NAV_CACHE_SRC="" CASHSHOP_CATALOG="" EXPECT_LOG=() FORBID_LOG=() SMOKE_SECONDS=30
+UNIT_EDITS=() UNIT_FLAGS_ABSENT=() UNIT_FLAGS_PRESENT=() PRECHECK_SQL=() NAV_CACHE_SRC="" CASHSHOP_CATALOG="" EXPECT_LOG=() FORBID_LOG=() SMOKE_SECONDS=30
 IN_GAME_CHECK="In game: log in, enter a character, change channel."
 MAINT_MINUTES=5 MAINT_REASON=""
 . "$CONF"
@@ -47,6 +47,12 @@ EXPECT_LOG=("SlumsMS v$JAR_VERSION" "is now online" "${EXPECT_LOG[@]}")
 ROUTE_REQUIRED=()
 while read -r id _; do [[ "$id" =~ ^[0-9]+$ ]] && ROUTE_REQUIRED+=("$id"); done < "$here/routing-required.txt"
 for e in "${UNIT_EDITS[@]}"; do [[ "$e" == *slums.maps.routing.table* ]] && die "UNIT_EDITS sets -Dslums.maps.routing.table (TEST-only override)"; done
+# UNIT_EDITS (b328): every entry must be valid sed; UNIT_FLAGS_ABSENT/PRESENT name -Dflags the unit must lack/carry after
+# the edits (unit-edit checks them in the deploy pre-check and again when applying). An edit that changes nothing is
+# refused by unit-edit at pre-check time against the real unit, so a stale or no-op removal stops the deploy loudly.
+for e in "${UNIT_EDITS[@]}"; do printf 'x' | sed -e "$e" > /dev/null 2>&1 || die "UNIT_EDITS entry '$e' is not valid sed"; done
+for f in "${UNIT_FLAGS_ABSENT[@]}" "${UNIT_FLAGS_PRESENT[@]}"; do [[ $f =~ ^-D[A-Za-z0-9._]+$ ]] || die "UNIT_FLAGS entry '$f' is not a -Dname flag"; done
+[ "${#UNIT_EDITS[@]}" -gt 0 ] || [ "${#UNIT_FLAGS_ABSENT[@]}${#UNIT_FLAGS_PRESENT[@]}" = 00 ] || die "UNIT_FLAGS_ABSENT/PRESENT need UNIT_EDITS"
 for id in "${ROUTE_REQUIRED[@]}"; do
   grep -qP "^$id\t" "$REPO/src/main/resources/soloMapling/map-routing.tsv" || die "map-routing.tsv lost the route for $id (routing-required.txt)"
 done
@@ -89,7 +95,7 @@ H
   # staged copies of the config files live in staging/ under their base names
   printf 'CASHSHOP_CATALOG=%s\n' "$(sq "${CASHSHOP_CATALOG:+$(basename "$CASHSHOP_CATALOG")}")"
   printf 'CONFIG_HEAD=%s\nCONFIG_APPEND=%s\n' "$(sq "${CONFIG_HEAD:+$(basename "$CONFIG_HEAD")}")" "$(sq "${CONFIG_APPEND:+$(basename "$CONFIG_APPEND")}")"
-  for a in MIGRATION_FILES MIGRATION_IDS UNIT_EDITS SERVER_SET PRECHECK_SQL EXPECT_LOG FORBID_LOG ROUTE_REQUIRED; do
+  for a in MIGRATION_FILES MIGRATION_IDS UNIT_EDITS UNIT_FLAGS_ABSENT UNIT_FLAGS_PRESENT SERVER_SET PRECHECK_SQL EXPECT_LOG FORBID_LOG ROUTE_REQUIRED; do
     declare -n arr=$a; printf '%s=(' "$a"; sep=""; for x in "${arr[@]}"; do printf '%s%s' "$sep" "$(sq "$x")"; sep=" "; done; echo ')'; unset -n arr
   done
 }

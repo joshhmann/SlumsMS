@@ -1,0 +1,40 @@
+#!/bin/bash
+# Apply a release's UNIT_EDITS (sed expressions) to a systemd unit, with the guards the b328 night lacked.
+#
+#   unit-edit --check <unit> [--absent FLAG]... [--present FLAG]... -- <sed expr>...    changes nothing
+#   unit-edit --apply <unit> [--absent FLAG]... [--present FLAG]... -- <sed expr>...    edits the unit in place
+#
+# The expressions run one after another on a copy, in the order given (the order --apply uses). It refuses:
+#   - an expression that changes nothing at its step (a stale pattern, a typo, live already edited by hand: the b328
+#     lesson was an edit list that could only ADD flags, so a flag live carried stayed; a silent no-op is never OK);
+#   - a result in which an --absent FLAG (-Dname, the value is ignored) is still on the unit, or a --present FLAG is not
+#     (so a removal that matched a different value than live has is caught, not just "something changed").
+# Both modes print the before/after of every line that changed. --apply keeps the unit's inode, owner and mode.
+set -euo pipefail
+usage() { echo "usage: unit-edit --check|--apply <unit> [--absent -Dflag]... [--present -Dflag]... -- <sed expr>..." >&2; exit 2; }
+[ $# -ge 3 ] || usage
+mode=$1 unit=$2; shift 2
+case $mode in --check|--apply) ;; *) usage;; esac
+absent=() present=()
+while [ $# -gt 0 ] && [ "$1" != -- ]; do
+  case $1 in --absent) absent+=("${2:-}"); shift;; --present) present+=("${2:-}"); shift;; *) usage;; esac; shift
+done
+[ "${1:-}" = -- ] || usage; shift
+[ -f "$unit" ] || { echo "ABORT: no unit file $unit" >&2; exit 1; }
+for f in "${absent[@]}" "${present[@]}"; do [[ $f =~ ^-D[A-Za-z0-9._]+$ ]] || { echo "ABORT: '$f' is not a -Dname flag" >&2; exit 1; }; done
+has_flag() { grep -qE -- "(^|[[:space:]])$2(=|[[:space:]]|\$)" "$1"; }   # $1 file, $2 -Dname
+tmp=$(mktemp); trap 'rm -f "$tmp" "$tmp.next"' EXIT
+cp "$unit" "$tmp"
+n=0
+for e in "$@"; do
+  n=$((n + 1))
+  sed -e "$e" "$tmp" > "$tmp.next" || { echo "ABORT: unit edit $n '$e' is not valid sed" >&2; exit 1; }
+  if cmp -s "$tmp" "$tmp.next"; then
+    echo "ABORT: unit edit $n '$e' changes nothing in $unit (stale pattern, a typo, or the unit was already edited by hand)" >&2; exit 1
+  fi
+  diff <(cat "$tmp") <(cat "$tmp.next") | sed -n 's/^[<>] /    &/p' | sed "s/^    \([<>]\) /  edit $n \1 /" || true
+  mv "$tmp.next" "$tmp"
+done
+for f in "${absent[@]}"; do ! has_flag "$tmp" "$f" || { echo "ABORT: $f is still on the unit after the edits (a removal that missed it: check the value in the pattern)" >&2; exit 1; }; done
+for f in "${present[@]}"; do has_flag "$tmp" "$f" || { echo "ABORT: $f is not on the unit after the edits" >&2; exit 1; }; done
+if [ "$mode" = --apply ]; then cat "$tmp" > "$unit"; echo "unit edited: $n edit(s)"; else echo "unit edits ok: $n edit(s) would apply"; fi

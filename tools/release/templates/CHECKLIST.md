@@ -17,6 +17,8 @@ left unticked goes into the release doc as "not done". Tools: `tools/release/` i
 - [ ] `tools/release/rehearse <version>` PASS on a fresh copy of live -> `REHEARSAL.md` (timings, 0 errors, player rows
       unchanged after rollback). If the live dump is not available to the agent, rehearse with
       `--source nightly` and say so in the release doc.
+      Any re-stage means a new rehearsal: `release` and `release-live.sh` refuse a `REHEARSAL.md` whose staging digest is not
+      the staged folder's (stale or tampered). The rehearsal also runs the staged `extra/` steps and the WZ targets.
 - [ ] `bash /opt/mapleroot-deployments/v<version>/deploy.sh --dry-run` against live: every pre-check passes (owner or
       agent; it changes nothing).
 - [ ] Expected downtime from the rehearsal written in `DEPLOY-NOTES.md`.
