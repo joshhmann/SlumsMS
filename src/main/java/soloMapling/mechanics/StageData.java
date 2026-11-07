@@ -487,8 +487,10 @@ public final class StageData {
             }
             if (oid != null && kind != null) {
                 int[] spot = atPoint(om.get("at"));
+                int job = num(om, "job", 0, p);
+                require(job >= 0 && job <= 5, p, at + "objective " + oid + ": job is a job niche, 1 (warrior) to 5 (pirate)");
                 objectives.add(new Objective(oid, kind, role, count, item, mob, onpc > 0 ? onpc : npc, opt(om, "note"),
-                        spot[0], spot[1], opt(om, "reactor")));
+                        spot[0], spot[1], opt(om, "reactor"), job));
             }
         }
         if (objectives.isEmpty()) {
@@ -716,10 +718,14 @@ public final class StageData {
         List<MechanicsModel.Branch> branches = readBranches(m, at, p);
         // 1.6.6 b365: whether an item reactor nobody brought the item for may still be opened by a hit
         String opensByHit = m.get("opensByHit") == null ? null : String.valueOf(m.get("opensByHit")).trim();
-        if (opensByHit != null && !opensByHit.equals(Stage.BOT_ONLY)) {
-            p.add(at + "opensByHit: the only exception written so far is " + Stage.BOT_ONLY + ", not " + opensByHit);
+        if (opensByHit != null && !opensByHit.equals(Stage.BOT_ONLY) && !opensByHit.equals(Stage.REGULAR_JOBS_ONLY)) {
+            p.add(at + "opensByHit: " + Stage.BOT_ONLY + " or " + Stage.REGULAR_JOBS_ONLY + ", not " + opensByHit);
         }
-        if (opensByHit != null && hitReactors.isEmpty()) {
+        if (Stage.REGULAR_JOBS_ONLY.equals(opensByHit)
+                && objectives.stream().noneMatch(o -> o.job() > 0)) {
+            p.add(at + "opensByHit: " + Stage.REGULAR_JOBS_ONLY + " needs objectives that name their job");
+        }
+        if (Stage.BOT_ONLY.equals(opensByHit) && hitReactors.isEmpty()) {
             p.add(at + "opensByHit: says how a reactor opens, so the stage names one under hitReactors");
         }
         return new Stage(index, mapId, name, npc, solver, List.copyOf(roles), List.copyOf(objectives),

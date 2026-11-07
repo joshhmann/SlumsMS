@@ -190,15 +190,21 @@ public final class MechanicsModel {
      * {@code scar1}, or - all digits - a reactor id such as {@code 2006000}.
      */
     public record Objective(String id, ObjectiveKind kind, String role, Optional<Count> count, int itemId, int mobId,
-                            int npcId, String note, int atX, int atY, String reactor) {
+                            int npcId, String note, int atX, int atY, String reactor, int job) {
+        /** 1.6.6 b365: {@code job} - the job niche (1 warrior .. 5 pirate) an objective belongs to, or 0. */
+        public Objective(String id, ObjectiveKind kind, String role, Optional<Count> count, int itemId, int mobId,
+                         int npcId, String note, int atX, int atY, String reactor) {
+            this(id, kind, role, count, itemId, mobId, npcId, note, atX, atY, reactor, 0);
+        }
+
         public Objective(String id, ObjectiveKind kind, String role, Optional<Count> count, int itemId, int mobId,
                          int npcId, String note, int atX, int atY) {
-            this(id, kind, role, count, itemId, mobId, npcId, note, atX, atY, null);
+            this(id, kind, role, count, itemId, mobId, npcId, note, atX, atY, null, 0);
         }
 
         public Objective(String id, ObjectiveKind kind, String role, Optional<Count> count, int itemId, int mobId,
                          int npcId, String note) {
-            this(id, kind, role, count, itemId, mobId, npcId, note, 0, 0, null);
+            this(id, kind, role, count, itemId, mobId, npcId, note, 0, 0, null, 0);
         }
 
         public boolean hasAt() {
@@ -359,6 +365,11 @@ public final class MechanicsModel {
          * room waits for the item, as it does for a party in the real game.
          */
         public static final String BOT_ONLY = "botOnly";
+        /**
+         * b365 (Crimsonwood's Relic of Mastery): a reactor whose objective names a {@code job} may open by a hit when no
+         * real player of that job is in the run - the job is the regulars' - and never when one is.
+         */
+        public static final String REGULAR_JOBS_ONLY = "regularJobsOnly";
 
         public Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
                      List<Objective> objectives, List<Position> positions, List<ItemUse> items,
