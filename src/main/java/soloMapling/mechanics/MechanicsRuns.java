@@ -339,6 +339,18 @@ public final class MechanicsRuns {
                 + " running this fight with you (" + shortName(content.name()) + ").");
     }
 
+    /**
+     * 1.6.5 b344d (QA ask): a stage line names its run - "stage 2 cleared in 40 s (...) [zakumpq, leader AqClient]" -
+     * so a watcher waiting on ZPQ's stages is not fooled by a KPQ run's on another channel. The text before the tag is
+     * unchanged; other lines pass through as they are.
+     */
+    static String tagged(String line, String contentId, String leaderName) {
+        if (line == null || !line.startsWith("stage ")) {
+            return line;
+        }
+        return line + " [" + contentId + (leaderName == null ? "" : ", leader " + leaderName) + "]";
+    }
+
     /** "Zakum (expedition)" -> "Zakum": a row's name without its qualifier, for a line a player reads. */
     static String shortName(String name) {
         int cut = name == null ? -1 : name.indexOf(" (");
@@ -374,8 +386,15 @@ public final class MechanicsRuns {
         int eventsBefore = a.run.events().size();
         Map<Integer, SolverStep> steps = o.tick(a.run, view, now);
         List<RunState.Event> events = a.run.events();
+        String leaderName = null;
+        for (RunMember m : a.run.members()) {
+            if (m.leader()) {
+                Character c = view.character(m.characterId());
+                leaderName = c == null ? null : c.getName();
+            }
+        }
         for (int i = eventsBefore; i < events.size(); i++) {
-            a.reporter.accept("RUN " + events.get(i).line());
+            a.reporter.accept("RUN " + tagged(events.get(i).line(), a.run.content().id(), leaderName));
         }
         List<Character> driven = new ArrayList<>(steps.size());
         for (Map.Entry<Integer, SolverStep> e : steps.entrySet()) {

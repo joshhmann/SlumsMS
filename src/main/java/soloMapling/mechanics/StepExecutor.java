@@ -129,6 +129,8 @@ final class StepExecutor {
         /** 1.6.5 b344c: the last route check toward a reactor (when, and how many in a row said "no route"). */
         long routeCheckedMs;
         int noRouteTimes;
+        /** 1.6.5 b344d: how far the bot was from the reactor at the last route check, or -1. */
+        double routeCheckDist = -1;
         /** Set when the planner twice in a row has no route to the reactor this bot must hit; the run gives up. */
         String noRoute;
     }
@@ -145,6 +147,8 @@ final class StepExecutor {
     };
     /** How often a bot walking to a reactor re-checks that a route exists; two "no route" in a row give the stage up. */
     static final long ROUTE_CHECK_MS = 10_000;
+    /** b344d: how much closer to the reactor (px) a bot must be since the last route check to count as getting there. */
+    static final int ROUTE_CLOSER_PX = 20;
 
     void forget(int botId) {
         beats.remove(botId);
@@ -1149,7 +1153,15 @@ final class StepExecutor {
         } catch (RuntimeException e) {
             reason = null; // a probe that cannot run says nothing either way
         }
-        if (reason == null) {
+        // b344d (TEST 7 Nov, ZPQ stage 2 on 280010110): the planner has no walking route to the rock, yet the regular
+        // reached it 13 s after the stage began on 0f9e4c249 by a way the graph does not hold. A "no route" only counts
+        // while the regular is not closing in on the reactor; one that keeps getting closer keeps going, and a real
+        // stall is still caught by the no-progress window.
+        Point at = bot.getPosition();
+        double dist = at == null ? -1 : at.distance(rp);
+        boolean closer = dist >= 0 && beat.routeCheckDist >= 0 && dist < beat.routeCheckDist - ROUTE_CLOSER_PX;
+        beat.routeCheckDist = dist;
+        if (reason == null || closer) {
             beat.noRouteTimes = 0;
             return;
         }
@@ -1171,6 +1183,7 @@ final class StepExecutor {
             return;
         }
         beat.noRouteTimes = 0;
+        beat.routeCheckDist = -1;
         if (now - beat.lastReactorMs < 3_000) {
             return;
         }
