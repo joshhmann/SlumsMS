@@ -292,6 +292,46 @@ class SocialActsTest extends SocialActTestBase {
         assertEquals(1, flows.released.size());
     }
 
+    /**
+     * 1.6.6 accept-fail-reason: TEST (c614ea6f7) counted 77 failed ACCEPTs all as "could not go through with it", the
+     * flow's own reason cut off at its ':'. Each failure is now counted under the flow's reason, as a fixed name-free
+     * key, so a TEST run tells a map mismatch (b350) from a busy party system.
+     */
+    @Test
+    void aFailedAcceptIsCountedUnderItsFlowsReasonWithNoName() {
+        java.util.Map<String, String> reasons = new java.util.LinkedHashMap<>();
+        reasons.put("one of them left", "one of them left");
+        reasons.put("Alicebot went offline", "went offline");
+        reasons.put("the party system refused Alicebot's party", "the party system refused");
+        reasons.put("nobody could join", "nobody could join");
+        reasons.put("LFG rules said no: Bobbot is level 12", "LFG rules said no");
+        reasons.put("the LFG party did not form", "the LFG party did not form");
+        reasons.put("not an invitation this knows", "not an invitation this knows");
+        reasons.put("something new 42 Alicebot", "other");
+        int i = 0;
+        for (java.util.Map.Entry<String, String> r : reasons.entrySet()) {
+            tearDownSocial();
+            setUpSocial();
+            alone();
+            SocialTestKit.meet(ALICE, BOB, now());
+            SocialTestKit.meet(BOB, ALICE, now());
+            SocialActions.perform(ALICE, BOB, SocialActKind.INVITE, now());
+            flows.failing.add(SocialActKind.ACCEPT);
+            flows.acceptNo = r.getKey();
+            Outcome o = SocialActions.perform(BOB, ALICE, SocialActKind.ACCEPT, now());
+            assertTrue(o.happened() && !o.landed(), o.reason());
+            java.util.Map<String, Long> counters = SocialMetrics.actCounters();
+            assertEquals(1L, counters.get("ACCEPT.failed: " + r.getValue()),
+                    r.getKey() + " -> " + counters);
+            assertEquals(1L, counters.get("ACCEPT.failed"), "the total still counts once: " + counters);
+            for (String k : counters.keySet()) {
+                assertFalse(k.contains("Alicebot") || k.contains("Bobbot"), "a name reached a counter key: " + k);
+            }
+            i++;
+        }
+        assertEquals(8, i);
+    }
+
     // ── 10./11./12. fights and repair ──
 
     /** Gives Alice a grudge against Bob (not a fight yet) so ARGUE is legal. */

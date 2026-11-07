@@ -194,6 +194,8 @@ final class SocialTestKit {
         final List<SocialActions.Invite> accepted = new ArrayList<>();
         final List<SocialActions.Invite> released = new ArrayList<>();
         boolean canInvite = true;
+        /** What a failing ACCEPT's flow says (the real ones: GameSocialFlows.accept and BotTalk.plainParty). */
+        String acceptNo = "the party did not form";
         final FakeWorld world;
 
         FakeFlows(FakeWorld world) {
@@ -227,7 +229,7 @@ final class SocialTestKit {
         @Override
         public Flow accept(SocialActions.Invite invite, long now) {
             accepted.add(invite);
-            return failing.contains(SocialActKind.ACCEPT) ? Flow.no("the party did not form") : Flow.yes("duo party formed");
+            return failing.contains(SocialActKind.ACCEPT) ? Flow.no(acceptNo) : Flow.yes("duo party formed");
         }
 
         @Override

@@ -299,7 +299,7 @@ final class Probes164Social {
             if (dot <= 0 || e.getKey().startsWith("decision.")) continue;
             String kind = e.getKey().substring(0, dot);
             String outcome = e.getKey().substring(dot + 1);
-            // "ACCEPT.failed: could not go through with it" is the reason breakdown of "ACCEPT.failed", already counted
+            // "ACCEPT.failed: nobody could join" (1.6.6: the flow reason) is the reason breakdown of "ACCEPT.failed", already counted
             if (outcome.contains(":")) continue;
             long[] row = byKind.computeIfAbsent(kind, k -> new long[2]);
             if (outcome.equals("ok")) row[0] += e.getValue();
