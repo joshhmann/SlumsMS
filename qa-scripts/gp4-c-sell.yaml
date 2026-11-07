@@ -1,0 +1,40 @@
+# GP4 leg (1.6.5 gate), real client at gm 0, TEST QA account only. Server Dev stages the map between legs (map/position fields only).
+id: gp4-c-sell
+title: "GP4 leg C: sell every Mushroom Spore, Green Apple and surplus from the grind to Luna"
+covers: [feature-gp4]
+status: draft
+server: test
+needs: [gm, proposed_signals]
+notes: "Staged back at 100000102 by Server Dev (map only), AqClient gm 0. Pass: each shop_sell ok; Server Dev reads mesos up by the sale value and the stacks gone."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: false
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  - {id: open-shop, do: click_npc, npc: 1011100}
+  - {id: shop-open, do: sleep, ms: 3000, reason: "the shop window opens"}
+  - {id: sell-spore, do: shop_sell, item: 4000011}
+  - {do: sleep, ms: 2000, reason: "frame after the sale"}
+  - {id: close, do: shop_close}
+  - {do: sleep, ms: 2000, reason: "frame after closing"}
+captures:
+  - {id: sold, burst: {fps: 2, ms: 2000, at: {step: sell-spore}}}
+expect:
+  reviewer:
+    - see: "Luna's shop window and the mesos after the sale"
+      in: [sold]
+  checks:
+    - {check: client_alive}
+  judgment: "PASS = shop_sell ok and shop_close ok. Quote the shop.result lines. Server Dev reads the mesos delta against the sale."

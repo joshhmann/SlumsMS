@@ -1,0 +1,80 @@
+# GP4 leg B (1.6.5 gate), real client at gm 0: 15 CTRL rounds with a move every 3rd (pet loots), then 5 Red Potions drunk with use_item. Server Dev stages the map and reconciles. TEST QA account only.
+id: gp4-b-grind-drink
+title: "GP4 leg B: 15 attack rounds on Henesys Hunting Ground I, then drink 5 Red Potions"
+covers: [feature-gp4]
+status: draft
+server: test
+needs: [gm, proposed_signals]
+notes: "tarkov2 QA account (AqClient gm 0), TEST c614ea6f7. Mobs on the map: 100101, 120100, 130101, 1210100. Server Dev snapshot 08:43:55 UTC: mesos 777,035, EXP 226,800, ETC 173 items. Pass: the client lives through all 15 rounds and the EXP and mesos or ETC deltas show kills."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: false
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  - {id: start, do: sleep, ms: 2000, reason: "frame of the map and the mobs before the first attack"}
+  - {id: hit-1, do: key, key: CTRL, hold_ms: 2500}
+  - {do: sleep, ms: 1000, reason: "let the kill and drop settle"}
+  - {id: hit-2, do: key, key: CTRL, hold_ms: 2500}
+  - {do: sleep, ms: 1000, reason: "let the kill and drop settle"}
+  - {id: hit-3, do: key, key: CTRL, hold_ms: 2500}
+  - {do: sleep, ms: 1000, reason: "let the kill and drop settle"}
+  - {id: walk-3, do: move, dir: right, ms: 700}
+  - {id: hit-4, do: key, key: CTRL, hold_ms: 2500}
+  - {do: sleep, ms: 1000, reason: "let the kill and drop settle"}
+  - {id: hit-5, do: key, key: CTRL, hold_ms: 2500}
+  - {do: sleep, ms: 1000, reason: "let the kill and drop settle"}
+  - {id: hit-6, do: key, key: CTRL, hold_ms: 2500}
+  - {do: sleep, ms: 1000, reason: "let the kill and drop settle"}
+  - {id: walk-6, do: move, dir: left, ms: 700}
+  - {id: hit-7, do: key, key: CTRL, hold_ms: 2500}
+  - {do: sleep, ms: 1000, reason: "let the kill and drop settle"}
+  - {id: hit-8, do: key, key: CTRL, hold_ms: 2500}
+  - {do: sleep, ms: 1000, reason: "let the kill and drop settle"}
+  - {id: hit-9, do: key, key: CTRL, hold_ms: 2500}
+  - {do: sleep, ms: 1000, reason: "let the kill and drop settle"}
+  - {id: walk-9, do: move, dir: right, ms: 700}
+  - {id: hit-10, do: key, key: CTRL, hold_ms: 2500}
+  - {do: sleep, ms: 1000, reason: "let the kill and drop settle"}
+  - {id: hit-11, do: key, key: CTRL, hold_ms: 2500}
+  - {do: sleep, ms: 1000, reason: "let the kill and drop settle"}
+  - {id: hit-12, do: key, key: CTRL, hold_ms: 2500}
+  - {do: sleep, ms: 1000, reason: "let the kill and drop settle"}
+  - {id: walk-12, do: move, dir: left, ms: 700}
+  - {id: hit-13, do: key, key: CTRL, hold_ms: 2500}
+  - {do: sleep, ms: 1000, reason: "let the kill and drop settle"}
+  - {id: hit-14, do: key, key: CTRL, hold_ms: 2500}
+  - {do: sleep, ms: 1000, reason: "let the kill and drop settle"}
+  - {id: hit-15, do: key, key: CTRL, hold_ms: 2500}
+  - {do: sleep, ms: 1000, reason: "let the kill and drop settle"}
+  - {id: walk-15, do: move, dir: right, ms: 700}
+  - {id: drink-1, do: use_item, item: 2000000}
+  - {id: drink-2, do: use_item, item: 2000000}
+  - {id: drink-3, do: use_item, item: 2000000}
+  - {id: drink-4, do: use_item, item: 2000000}
+  - {id: drink-5, do: use_item, item: 2000000}
+  - {id: end, do: sleep, ms: 2000, reason: "frame after the last round"}
+captures:
+  - {id: before, burst: {fps: 2, ms: 2000, at: {step: start}}}
+  - {id: mid, burst: {fps: 2, ms: 2500, at: {step: hit-8}}}
+  - {id: after, burst: {fps: 2, ms: 2000, at: {step: end}}}
+expect:
+  reviewer:
+    - see: "AqClient on Henesys Hunting Ground I with mobs on the field"
+      in: [before]
+    - see: "AqClient attacking, with mobs dying or drops on the ground"
+      in: [mid, after]
+  checks:
+    - {check: client_alive}
+  judgment: "PASS = the client lives through the 15 rounds. Server Dev reads the EXP, mesos and item deltas; quote what you see on the ground."
