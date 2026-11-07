@@ -82,6 +82,7 @@ steps:
   - {id: ok-after-start, do: click, anchor: npc_dialog.next}
   - {id: warned, do: wait, armed_at: start-fight, signal: {type: client_signal, name: chat.received, regex: "MSbeta is not at the altar and will not join"}, timeout_ms: 20000, optional: true}
   - {id: in-fight, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240060000}, timeout_ms: 60000}
+  - {id: run-members, do: wait, armed_at: after-start, signal: {type: server_line, topic: MECHANICS, regex: "(?i)horntail|too few members|members", char: me}, timeout_ms: 60000, note: "run-min-room proof: the run must start with 5 members (no too-few refusal); MECHANICS topic armed"}
 captures:
   - {id: away, burst: {fps: 2, ms: 3000, at: {step: msbeta-off}}}
   - {id: in-room, burst: {fps: 2, ms: 4000, at: {signal: in-fight}}}
