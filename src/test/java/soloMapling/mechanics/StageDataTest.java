@@ -79,21 +79,36 @@ class StageDataTest {
                 s1.objectivesFor("leader").stream().map(MechanicsModel.Objective::id).toList());
     }
 
+    /**
+     * 1.6.6 kpq1-questions (owner, 7 Nov): Cloto asks our own six questions, answers 1-15; the first two are the world's
+     * channel count and EXP rate, read live by the script and by the regulars' row alike ({@link KpqQuiz}).
+     */
     @Test
     void kpqAnswersMatchClotosScript() throws Exception {
         String js = Files.readString(Path.of("scripts/npc/9020001.js"));
         Matcher m = Pattern.compile("var stage1Answers = Array\\(([^)]*)\\)").matcher(js);
         assertTrue(m.find(), "stage1Answers not found in Cloto's script");
-        List<Integer> script = new ArrayList<>();
+        List<String> script = new ArrayList<>();
         for (String n : m.group(1).split(",")) {
-            script.add(Integer.parseInt(n.trim()));
+            script.add(n.trim());
         }
+        assertEquals(List.of("KpqQuiz.CHANNELS", "KpqQuiz.EXP_RATE", "3", "10", "6", "5"), script,
+                "the owner's six, in the approved order");
         Stage s1 = kpq().stage(1).orElseThrow();
         assertEquals(script.size(), s1.answers().size());
         for (int i = 0; i < script.size(); i++) {
-            // Cloto's grid holds the question number counted from 1
-            assertEquals(OptionalInt.of(script.get(i)), s1.answer(i + 1), "question " + (i + 1));
+            String a = script.get(i);
+            if (a.startsWith("KpqQuiz.")) {
+                assertEquals(a.equals("KpqQuiz.CHANNELS") ? KpqQuiz.CHANNELS : KpqQuiz.EXP_RATE, s1.liveAnswer(i + 1),
+                        "question " + (i + 1) + " is read live, the same way");
+                assertTrue(s1.answer(i + 1).isEmpty(), "a live answer has no fixed number in the row");
+            } else {
+                int n = Integer.parseInt(a);
+                assertEquals(OptionalInt.of(n), s1.answer(i + 1), "question " + (i + 1));
+                assertTrue(n >= 1 && n <= 15, "answers stay 1-15 so the coupon farm stays short");
+            }
         }
+        assertFalse(js.toLowerCase().contains("bot"), "Cloto's questions never say bots");
     }
 
     @Test

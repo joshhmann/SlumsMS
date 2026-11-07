@@ -105,7 +105,18 @@ final class LiveStageView implements StageView {
             return CombinationSolver.answer(this); // one answer for the stage, kept in the event property
         }
         int q = memberStatus(characterId);
-        return q > 0 ? stage().answer(q) : OptionalInt.empty();
+        if (q <= 0) {
+            return OptionalInt.empty();
+        }
+        String live = stage().liveAnswer(q);
+        if (live != null) {
+            // kpq1-questions: the world's own setting, read the way Cloto's script reads it
+            client.Character c = eim == null ? null : eim.getPlayers().stream()
+                    .filter(p -> p.getId() == characterId).findFirst().orElse(null);
+            int answer = c == null ? -1 : KpqQuiz.live(live, c.getWorld());
+            return answer >= 0 ? OptionalInt.of(answer) : OptionalInt.empty();
+        }
+        return stage().answer(q);
     }
 
     @Override

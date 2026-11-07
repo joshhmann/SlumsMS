@@ -27,15 +27,23 @@
  * @func: Kerning PQ
  */
 
+// 1.6.6 kpq1-questions (owner, 7 Nov): our own questions about our world, answers 1-15 so the coupon farm stays short.
+// The first two are the world's settings, read live (soloMapling.mechanics.KpqQuiz), so they stay true if those change.
+const KpqQuiz = Java.type('soloMapling.mechanics.KpqQuiz');
 var stage1Questions = Array(
-    "Here's the question. Collect the same number of coupons as the minimum level required to make the first job advancement as warrior.",
-    "Here's the question. Collect the same number of coupons as the minimum amount of STR needed to make the first job advancement as a warrior.",
-    "Here's the question. Collect the same number of coupons as the minimum amount of INT needed to make the first job advancement as a magician.",
-    "Here's the question. Collect the same number of coupons as the minimum amount of DEX needed to make the first job advancement as a bowman.",
-    "Here's the question. Collect the same number of coupons as the minimum amount of DEX needed to make the first job advancement as a thief.",
-    "Here's the question. Collect the same number of coupons as the minimum level required to advance to 2nd job.",
-    "Here's the question. Collect the same number of coupons as the minimum level required to make the first job advancement as a magician.");
-var stage1Answers = Array(10, 35, 20, 25, 25, 30, 8);
+    "Collect as many coupons as there are channels in our world.",
+    "Collect as many coupons as our world's EXP rate.",
+    "Collect as many coupons as the fewest people who can start this quest together.",
+    "Collect as many coupons as the passes I'll ask for at the very top of this tower.",
+    "Collect as many coupons as the most people one party can hold.",
+    "Collect as many coupons as the ability points you earn each time you level up.");
+var stage1Answers = Array(KpqQuiz.CHANNELS, KpqQuiz.EXP_RATE, 3, 10, 6, 5);
+
+/** The answer to question {@code data} (counted from 1): a number, or a world setting read now. */
+function stage1Answer(data) {
+    var a = stage1Answers[data - 1];
+    return (typeof a === 'string') ? KpqQuiz.live(a, cm.getPlayer().getWorld()) : a;
+}
 
 const Rectangle = Java.type('java.awt.Rectangle');
 var stage2Rects = Array(new Rectangle(-755, -132, 4, 218), new Rectangle(-721, -340, 4, 166), new Rectangle(-586, -326, 4, 150), new Rectangle(-483, -181, 4, 222));
@@ -157,7 +165,7 @@ function action(mode, type, selection) {
                         var question = stage1Questions[data - 1];
                         cm.sendNext(question);
                     } else {
-                        var answer = stage1Answers[data - 1];
+                        var answer = stage1Answer(data);
 
                         if (cm.itemQuantity(4001007) == answer) {
                             cm.sendNext("That's the right answer! For that you have just received a #bpass#k. Please hand it to the leader of the party.");
