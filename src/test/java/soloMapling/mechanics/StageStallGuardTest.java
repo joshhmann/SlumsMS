@@ -128,6 +128,44 @@ class StageStallGuardTest {
         assertTrue(s.run.endedBecause().contains("can't reach reactor 2112011"), s.run.endedBecause());
     }
 
+    /**
+     * b344d, TEST 7 Nov 00:29 (QA run b344-zpq-stage-clear-20261107T002709Z): on ZPQ stage 2 (280010110) the planner
+     * has no walking route from the door (east00, far right) to rock 2112004 at (-511, 142), and the guard gave the
+     * stage up 10 s in - but on 0f9e4c249 the same alt was hitting that rock 13 s after the stage began. A regular
+     * that is getting closer is not stuck; one that stops closing in still gives up.
+     */
+    @Test
+    void aRegularClosingInOnTheRockIsNotGivenUpOnForWantOfARoute() {
+        Setup s = stage31();
+        StepExecutor.routeCheck = (bot, x, y) -> "no route from r10 to r5 walking";
+        Character bot = mock(Character.class);
+        when(bot.getId()).thenReturn(MINER);
+        when(bot.getName()).thenReturn("AqClientAlt1");
+        when(bot.getMapId()).thenReturn(280_010_110);
+        server.maps.MapleMap map = mock(server.maps.MapleMap.class);
+        server.maps.Reactor rock = mock(server.maps.Reactor.class);
+        when(rock.getPosition()).thenReturn(new java.awt.Point(-511, 142));
+        when(rock.getId()).thenReturn(2_112_011);
+        when(map.getReactorById(2_112_011)).thenReturn(rock);
+        when(bot.getMap()).thenReturn(map);
+        StepExecutor exec = new StepExecutor();
+        List<String> lines = new ArrayList<>();
+        SolverStep hit = new SolverStep.HitReactor(2_112_011);
+        try (org.mockito.MockedStatic<soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement> move =
+                     org.mockito.Mockito.mockStatic(soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.class)) {
+            when(bot.getPosition()).thenReturn(new java.awt.Point(1812, 135)); // at the door
+            exec.execute(s.run, s.orch, null, bot, hit, START + 1_000, lines::add);
+            when(bot.getPosition()).thenReturn(new java.awt.Point(400, 258)); // 10 s on: well on its way
+            exec.execute(s.run, s.orch, null, bot, hit, START + 11_000, lines::add);
+            assertFalse(s.run.ended(), "closing in on the rock is progress: " + s.run.endedBecause() + " " + lines);
+            // it stops closing in: two checks with no route and no ground gained end the stage as before
+            exec.execute(s.run, s.orch, null, bot, hit, START + 21_000, lines::add);
+            exec.execute(s.run, s.orch, null, bot, hit, START + 31_000, lines::add);
+        }
+        assertTrue(s.run.ended(), "stuck short of the rock: lines " + lines);
+        assertTrue(s.run.endedBecause().contains("can't reach reactor 2112011"), s.run.endedBecause());
+    }
+
     /** The stage the run stands on, a miner in the big room with its rock untouched, the leader on the hub. */
     private static final class View implements StageView {
         private final Stage stage;
