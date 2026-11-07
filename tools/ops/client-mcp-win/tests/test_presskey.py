@@ -35,9 +35,22 @@ class PressKeyTest(unittest.TestCase):
     def test_ctrl_hold_is_held(self):
         result = self.d.press_key('CTRL', hold_ms=300)
         self.assertEqual(result, {'pressed': 'CTRL', 'held_ms': 300})
-        (vk1, down1, t1), (vk2, down2, t2) = self.d.sender.events
-        self.assertEqual((vk1, down1, vk2, down2), (0x11, True, 0x11, False))
-        self.assertGreaterEqual(t2 - t1, 0.28)
+        events = self.d.sender.events
+        self.assertEqual((0x11, True), events[0][:2])
+        self.assertEqual((0x11, False), events[-1][:2])
+        self.assertGreaterEqual(events[-1][2] - events[0][2], 0.28)
+
+    def test_a_hold_repeats_the_key_down_like_a_keyboard(self):
+        # qa-attack-step (1.6.6): the game attacks once per key-down, so a single down held for 3 s was one swing
+        # (Server Dev's packet read, 2026-11-07: one CLOSE_RANGE_ATTACK per hold). A held key repeats its down
+        # (auto-repeat) after the repeat delay, as a keyboard does; the release comes once, at the end.
+        self.d.press_key('CTRL', hold_ms=1000)
+        events = self.d.sender.events
+        downs = [e for e in events if e[1] is True]
+        self.assertEqual(1, len([e for e in events if e[1] is False]))
+        self.assertGreaterEqual(len(downs), 15, "about 30 repeats a second after the delay")
+        self.assertGreaterEqual(downs[1][2] - downs[0][2], self.driver.KEY_REPEAT_DELAY - 0.01)
+        self.assertTrue(all(e[0] == 0x11 for e in events))
 
     def test_letter_and_arrow_holds(self):
         self.assertEqual(self.d.press_key('Z', hold_ms=100)['held_ms'], 100)
