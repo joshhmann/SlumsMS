@@ -1,0 +1,39 @@
+# P0-7 (Site lane proof): AqClient (gm 4) types !unban QaSiteTrader for the offline character QaSiteTrader (char 68, account 49). The Site lane signs the account in on the TEST site beforehand and checks 401/403 itself. TEST only.
+id: p07-unban
+title: "P0-7: unban QaSiteTrader in game"
+covers: [feature-p0-7]
+status: draft
+server: test
+needs: [gm, proposed_signals]
+notes: "tarkov2 QA account (AqClient gm 4), TEST. Offline target: Character.ban(ign) path, no IP ban. Send the Site lane the sent time of the !unban QaSiteTrader step."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: false
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  - {id: revive, do: gm, line: "!heal"}
+  - {id: act, do: gm, line: "!unban QaSiteTrader"}
+  - {id: reply, do: wait, armed_at: act, signal: {type: client_signal, name: chat.received, regex: "unban|Unban|Unbanned"}, timeout_ms: 10000, optional: true}
+  - {do: sleep, ms: 2000, reason: "frame of the server notice"}
+captures:
+  - {id: notice, burst: {fps: 2, ms: 3000, at: {step: act}}}
+  - {id: chat, chat_log: {span: {from: act, to: reply}}}
+expect:
+  reviewer:
+    - see: "The unban confirmation for QaSiteTrader"
+      in: [notice]
+  checks:
+    - {check: client_alive}
+  judgment: "PASS = the [RIP] notice names QaSiteTrader (ban) or the unban reply is seen. Report the sent time of the act step to the Site lane."
