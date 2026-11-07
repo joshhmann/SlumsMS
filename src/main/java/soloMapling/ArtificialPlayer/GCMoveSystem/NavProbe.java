@@ -40,6 +40,21 @@ public final class NavProbe {
         }
     }
 
+    /** b366: the reason a probe gives while the bot's own-profile graph is still being built: not a verdict. */
+    public static final String PENDING = "the graph for this bot's movement is still being built";
+
+    /** b366: the exact-profile graph, if built (tests swap it). Never the closest profile's graph. */
+    static volatile java.util.function.BiFunction<MapleMap, BotMovementProfile, BotNavigationGraph> exactGraph =
+            BotNavigationGraphProvider::peekGraph;
+    /** b366: starts building a profile's graph in the background (tests swap it). */
+    static volatile java.util.function.BiConsumer<MapleMap, BotMovementProfile> warmGraph =
+            BotNavigationGraphProvider::warmGraphAsync;
+
+    /** b366: whether a probe's reason is "still building", which is not a verdict on the route. */
+    public static boolean pending(String reason) {
+        return reason != null && reason.startsWith(PENDING);
+    }
+
     /** A point a player must be able to reach on a map: a portal or an NPC. */
     public record Spot(String what, Point at) {
     }
@@ -98,9 +113,14 @@ public final class NavProbe {
         }
         BotMovementState entry = GCMovement.stateOf(who);
         BotMovementProfile profile = entry != null ? entry.movementProfile : BotMovementProfile.fromCharacter(who);
-        BotNavigationGraph graph = BotNavigationGraphProvider.peekBestGraph(map, profile);
+        // 1.6.6 b366: a verdict on a bot's route comes from the graph of ITS movement profile, never the closest one
+        // built. TEST 7 Nov: a hasted alt (speed 140, a higher jump) was judged by the base graph's physics, told "no
+        // route" to a shelf its own jump reached, and the stage was given up. A missing exact graph is built in the
+        // background and the probe answers "pending" meanwhile - no verdict either way.
+        BotNavigationGraph graph = exactGraph.apply(map, profile);
         if (graph == null) {
-            graph = BotNavigationGraphProvider.getGraph(map, profile);
+            warmGraph.accept(map, profile);
+            return new Result(false, PENDING + " (" + profile + ")", -1, -1, List.of(), 0);
         }
         Point from = new Point(who.getPosition());
         Point to = new Point(x, y);

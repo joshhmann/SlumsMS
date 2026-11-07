@@ -143,7 +143,9 @@ final class StepExecutor {
     static volatile RouteCheck routeCheck = (bot, x, y) -> {
         soloMapling.ArtificialPlayer.GCMoveSystem.NavProbe.Result r =
                 soloMapling.ArtificialPlayer.GCMoveSystem.NavProbe.probe(bot, x, y);
-        return r.reachable() ? null : r.reason();
+        // b366: "still building the bot's own graph" is no verdict, so it never counts as a "no route"
+        return r.reachable() || soloMapling.ArtificialPlayer.GCMoveSystem.NavProbe.pending(r.reason()) ? null
+                : r.reason();
     };
     /** How often a bot walking to a reactor re-checks that a route exists; two "no route" in a row give the stage up. */
     static final long ROUTE_CHECK_MS = 10_000;
