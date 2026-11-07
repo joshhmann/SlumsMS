@@ -34,7 +34,9 @@ LIVE_DB_CONTAINER=${LIVE_DB_CONTAINER:-buns-clean-db-1}
 TEST_DB_CNF=${TEST_DB_CNF:-/opt/mapleroot-dev/solomapling-test/secrets/root.cnf}
 TEST_DB_PORT=${TEST_DB_PORT:-3307}
 DRILL_ROOT=${DRILL_ROOT:-/opt/mapleroot-dev/restore-drill}
-DRILL_UNIT=${DRILL_UNIT:-slumsms-restore-drill}
+# The boot's transient unit; not slumsms-restore-drill, which is the installed unit this script runs in (P0-8,
+# 7 Nov 12:30 UTC drill: "Unit slumsms-restore-drill.service was already loaded").
+DRILL_UNIT=${DRILL_UNIT:-slumsms-restore-drill-server}
 DRILL_LOGIN_PORT=${DRILL_LOGIN_PORT:-8539}
 DRILL_CHANNEL_BASE=${DRILL_CHANNEL_BASE:-8805}
 OFFBOX_KEY=${OFFBOX_KEY:-/root/.config/slumsms-backup/offbox.key}
@@ -262,10 +264,15 @@ else
 fi
 
 step "learned nav books loaded through the live jar's own loader (NavEdgeLearning)"
+# live's -D properties (the nav switches pick the graph cache folder); only the properties, not the rest of the line
+live_props=$(grep -oE -- '-D[^ ]+' <<<"$drill_argv" | tr '\n' ' ')
 # The server loads a book lazily, the first time a bot plans on that graph, and rewrites it only when something new
 # was learned, so a short run may never touch the restored books. This check calls the jar's loader directly: for
-# each restored book it reads the v68 graph from the cache, asks NavEdgeLearning for an edge cost (which loads the
-# book from cache/bot-nav/learned exactly as the server does) and counts the edges in the loaded book.
+# each restored book it reads the graph from the jar's own cache folder (BotNavigationGraphProvider.cacheFolderName
+# under live's flags, v70 on 1.6.4), asks NavEdgeLearning for an edge cost (which loads the book from
+# cache/bot-nav/learned exactly as the server does) and counts the edges in the loaded book. Not checked, only
+# counted: a book whose graph is not in the cache (the server builds that graph from WZ when a bot first plans on the
+# map) and a swim book ("<map>-swim", a SwimNavGraph, not a cached BotNavigationGraph).
 mkdir -p "$RUN/harness/src"
 cat > "$RUN/harness/src/DrillLearnedCheck.java" <<'JAVA'
 package soloMapling.ArtificialPlayer.GCMoveSystem;
@@ -280,18 +287,31 @@ import java.util.stream.Stream;
 /** Restore drill (ticket 45): load every restored learned-nav book through NavEdgeLearning, as the server does. */
 public final class DrillLearnedCheck {
     public static void main(String[] args) throws Exception {
-        Path graphs = Path.of(args[0]);
-        Path learned = Path.of(args[1]);
+        Path learned = Path.of(args[0]);
+        Path graphs = learned.getParent().resolve(BotNavigationGraphProvider.cacheFolderName());
+        System.out.println("GRAPHS " + graphs.getFileName());
         List<Path> files;
         try (Stream<Path> s = Files.list(learned)) {
             files = s.filter(p -> p.toString().endsWith(".json")).sorted().toList();
         }
         for (Path f : files) {
             String key = f.getFileName().toString().replaceFirst("\\.json$", "");
+            if (key.endsWith("-swim")) {
+                System.out.println("BOOK " + key + " swim 0 0 0");
+                continue;
+            }
             String[] k = key.split("-");
-            int mapId = Integer.parseInt(k[0]);
-            int speed = Integer.parseInt(k[1].substring(1));
-            int jump = Integer.parseInt(k[2].substring(1));
+            int mapId;
+            int speed;
+            int jump;
+            try {
+                mapId = Integer.parseInt(k[0]);
+                speed = Integer.parseInt(k[1].substring(1));
+                jump = Integer.parseInt(k[2].substring(1));
+            } catch (RuntimeException e) {
+                System.out.println("BOOK " + key + " badname 0 0 0");
+                continue;
+            }
             boolean snow = k.length > 3 && k[3].equals("ss");
             Path bin = graphs.resolve(key + ".bin");
             if (!Files.isRegularFile(bin)) {
@@ -332,30 +352,51 @@ JAVA
 learned_check=0
 if javac -nowarn -d "$RUN/harness/classes" -cp "$SRV/target/Cosmic.jar" "$RUN/harness/src/DrillLearnedCheck.java" > "$RCPT/harness-javac.out" 2>&1 \
    && systemd-run --wait --pipe -q "${ro[@]}" "${limits[@]}" -p WorkingDirectory="$SRV" -p MemoryMax=1G \
-        /usr/bin/java -Xmx512m -Dbot.nav.cacheDir=cache/bot-nav -cp "target/Cosmic.jar:$RUN/harness/classes" \
-        soloMapling.ArtificialPlayer.GCMoveSystem.DrillLearnedCheck cache/bot-nav/v68 cache/bot-nav/learned \
+        /usr/bin/java -Xmx512m $live_props -Dbot.nav.cacheDir=cache/bot-nav -cp "target/Cosmic.jar:$RUN/harness/classes" \
+        soloMapling.ArtificialPlayer.GCMoveSystem.DrillLearnedCheck cache/bot-nav/learned \
         > "$RCPT/learned-load.out" 2>&1; then
-    python3 -I - "$RCPT/learned-before.json" "$RCPT/learned-load.out" <<'EOF' | tee "$RCPT/learned-load.txt"
-import json, sys
+    python3 -I - "$RCPT/learned-before.json" "$RCPT/learned-load.out" > "$RCPT/learned-load.txt" <<'EOF'
+import json, re, sys
 before = json.load(open(sys.argv[1]))
-rows = {l.split()[1]: l.split()[2:] for l in open(sys.argv[2]) if l.startswith("BOOK ")}
-ok = 0
+lines = open(sys.argv[2]).read().splitlines()
+rows = {l.split()[1]: l.split()[2:] for l in lines if l.startswith("BOOK ")}
+graphs = next((l.split()[1] for l in lines if l.startswith("GRAPHS ")), "?")
+# A book written on an older graph is carried onto the current one as it loads (NavEdgeLearning logs "Nav learning
+# for <key> carried from graph vA to vB: X of Y edges"): it loads complete when X edges load out of the file's Y.
+carried = {}
+for l in lines:
+    m = re.search(r"Nav learning for (\S+) carried from graph \S+ to \S+: (\d+) of (\d+) edges", l)
+    if m:
+        carried[m.group(1)] = (int(m.group(2)), int(m.group(3)))
+ok = checked = 0
+skipped = {"nograph": 0, "swim": 0}
 for f, keys in sorted(before.items()):
     key = f[:-5]
     r = rows.get(key)
     n = len(keys or [])
+    if r and r[0] in skipped:
+        skipped[r[0]] += 1
+        print(f"  book {key}: {r[0]}, not checked ({n} edges in the file)")
+        continue
+    checked += 1
     if not r or not r[0].startswith("v"):
-        print(f"  book {key}: {r[0] if r else 'not checked'} ({n} edges in the file)")
+        print(f"  book {key}: {r[0] if r else 'not checked'} ({n} edges in the file)  <-- MISMATCH")
         continue
     loaded, resolved, pen = map(int, r[1:4])
-    good = loaded == n and n > 0
+    want, note = n, ""
+    if key in carried and carried[key][1] == n:
+        want, note = carried[key][0], f", carried {carried[key][0]} of {n}"
+    good = loaded == want and keys is not None
     ok += good
-    print(f"  book {key} (graph {r[0]}): file {n} edges, loaded {loaded}, on v68 edges {resolved}, penalised {pen}{'' if good else '  <-- MISMATCH'}")
-print("RESULT", ok, len(before))
+    print(f"  book {key} (graph {r[0]}): file {n} edges, loaded {loaded}{note}, on graph edges {resolved}, penalised {pen}{'' if good else '  <-- MISMATCH'}")
+print("RESULT", ok, checked, skipped["nograph"], skipped["swim"], graphs)
 EOF
-    read -r good total < <(awk '/^RESULT/ { print $2, $3 }' "$RCPT/learned-load.txt")
-    [ "${total:-0}" -gt 0 ] && [ "$good" = "$total" ] && { ok "all $total restored books loaded with every edge"; learned_check=1; } \
-        || bad "learned nav: $good of ${total:-0} books loaded completely (learned-load.txt)"
+    read -r good total nograph swim graphs < <(awk '/^RESULT/ { print $2, $3, $4, $5, $6 }' "$RCPT/learned-load.txt")
+    grep -- '<-- MISMATCH' "$RCPT/learned-load.txt" | head -5 || true
+    [ "${total:-0}" -gt 0 ] && [ "$good" = "$total" ] \
+        && { ok "all $total restored books with a cached $graphs graph loaded with every edge"; learned_check=1; } \
+        || bad "learned nav: $good of ${total:-0} books with a cached ${graphs:-?} graph loaded completely (learned-load.txt)"
+    echo "  note learned nav: not checked, no cached $graphs graph ${nograph:-?}, swim books ${swim:-?}"
 else
     bad "learned nav load check did not run (harness-javac.out, learned-load.out)"
 fi
