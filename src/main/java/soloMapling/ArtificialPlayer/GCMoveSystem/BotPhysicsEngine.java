@@ -3200,7 +3200,7 @@ final class BotPhysicsEngine {
         return null;
     }
 
-    private static Point simulateRopeGrab(MapleMap map,
+    static Point simulateRopeGrab(MapleMap map, // package-private for RopeHopReachTest (v72 groundwork)
                                           Point from,
                                           float initialVelY,
                                           int stepX,
