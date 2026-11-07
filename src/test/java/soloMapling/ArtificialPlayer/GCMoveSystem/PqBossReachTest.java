@@ -22,6 +22,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.ArrayDeque;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeMap;
@@ -129,18 +136,151 @@ class PqBossReachTest {
         }
         BotNavigationGraph graph = BotNavigationGraphProvider.rebuildGraph(map, BotMovementProfile.base());
         List<NavProbe.Spot> targets = targets(mapId);
+        MazeWalk maze = new MazeWalk(map, graph);
         for (Portal p : starts(map)) {
             Point from = new Point(p.getPosition());
             int fromRegion = graph == null ? -1 : graph.findRegionId(map, from);
             for (NavProbe.Spot t : targets) {
                 NavProbe.Result r = NavProbe.probe(map, graph, fromRegion, from, t.at(), 0);
-                if (!r.reachable()) {
+                if (!r.reachable() && !maze.reaches(p, t.at())) {
                     out.put(mapId + " from " + p.getName() + " to " + t.what() + " @(" + t.at().x + "," + t.at().y + ")",
                             r.reason());
                 }
             }
         }
         return out;
+    }
+
+    /**
+     * 1.6.6 nav-cages-triage: the scripted in-map portals a walker can take. A maze room (Ellin PQ 930000300's 46
+     * {@code party6_stage5xx} doors, OPQ 920010700's 64 {@code party3_r6pt} doors) is joined only by portals whose
+     * script warps within the map, so the plain graph has no edge for them and every room past the first read as a cage.
+     * A portal counts when its script ({@code scripts/portal/<name>.js}) calls {@code warp(<this map or
+     * pi.getMapId()>, <portal>)}: a quoted name or a number is that portal, anything computed is any of the
+     * map's same-script doors and in-map landings (it may send you to any of them). A target is reached when some chain walk - door - walk gets there.
+     */
+    static final class MazeWalk {
+        private static final Pattern WARP = Pattern.compile("warp\\(\\s*([^,()]+(?:\\(\\))?)\\s*,\\s*([^;]+?)\\)\\s*;");
+
+        private final MapleMap map;
+        private final BotNavigationGraph graph;
+        /** scripted in-map door -> the portals it can put you on */
+        private final Map<Portal, Set<Portal>> doors = new HashMap<>();
+        private final Map<Portal, Set<Portal>> reach = new HashMap<>();
+        /** (portal, point) -> walks; the door legs are shared by every start, so each is probed once */
+        private final Map<String, Boolean> legs = new HashMap<>();
+
+        MazeWalk(MapleMap map, BotNavigationGraph graph) {
+            this.map = map;
+            this.graph = graph;
+            for (Portal p : starts(map)) {
+                Set<Portal> to = destinations(map, p);
+                if (!to.isEmpty()) {
+                    doors.put(p, to);
+                }
+            }
+        }
+
+        boolean hasDoors() {
+            return !doors.isEmpty();
+        }
+
+        /** Where the portal's script can warp you on this map; empty when it has no script or leaves the map. */
+        static Set<Portal> destinations(MapleMap map, Portal p) {
+            String script = p.getScriptName();
+            Set<Portal> out = new LinkedHashSet<>();
+            if (script == null || script.isBlank()) {
+                return out;
+            }
+            Path file = Path.of("scripts", "portal", script + ".js");
+            String src;
+            try {
+                src = Files.readString(file, StandardCharsets.UTF_8);
+            } catch (IOException missing) {
+                return out;
+            }
+            Matcher m = WARP.matcher(src);
+            while (m.find()) {
+                String mapArg = m.group(1).strip();
+                if (!mapArg.equals("pi.getMapId()") && !mapArg.equals(String.valueOf(map.getId()))) {
+                    continue;
+                }
+                String to = m.group(2).strip();
+                Portal dest = null;
+                if (to.matches("\"[^\"]*\"")) {
+                    dest = map.getPortal(to.substring(1, to.length() - 1));
+                } else if (to.matches("\\d+")) {
+                    dest = map.getPortal(Integer.parseInt(to));
+                } else {
+                    // computed (OPQ room 6: the next row's door, or back to a landing): the doors of this script and
+                    // the map's in-map landings, never a door out of the map or the spawn point
+                    for (Portal q : starts(map)) {
+                        boolean sameScript = script.equals(q.getScriptName());
+                        boolean landing = q.getType() != 0 && (q.getScriptName() == null || q.getScriptName().isBlank())
+                                && (q.getTargetMapId() == 999999999 || q.getTargetMapId() == map.getId());
+                        if (sameScript || landing) {
+                            out.add(q);
+                        }
+                    }
+                    continue;
+                }
+                if (dest != null && dest.getPosition() != null) {
+                    out.add(dest);
+                }
+            }
+            out.remove(p);
+            return out;
+        }
+
+        private boolean walks(Portal from, Point to) {
+            return legs.computeIfAbsent(from.getId() + "->" + to.x + "," + to.y, k -> walk(from, to));
+        }
+
+        private boolean walk(Portal from, Point to) {
+            Point at = new Point(from.getPosition());
+            int region = graph == null ? -1 : graph.findRegionId(map, at);
+            return NavProbe.probe(map, graph, region, at, to, 0).reachable();
+        }
+
+        /** The portals a walker standing on {@code start} can end up on, taking scripted doors as often as it likes. */
+        private Set<Portal> closure(Portal start) {
+            Set<Portal> seen = reach.get(start);
+            if (seen != null) {
+                return seen;
+            }
+            seen = new HashSet<>();
+            ArrayDeque<Portal> todo = new ArrayDeque<>();
+            seen.add(start);
+            todo.add(start);
+            while (!todo.isEmpty()) {
+                Portal at = todo.poll();
+                for (var d : doors.entrySet()) {
+                    Portal door = d.getKey();
+                    if (door == at || walks(at, door.getPosition())) {
+                        for (Portal next : d.getValue()) {
+                            if (seen.add(next)) {
+                                todo.add(next);
+                            }
+                        }
+                    }
+                }
+            }
+            reach.put(start, seen);
+            return seen;
+        }
+
+        /** A target the plain walk missed: reached by walking from somewhere the scripted doors put you. */
+        boolean reaches(Portal start, Point target) {
+            if (doors.isEmpty() || graph == null) {
+                return false;
+            }
+            for (Portal at : closure(start)) {
+                if (at != start && walks(at, target)) {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 
     static Set<String> baseline() throws IOException {
@@ -157,6 +297,20 @@ class PqBossReachTest {
             }
         }
         return out;
+    }
+
+    /**
+     * 1.6.6 nav-cages-triage: a maze room behind a scripted in-map door is not a cage. Ellin PQ's maze (930000300) is
+     * sixteen rooms joined only by {@code party6_stage5xx} doors, OPQ's tower (920010700) rows by {@code party3_r6pt};
+     * the plain probe counted every room past the start as walled off (1,334 of the 1,846 listed cages).
+     */
+    @Test
+    void roomsBehindScriptedInMapDoorsAreNotCages() {
+        WzTestData.assumePresent("Map.wz");
+        assertFalse(cages(930000300).containsKey("930000300 from 001E to npc 2133001 @(1772,1612)"),
+                "Ellin maze: the far room is three doors from 001E");
+        assertFalse(cages(920010700).containsKey("920010700 from pt00 to reactor 2008007 \"1\" @(-283,-4980)"),
+                "OPQ tower: the top row is reached by the right door on each row");
     }
 
     @Test
