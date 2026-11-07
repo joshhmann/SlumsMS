@@ -7,18 +7,13 @@
 # The Zenumist twin (MagatiaPQ_Z) is a different row and is NOT covered by this card.
 # Pass (card): `RUN start magatiapq`, the stage 1..6 cleared lines in order tagged [magatiapq, leader AqClient], the
 # final `RUN end magatiapq in ...: cleared after N s`, and the client on 926110700.
-# STAGING (Server Dev/Bots, before the run; there is no staging command yet): a party of EXACTLY 4 players
-# (MagatiaPQ_A.js:27-32), every member level >= 71 and standing on 261000021 with AqClient leading. The run is off
-# TEST's own switch (-Dslums.mechanics.magatiapq=true on top of -Dslums.mechanics=true). No party staging step exists,
-# so this script starts from the leader already standing on the recruit map.
-# Juliet's dialog on 261000021 (2112003.js:63-80) has three options and no prize branch; the files hand-in at stage 4
-# is the bots' solver step (magatia-files) with the NPC 2112005, not a click the human leader makes.
+# STAGING: `!mechanics pq magatiapq me 3` (Bots, 166-bots-pq-staging) builds the party and starts the run; the leader must be gm 3 (Server Dev). Needs the 1.6.6 build with that command and the row's mechanics flag.
 id: magatiapq-full-run
 title: "Magatia PQ (Alcadno): the leader starts the run with four players and the party clears all six stages"
 covers: [feature-magatiapq]
 status: draft
 server: test
-needs: [gm, mechanics, proposed_signals, proposed_anchors, proposed_steps]
+needs: [gm, mechanics, proposed_signals]
 notes: "tarkov2 QA account, TEST with -Dslums.mechanics=true and -Dslums.mechanics.magatiapq=true. Server Dev stages a party of exactly four, level >= 71, on 261000021 with AqClient as leader. Channel 5."
 clients:
   me:
@@ -39,13 +34,12 @@ steps:
   - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
   - {id: revive, do: gm, line: "!heal"}
   - {do: sleep, ms: 1000, reason: "let the revive land before the next command"}
-  - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 261000021}, timeout_ms: 20000, optional: true}
-  - {id: talk, do: click_npc, npc: 2112003}
-  - {id: talk-open, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
-  - {id: pick, do: click, anchor: npc_dialog.option_1, note: "I want to participate in the party quest (L0)"}
+  - {id: to-recruit, do: gm, line: "!warp 261000021", note: "the recruit map"}
+  - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 261000021}, timeout_ms: 20000}
+  - {id: stage-party, do: gm, line: "!mechanics pq magatiapq me 3", note: "Bots 166-bots-pq-staging: spawns the regulars, forms the party with AqClient leading and starts the run"}
   - id: run-start
     do: wait
-    armed_at: pick
+    armed_at: stage-party
     signal: {type: server_line, topic: MECHANICS, regex: "^RUN start magatiapq stage 1 in ", char: me}
     timeout_ms: 60000
   - {id: stage-1, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 1 cleared in \\d+ s.*\\[magatiapq", char: me}, timeout_ms: 300000}
@@ -59,9 +53,9 @@ steps:
   - {do: sleep, ms: 3000, reason: "frame of the exit map before the cleanup line"}
   - {id: end-run, do: gm, line: "!mechanics stop", note: "clean up after the last wait"}
 captures:
-  - {id: start, burst: {fps: 2, ms: 3000, at: {step: pick}}}
+  - {id: start, burst: {fps: 2, ms: 3000, at: {step: stage-party}}}
   - {id: exit-map, burst: {fps: 2, ms: 3000, at: {step: out}}}
-  - {id: chat, chat_log: {span: {from: pick, to: out}}}
+  - {id: chat, chat_log: {span: {from: stage-party, to: out}}}
 expect:
   reviewer:
     - see: "The leader on the exit map 926110700 after the sixth stage"

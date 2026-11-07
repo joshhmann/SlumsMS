@@ -6,21 +6,13 @@
 # everyone to the exit map 930000800 (EllinPQ.js:30 exitMap, :226-241 clearPQ).
 # Pass (card): `RUN start ellinpq`, the stage 1..6 cleared lines in order tagged [ellinpq, leader AqClient], the final
 # `RUN end ellinpq in ...: cleared after N s`, and the client on 930000800.
-# STAGING (Server Dev/Bots, before the run; there is no staging command yet): the party of 4-6 adventurers (job/1000
-# == 0, EllinPQ.js:93 refuses anyone else), all level >= 44 and the leader's party standing on 300030100 with AqClient
-# leading. The run is off TEST's own switch (-Dslums.mechanics.ellinpq=true on top of -Dslums.mechanics=true).
-# No party staging step exists, so this script starts from the leader already standing on the recruit map.
-# The stage 4 marble hand-in to 2133001 and the stage 5 stone to 2133004 are the bots' own solver steps
-# (ellin-marbles, ellin-stone): the human leader only opens the run and watches it.
-# Ellin's option 4 ("I would like to reclaim a prize", 2133000.js:73-118, Altaire Earrings for 10 x 4001198) is a
-# post-run exchange, not part of the clear: this card does not click it, so a leader without ten fragments cannot fail
-# the run on it. If a later card wants it, the sequence is npc_dialog.option_4 then npc_dialog.option_1.
+# STAGING: `!mechanics pq ellinpq me 3 ranged1` (Bots, 166-bots-pq-staging) builds the party and starts the run; the leader must be gm 3 (Server Dev). Needs the 1.6.6 build with that command and the row's mechanics flag.
 id: ellinpq-full-run
 title: "Ellin PQ: the leader starts the Forest of Poison Haze run and the party clears all six stages"
 covers: [feature-ellinpq]
 status: draft
 server: test
-needs: [gm, mechanics, proposed_signals, proposed_anchors, proposed_steps]
+needs: [gm, mechanics, proposed_signals]
 notes: "tarkov2 QA account, TEST with -Dslums.mechanics=true and -Dslums.mechanics.ellinpq=true. Server Dev stages the party (4-6 adventurers, level >= 44) on 300030100 with AqClient as leader. Channel 5."
 clients:
   me:
@@ -41,13 +33,12 @@ steps:
   - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
   - {id: revive, do: gm, line: "!heal"}
   - {do: sleep, ms: 1000, reason: "let the revive land before the next command"}
-  - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 300030100}, timeout_ms: 20000, optional: true}
-  - {id: talk, do: click_npc, npc: 2133000}
-  - {id: talk-open, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
-  - {id: pick, do: click, anchor: npc_dialog.option_1, note: "I want to participate in the party quest (L0)"}
+  - {id: to-recruit, do: gm, line: "!warp 300030100", note: "the recruit map"}
+  - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 300030100}, timeout_ms: 20000}
+  - {id: stage-party, do: gm, line: "!mechanics pq ellinpq me 3 ranged1", note: "Bots 166-bots-pq-staging: spawns the regulars, forms the party with AqClient leading and starts the run"}
   - id: run-start
     do: wait
-    armed_at: pick
+    armed_at: stage-party
     signal: {type: server_line, topic: MECHANICS, regex: "^RUN start ellinpq stage 1 in ", char: me}
     timeout_ms: 60000
   - {id: stage-1, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 1 cleared in \\d+ s.*\\[ellinpq", char: me}, timeout_ms: 300000}
@@ -61,9 +52,9 @@ steps:
   - {do: sleep, ms: 3000, reason: "frame of the exit map before the cleanup line"}
   - {id: end-run, do: gm, line: "!mechanics stop", note: "clean up after the last wait"}
 captures:
-  - {id: start, burst: {fps: 2, ms: 3000, at: {step: pick}}}
+  - {id: start, burst: {fps: 2, ms: 3000, at: {step: stage-party}}}
   - {id: exit-map, burst: {fps: 2, ms: 3000, at: {step: out}}}
-  - {id: chat, chat_log: {span: {from: pick, to: out}}}
+  - {id: chat, chat_log: {span: {from: stage-party, to: out}}}
 expect:
   reviewer:
     - see: "The leader on the exit map 930000800 after the sixth stage"

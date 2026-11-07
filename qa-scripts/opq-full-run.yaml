@@ -6,21 +6,13 @@
 # Minerva reactor 2006001, which sets statusStg8 and calls clearPQ). OrbisPQ.js:30 sends the cleared party to 920011200.
 # Pass (card): `RUN start opq`, the stage 1..8 cleared lines in order tagged [opq, leader AqClient], the final
 # `RUN end opq in ...: cleared after N s`, and the client on 920011200.
-# STAGING (Server Dev/Bots, before the run; there is no staging command yet): a party of 5-6 players (OrbisPQ.js:27),
-# every member level >= 51 (:28) and standing on 200080101 with AqClient leading. The run is off TEST's own switch
-# (-Dslums.mechanics.opq=true on top of -Dslums.mechanics=true). No party staging step exists, so this script starts
-# from the leader already standing on the recruit map.
-# Wonky's option 4 ("I would like to reclaim a prize", 2013000.js:73-96) is the Goddess Wristband for 10 x 4001158: a
-# post-run exchange, not part of the clear, so this card does not click it. If a later card wants it, the sequence is
-# npc_dialog.option_4 then npc_dialog.option_1.
-# The waits key on the RUN lines only: a REACTOR_HIT line (for example `hit reactor 2001016` when the garden reactor is
-# hit) is a bot action, not a stage.
+# STAGING: `!mechanics pq opq me 4 ranged1` (Bots, 166-bots-pq-staging) builds the party and starts the run; the leader must be gm 3 (Server Dev). Needs the 1.6.6 build with that command and the row's mechanics flag.
 id: opq-full-run
 title: "Orbis PQ: the leader starts the Tower of Goddess run and the party clears all eight stages"
 covers: [feature-opq]
 status: draft
 server: test
-needs: [gm, mechanics, proposed_signals, proposed_anchors, proposed_steps]
+needs: [gm, mechanics, proposed_signals]
 notes: "tarkov2 QA account, TEST with -Dslums.mechanics=true and -Dslums.mechanics.opq=true. Server Dev stages a party of 5-6, level >= 51, on 200080101 with AqClient as leader. Channel 5."
 clients:
   me:
@@ -41,13 +33,12 @@ steps:
   - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
   - {id: revive, do: gm, line: "!heal"}
   - {do: sleep, ms: 1000, reason: "let the revive land before the next command"}
-  - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 200080101}, timeout_ms: 20000, optional: true}
-  - {id: talk, do: click_npc, npc: 2013000}
-  - {id: talk-open, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
-  - {id: pick, do: click, anchor: npc_dialog.option_1, note: "I want to participate in the party quest (L0)"}
+  - {id: to-recruit, do: gm, line: "!warp 200080101", note: "the recruit map"}
+  - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 200080101}, timeout_ms: 20000}
+  - {id: stage-party, do: gm, line: "!mechanics pq opq me 4 ranged1", note: "Bots 166-bots-pq-staging: spawns the regulars, forms the party with AqClient leading and starts the run"}
   - id: run-start
     do: wait
-    armed_at: pick
+    armed_at: stage-party
     signal: {type: server_line, topic: MECHANICS, regex: "^RUN start opq stage 1 in ", char: me}
     timeout_ms: 60000
   - {id: stage-1, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 1 cleared in \\d+ s.*\\[opq", char: me}, timeout_ms: 300000}
@@ -63,9 +54,9 @@ steps:
   - {do: sleep, ms: 3000, reason: "frame of the exit map before the cleanup line"}
   - {id: end-run, do: gm, line: "!mechanics stop", note: "clean up after the last wait"}
 captures:
-  - {id: start, burst: {fps: 2, ms: 3000, at: {step: pick}}}
+  - {id: start, burst: {fps: 2, ms: 3000, at: {step: stage-party}}}
   - {id: exit-map, burst: {fps: 2, ms: 3000, at: {step: out}}}
-  - {id: chat, chat_log: {span: {from: pick, to: out}}}
+  - {id: chat, chat_log: {span: {from: stage-party, to: out}}}
 expect:
   reviewer:
     - see: "The leader on the exit map 920011200 after the eighth stage"
