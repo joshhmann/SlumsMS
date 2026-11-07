@@ -198,6 +198,11 @@ argv=$(systemctl show "$LIVE_UNIT" -p ExecStart --value | sed -n 's/.*argv\[\]=\
 drill_argv=$(echo "$argv" | sed -E "s/-Dmapleroot\.login-port=[0-9]+/-Dmapleroot.login-port=$DRILL_LOGIN_PORT/; s/-Dmapleroot\.channel-base-port=[0-9]+/-Dmapleroot.channel-base-port=$DRILL_CHANNEL_BASE/")
 [[ "$drill_argv" == *"login-port=$DRILL_LOGIN_PORT"* && "$drill_argv" == *"channel-base-port=$DRILL_CHANNEL_BASE"* ]] \
     || die "live command line has no port flags to replace: $argv"
+# live's site login API (-Dslums.auth.*) and bot inspect API (-Dslums.inspect*) stay off in the copy: their ports are
+# live's, and the copy has no business with their secret files (P0-8, 7 Nov 18:02 UTC drill: 2 BindExceptions)
+drill_argv=$(echo "$drill_argv" | sed -E 's/ -Dslums\.(auth|inspect)[^ ]*//g')
+[[ "$drill_argv" != *-Dslums.auth* && "$drill_argv" != *-Dslums.inspect* ]] \
+    || die "could not take the auth/inspect API flags off the drill's command line"
 for p in $DRILL_LOGIN_PORT $(seq "$DRILL_CHANNEL_BASE" $((DRILL_CHANNEL_BASE + 15))); do
     ! ss -ltnH "sport = :$p" | grep -q . || die "port $p is in use"
 done
