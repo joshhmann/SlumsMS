@@ -76,7 +76,7 @@ DEFAULTS = {
     "LLM_URL": "http://192.168.0.17:8095/health",
     "DECIDE_URL": "http://192.168.0.17:8900/health",
     "HTTP_TIMEOUT": "5",
-    "TIMERS": "",                     # e.g. "slumsms-backup slumsms-nav-bake"
+    "TIMERS": "",                     # e.g. "slumsms-backup slumsms-nav-bake slumsms-restore-drill:768"
     "TIMER_MAX_AGE_H": "26",
     "VERSION": "",                    # shown in the status message
     "VERSION_FILE": "",               # or read the version from this file (first line)
@@ -767,6 +767,41 @@ class Result:
         self.managed, self.event, self.rollback = managed, event, rollback
 
 
+def timer_status(t):
+    """(ok, detail) for the timers in TIMERS. An entry is a unit name, or "name:hours" for its own age limit (a
+    monthly drill cannot use the nightly backup's TIMER_MAX_AGE_H). A timer that is not active, a last run that
+    failed, or a last run older than its limit is bad; a timer that has never fired is only judged on being active."""
+    bad, parts = [], []
+    for entry in t.get("TIMERS").split():
+        name, _, hours = entry.partition(":")
+        base = name[:-6] if name.endswith(".timer") else name
+        try:
+            max_age = float(hours) * 3600 if hours else t.num("TIMER_MAX_AGE_H") * 3600
+        except ValueError:
+            bad.append("%s has a bad age limit %r" % (base, hours))
+            continue
+        _, out, _ = run(["systemctl", "show", base + ".timer", "--timestamp=unix", "-p",
+                         "ActiveState,LastTriggerUSec"])
+        tinfo = dict(ln.split("=", 1) for ln in out.splitlines() if "=" in ln)
+        _, out, _ = run(["systemctl", "show", base + ".service", "--timestamp=unix", "-p",
+                         "Result,ExecMainStatus,ActiveState,ExecMainExitTimestamp"])
+        sinfo = dict(ln.split("=", 1) for ln in out.splitlines() if "=" in ln)
+        last = tinfo.get("LastTriggerUSec", "").lstrip("@")
+        last = int(last) if last.isdigit() else 0
+        if tinfo.get("ActiveState") != "active":
+            bad.append("%s.timer is %s" % (base, tinfo.get("ActiveState", "missing")))
+        elif sinfo.get("ActiveState") in ("activating", "active"):
+            parts.append("%s running" % base)
+        elif sinfo.get("Result") not in ("success", None):
+            bad.append("%s last run failed (%s, exit %s)" % (base, sinfo.get("Result"),
+                                                            sinfo.get("ExecMainStatus", "?")))
+        elif last and time.time() - last > max_age:
+            bad.append("%s has not run for %s" % (base, human_duration(time.time() - last)))
+        else:
+            parts.append("%s ok%s" % (base, (" (%s ago)" % human_duration(time.time() - last)) if last else ""))
+    return not bad, "; ".join(bad or parts)
+
+
 def run_checks(t, cloud=None, checks=None):
     results = []
     unit = t.get("UNIT")
@@ -977,32 +1012,9 @@ def run_checks(t, cloud=None, checks=None):
             add(key, name, ok, "%s %s%s" % (hostport, detail, "" if ok else " (bots fall back to scripted lines)"))
 
     # 10. scheduled jobs
-    timers = t.get("TIMERS").split()
-    if timers:
-        bad, parts = [], []
-        max_age = t.num("TIMER_MAX_AGE_H") * 3600
-        for name in timers:
-            base = name[:-6] if name.endswith(".timer") else name
-            _, out, _ = run(["systemctl", "show", base + ".timer", "--timestamp=unix", "-p",
-                             "ActiveState,LastTriggerUSec"])
-            tinfo = dict(ln.split("=", 1) for ln in out.splitlines() if "=" in ln)
-            _, out, _ = run(["systemctl", "show", base + ".service", "--timestamp=unix", "-p",
-                             "Result,ExecMainStatus,ActiveState,ExecMainExitTimestamp"])
-            sinfo = dict(ln.split("=", 1) for ln in out.splitlines() if "=" in ln)
-            last = tinfo.get("LastTriggerUSec", "").lstrip("@")
-            last = int(last) if last.isdigit() else 0
-            if tinfo.get("ActiveState") != "active":
-                bad.append("%s.timer is %s" % (base, tinfo.get("ActiveState", "missing")))
-            elif sinfo.get("ActiveState") in ("activating", "active"):
-                parts.append("%s running" % base)
-            elif sinfo.get("Result") not in ("success", None):
-                bad.append("%s last run failed (%s, exit %s)" % (base, sinfo.get("Result"),
-                                                                sinfo.get("ExecMainStatus", "?")))
-            elif last and time.time() - last > max_age:
-                bad.append("%s has not run for %s" % (base, human_duration(time.time() - last)))
-            else:
-                parts.append("%s ok%s" % (base, (" (%s ago)" % human_duration(time.time() - last)) if last else ""))
-        add("timers", "scheduled jobs", not bad, "; ".join(bad or parts))
+    if t.get("TIMERS").split():
+        ok, detail = timer_status(t)
+        add("timers", "scheduled jobs", ok, detail)
 
     # 11. cloud chat spend and account balance (state: <state>/cloud.json, see cmd_check)
     if cloud is not None:

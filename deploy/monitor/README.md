@@ -16,7 +16,7 @@ announcements, for one or more game servers on 192.168.0.164. Python 3 standard 
 | disk space | under `DISK_MIN_FREE_GB` (15) or `DISK_MIN_FREE_PCT` (5%) free on `/`, the server folder and `DISK_PATHS` | 1 run |
 | bot population | bots in the world, counted from the botroster rows open now (`LastLoginAt > LastLogoutAt`) whose `LastLoginAt` is after the unit's current start: rows from before this boot are what a crash leaves behind (the bots only write a logout at the shutdown sweep, the hourly autosave or a despawn), so they are counted apart and the detail line names them — `1186 online (1255 rows logged in before this boot are stale), director target 1600`. Until `BOTS_STALE_MIN` (75, past the first hourly autosave) minutes of uptime the two cannot be told apart: the total is counted and the run is a skip. Under `BOTS_MIN_RATIO` (60%) of the director target after `BOTS_GRACE_MIN` (20) minutes of uptime, or `[Director] tick failed` lines, is a failure | 10 runs |
 | bot chat LLM / Decide | `LLM_URL` (`192.168.0.17:8095/health`) or `DECIDE_URL` (`:8900/health`) not 2xx within 5 s, twice 3 s apart | 1 run |
-| scheduled jobs | a timer in `TIMERS` is not active, its last run failed, or it has not run for `TIMER_MAX_AGE_H` (26) hours | 1 run |
+| scheduled jobs | a timer in `TIMERS` is not active, its last run failed, or it has not run for `TIMER_MAX_AGE_H` (26) hours; `name:hours` gives one job its own limit (`slumsms-restore-drill:768` for the monthly drill) | 1 run |
 | cloud budget | today's spend in `CLOUD_BUDGET_FILE` (`<server>/data/convo/cloud-budget.json`, written by `CloudBudget.java`) passes `CLOUD_WARN_PCT` (80%) of the daily cap, or reaches it | once a day per level |
 | cloud balance | the provider account's USD balance (`GET <base>/user/balance`) is under `BALANCE_MIN_USD` (5), or the request failed three times in a row | 3 failed calls / immediately when low |
 
@@ -162,7 +162,9 @@ Test without Discord: `python3 test_announce.py` (runs `mock-webhook.py`; rate c
 maintenance, Cody's lines, the deploy hook). `python3 test_cloud.py` covers the cloud budget and balance checks with
 a fake budget file, a fake key file and a local `http.server` standing in for `/user/balance`: it never calls the
 real API. `python3 test_log.py` covers the game log silence check with a back-dated log file and a local socket that
-answers like the login server (silent log + answering port, growing log, rolled log, closed port, restart grace).
+answers like the login server (silent log + answering port, growing log, rolled log, closed port, restart grace). `python3 test_timers.py`
+covers the scheduled jobs check with a faked `systemctl` (missed backup, failed push, disabled drill timer, the
+monthly drill's own age limit).
 
 ## Configuration
 

@@ -1,8 +1,8 @@
 [Unit]
-Description=Monthly SlumsMS restore drill (1st of the month, 12:00 UTC)
+Description=Monthly SlumsMS restore drill (1st of the month, 12:30 UTC, after the 12:00 off-box push)
 
 [Timer]
-OnCalendar=*-*-01 12:00:00 UTC
+OnCalendar=*-*-01 12:30:00 UTC
 Persistent=true
 
 [Install]
