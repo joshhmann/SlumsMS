@@ -47,7 +47,8 @@ class AutoQaRunnerTest {
         }
 
         @Override
-        public Actor actor(int slot) {
+        public synchronized Actor actor(int slot) {
+            // two lanes call this from two threads: an unsynchronised grow handed out FakeActors with the wrong slot (b355)
             while (actors.size() < slot) {
                 actors.add(new FakeActor(this, actors.size() + 1));
             }
