@@ -77,8 +77,14 @@ public sealed interface SolverStep {
     record TalkNpc(int npcId, int itemId, int count) implements SolverStep {
     }
 
-    /** Drop items for another member to loot (passes to the leader). */
-    record DropFor(int itemId, int count, int toCharacterId) implements SolverStep {
+    /**
+     * Drop items for another member to loot (passes to the leader). {@code note}, when set, is what a real leader is
+     * told once (a server notice; {@code {name}} is the dropper), in place of KPQ's "take them to Cloto" chat line.
+     */
+    record DropFor(int itemId, int count, int toCharacterId, String note) implements SolverStep {
+        public DropFor(int itemId, int count, int toCharacterId) {
+            this(itemId, count, toCharacterId, null);
+        }
     }
 
     /**

@@ -34,6 +34,8 @@ public final class ZakumMinesSolver implements StageSolver {
     /** Adobis's hand-in clerk, standing on the hub. */
     static final int CLERK = 2032002;
     static final int HUB = 280010000;
+    /** b344e: what a real leader is told when a regular drops the fire ore for him ({@code {name}}: the regular). */
+    static final String HAND_IN_NOTE = "[Zakum] {name} dropped the Fire Ore at your feet. Pick it up and bring it to Aura.";
     /**
      * b344e: how long ores lying in front of a closed big chest are left for the server to take. It takes an item
      * reactor's drop 5 s after it lands ({@code MapleMap.activateItemReactors}); past this window the drop did not take.
@@ -60,10 +62,20 @@ public final class ZakumMinesSolver implements StageSolver {
         }
         if (isHandIn(view.stage())) {
             int held = view.itemCount(member.characterId(), DOCUMENT);
+            // b344e: Aura takes the fire ore only from the event leader (2032002.js:67-71). When that is a real player,
+            // the regular holding it walks it over and drops it at his feet, as a party member would.
+            RunMember lead = view.leader().orElse(null);
+            boolean realLeader = lead != null && !lead.bot();
             if (held <= 0) {
+                if (realLeader) {
+                    return new SolverStep.Wait(2_000, "the fire ore is the leader's to bring to Aura");
+                }
                 return new SolverStep.Abandon("no document: the big chest on 280011005 was never opened");
             }
             if (!leader) {
+                if (realLeader && view.mapOf(lead.characterId()) == mapId) {
+                    return new SolverStep.DropFor(DOCUMENT, held, lead.characterId(), HAND_IN_NOTE);
+                }
                 return new SolverStep.Wait(1_500, "the hand-in is the leader's");
             }
             return new SolverStep.TalkNpc(CLERK, DOCUMENT, 1);
