@@ -454,15 +454,16 @@ since=$(date +%s)
 systemd-run --unit="$DRILL_UNIT" -q "${ro[@]}" "${sandbox[@]}" "${limits[@]}" -p SuccessExitStatus=143 -p TimeoutStopSec=5min \
     -p WorkingDirectory="$SRV" $drill_argv
 journal() { journalctl -u "$DRILL_UNIT" --since "@$since" -o cat --no-pager 2>/dev/null; }
-# The copy may listen only on its login port and channel range and talk only to loopback; anything else kills it.
+# The copy may listen (TCP or UDP) only on its login port and channel range and talk only to loopback; anything else
+# kills it.
 contained() {
     local mp p extra=""
     mp=$(systemctl show "$DRILL_UNIT" -p MainPID --value)
-    for p in $(ss -ltnpH | grep -F "pid=$mp," | awk '{print $4}' | sed -E 's/.*://' | sort -un); do
+    for p in $(ss -ltunpH | grep -F "pid=$mp," | awk '{print $5}' | sed -E 's/.*://' | sort -un); do
         [ "$p" = "$DRILL_LOGIN_PORT" ] || { [ "$p" -ge "$DRILL_CHANNEL_BASE" ] && [ "$p" -le $((DRILL_CHANNEL_BASE + 15)) ]; } \
             || extra+=" listens :$p"
     done
-    for p in $(ss -tnpH | grep -F "pid=$mp," | awk '{print $5}' | sed -E 's/:[0-9]+$//; s/^\[|\]$//g' | sort -u); do
+    for p in $(ss -tunpH | grep -F "pid=$mp," | awk '{print $6}' | sed -E 's/:[0-9]+$//; s/^\[|\]$//g' | sort -u); do
         case "$p" in 127.*|::1|::ffff:127.*) ;; *) extra+=" talks to $p" ;; esac
     done
     if [ -z "$extra" ]; then
