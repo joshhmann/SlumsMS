@@ -114,7 +114,7 @@ steps:
   - {id: aura-menu, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000, optional: true}
   - {id: brought-items, do: click, anchor: npc_dialog.option_2, note: "I brought items!"}
   - {do: sleep, ms: 2000, reason: "the yes/no dialog opens"}
-  - {id: confirm-handin, do: click, anchor: npc_dialog.yes}
+  - {id: confirm-handin, do: click, anchor: npc_dialog.next, note: "Yes in the yes/no dialog is the same mode-1 reply as Next: no calibrated npc_dialog.yes point yet"}
   - {do: sleep, ms: 3000, reason: "frame after the hand-in"}
   - {id: stage-55, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 55 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
   - {id: finished, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN zakumpq cleared in \\d+ s; prizes, bonus and out", char: me}, timeout_ms: 300000}
