@@ -3,12 +3,17 @@
 # conf's NAV_CACHE_SRC (owner decision 7 Nov 2026: a release whose GRAPH_VERSION is new on live ships TEST's cache, so
 # live's first boot does not warm every map's graphs on two threads).
 #
-#   tools/release/nav-cache-copy <version> <vNN> [--expect-mapwz SHA16] [--replace] [--dry-run]
+#   tools/release/nav-cache-copy <version> <vNN> [--expect-mapwz SHA16] [--built-before 'YYYY-MM-DD HH:MM:SS'] [--replace]
+#                                [--dry-run]
 #
 # 1. Map.wz on TEST and on live hash the same (find | LC_ALL=C sort | sha256sum, as the 7 Nov check; the locale
 #    matters), and equal --expect-mapwz when given. The graphs are built from Map.wz, so a difference aborts.
 # 2. Neither TEST's nor live's unit turns on a switch that tags the cache folder (-Dbot.nav.teleportPhantomGuard -> -tp,
 #    -Dbot.nav.zmassWalls -> -zm; BotNavigationGraphProvider.cacheFolderName), and TEST has a plain <vNN> folder.
+#    TEST's jar builds graphs too (it warms missing ones at runtime): when the nav code of TEST's DEPLOYED_COMMIT
+#    (GCMoveSystem/, except NavProbe.java, which only reads graphs) differs from this checkout's, it refuses unless
+#    --built-before names the UTC time TEST last ran a jar with this release's nav code; only files older than that
+#    are taken (live builds the rest on first use, as it would without a copy).
 # 3. TEST's Server/cache/bot-nav/<vNN> is copied once to dist/release-nav/<version>/<vNN> here (TEST keeps warming it:
 #    take one snapshot, never resync mid-stage), then to $RELEASE_HOST:$NAV_ROOT/nav-<version>/<vNN>. The folder keeps
 #    the name <vNN> because deploy.sh copies NAV_CACHE_SRC into cache/bot-nav/ by name. It sits outside v<version>/
@@ -26,17 +31,19 @@ TEST_SERVER=${TEST_SERVER:-/opt/mapleroot-dev/persistence-test/Server}
 TEST_UNIT=${TEST_UNIT:-slums-persistence-test}
 
 VERSION=${1:-}; V=${2:-}; shift 2 || true
-EXPECT= REPLACE=0 DRY_RUN=0
+EXPECT= CUTOFF= REPLACE=0 DRY_RUN=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --expect-mapwz) EXPECT=$2; shift ;;
+        --built-before) CUTOFF=$2; shift ;;
         --replace) REPLACE=1 ;;
         --dry-run) DRY_RUN=1 ;;
         *) die "unknown option $1" ;;
     esac
     shift
 done
-[[ "$VERSION" =~ ^[0-9]+(\.[0-9]+)+$ && "$V" =~ ^v[0-9]+$ ]] || die "usage: nav-cache-copy <version> <vNN> [--expect-mapwz SHA16] [--replace] [--dry-run]"
+[[ "$VERSION" =~ ^[0-9]+(\.[0-9]+)+$ && "$V" =~ ^v[0-9]+$ ]] || die "usage: nav-cache-copy <version> <vNN> [--expect-mapwz SHA16] [--built-before 'YYYY-MM-DD HH:MM:SS'] [--replace] [--dry-run]"
+[ -z "$CUTOFF" ] || TZ=UTC date -d "$CUTOFF" >/dev/null 2>&1 || die "--built-before: not a date: $CUTOFF"
 DEST="$NAV_ROOT/nav-$VERSION/$V"
 SNAP="$ROOT/dist/release-nav/$VERSION/$V"
 t0=$(date +%s)
@@ -63,13 +70,34 @@ for side in TEST live; do
 done
 test_ssh "test -d '$TEST_SERVER/cache/bot-nav/$V'" || die "TEST has no cache/bot-nav/$V"
 echo "  no tag switch on either side; TEST has cache/bot-nav/$V"
+
+step "nav builder on TEST"
+test_commit=$(test_ssh cat "$TEST_SERVER/DEPLOYED_COMMIT" 2>/dev/null | head -1)
+[ -n "$test_commit" ] && git -C "$ROOT" cat-file -e "$test_commit^{commit}" 2>/dev/null \
+    || die "cannot read TEST's DEPLOYED_COMMIT (${test_commit:-none}) here: git fetch, then retry"
+navdiff=$(git -C "$ROOT" diff --name-only "$test_commit" HEAD -- src/main/java/soloMapling/ArtificialPlayer/GCMoveSystem \
+    ':!src/main/java/soloMapling/ArtificialPlayer/GCMoveSystem/NavProbe.java' | tr '\n' ' ')
+if [ -z "$navdiff" ]; then
+    echo "  TEST runs ${test_commit:0:9}: same nav code as this release"
+elif [ -n "$CUTOFF" ]; then
+    echo "  TEST runs ${test_commit:0:9}, nav code differs ($navdiff); taking only files written before $CUTOFF UTC"
+else
+    die "TEST runs ${test_commit:0:9}, whose nav code differs from this release ($navdiff): pass --built-before <UTC time TEST last ran this release's nav code>"
+fi
 host_state=$(ssh -o BatchMode=yes "$RELEASE_HOST" "if [ -e '$DEST' ]; then echo exists; else echo none; fi")
 [ "$host_state" = none ] || [ "$REPLACE" = 1 ] || [ "$DRY_RUN" = 1 ] || die "$RELEASE_HOST:$DEST exists; --replace to copy again"
 if [ "$DRY_RUN" = 1 ]; then step "dry run: checks pass, nothing copied (host target: $host_state)"; exit 0; fi
 
 step "snapshot TEST's $V to $SNAP"
-mkdir -p "$SNAP"
-rsync -a --delete -e "ssh ${TEST_SSH_OPTS[*]}" "root@$TEST_HOST:$TEST_SERVER/cache/bot-nav/$V/" "$SNAP/"
+rm -rf "$SNAP"; mkdir -p "$SNAP"
+if [ -n "$CUTOFF" ]; then
+    list=$(mktemp); trap 'rm -f "$list"' EXIT
+    test_ssh "cd '$TEST_SERVER/cache/bot-nav/$V' && TZ=UTC find . -type f ! -name '*.tmp' ! -newermt '$CUTOFF'" > "$list"
+    echo "  $(wc -l < "$list") files written before $CUTOFF UTC, $(test_ssh "cd '$TEST_SERVER/cache/bot-nav/$V' && TZ=UTC find . -type f -newermt '$CUTOFF' | wc -l") after (left out)"
+    rsync -a --files-from="$list" -e "ssh ${TEST_SSH_OPTS[*]}" "root@$TEST_HOST:$TEST_SERVER/cache/bot-nav/$V/" "$SNAP/"
+else
+    rsync -a --exclude '*.tmp' -e "ssh ${TEST_SSH_OPTS[*]}" "root@$TEST_HOST:$TEST_SERVER/cache/bot-nav/$V/" "$SNAP/"
+fi
 snap=$(bash -c "$treehash" _ "$SNAP")
 echo "  snapshot: $snap (files, combined sha256)"
 
