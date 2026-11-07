@@ -22,7 +22,7 @@ sources:
   - "wz Map.wz 103000800.img: Cloto at (592, 106), 22 Ligator (9300001) spawns, spawn point sp (-1077, 81)"
   - "Cross-checked against nutnnut/cosmic_agents (AGPL-3.0) AgentKpqDefinition: same answers 10/35/20/25/25/30/8"
   - "Stages 2-4: rectangles and combos copied from scripts/npc/9020001.js in its order (cosmic_agents Kiwiism/cosmic_agents 3c7e09435 lists the stage-2 ropes in another order; ours wins); KpqStageDataTest re-reads the script"
-  - "Stage 5 and bonus: wz Map.wz 103000804.img (Cloto (305, -2715), 9300000 x7, 9300002 x3, King Slime 9300003) and drop data (each drops one pass 4001008); 103000805.img (Nella 9020002)"
+  - "Stage 5 and bonus: wz Map.wz 103000804.img (Cloto (305, -2715), 9300000 x6, 9300002 x3, King Slime 9300003) and drop data (each drops one pass 4001008); 103000805.img (Nella 9020002)"
 afterClear:
   rewardNpc: 9020001
   rewardMap: 103000804
