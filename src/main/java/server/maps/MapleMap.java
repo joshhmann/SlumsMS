@@ -3538,6 +3538,15 @@ public class MapleMap {
         } finally {
             objectRLock.unlock();
         }
+        // 1.6.6 bot-offmap-frozen (B-24): taken after the objects, so anyone entering is already in it (addPlayer
+        // adds to characters before mapobjects); a Character missing from it has left and only its object stayed
+        Set<Character> here;
+        chrRLock.lock();
+        try {
+            here = new HashSet<>(characters);
+        } finally {
+            chrRLock.unlock();
+        }
 
         // 1.4.2 (perf): bots and drops outside the view follow over the next ~1.5 s (MapEntryPlacement)
         boolean trickle = chr != null && MapEntryPlacement.enabled();
@@ -3546,6 +3555,10 @@ public class MapleMap {
         int sentNow = 0;
 
         for (MapObject o : objects) {
+            if (o instanceof Character other && o != chr && !here.contains(other)) {
+                dropGhost(other); // left the map but its object stayed: never show it, frozen, to anyone entering
+                continue;
+            }
             if (isNonRangedType(o.getType())) {
                 if (trickle && o != chr && MapEntryPlacement.deferrableCharacter(o) && !MapEntryPlacement.inView(at, o)) {
                     deferred.add(new MapEntryPlacement.Deferred(o, entryStamps.get(((Character) o).getId())));
@@ -3605,6 +3618,25 @@ public class MapleMap {
                     scheduleDeferredPlacement(chr, at, deferred);
                 }
             }
+        }
+    }
+
+    /**
+     * 1.6.6 bot-offmap-frozen (B-24): forget a Character that is in mapobjects but no longer in characters (TEST: two
+     * logged-out regulars shown frozen on 104040000 and 910000000 for hours). Only if its key still holds it; logged
+     * once per drop so live gives a rate. The race that leaves it is part 2 of the card.
+     */
+    private void dropGhost(Character ghost) {
+        boolean dropped;
+        objectWLock.lock();
+        try {
+            dropped = mapobjects.remove(ghost.getObjectId(), ghost);
+        } finally {
+            objectWLock.unlock();
+        }
+        if (dropped) {
+            log.info("ghost map object dropped: map={} char={} kind={}", mapid, ghost.getId(),
+                    ghost.getClient() instanceof BotClient ? "bot" : "player");
         }
     }
 
