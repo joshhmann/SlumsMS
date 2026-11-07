@@ -678,7 +678,10 @@ final class SocialActs {
             SocialFlows.Flow f = SocialActions.flows().accept(inv, now);
             if (!f.ok()) {
                 SocialActions.flows().release(inv);
-                return Outcome.missed(kind(), 0, "could not go through with it: " + f.reason());
+                // 1.6.6 accept-fail-reason: the counter keeps the text before the first ':' (40 chars at most), so the
+                // flow's reason leads, as a fixed name-free key (TEST c614ea6f7 counted 77 failures with no reason)
+                return Outcome.missed(kind(), 0, failKey(f.reason()) + ": could not go through with it: "
+                        + f.reason());
             }
             say(me, lineTo("SocialInviteAccept", c.target(), me, "sure {PLAYER}"));
             SocialActions.mind(inviter, m -> m.satisfy(Need.COMPANIONSHIP, 0.20, now));
@@ -686,6 +689,22 @@ final class SocialActs {
             remember(inviter, me, BotMemory.Kind.PARTY, Notes.ACCEPTED, 0.4, c.actor().mapId(), now);
             remember(me, inviter, BotMemory.Kind.PARTY, "went along with their invite", 0.3, c.actor().mapId(), now);
             return Outcome.ok(kind(), 0, f.reason());
+        }
+
+        /** The reasons GameSocialFlows.accept and BotTalk.plainParty give, as counter keys with no names in them. */
+        static final List<String> FAIL_KEYS = List.of("one of them left", "went offline", "the party system refused",
+                "nobody could join", "LFG rules said no", "the LFG party did not form", "not an invitation this knows");
+
+        /** Which of {@link #FAIL_KEYS} a flow's reason is, or "other". */
+        static String failKey(String reason) {
+            if (reason != null) {
+                for (String k : FAIL_KEYS) {
+                    if (reason.contains(k)) {
+                        return k;
+                    }
+                }
+            }
+            return "other";
         }
     }
 
