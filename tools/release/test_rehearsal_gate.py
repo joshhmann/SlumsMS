@@ -208,7 +208,7 @@ class ExtraSteps(TmpCase):
     def test_default_sandbox_is_systemd_run_with_live_read_only(self):
         out = sh('systemd-run() { printf "%s\\n" "$@"; }\nREHEARSAL_LIVE_SRV="/x/live srv" rehearsal_sandbox env A=1 bash t.sh')
         args = out.stdout.splitlines()
-        for want in ('--wait', '--pipe', '--collect', 'ReadOnlyPaths=/x/live srv', 'ReadOnlyPaths=/opt/mapleroot', 'env', 'bash'):
+        for want in ('--wait', '--pipe', '--collect', 'ReadOnlyPaths="/x/live srv"', 'ReadOnlyPaths=/opt/mapleroot', 'env', 'bash'):
             self.assertIn(want, args)
 
     def test_hard_coded_live_path_is_refused(self):

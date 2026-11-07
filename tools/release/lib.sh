@@ -105,7 +105,10 @@ extra_steps_lint() {
 # run does not use it. Tests stub it by redefining this function. Live folder: $REHEARSAL_LIVE_SRV (rehearse-host.sh sets
 # it to --server-src), else the default.
 rehearsal_sandbox() {
-  systemd-run --wait --pipe --collect -q -p "ReadOnlyPaths=${REHEARSAL_LIVE_SRV:-$LIVE_SRV_DEFAULT}" -p ReadOnlyPaths=/opt/mapleroot \
+  # ReadOnlyPaths= splits on spaces, so the path is quoted inside the value (live's has spaces); WorkingDirectory= takes
+  # the path as is and refuses quotes. Both checked with systemd-run on 187, 7 Nov: a write through a wz symlink into the
+  # read-only folder fails with "Read-only file system", and the script's own exit code comes back.
+  systemd-run --wait --pipe --collect -q -p "ReadOnlyPaths=\"${REHEARSAL_LIVE_SRV:-$LIVE_SRV_DEFAULT}\"" -p ReadOnlyPaths=/opt/mapleroot \
     -p "WorkingDirectory=$PWD" "$@"
 }
 # run_extra_steps <staged extra dir> <output file>: env SRV, SQL_CMD, REHEARSAL (defaults: live, live, 0). Returns the
