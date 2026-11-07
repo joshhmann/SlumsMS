@@ -1,0 +1,51 @@
+# Change-impact table for tools/qa/select (P1-Q3, docs/plans/1.7.0/D-*.md section 3).
+# Columns, separated by TABs: path-glob, capability-ids, junit-classes, autoqa-check-ids.
+#   path-glob      ** crosses directories, * stays inside one; {a,b} alternates. Every matching row contributes (a
+#                  path can touch several areas).
+#   capability-ids comma list, "-" for none. Ids are the D section 5 seeds; "area.*" names stay until G1 lists them.
+#   junit-classes  comma list of surefire -Dtest patterns (slash form), "-" for none, FULL for the whole suite.
+#   autoqa-ids     comma list for tools/ops/autoqa-run: check ids or family short ids (bl, cb ...), SMOKE for the
+#                  smoke set, "-" for none.
+# A path with NO matching row is unknown: it broadens to the full unit suite plus the smoke set. Nothing is dropped
+# silently. A ticket that adds a test adds its row here (ticket rule, plan C). P1-C1a's map/portal/script validator
+# gets its own row when it lands.
+# Seeded by hand from the check families in docs/architecture/server/qa-and-autoqa.md.
+src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/**	bot.life	soloMapling/ArtificialPlayer/BotLifeSystem/**	bl,in,me,lr
+src/main/java/soloMapling/ArtificialPlayer/LifeAcceptance.java	bot.life	soloMapling/ArtificialPlayer/**/Life*Test	bl
+src/main/java/soloMapling/ArtificialPlayer/LifeActivityQueue.java	bot.life	soloMapling/ArtificialPlayer/**/Life*Test	bl
+src/main/java/soloMapling/ArtificialPlayer/BotTypes/**	bot.body	soloMapling/ArtificialPlayer/**	cb,bk,at,id,sc,bl
+src/main/java/soloMapling/ArtificialPlayer/Bot{Combat,Attack,Grind,Movement}System/**	bot.combat	soloMapling/ArtificialPlayer/Bot{Combat,Attack,Grind,Movement}System/**	cb,bk,at,id,sp
+src/main/java/soloMapling/ArtificialPlayer/Bot{Chatter,Messaging,Dialogue,Social,Flavor}System/**	bot.chat	soloMapling/ArtificialPlayer/**/*Chat*Test,soloMapling/ArtificialPlayer/**/*Convo*Test	cv,pl,sg,lk
+src/main/java/soloMapling/ArtificialPlayer/BotConvo/**	bot.chat	soloMapling/ArtificialPlayer/BotConvo/**	cv,pl,td,gf
+src/main/java/soloMapling/ArtificialPlayer/BotPartySystem/**	bot.party	soloMapling/ArtificialPlayer/BotPartySystem/**	ex,mx,in
+src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/**	bot.supply	soloMapling/ArtificialPlayer/BotSupplySystem/**	bl,cb
+src/main/java/soloMapling/ArtificialPlayer/BotDbGate.java	persistence.gate	soloMapling/ArtificialPlayer/BotDbGate*Test	bl
+src/main/java/soloMapling/companions/**	alt.owned	soloMapling/companions/**	oa,mx
+src/main/java/soloMapling/Economy/**	economy.*	soloMapling/Economy/**	xc,td,bs,mk,wc
+src/main/java/soloMapling/FreeMarket/**	economy.*	soloMapling/FreeMarket/**	td,bs,fm
+src/main/java/soloMapling/Gachapon/**	economy.*	soloMapling/Gachapon/**	ga
+src/main/java/soloMapling/mechanics/**	pq.mechanics	soloMapling/mechanics/**,soloMapling/Mechanics*Test	mx,ex,vb
+src/main/java/soloMapling/qa/**	qa.platform	soloMapling/qa/**	SMOKE
+src/main/java/soloMapling/autoqa/**	qa.platform	soloMapling/autoqa/**	SMOKE
+src/main/java/soloMapling/dashboard/**	ops.dashboard	soloMapling/dashboard/**	-
+src/main/java/soloMapling/site/**	site.export	soloMapling/site/**	sf,au,bd
+src/main/java/net/server/channel/handlers/**	net.handlers	net/**,client/**	vb,sk,cl
+src/main/java/net/packet/**	net.packets	net/**	vb,hp,vg
+src/main/java/client/command/**	commands	client/command/**	SMOKE
+src/main/java/scripting/**	scripts	scripting/**	vb,sk
+src/main/java/server/maps/**	map.load	server/maps/**	ch,fh,vb
+src/main/java/database/**	persistence	FULL	SMOKE
+database/migrations/**	persistence	FULL	SMOKE
+scripts/npc/**	npc.script.present	scripting/**	vb,sk
+scripts/quest/**	quest.progression	scripting/**	vb
+scripts/event/**	pq.mechanics	soloMapling/mechanics/**	mx,ex,vb
+src/main/resources/soloMapling/autoqa-release-skips.tsv	qa.platform	soloMapling/autoqa/**	SMOKE
+src/test/java/**	-	-	-
+tools/qa-runner/**	qa.runner	-	-
+tools/qa-scripts/**	qa.runner	-	-
+tools/qa/**	qa.selection	-	-
+qa-scripts/**	qa.runner	-	-
+tools/arch/**	docs.generator	-	-
+docs/**	-	-	-
+*.md	-	-	-
+pom.xml	build	FULL	SMOKE

@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+"""Change-impact selection (P1-Q3). tools/qa/select <base> <head> [--table FILE] [--json] [--paths FILE|-]
+
+Reads the files changed between two git revisions (or a list of paths), looks each one up in tools/qa/impact.tsv and
+prints what to run:
+
+    junit:   comma list for  mvn -q -o test -Dtest=<list> -Dsurefire.failIfNoSpecifiedTests=false   (FULL = no -Dtest)
+    autoqa:  comma list for  tools/ops/autoqa-run <list>                                          (smoke = the smoke set)
+
+A path with no row is unknown and broadens the selection to the full unit suite plus the smoke set. Nothing is dropped
+silently; --json prints the selection record (base, head, rows matched, unknown paths) that a run stores with its
+results so a reviewer can see why a check was skipped.
+"""
+import argparse
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+DEFAULT_TABLE = HERE / "impact.tsv"
+
+
+def split_top(text):
+    """Split on commas that are not inside {braces}."""
+    out, depth, cur = [], 0, ""
+    for ch in text:
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+        if ch == "," and depth == 0:
+            out.append(cur)
+            cur = ""
+        else:
+            cur += ch
+    out.append(cur)
+    return [p.strip() for p in out if p.strip()]
+
+
+def expand_braces(pattern):
+    m = re.search(r"\{([^{}]*)\}", pattern)
+    if not m:
+        return [pattern]
+    out = []
+    for alt in m.group(1).split(","):
+        out.extend(expand_braces(pattern[:m.start()] + alt + pattern[m.end():]))
+    return out
+
+
+def glob_regex(glob):
+    parts = []
+    i = 0
+    while i < len(glob):
+        if glob.startswith("**/", i):
+            parts.append("(?:.*/)?")
+            i += 3
+        elif glob.startswith("**", i):
+            parts.append(".*")
+            i += 2
+        elif glob[i] == "*":
+            parts.append("[^/]*")
+            i += 1
+        elif glob[i] == "?":
+            parts.append("[^/]")
+            i += 1
+        else:
+            parts.append(re.escape(glob[i]))
+            i += 1
+    return re.compile("^" + "".join(parts) + "$")
+
+
+def load_table(path):
+    rows = []
+    for n, line in enumerate(Path(path).read_text().splitlines(), 1):
+        if not line.strip() or line.startswith("#"):
+            continue
+        cols = line.split("\t")
+        if len(cols) != 4:
+            raise SystemExit(f"{path}:{n}: expected 4 TAB-separated columns, got {len(cols)}")
+        glob, caps, junit, checks = cols
+        regexes = [glob_regex(g) for g in expand_braces(glob)]
+        rows.append({"line": n, "glob": glob, "regexes": regexes, "caps": caps, "junit": junit, "checks": checks})
+    return rows
+
+
+def matches(row, path):
+    return any(r.match(path) for r in row["regexes"])
+
+
+def items(col):
+    out = []
+    for item in split_top(col):
+        if item == "-":
+            continue
+        out.extend(expand_braces(item))
+    return out
+
+
+def select(paths, rows):
+    caps, junit, checks = [], [], []
+    matched, unknown = [], []
+    full_unit = smoke = False
+
+    def add(into, vals):
+        for v in vals:
+            if v not in into:
+                into.append(v)
+
+    for p in paths:
+        hit = [r for r in rows if matches(r, p)]
+        if not hit:
+            unknown.append(p)
+            continue
+        for r in hit:
+            matched.append({"path": p, "row": r["line"], "glob": r["glob"]})
+            add(caps, items(r["caps"]))
+            for j in items(r["junit"]):
+                if j == "FULL":
+                    full_unit = True
+                else:
+                    add(junit, [j])
+            for c in items(r["checks"]):
+                if c == "SMOKE":
+                    smoke = True
+                else:
+                    add(checks, [c])
+    if unknown:
+        full_unit = smoke = True
+    return {
+        "paths": len(paths), "capabilities": caps, "matched": matched, "unknown": unknown,
+        "junit": "FULL" if full_unit else ",".join(junit), "junitClasses": junit,
+        "autoqa": ",".join(checks), "autoqaFamilies": checks, "smoke": smoke,
+        "broadened": bool(unknown),
+    }
+
+
+def autoqa_arg(sel):
+    ids = list(sel["autoqaFamilies"])
+    if sel["smoke"]:
+        ids.insert(0, "smoke")
+    return ",".join(ids)
+
+
+def changed_paths(base, head):
+    out = subprocess.run(["git", "diff", "--name-only", f"{base}...{head}"], check=True,
+                         capture_output=True, text=True).stdout
+    return [p for p in out.splitlines() if p]
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("base", nargs="?")
+    ap.add_argument("head", nargs="?")
+    ap.add_argument("--table", default=str(DEFAULT_TABLE))
+    ap.add_argument("--paths", help="read changed paths from this file (or - for stdin) instead of git")
+    ap.add_argument("--json", action="store_true", help="print the selection record as JSON")
+    args = ap.parse_args(argv)
+    if args.paths:
+        text = sys.stdin.read() if args.paths == "-" else Path(args.paths).read_text()
+        paths = [p.strip() for p in text.splitlines() if p.strip()]
+    elif args.base and args.head:
+        paths = changed_paths(args.base, args.head)
+    else:
+        ap.error("give <base> <head> or --paths")
+    sel = select(paths, load_table(args.table))
+    sel["base"], sel["head"] = args.base, args.head
+    if args.json:
+        print(json.dumps(sel, indent=2))
+        return 0
+    print("changed:  %d file(s); %d matched row(s); %d unknown" % (sel["paths"], len(sel["matched"]), len(sel["unknown"])))
+    for u in sel["unknown"]:
+        print("unknown:  %s  (no row: runs the full unit suite and the smoke set)" % u)
+    print("junit:    " + (sel["junit"] or "(none)"))
+    print("autoqa:   " + (autoqa_arg(sel) or "(none)"))
+    print("caps:     " + (",".join(sel["capabilities"]) or "(none)"))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
