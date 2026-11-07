@@ -20,6 +20,10 @@ cd "$REPO"
 step "checks"
 commit=$(git rev-parse --short=9 HEAD); branch=$(git rev-parse --abbrev-ref HEAD); ver=$(source_version "$REPO")
 echo "repo $REPO, branch $branch, commit $commit, SLUMSMS_VERSION $ver"
+# a release-X.Y.Z branch builds the X.Y.Z jar: stage refuses a jar labelled otherwise, an hour later (1.6.5, 7 Nov)
+if [[ $branch =~ ^release-([0-9]+(\.[0-9]+)+)$ ]] && [ "$ver" != "${BASH_REMATCH[1]}" ]; then
+  die "branch $branch but SLUMSMS_VERSION is $ver: bump ServerConstants.SLUMSMS_VERSION to ${BASH_REMATCH[1]}"
+fi
 dirty=$(git status --porcelain --untracked-files=no)
 [ -z "$dirty" ] || [ "$ALLOW_DIRTY" = 1 ] || die "uncommitted changes (a release jar must match a commit):
 $dirty"
