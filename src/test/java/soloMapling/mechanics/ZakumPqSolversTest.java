@@ -118,6 +118,58 @@ class ZakumPqSolversTest {
         assertEquals(0, ((SolverStep.Loot) s).itemId(), "zero means the whole floor, mesos included");
     }
 
+    /**
+     * 1.6.5 b344e (TEST 7 Nov, run b344-zpq-stage-clear-20261107T023636Z, stage 33): the alt put its seven ores on
+     * 2112014 and then held none, so it said "this chest wants seven ores and I have 0" every minute for good - the
+     * want-ore wait came before anything else and never let it pick up the document or walk out. An opened chest
+     * (past state 0) is done with ore: loot what it dropped, then the door.
+     */
+    @Test
+    void anOpenedBigChestIsLootedAndLeftNotWaitedOnForMoreOre() {
+        View v = new View();
+        v.mapId = 280_011_005;
+        v.stage = bigChestStage();
+        v.ore = 0;
+        v.reactor = 1; // the seven ores took: Reactor.wz/2112014 event 0 moves it to state 1, the document drops
+        v.hittable = false;
+        v.floor = 1;
+        SolverStep s = new ZakumMinesSolver().next(v, v.me);
+        assertInstanceOf(SolverStep.Loot.class, s, "the document on the floor is picked up, not waited beside: " + s);
+
+        v.floor = 0;
+        v.document = 1;
+        SolverStep out = new ZakumMinesSolver().next(v, v.me);
+        assertInstanceOf(SolverStep.EnterPortalTo.class, out, "then the miner walks out: " + out);
+        assertEquals(bigChestStage().clear().partyOnMap(), ((SolverStep.EnterPortalTo) out).mapId());
+    }
+
+    /**
+     * b344e: ores that lie on the floor in front of a chest still at state 0 are a drop the server has not taken yet
+     * (it takes them 5 s after they land), so the miner leaves them there; only once that window is long past are they
+     * a drop that did not take, and picked up to try again.
+     */
+    @Test
+    void oresInFrontOfAClosedChestAreLeftForTheServerThenPickedUpToTryAgain() {
+        View v = new View();
+        v.mapId = 280_011_005;
+        v.stage = bigChestStage();
+        v.reactor = 0;
+        v.hittable = false;
+        v.ore = 7;
+        v.now = 1_000;
+        assertInstanceOf(SolverStep.PlaceItemOn.class, new ZakumMinesSolver().next(v, v.me));
+
+        v.ore = 0;
+        v.floor = 7;
+        v.now = 4_000;
+        SolverStep settling = new ZakumMinesSolver().next(v, v.me);
+        assertInstanceOf(SolverStep.Wait.class, settling, "inside the server's window the drop is left alone");
+
+        v.now = 1_000 + ZakumMinesSolver.ORE_TAKE_WINDOW_MS + 1;
+        assertInstanceOf(SolverStep.Loot.class, new ZakumMinesSolver().next(v, v.me),
+                "past it, the ores did not take: pick them up and place again");
+    }
+
     @Test
     void theBigChestWantsSevenOresAndRefusesFewer() {
         View v = new View();
@@ -177,6 +229,8 @@ class ZakumPqSolversTest {
         int document;
         boolean leader;
         boolean cleared;
+        long now;
+        final java.util.Map<String, Object> memory = new java.util.concurrent.ConcurrentHashMap<>();
 
         @Override public MechanicsModel.Stage stage() { return stage; }
         @Override public String roleOf(int characterId) { return "miner"; }
@@ -196,12 +250,12 @@ class ZakumPqSolversTest {
         }
         @Override public int floorItems(int itemId, int forCharacterId) { return floor; }
         @Override public boolean cleared() { return cleared; }
-        @Override public long nowMs() { return 0L; }
+        @Override public long nowMs() { return now; }
         @Override public int partySize() { return 1; }
         @Override public OptionalInt answerFor(int characterId) { return OptionalInt.empty(); }
         @Override public Optional<String> eventProperty(String key) { return Optional.empty(); }
         @Override public int[] positionOf(int characterId) { return new int[]{0, 0}; }
         @Override public Optional<int[]> npcPosition(int npcId) { return Optional.empty(); }
-        @Override public java.util.Map<String, Object> stageMemory() { return new java.util.concurrent.ConcurrentHashMap<>(); }
+        @Override public java.util.Map<String, Object> stageMemory() { return memory; }
     }
 }
