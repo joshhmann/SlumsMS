@@ -1,0 +1,75 @@
+# Orbis PQ (row opq, "save Minerva"): the real-client run. The human leader (AqClient, gm 0 after the staging) starts
+# the run through Wonky 2013000 on the recruit map 200080101, then stays with it while the bots walk the eight modelled
+# stages of src/main/java/soloMapling/mechanics/content/opq.yaml (stage 1 the clouds for Eak 2013001 and the altar
+# reactor 2006000, stage 2 the statue pieces, stage 3 the storage room, stage 4 the music player, stage 5 the three
+# platforms, stage 6 the lounge, stage 7 the five levers, stage 8 the six scars, Papa Pixie and the Root of Life on the
+# Minerva reactor 2006001, which sets statusStg8 and calls clearPQ). OrbisPQ.js:30 sends the cleared party to 920011200.
+# Pass (card): `RUN start opq`, the stage 1..8 cleared lines in order tagged [opq, leader AqClient], the final
+# `RUN end opq in ...: cleared after N s`, and the client on 920011200.
+# STAGING (Server Dev/Bots, before the run; there is no staging command yet): a party of 5-6 players (OrbisPQ.js:27),
+# every member level >= 51 (:28) and standing on 200080101 with AqClient leading. The run is off TEST's own switch
+# (-Dslums.mechanics.opq=true on top of -Dslums.mechanics=true). No party staging step exists, so this script starts
+# from the leader already standing on the recruit map.
+# Wonky's option 4 ("I would like to reclaim a prize", 2013000.js:73-96) is the Goddess Wristband for 10 x 4001158: a
+# post-run exchange, not part of the clear, so this card does not click it. If a later card wants it, the sequence is
+# npc_dialog.option_4 then npc_dialog.option_1.
+# The waits key on the RUN lines only: a REACTOR_HIT line (for example `hit reactor 2001016` when the garden reactor is
+# hit) is a bot action, not a stage.
+id: opq-full-run
+title: "Orbis PQ: the leader starts the Tower of Goddess run and the party clears all eight stages"
+covers: [feature-opq]
+status: draft
+server: test
+needs: [gm, mechanics, proposed_signals, proposed_anchors, proposed_steps]
+notes: "tarkov2 QA account, TEST with -Dslums.mechanics=true and -Dslums.mechanics.opq=true. Server Dev stages a party of 5-6, level >= 51, on 200080101 with AqClient as leader. Channel 5."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 5
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 5}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
+  - {id: revive, do: gm, line: "!heal"}
+  - {do: sleep, ms: 1000, reason: "let the revive land before the next command"}
+  - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 200080101}, timeout_ms: 20000, optional: true}
+  - {id: talk, do: click_npc, npc: 2013000}
+  - {id: talk-open, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: pick, do: click, anchor: npc_dialog.option_1, note: "I want to participate in the party quest (L0)"}
+  - id: run-start
+    do: wait
+    armed_at: pick
+    signal: {type: server_line, topic: MECHANICS, regex: "^RUN start opq stage 1 in ", char: me}
+    timeout_ms: 60000
+  - {id: stage-1, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 1 cleared in \\d+ s.*\\[opq", char: me}, timeout_ms: 300000}
+  - {id: stage-2, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 2 cleared in \\d+ s.*\\[opq", char: me}, timeout_ms: 300000}
+  - {id: stage-3, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 3 cleared in \\d+ s.*\\[opq", char: me}, timeout_ms: 300000}
+  - {id: stage-4, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 4 cleared in \\d+ s.*\\[opq", char: me}, timeout_ms: 300000}
+  - {id: stage-5, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 5 cleared in \\d+ s.*\\[opq", char: me}, timeout_ms: 300000}
+  - {id: stage-6, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 6 cleared in \\d+ s.*\\[opq", char: me}, timeout_ms: 300000}
+  - {id: stage-7, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 7 cleared in \\d+ s.*\\[opq", char: me}, timeout_ms: 300000}
+  - {id: stage-8, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 8 cleared in \\d+ s.*\\[opq", char: me}, timeout_ms: 300000}
+  - {id: finished, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN end opq in .*: cleared after \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: out, do: wait, signal: {type: client_signal, name: field.ready, map_id: 920011200}, timeout_ms: 60000}
+  - {do: sleep, ms: 3000, reason: "frame of the exit map before the cleanup line"}
+  - {id: end-run, do: gm, line: "!mechanics stop", note: "clean up after the last wait"}
+captures:
+  - {id: start, burst: {fps: 2, ms: 3000, at: {step: pick}}}
+  - {id: exit-map, burst: {fps: 2, ms: 3000, at: {step: out}}}
+  - {id: chat, chat_log: {span: {from: pick, to: out}}}
+expect:
+  reviewer:
+    - see: "The leader on the exit map 920011200 after the eighth stage"
+      in: [exit-map]
+  checks:
+    - {check: client_alive}
+  judgment: "PASS = the eight stage lines in order (1..8, each tagged [opq, leader AqClient]), the final `RUN end opq in ...: cleared after N s` line, and the client on 920011200. FAIL names the first stage that never clears; read the run's QA log before filing a bug."
