@@ -104,6 +104,23 @@ secrets). These 24 are rewards by count, worked out from the secrets' found time
   heading, the sleeping one on the 404 page, the empty-list naps) becomes one of the player's cards. Which card goes
   where depends on the page, so they vary.
 
+## Hints
+
+- **How a player gets one:** click Slums-chan next to a page's heading (`img.sidekick`) 30 times in a row, each click
+  within 3 seconds of the last. Pia would work the same way from any picture with `class="sidekick" data-who="pia"`
+  (no page has one yet). One set of 30 clicks asks for one hint, and it appears in that page's speech bubble for about
+  8 seconds. A signed-out visitor gets nothing and sees no error.
+- **One step further each time:** first a clue sentence, then where to try it ("Try it on the home page."), then the
+  typed word with some letters hidden ("g h o _ _"). Each later hint shows one more letter, and the last letter is
+  always hidden, so the whole word is never shown however often a player asks.
+- **Which card:** the first of that character's cards the account hasn't found yet; if it already has a hint for one,
+  it carries on with that one. When all of that character's cards are found it answers with a kind line instead.
+- **Limits:** one hint per account every 5 seconds, and 100 hints per account per day. Both counts live in the market
+  DB, so restarting the service changes nothing.
+- **Where the answers are:** only in `tools/site/market_service.py`, the `HINTS` table (per card: `who`, `clue`,
+  `page`, `word`), handed out by `POST /api/market/hint {who: "cap"|"pia"}`. Nothing new is readable in the page
+  source, and the cards, their words and the face-down hints on My cards are unchanged.
+
 ## Where it lives
 
 - **Triggers, names and hints:** `docs/site/assets/theme.js`, the `SECRETS`, `REWARDS` and `DUOS` lists and the code
@@ -120,6 +137,9 @@ secrets). These 24 are rewards by count, worked out from the secrets' found time
     market DB stores which account found which card, and when.
   - Endpoints: `GET /api/market/cards` and `POST /api/market/cards {ids: [...]}`. Unknown ids are ignored. All 27 reward
     cards are worked out by the service, never posted.
+  - Hints: `HINTS` (one row per card found by typing or doing something: `who`, `clue`, `page`, `word`) and
+    `POST /api/market/hint {who}` in the same file. `card_hints` stores each account's step per card, `hint_calls`
+    the rate limits.
   - The browser also keeps its list (localStorage `slums-secrets`). Once per visit, the browser and the account merge
     both ways.
 - **Page:** `tools/site/sections/market.py`, `build_board()` (`market/cards.html`). The styles are under "My cards"
@@ -134,8 +154,11 @@ secrets). These 24 are rewards by count, worked out from the secrets' found time
    its word to the typed-word list near the bottom if it has one (a word must not be the start of another word,
    or typing the longer one fires the shorter one first; a test checks this).
 3. Add the same id, in the same position, to `SECRET_CARDS` in `market_service.py`.
-4. Add a row to the table above.
-5. Run `python3 -m unittest discover -s tools/site -p 'test_*.py'`. A test fails if the two lists don't match or a
+4. Add a `HINTS` row for it in the same file: `who` (`"cap"`, or `"pia"` for one of Pia's), a `clue` and a `page` that
+   hint without spelling out the word, and the `word`. A test fails if a clue or a page name also appears in
+   `theme.js`, or if this list and the page's cards drift apart.
+5. Add a row to the table above.
+6. Run `python3 -m unittest discover -s tools/site -p 'test_*.py'`. A test fails if the two lists don't match or a
    picture is missing.
 
 "Double peace" needs the first 14 secrets and "All of them" needs the original 22 only, so a card added later never
