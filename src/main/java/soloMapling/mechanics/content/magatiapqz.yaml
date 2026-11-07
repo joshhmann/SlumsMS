@@ -80,20 +80,50 @@ stages:
     # door reactors (2618001/2618002/2618007) and is stage 4's room. A stage that names a map without its reactor can
     # never clear: reactor-count only warps to the stage's own map and then hits a reactor that is not there.
     map: 926100100
-    name: The beaker - three counted hits
+    name: The beaker - three beakers of liquid
     solver: reactor-count
     hitReactors: [2618000]
     roles:
-      - id: hitter
+      - id: filler
         who: ANY
         min: 1
         max: party
+    items:
+      - id: 4001132
+        name: Suspicious Liquid
+        cleanup: true
+    # 1.6.6 b365: the beakers are item reactors (Reactor.wz 2618000 states 0-6 type 100, 1 x 4001132 each; a state
+    # leaks back after 9.5 s without liquid). A hit no client can make went to the first beaker by id, every time, so
+    # the count stopped at one. Hidden Street (2009): kill the Homunculus, fill the three beakers with their liquid.
     objectives:
-      - id: beaker
-        kind: HIT_REACTOR
+      - id: liquid
+        kind: KILL_FOR_ITEM
         role: all
-        reactor: "2618000"
-        note: "2618000.js:27-41 counts only while the reactor's state is 6, and at three it kills the room and hits rnj2_door"
+        mob: 9300147
+        item: 4001132
+        count: 1
+        note: "drop_data 9300147 -> 4001132 at 40%; 15 on the map"
+      - id: beaker1
+        kind: PLACE_ITEM
+        role: all
+        reactor: "beaker1"
+        item: 4001132
+        count: 1
+        note: "seven liquids fill it; the seventh lands at state 6 and 2618000.js hit() adds one to statusStg3"
+      - id: beaker2
+        kind: PLACE_ITEM
+        role: all
+        reactor: "beaker2"
+        item: 4001132
+        count: 1
+        note: "filled once statusStg3 is 1"
+      - id: beaker3
+        kind: PLACE_ITEM
+        role: all
+        reactor: "beaker3"
+        item: 4001132
+        count: 1
+        note: "the third count clears the room and hits rnj2_door (2618000.js:27-41)"
     clear:
       eventProperty: statusStg3
       equals: "3"
