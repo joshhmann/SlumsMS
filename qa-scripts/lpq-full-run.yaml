@@ -1,6 +1,6 @@
 # LPQ (1.6.6, b359/b363, row lpq): the real-client run. The human leader (AqClient, gm 0 after the staging) starts the Ludibrium PQ with a party of 5-6 (at least two ranged or magic) through the Red Sign NPC 2040034 on 221024500, then stays with the run: the party walks the nine stages, and the leader hands the key 4001023 to NPC 2040044 on 922010900 (the bonus map is the clearPQ warp).
 # Pass (card): `RUN start lpq`, stage 1..9 cleared lines in order tagged [lpq, leader AqClient], stage 7's three "has been summoned" lines, stage 9's Alishar line, the final `RUN end lpq in ...: cleared after N s`, the client in the bonus map 922011000, and the feed never shows `hit reactor 2201002` or `hit reactor 2201003`.
-# STAGING: AqClient stays gm 0 on 221024500. QA (or Server Dev) runs `tools/ops/mechanics-stage pq lpq for AqClient 4 ranged2` from the shell right after login (Bots, 166-bots-pq-staging-for @ 8317b1da6); TEST picks it up within 30 s. TEST needs -Dslums.qa, -Dslums.mechanics and -Dslums.mechanics.lpq on the 1.6.6 build.
+# STAGING: AqClient stays gm 0 and may log in anywhere (staging moves it to 221024500; it must be level 35+, in no party and no event, 4-5 regulars). QA (or Server Dev) runs `tools/ops/mechanics-stage pq lpq for AqClient 4 ranged2` from the shell right after login (Bots, 166-bots-pq-staging-for @ 8317b1da6); TEST picks it up within 30 s. TEST needs -Dslums.qa, -Dslums.mechanics and -Dslums.mechanics.lpq on the 1.6.6 build.
 id: lpq-full-run
 title: "LPQ: the leader starts the Ludibrium PQ and the party clears all nine stages to the bonus map"
 covers: [feature-lpq]
@@ -25,8 +25,8 @@ steps:
   - {do: select_character}
   - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
   - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
-  - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 221024500}, timeout_ms: 20000, note: "AqClient is left on the recruit map at gm 0 before the run"}
   - {id: stage-party, do: sleep, ms: 10000, reason: "QA runs tools/ops/mechanics-stage pq lpq for AqClient 4 ranged2 from the shell right after login; TEST picks it up within 30 s"}
+  - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 221024500}, timeout_ms: 60000, note: "staging itself moves the leader to the recruit map (KpqStaging.stage changeMap), so AqClient may log in anywhere"}
   - id: run-start
     do: wait
     armed_at: stage-party
