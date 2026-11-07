@@ -183,7 +183,7 @@
       "type",
       "name"
      ],
-     "description": "A client pipe signal from the QA module, relayed by the Silvia worker. Built (client-170-qa-module): worldselect.ready (world list handled and drawn), channels.ready (SERVERSTATUS 0x03, the reply to clicking a world: a lost world click shows as its absence), charselect.ready, field.ready (map_id narrows it). Proposed: chat.received (regex), window.open / window.closed (window).",
+     "description": "A client pipe signal from the QA module, relayed by the Silvia worker. Built (client-170-qa-module): worldselect.ready (world list handled and drawn), channels.ready (SERVERSTATUS 0x03, the reply to clicking a world: a lost world click shows as its absence), charselect.ready, field.ready (map_id narrows it). Proposed: chat.received (regex), window.open / window.closed (window). Built (QA build 16/17, 1.6.5 GP4/GP6): shop.open (an NPC shop opened), trade.invited (a trade invite arrived), trade.open (the trade window opened), trade.joined (the partner sat down), trade.item / trade.meso (an item or mesos put in; who 0 = this client, 1 = the partner), trade.partner_confirmed (the partner pressed Trade), trade.done (the trade ended; ok true on result 7).",
      "properties": {
       "type": {
        "const": "client_signal"
@@ -196,7 +196,15 @@
         "field.ready",
         "chat.received",
         "window.open",
-        "window.closed"
+        "window.closed",
+        "shop.open",
+        "trade.invited",
+        "trade.open",
+        "trade.joined",
+        "trade.item",
+        "trade.meso",
+        "trade.partner_confirmed",
+        "trade.done"
        ]
       },
       "map_id": {
