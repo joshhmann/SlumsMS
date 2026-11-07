@@ -3555,9 +3555,15 @@ public class MapleMap {
         int sentNow = 0;
 
         for (MapObject o : objects) {
-            if (o instanceof Character other && o != chr && !here.contains(other)) {
-                dropGhost(other); // left the map but its object stayed: never show it, frozen, to anyone entering
-                continue;
+            if (o instanceof Character other && o != chr) {
+                if (!here.contains(other)) {
+                    dropGhost(other); // left the map but its object stayed: never show it, frozen, to anyone entering
+                    continue;
+                }
+                if (other.getMap() != this) {
+                    skipMisplaced(other); // still listed here but its own map is another one: not shown either
+                    continue;
+                }
             }
             if (isNonRangedType(o.getType())) {
                 if (trickle && o != chr && MapEntryPlacement.deferrableCharacter(o) && !MapEntryPlacement.inView(at, o)) {
@@ -3637,6 +3643,22 @@ public class MapleMap {
         if (dropped) {
             log.info("ghost map object dropped: map={} char={} kind={}", mapid, ghost.getId(),
                     ghost.getClient() instanceof BotClient ? "bot" : "player");
+        }
+    }
+
+    private final Set<Integer> loggedMisplaced = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /**
+     * 1.6.6 bot-offmap-frozen (B-24): a Character still in this map's lists whose own map is another one (moved
+     * without leaving here, e.g. a warp that only removes the bot from the map it lands on). Not sent; left in the
+     * lists, since removing it runs leave-map logic against its real map (part 2 of the card fixes the cause).
+     * Logged once per map and character.
+     */
+    private void skipMisplaced(Character other) {
+        if (loggedMisplaced.add(other.getId())) {
+            MapleMap real = other.getMap();
+            log.info("ghost map object skipped: map={} char={} kind={} realMap={}", mapid, other.getId(),
+                    other.getClient() instanceof BotClient ? "bot" : "player", real == null ? -1 : real.getId());
         }
     }
 

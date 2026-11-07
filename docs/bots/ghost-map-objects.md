@@ -21,9 +21,13 @@ window.
    removed from `mapobjects` (only if that key still holds the same object).
 2. Each one dropped is logged once at INFO:
    `ghost map object dropped: map=<id> char=<id> kind=<bot|player>`. On live 1.6.6 this gives the rate.
-3. This holds for a ghost regular and for a ghost real player who logged out. It holds with the entry trickle on
+3. A Character still in the map's lists whose own map is another one (what `BotGeneration.placeBotOnMap` leaves
+   when it warps a bot elsewhere: it only removes the bot from the map it lands on) is not sent either. It stays in
+   the lists, because removing it would run leave-map logic against its real map. Logged once per map and
+   character: `ghost map object skipped: map=<id> char=<id> kind=<bot|player> realMap=<id>`.
+4. This holds for a ghost regular and for a ghost real player who logged out. It holds with the entry trickle on
    and off.
-4. Nothing else changes. Characters really on the map are sent exactly as before, once per entry (the b350 tests
+5. Nothing else changes. Characters really on the map are sent exactly as before, once per entry (the b350 tests
    still pass), and the entrant itself is still skipped.
 
 ## Tests (fail before, pass after)
@@ -32,6 +36,8 @@ window.
 - a regular that left `characters` but stays in `mapobjects` is not sent to a player entering, with the trickle
   off and on, and it is gone from `mapobjects` afterwards;
 - the same for a real player who logged out;
-- a regular still on the map is still sent exactly once.
+- a regular still on the map is still sent exactly once;
+- a regular warped to another map but still listed here is not sent, and is logged once over two entries.
 
-Mutation check: with the new skip removed, the ghost tests fail.
+Mutation checks: with the not-in-characters skip removed, the 6 ghost tests fail; with the other-map skip removed,
+the 2 warped-elsewhere tests fail.

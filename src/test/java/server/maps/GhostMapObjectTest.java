@@ -73,7 +73,7 @@ class GhostMapObjectTest {
     }
 
     private List<String> ghostLines() {
-        return capture.lines.stream().filter(l -> l.contains("ghost map object dropped")).toList();
+        return capture.lines.stream().filter(l -> l.contains("ghost map object")).toList();
     }
 
     private static long spawnsOf(MapEntryHarness h, Character who) {
@@ -154,6 +154,28 @@ class GhostMapObjectTest {
             assertSame(here, mapobjects(h.map).get(here.getObjectId()), "and stays on the map");
             assertEquals(0, spawnsOf(h, ghost));
             assertEquals(1, ghostLines().size(), "only the ghost is logged");
+        }
+    }
+
+    /** What BotGeneration.placeBotOnMap leaves when it warps a bot to another map: still in this map's lists. */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void aRegularWarpedElsewhereButStillListedHereIsNotShown(boolean trickle) throws Exception {
+        try (MapEntryHarness h = new MapEntryHarness(104040000)) {
+            h.trickle(trickle);
+            Character moved = h.bot(0);
+            moved.setMap(new MapleMap(100000000, 0, 1, 0, 1f)); // now lives in Henesys, never left this map's lists
+            Character me = h.player(0);
+            h.enter(me);
+            h.scheduler.drain();
+            assertEquals(0, spawnsOf(h, moved), "not shown where it no longer is");
+            assertEquals(List.of("INFO ghost map object skipped: map=104040000 char=" + moved.getId()
+                    + " kind=bot realMap=100000000"), ghostLines(), "logged once");
+            Character second = h.player(0);
+            h.leave(me);
+            h.enter(second);
+            h.scheduler.drain();
+            assertEquals(1, ghostLines().size(), "not logged again on the next entry");
         }
     }
 }
