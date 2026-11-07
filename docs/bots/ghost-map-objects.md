@@ -41,3 +41,23 @@ window.
 
 Mutation checks: with the not-in-characters skip removed, the 6 ghost tests fail; with the other-map skip removed,
 the 2 warped-elsewhere tests fail.
+
+# bot-offmap-frozen (2a): a warped regular leaves its old map
+
+Written before the code (Coordinator approved 2026-11-07 20:3x UTC).
+
+`BotGeneration.placeBotOnMap` (`warpBotToLocation`: the OPQ regulars' lobby, stage and exit warps, and the GM spawn
+command) took a bot off its map only when the target was that same map. A bot warped from X to Y stayed in X's
+`characters` and `mapobjects` until reboot (live too: the same code is in v1.6.0.4 and 1.6.4).
+
+## Expected outcome
+
+1. A regular warped by `warpBotToLocation` from map X to map Y is in neither of X's lists afterwards, and X's bot count
+   drops by one. It is in Y's lists with Y as its map, at the given point.
+2. A warp to the map it is already on behaves as before (taken off, put back once).
+3. A regular with no map yet (fresh) is simply placed, as before.
+
+## Tests
+
+`soloMapling.ArtificialPlayer.WarpBotLeavesOldMapTest`: X to Y leaves X with no trace (characters, mapobjects, bot
+count) and Y holding it once; a same-map warp still holds it once. The X-to-Y test fails before the fix.
