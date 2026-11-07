@@ -186,8 +186,8 @@ final class PlannerReplies {
                     last = mine.get(j).at();
                 }
                 if (who.size() > 1) {
-                    bad.add("player " + e.getKey() + " heard from " + who.size() + " bots in "
-                            + Math.max(1, Math.round((last - mine.get(i).at()) / 60_000.0)) + " min: "
+                    bad.add("player " + e.getKey() + " heard " + who.size() + " bot-started chats in "
+                            + Math.max(1, Math.round((last - mine.get(i).at()) / 60_000.0)) + " min from: "
                             + String.join(", ", who));
                     break; // one finding per player is enough to act on
                 }

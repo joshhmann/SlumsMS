@@ -50,6 +50,7 @@ class SocialGateTest {
         SocialGate.useForTest(null, null, null);
         SocialGate.useRomanceOnForTest(null);
         SocialGate.useBusyForTest(null);
+        SocialGate.useLiveChatForTest(null);
         BotNoiseFilter.forgetAllForTest();
         BotWhispers.resetForTest();
         System.clearProperty("solomapling.chat.whisperPlayerGapMs");
@@ -66,10 +67,25 @@ class SocialGateTest {
         SocialGate.noteBotChat(BOT_A, PLAYER, now);
         assertFalse(SocialGate.botChatAllowed(BOT_B, PLAYER, now + TimeUnit.MINUTES.toMillis(59)),
                 "a second bot inside the hour waits");
+        SocialGate.useLiveChatForTest((bot, player) -> bot == BOT_A && player == PLAYER);
         assertTrue(SocialGate.botChatAllowed(BOT_A, PLAYER, now + TimeUnit.MINUTES.toMillis(1)),
-                "the bot that started the chat carries its own on");
+                "the bot that started the chat carries its own on while that chat is live");
         assertTrue(SocialGate.botChatAllowed(BOT_B, PLAYER, now + TimeUnit.HOURS.toMillis(1)), "the hour is up");
         assertTrue(SocialGate.botChatAllowed(BOT_B, OTHER_PLAYER, now), "the cap is per player");
+    }
+
+    /**
+     * 1.6.6 chat-cap-same-bot (t-pl-1, TEST 7 Nov): bladestar98 opened two chats with one player 34 min 44 s apart.
+     * The hour holds for the bot that started the last chat too, once that chat is over.
+     */
+    @Test
+    void theSameBotWaitsTheHourOnceItsChatIsOver() {
+        long now = clock.get();
+        SocialGate.useLiveChatForTest((bot, player) -> false);
+        SocialGate.noteBotChat(BOT_A, PLAYER, now);
+        assertFalse(SocialGate.botChatAllowed(BOT_A, PLAYER, now + TimeUnit.MINUTES.toMillis(35)),
+                "a new chat from the same bot inside the hour waits");
+        assertTrue(SocialGate.botChatAllowed(BOT_A, PLAYER, now + TimeUnit.HOURS.toMillis(1)), "the hour is up");
     }
 
     static Character player(int id) {

@@ -95,7 +95,7 @@ class PlannerRepliesTest {
         Check.Verdict v = PlannerReplies.judge(
                 List.of(opened(T, "Botty", "9f2a"), opened(T + 10 * 60_000, "Nibbles", "9f2a")), true, BOOT);
         assertEquals(Check.Status.FAIL, v.status(), ev(v));
-        assertTrue(ev(v).contains("player 9f2a heard from 2 bots in 10 min: Botty, Nibbles"), ev(v));
+        assertTrue(ev(v).contains("player 9f2a heard 2 bot-started chats in 10 min from: Botty, Nibbles"), ev(v));
     }
 
     @Test
