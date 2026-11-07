@@ -1,0 +1,40 @@
+# Client-only variant of qa-b286-batched-ready.yaml for a DSH worker on Silvia (tools/qa-runner/silvia_local.py): no TEST feed there, so the arrival is the QA build's field.ready with map_id (client-165-qa-module) instead of the MAP_CHANGE server line.
+# b286 / ticket 179 (P1-Q1, part 3): the login chain waits for worldselect.ready, channels.ready, charselect.ready and
+# field.ready one after another. Any two of them can reach the worker in one batch; before 170-qa-events the second
+# wait then timed out although the signal was in pipe.log. This run is NOT allowed a retry on the channel wait: a
+# retry would hide the bug (the old scripts resend the world click). Pass = every wait is satisfied once, in order.
+id: qa-b286-batched-ready-local
+title: "Login chain: consecutive ready signals all reach their waits"
+covers: [b286]
+status: draft
+server: test
+needs: [gm]
+notes: "QA account only (vault aq-gm-1, TEST/RC, never Live). Needs the release client's QA build with the 170-qa-events runner. Judge from manifest.json steps worlds/channels/chars/in-game (no retries field) and client/me/pipe.log: every awaited event appears in pipe.log exactly once and each wait's matched_utc is that event's utc. Run it 3 times; one run that happens not to batch proves nothing, so the brief asks for the batched case to be seen at least once (two ready events within 250 ms in pipe.log)."
+clients:
+  me:
+    account: {vault: aq-gm-1}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  - {id: warp, do: gm, line: "!warp 100000100", note: "Henesys Market: the GM is usually saved in Henesys, and a warp to the map it is on sends no new field.ready"}
+  - {id: arrived, do: wait, armed_at: warp, signal: {type: client_signal, name: field.ready, map_id: 100000100}, timeout_ms: 30000}
+captures:
+  - {id: in-henesys, burst: {fps: 2, ms: 3000, at: {signal: arrived}}}
+expect:
+  reviewer:
+    - see: "Henesys town with the QA character standing in it"
+      in: [in-henesys]
+  checks:
+    - {check: client_alive}
+  judgment: "FAIL if any of worlds/channels/chars/in-game/arrived timed out while its event is in client/me/pipe.log (the b286 signature), or if a step shows retries. A stale field.ready from the first login satisfying 'arrived' also FAILS: arrived must be later than the warp's MAP_CHANGE line."
