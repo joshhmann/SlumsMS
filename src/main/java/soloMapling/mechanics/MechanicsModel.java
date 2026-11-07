@@ -190,15 +190,21 @@ public final class MechanicsModel {
      * {@code scar1}, or - all digits - a reactor id such as {@code 2006000}.
      */
     public record Objective(String id, ObjectiveKind kind, String role, Optional<Count> count, int itemId, int mobId,
-                            int npcId, String note, int atX, int atY, String reactor) {
+                            int npcId, String note, int atX, int atY, String reactor, int job) {
+        /** 1.6.6 b365: {@code job} - the job niche (1 warrior .. 5 pirate) an objective belongs to, or 0. */
+        public Objective(String id, ObjectiveKind kind, String role, Optional<Count> count, int itemId, int mobId,
+                         int npcId, String note, int atX, int atY, String reactor) {
+            this(id, kind, role, count, itemId, mobId, npcId, note, atX, atY, reactor, 0);
+        }
+
         public Objective(String id, ObjectiveKind kind, String role, Optional<Count> count, int itemId, int mobId,
                          int npcId, String note, int atX, int atY) {
-            this(id, kind, role, count, itemId, mobId, npcId, note, atX, atY, null);
+            this(id, kind, role, count, itemId, mobId, npcId, note, atX, atY, null, 0);
         }
 
         public Objective(String id, ObjectiveKind kind, String role, Optional<Count> count, int itemId, int mobId,
                          int npcId, String note) {
-            this(id, kind, role, count, itemId, mobId, npcId, note, 0, 0, null);
+            this(id, kind, role, count, itemId, mobId, npcId, note, 0, 0, null, 0);
         }
 
         public boolean hasAt() {
@@ -350,7 +356,42 @@ public final class MechanicsModel {
                         List<List<Integer>> combos, List<Integer> mobs, String nextPortal, String summonProperty,
                         int spawnWaitSeconds, int timeLimitMinutes, List<Integer> hitReactors,
                         List<Integer> entryItems, List<Integer> maps, int loopTo, OnTimeLimit onTimeLimit,
-                        List<Branch> branches) {
+                        List<Branch> branches, String opensByHit) {
+
+        /**
+         * 1.6.6 b365: {@code opensByHit} - when a reactor this stage opens takes an item (Reactor.wz type 100) and nobody
+         * in the run holds it, may it still be opened by a hit? {@code null} (the default): never. {@link #BOT_ONLY}:
+         * only in a run with no real player in it (regulars running a boss on their own); with a player in the run the
+         * room waits for the item, as it does for a party in the real game.
+         */
+        public static final String BOT_ONLY = "botOnly";
+        /**
+         * b365 (Crimsonwood's Relic of Mastery): a reactor whose objective names a {@code job} may open by a hit when no
+         * real player of that job is in the run - the job is the regulars' - and never when one is.
+         */
+        public static final String REGULAR_JOBS_ONLY = "regularJobsOnly";
+        /**
+         * b365 (owner, 7 Nov: Scarga): the stage's first item reactor takes its item; once one of the stage's reactors has
+         * taken it, the others open by a hit. Regulars on their own may hit them all, as with {@link #BOT_ONLY}.
+         */
+        public static final String AFTER_FIRST_ITEM = "afterFirstItem";
+
+        /** b365: whether this row lets a run of regulars alone open its item reactors by a hit. */
+        public boolean botsMayHit() {
+            return BOT_ONLY.equals(opensByHit) || AFTER_FIRST_ITEM.equals(opensByHit);
+        }
+
+        public Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
+                     List<Objective> objectives, List<Position> positions, List<ItemUse> items,
+                     List<Answer> answers, List<BossPhase> phases, Clear clear, String answerProperty,
+                     List<List<Integer>> combos, List<Integer> mobs, String nextPortal, String summonProperty,
+                     int spawnWaitSeconds, int timeLimitMinutes, List<Integer> hitReactors,
+                     List<Integer> entryItems, List<Integer> maps, int loopTo, OnTimeLimit onTimeLimit,
+                     List<Branch> branches) {
+            this(index, mapId, name, npcId, solver, roles, objectives, positions, items, answers, phases, clear,
+                    answerProperty, combos, mobs, nextPortal, summonProperty, spawnWaitSeconds, timeLimitMinutes,
+                    hitReactors, entryItems, maps, loopTo, onTimeLimit, branches, null);
+        }
 
         public Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
                      List<Objective> objectives, List<Position> positions, List<ItemUse> items,

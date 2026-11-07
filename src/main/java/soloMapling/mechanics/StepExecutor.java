@@ -137,6 +137,10 @@ final class StepExecutor {
         double routeCheckDist = -1;
         /** b357: the reactor position {@link #routeCheckDist} was measured to; a new target starts a new best. */
         Point routeCheckTo;
+        /** b365: the run this bot's current step belongs to (for the item-reactor hit guard), or null. */
+        RunState run;
+        /** b365: when the guard last told the feed it refused a hit, so a refusal is one line, not one per tick. */
+        long itemHitRefusedMs;
         /** Set when the planner twice in a row has no route to the reactor this bot must hit; the run gives up. */
         String noRoute;
     }
@@ -163,6 +167,7 @@ final class StepExecutor {
     void execute(RunState run, Orchestrator orchestrator, LiveStageView view, Character bot, SolverStep step, long now,
                  Consumer<String> log) {
         Beat beat = beats.computeIfAbsent(bot.getId(), id -> new Beat());
+        beat.run = run; // b365: the hit guard reads the stage's written exception and who is in the run
         switch (step) {
             case SolverStep.MoveTo m -> moveNear(bot, beat, m.x(), m.y(), 30, now);
             case SolverStep.Fight f -> fight(view, bot, beat, f, now, log);
@@ -1154,6 +1159,56 @@ final class StepExecutor {
     }
 
     /**
+     * 1.6.6 b365: the guard behind the rows. A reactor whose current state is an item trigger (Reactor.wz type 100) is
+     * opened by its item dropped inside its box ({@code MapleMap.activateItemReactors}); a client never sends a hit
+     * there, and a server-side hit runs its script without the item. Such a hit is refused unless the stage row writes
+     * the exception down ({@code opensByHit}) and the run fits it:
+     * <ul>
+     *   <li>{@code botOnly} - no real player in the run (regulars running a boss on their own);</li>
+     *   <li>{@code regularJobsOnly} - the reactor's objective names a job, and no real player in the run has it.</li>
+     * </ul>
+     * Returns why it is refused, or {@code null} when the hit may go ahead (not an item state, or the exception fits).
+     */
+    static String itemReactorHitRefused(RunState run, server.maps.Reactor reactor) {
+        if (reactor == null || reactor.getStats() == null || reactor.getReactorType() != 100) {
+            return null;
+        }
+        MechanicsModel.Stage stage = run == null ? null : run.stageData();
+        String opens = stage == null ? null : stage.opensByHit();
+        List<RunMember> members = run == null ? List.of() : run.members();
+        if (MechanicsModel.Stage.BOT_ONLY.equals(opens)) {
+            return members.stream().anyMatch(m -> !m.bot())
+                    ? "waits for its item: a player is in the run (opensByHit: botOnly)" : null;
+        }
+        if (MechanicsModel.Stage.AFTER_FIRST_ITEM.equals(opens)) {
+            if (members.stream().noneMatch(m -> !m.bot())) {
+                return null;
+            }
+            server.maps.MapleMap map = reactor.getMap();
+            boolean firstTaken = map != null && stage.hitReactors().stream().anyMatch(other -> {
+                if (other == reactor.getId()) {
+                    return false;
+                }
+                server.maps.Reactor r = map.getReactorById(other);
+                return r != null && r.getState() > 0;
+            });
+            return firstTaken ? null : "waits for its item: the first reactor has not taken one (opensByHit: afterFirstItem)";
+        }
+        if (MechanicsModel.Stage.REGULAR_JOBS_ONLY.equals(opens)) {
+            int job = stage.objectives().stream()
+                    .filter(o -> o.hasReactor() && o.job() > 0
+                            && o.reactor().trim().equals(String.valueOf(reactor.getId())))
+                    .mapToInt(MechanicsModel.Objective::job).findFirst().orElse(0);
+            if (job == 0) {
+                return "takes an item and its row names no job for it";
+            }
+            return members.stream().anyMatch(m -> !m.bot() && m.hasJob() && (m.jobId() / 100) % 10 == job)
+                    ? "waits for its relic: a player of its job is in the run" : null;
+        }
+        return "takes an item (Reactor.wz type 100), which no client opens by a hit";
+    }
+
+    /**
      * 1.6.5 b344c: a bot walking to a reactor asks the planner every {@link #ROUTE_CHECK_MS} whether a route exists. Two
      * "no route" answers in a row (one can be a bot in mid-air) mean it never will - Zakum PQ's big room had no walk-only
      * way down to its ore rock - and the stage is given up at once rather than after the no-progress window.
@@ -1213,6 +1268,15 @@ final class StepExecutor {
         if (!clientCanHit(reactor)) { // 1.6.5 b331: never a hit no client could make (see clientCanHit)
             log.accept(bot.getName() + ": reactor " + label + " on " + bot.getMapId() + " is in state "
                     + reactor.getState() + ", which takes no hit - not hitting it");
+            return;
+        }
+        String refused = itemReactorHitRefused(beat.run, reactor);
+        if (refused != null) { // 1.6.6 b365: an item reactor opens on its item, not a hit (see itemReactorHitRefused)
+            if (beat.itemHitRefusedMs == 0 || now - beat.itemHitRefusedMs > 30_000) {
+                beat.itemHitRefusedMs = now;
+                log.accept(bot.getName() + ": reactor " + label + " on " + bot.getMapId() + " " + refused
+                        + " - not hitting it");
+            }
             return;
         }
         reactor.hitReactor(client.BotClient.forScripts(bot)); // a population bot's script needs a player behind the client

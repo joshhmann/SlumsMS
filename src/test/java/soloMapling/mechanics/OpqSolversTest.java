@@ -479,32 +479,70 @@ class OpqSolversTest {
                 "the warp is the leader's talk");
     }
 
-    @Test
-    void theGardenHitsThePotForPapaPixieThenFightsAndLoots() {
+    /** The garden as Map.wz 920010800 places it: two seed pots, one Transparent-Item pot, and the Grass pot. */
+    private static View garden() {
         View view = statue(members());
         view.map.put(LEADER, 920010800);
+        view.placed.add(new StageView.ReactorPlacement(101, 2001000, "pot", 0, 430, 20));
+        view.placed.add(new StageView.ReactorPlacement(102, 2001001, "pot", 0, 200, 20));
+        view.placed.add(new StageView.ReactorPlacement(103, 2001016, "", 0, 199, 29));
+        view.placed.add(new StageView.ReactorPlacement(104, 2002003, "pot", 0, -755, 19));
+        return view;
+    }
 
-        SolverStep.HitReactor hit = assertInstanceOf(SolverStep.HitReactor.class,
-                new OpqStatueSolver().next(view, member(true)));
-        assertEquals(OpqStatueSolver.POT_REACTOR, hit.reactorId(), "2001016 is the pot that spawns Papa Pixie");
-        assertInstanceOf(SolverStep.Wait.class, new OpqStatueSolver().next(view, member(true)),
-                "one pot per gap: a second hit would spawn a second Papa Pixie");
+    /**
+     * 1.6.6 b365: the garden the way a party plays it, every pot an item reactor (Reactor.wz type 100), none hit:
+     * Nependeath seed in a seed pot, the Royal's Transparent Item in 2001016 for Papa Pixie, his Even Stranger Seed in
+     * 2002003 for the Grass of Life. The solver used to hit 2001016 and then wait for a Grass of Life no mob drops.
+     */
+    @Test
+    void theGardenGrowsPapaPixieFromSeedsAndTheGrassFromHisSeedNeverAHit() {
+        View view = garden();
+        OpqStatueSolver solver = new OpqStatueSolver();
+        assertFalse(solver.next(view, member(true)) instanceof SolverStep.HitReactor, "an empty garden is not a hit");
 
-        view.mobs = 2;
-        SolverStep.Fight fight = assertInstanceOf(SolverStep.Fight.class,
-                new OpqStatueSolver().next(view, member(true)));
-        assertEquals(4001055, fight.itemId(), "the fight ends when the Root of Life drops");
-        assertEquals(1, fight.untilItemCount());
-
+        view.mobs = 9;
+        assertEquals(OpqStatueSolver.STRANGER_SEED, assertInstanceOf(SolverStep.Fight.class,
+                solver.next(view, member(true))).itemId(), "the Nependeaths, the Royals and Papa Pixie are fought");
         view.mobs = 0;
-        view.floor.put("4001055:" + LEADER, 1);
-        assertEquals(4001055, assertInstanceOf(SolverStep.Loot.class,
-                new OpqStatueSolver().next(view, member(true))).itemId());
 
-        view.now = OpqStatueSolver.RESPAWN_MS;
+        view.floor.put(OpqStatueSolver.SEED + ":" + LEADER, 1);
+        assertEquals(OpqStatueSolver.SEED, assertInstanceOf(SolverStep.Loot.class, solver.next(view, member(true))).itemId());
         view.floor.clear();
-        assertInstanceOf(SolverStep.HitReactor.class, new OpqStatueSolver().next(view, member(true)),
-                "an empty garden with no Root of Life spawns Papa Pixie again rather than idling");
+        view.items.put(LEADER + ":" + OpqStatueSolver.SEED, 1);
+        SolverStep.PlaceItem seed = assertInstanceOf(SolverStep.PlaceItem.class, solver.next(view, member(true)));
+        assertEquals(OpqStatueSolver.SEED, seed.itemId());
+        assertEquals(430, seed.x(), "into an unplanted seed pot, by its position");
+        view.placed.set(0, new StageView.ReactorPlacement(101, 2001000, "pot", 1, 430, 20));
+        assertEquals(200, assertInstanceOf(SolverStep.PlaceItem.class, solver.next(view, member(true))).x(),
+                "a planted pot is passed over");
+        view.items.clear();
+
+        view.items.put(LEADER + ":" + OpqStatueSolver.TRANSPARENT_ITEM, 1);
+        SolverStep.PlaceItemOn pixie = assertInstanceOf(SolverStep.PlaceItemOn.class, solver.next(view, member(true)),
+                "a Royal that wandered: its item is carried to the pot by hand");
+        assertEquals(OpqStatueSolver.POT_REACTOR, pixie.reactorId());
+        view.items.clear();
+
+        view.items.put(LEADER + ":" + OpqStatueSolver.STRANGER_SEED, 1);
+        SolverStep.PlaceItem grass = assertInstanceOf(SolverStep.PlaceItem.class, solver.next(view, member(true)));
+        assertEquals(OpqStatueSolver.STRANGER_SEED, grass.itemId());
+        assertEquals(-755, grass.x(), "Papa Pixie's seed goes into 2002003, the Grass pot");
+        view.items.clear();
+
+        view.floor.put("4001055:" + LEADER, 1);
+        assertEquals(4001055, assertInstanceOf(SolverStep.Loot.class, solver.next(view, member(true))).itemId());
+    }
+
+    /** b365: a Nependeath seed never goes into 2002003, though it is also named "pot". */
+    @Test
+    void aNependeathSeedNeverGoesIntoTheGrassPot() {
+        View view = garden();
+        view.placed.set(0, new StageView.ReactorPlacement(101, 2001000, "pot", 1, 430, 20));
+        view.placed.set(1, new StageView.ReactorPlacement(102, 2001001, "pot", 1, 200, 20));
+        view.items.put(LEADER + ":" + OpqStatueSolver.SEED, 1);
+        SolverStep next = new OpqStatueSolver().next(view, member(true));
+        assertFalse(next instanceof SolverStep.PlaceItem, "every seed pot planted: the Grass pot is not one: " + next);
     }
 
     @Test
@@ -575,6 +613,13 @@ class OpqSolversTest {
         private final Map<String, Object> memory = new HashMap<>();
         private int mobs;
         long now;
+        /** b365: the garden's reactors, as the map places them. */
+        final List<StageView.ReactorPlacement> placed = new ArrayList<>();
+
+        @Override
+        public List<StageView.ReactorPlacement> reactorsOn(int mapId) {
+            return mapId == 920010800 ? placed : List.of();
+        }
 
         View(MechanicsModel.Stage stage, List<RunMember> members) {
             this.stage = stage;

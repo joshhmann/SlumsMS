@@ -43,6 +43,26 @@ class EllinPqSolversTest {
         int floor = 0;
         boolean npc = false;
         boolean cleared;
+        long now;
+        final Map<String, Object> memory = new java.util.HashMap<>();
+
+        @Override
+        public long nowMs() {
+            return now;
+        }
+
+        /** b365: what an item reactor on the map still waits for (Reactor.wz type 100). */
+        final Map<Integer, int[]> takes = new java.util.HashMap<>();
+
+        @Override
+        public int[] reactorTakes(int reactorId) {
+            return takes.get(reactorId);
+        }
+
+        @Override
+        public Map<String, Object> stageMemory() {
+            return memory;
+        }
 
         View(MechanicsModel.Stage stage) {
             this.stage = stage;
@@ -153,15 +173,47 @@ class EllinPqSolversTest {
         assertEquals(6, c.maxPlayers());
     }
 
+    /**
+     * 1.6.6 b365: the spine is an item reactor (Reactor.wz 3009000 states 0-3 type 100, 1 x 4001162 each). Eak's own
+     * line on 930000200: the 9300173 carry the poison, the fountain dilutes it, the diluted poison removes the spine.
+     * The row hit the spine four times instead - a hit no client can make, and it skipped the poison and the fountain.
+     */
     @Test
-    void theSpineSolverHitsUntilTheStateThePortalWants() {
+    void theSpineIsOpenedWithDilutedPoisonFromTheFountainNeverHit() {
         MechanicsModel.Stage stage = row().stages().get(1);
+        assertFalse(stage.objectives().stream().anyMatch(o -> o.kind() == MechanicsModel.ObjectiveKind.HIT_REACTOR),
+                "nothing on this stage is opened by a hit");
         View v = new View(stage);
         ReactorStateSolver solver = new ReactorStateSolver();
         for (int state = 0; state < 4; state++) {
             v.spine = state;
-            assertEquals(new SolverStep.HitReactor(3009000), solver.next(v, member(true)),
-                    "state " + state + " is under 4");
+            v.held.clear();
+            v.floor = 0;
+            v.now += 60_000;
+            SolverStep.Fight fight = assertInstanceOf(SolverStep.Fight.class, solver.next(v, member(true)),
+                    "nothing in hand: the poison is the 9300173's");
+            assertEquals(List.of(9300173), fight.mobIds());
+            assertEquals(4001161, fight.itemId());
+
+            v.floor = 4001161;
+            assertEquals(new SolverStep.Loot(4001161), solver.next(v, member(true)), "its drop is picked up");
+            v.floor = 0;
+            v.held.put(LEADER + ":" + 4001161, 1);
+            SolverStep.PlaceItemOn dilute = assertInstanceOf(SolverStep.PlaceItemOn.class, solver.next(v, member(true)));
+            assertEquals(3002000, dilute.reactorId(), "concentrated poison goes in the fountain");
+            assertEquals(4001161, dilute.itemId());
+
+            v.held.clear();
+            v.floor = 4001162;
+            assertEquals(new SolverStep.Loot(4001162), solver.next(v, member(true)), "the fountain's drop is picked up");
+            v.floor = 0;
+            v.held.put(LEADER + ":" + 4001162, 1);
+            SolverStep.PlaceItemOn spine = assertInstanceOf(SolverStep.PlaceItemOn.class, solver.next(v, member(true)),
+                    "state " + state + ": diluted poison on the spine");
+            assertEquals(3009000, spine.reactorId());
+            assertEquals(4001162, spine.itemId());
+            assertInstanceOf(SolverStep.Wait.class, solver.next(v, member(true)),
+                    "the spine takes it a few seconds after it lands: not a second stack");
         }
         v.spine = 4;
         assertFalse(solver.next(v, member(true)) instanceof SolverStep.HitReactor,
@@ -174,6 +226,28 @@ class EllinPqSolversTest {
         v.at.put(MEMBER, 930000200);
         v.cleared = true;
         assertInstanceOf(SolverStep.Done.class, solver.next(v, member(true)));
+    }
+
+    /**
+     * 1.6.6 b365: the last room's golem comes out of the altar 3001000, an item reactor that takes the Magic Stone
+     * (4001163). The leader arrived holding it and the fight-room solver waited in an empty room: nothing placed it.
+     */
+    @Test
+    void theMagicStoneGoesOnTheAltarSoTheGolemComesOut() {
+        MechanicsModel.Stage stage = row().stages().get(5);
+        View v = new View(stage);
+        v.takes.put(3001000, new int[]{4001163, 1});
+        v.held.put(LEADER + ":" + 4001163, 1);
+        SolverStep.PlaceItemOn place = assertInstanceOf(SolverStep.PlaceItemOn.class,
+                new FightTheRoomSolver().next(v, member(true)), "the stone holder puts it on the altar");
+        assertEquals(3001000, place.reactorId());
+        assertEquals(4001163, place.itemId());
+        assertInstanceOf(SolverStep.Wait.class, new FightTheRoomSolver().next(v, member(false)),
+                "the others wait for the golem");
+        v.takes.clear(); // the altar took it
+        v.mobs = 1;
+        assertInstanceOf(SolverStep.Fight.class, new FightTheRoomSolver().next(v, member(true)),
+                "then the three golem forms are fought");
     }
 
     @Test

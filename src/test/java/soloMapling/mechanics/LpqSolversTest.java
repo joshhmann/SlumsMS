@@ -112,13 +112,32 @@ class LpqSolversTest {
                 solver.next(view, member(true))).reactorId(), "eight monsters and eight boxes, and the boxes come after");
     }
 
+    /**
+     * 1.6.6 b363: the passes are the Rombards' (9300010). A Ratz's drop lands in its box 2201002, an item reactor
+     * (Reactor.wz state 0 type 100, 1 x 4001156), which summons the Rombard; the row had the Ratz dropping passes and
+     * every member hitting the box - a hit no client can make.
+     */
+    @Test
+    void theRombardsHoldThePassesAndNothingHitsTheBoxesThatSummonThem() {
+        MechanicsModel.Stage seven = stageAt(922010700);
+        MechanicsModel.Objective hunt = seven.objectives().stream()
+                .filter(o -> o.kind() == MechanicsModel.ObjectiveKind.KILL_FOR_ITEM).findFirst().orElseThrow();
+        assertEquals(9300010, hunt.mobId(), "the Rombard drops the pass; a Ratz drops 4001156");
+        assertTrue(seven.mobs().containsAll(List.of(9300169, 9300170, 9300171, 9300010)),
+                "the Ratz are fought too: their drop is what summons each Rombard");
+        assertFalse(seven.objectives().stream().anyMatch(o -> o.kind() == MechanicsModel.ObjectiveKind.HIT_REACTOR),
+                "2201002 takes 4001156 (type 100); it is never hit");
+        assertEquals(0, LpqFarmSolver.boxReactor(seven));
+    }
+
     @Test
     void theThreeBossesStageAsksForThreePasses() {
         View view = new View(stageAt(922010700), two());
         view.mobs = 0;
         view.items.put(LEADER + ":" + PASS, 2);
-        assertInstanceOf(SolverStep.HitReactor.class, new LpqFarmSolver().next(view, member(true)),
-                "two passes is not three");
+        SolverStep two = new LpqFarmSolver().next(view, member(true));
+        assertFalse(two instanceof SolverStep.HitReactor || two instanceof SolverStep.TalkNpc,
+                "two passes is not three, and the boxes are not hit: " + two);
         view.items.put(LEADER + ":" + PASS, 3);
         assertEquals(3, assertInstanceOf(SolverStep.TalkNpc.class,
                 new LpqFarmSolver().next(view, member(true))).count());

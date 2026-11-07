@@ -29,9 +29,6 @@ final class OpqStatueSolver implements StageSolver {
     /** The Nependeath pot: {@code scripts/reactor/2001016.js} clears the garden and spawns Papa Pixie. */
     static final int POT_REACTOR = 2001016;
     static final long TALK_GAP_MS = 1_500;
-    /** After the pot has been hit the garden is empty until Papa Pixie is spawned, so one hit per gap is enough. */
-    static final long RESPAWN_MS = 20_000;
-    private static final String PIXIE_AT = "statue.pixieAt";
 
     /** scar name -> the one piece its item trigger takes ({@code Reactor.wz/2008000-2008005.img.xml}). */
     static final Map<String, Integer> SCAR_PIECE = scarPieces();
@@ -100,22 +97,70 @@ final class OpqStatueSolver implements StageSolver {
         return new SolverStep.TalkNpc(EAK_NPC, 0, 0);
     }
 
-    /** The garden: the pot spawns Papa Pixie, he drops the Root of Life, and the party carries it back. */
+    /** b365: the Nependeath's seed, which the garden's seed pots take (Reactor.wz 2001000/2001001 state 0 type 100). */
+    static final int SEED = 4001053;
+    /** b365: the Royal Nependeath's Transparent Item, which the pot 2001016 takes (state 0 type 100). */
+    static final int TRANSPARENT_ITEM = 4001074;
+    /** b365: Papa Pixie's Even Stranger Seed (drop_data 9300039, 60%), which the pot 2002003 takes for the Grass. */
+    static final int STRANGER_SEED = 4001054;
+    /** b365: the pot that grows the Grass of Life (Reactor.wz 2002003 state 0 type 100, 1 x 4001054; reactordrops). */
+    static final int GRASS_POT = 2002003;
+    /** b365: how long a seed dropped in a pot is waited on (the server takes it 5 s after it lands). */
+    static final long SEED_IN_FLIGHT_MS = 8_000;
+    /** b365: the seed pots, by WZ id. They share the name "pot" with 2002003 (Grass of Life), so they go by position. */
+    static final java.util.Set<Integer> SEED_POTS = java.util.Set.of(2001000, 2001001);
+
+    /**
+     * The garden (1.6.6 b365, the players' route). The garden's Nependeaths (9300048) drop seeds; a seed dropped in a
+     * seed pot ({@code scripts/reactor/2001000.js}) grows a Nependeath or a Royal Nependeath (9300049), always a Royal
+     * after the seventh; the Royal drops the Transparent Item, which, landing in the pot 2001016 at its feet, brings out
+     * Papa Pixie ({@code 2001016.js}); he drops the Even Stranger Seed, which the pot 2002003 turns into the Grass of
+     * Life ({@code 2002003.js}: drops it and sets statusStg7) for the statue. Every pot is an item reactor: none is hit.
+     */
     private static SolverStep garden(StageView view, int id) {
         if (view.floorItems(ROOT_OF_LIFE, id) > 0) {
             return new SolverStep.Loot(ROOT_OF_LIFE);
         }
+        if (view.itemCount(id, STRANGER_SEED) > 0) {
+            for (StageView.ReactorPlacement pot : view.reactorsOn(GARDEN_MAP)) {
+                if (pot.reactorId() == GRASS_POT && pot.state() == 0) {
+                    return new SolverStep.PlaceItem(STRANGER_SEED, 1, "", pot.x(), pot.y(),
+                            "the Even Stranger Seed in the pot that grows the Grass of Life");
+                }
+            }
+        }
+        if (view.floorItems(STRANGER_SEED, id) > 0) {
+            return new SolverStep.Loot(STRANGER_SEED);
+        }
+        if (view.itemCount(id, TRANSPARENT_ITEM) > 0) {
+            // a Royal that wandered off its pot before it died: carry its item to a pot by hand, as a player would
+            return new SolverStep.PlaceItemOn(POT_REACTOR, TRANSPARENT_ITEM, 1, "the Transparent Item into the pot");
+        }
+        if (view.floorItems(TRANSPARENT_ITEM, id) > 0) {
+            return new SolverStep.Loot(TRANSPARENT_ITEM);
+        }
         if (view.liveMobs() > 0) {
-            return new SolverStep.Fight(0, ROOT_OF_LIFE, 1);
+            return new SolverStep.Fight(0, STRANGER_SEED, 1);
         }
-        // no timestamp yet means the pot has not been hit in this instance; a subtraction against a sentinel
-        // would overflow (nowMs() is small, Long.MIN_VALUE is not)
-        Object at = view.stageMemory().get(PIXIE_AT);
-        if (!(at instanceof Long last) || view.nowMs() - last >= RESPAWN_MS) {
-            view.stageMemory().put(PIXIE_AT, view.nowMs());
-            return new SolverStep.HitReactor(POT_REACTOR);
+        if (view.itemCount(id, SEED) > 0) {
+            for (StageView.ReactorPlacement pot : view.reactorsOn(GARDEN_MAP)) {
+                // a pot takes its seed 5 s after it lands (MapleMap.activateItemReactors): one seed on its way is
+                // enough, so the next one goes to another pot rather than onto the same one
+                String key = "seedAt:" + pot.x() + "," + pot.y();
+                Object at = view.stageMemory().get(key);
+                boolean pending = at instanceof Long t && view.nowMs() - t < SEED_IN_FLIGHT_MS;
+                if (SEED_POTS.contains(pot.reactorId()) && pot.state() == 0 && !pending) {
+                    view.stageMemory().put(key, view.nowMs());
+                    return new SolverStep.PlaceItem(SEED, 1, "", pot.x(), pot.y(), "a seed in the pot at ("
+                            + pot.x() + ", " + pot.y() + ")");
+                }
+            }
+            return new SolverStep.Wait(TALK_GAP_MS, "every seed pot is planted: waiting for what grows");
         }
-        return new SolverStep.Wait(TALK_GAP_MS, "waiting for Papa Pixie to come out of the pot");
+        if (view.floorItems(SEED, id) > 0) {
+            return new SolverStep.Loot(SEED);
+        }
+        return new SolverStep.Wait(TALK_GAP_MS, "waiting for the garden to grow a Royal Nependeath");
     }
 
     /** {@code scripts/npc/2013001.js:11-19}: every scar has been used at least once. */

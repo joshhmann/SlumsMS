@@ -34,7 +34,8 @@ public final class CwkpqSigilSolver implements StageSolver {
      */
     static List<Integer> reactors(StageView view) {
         List<Integer> named = view.stage().objectives().stream()
-                .filter(o -> o.kind() == MechanicsModel.ObjectiveKind.HIT_REACTOR)
+                .filter(o -> o.kind() == MechanicsModel.ObjectiveKind.HIT_REACTOR
+                        || o.kind() == MechanicsModel.ObjectiveKind.PLACE_ITEM)
                 .map(MechanicsModel.Objective::reactor)
                 .filter(name -> name != null && name.chars().allMatch(Character::isDigit))
                 .map(Integer::parseInt)
@@ -94,6 +95,56 @@ public final class CwkpqSigilSolver implements StageSolver {
                 // a property that is not a number is the script's business, not ours: hit and let it count
             }
         }
+        List<MechanicsModel.Objective> relics = view.stage().objectives().stream()
+                .filter(o -> o.kind() == MechanicsModel.ObjectiveKind.PLACE_ITEM && o.hasReactor() && o.job() > 0)
+                .toList();
+        if (!relics.isEmpty()) {
+            return relic(view, member, relics);
+        }
         return new SolverStep.HitReactor(sigilFor(view, id));
+    }
+
+    /** b365: when the run was told a weapon needs its relic (once per weapon per stage). */
+    private static final String K_NEEDS = "relicNeeds:";
+
+    /**
+     * 1.6.6 b365 (Crimsonwood's Relic of Mastery, 610030500): each weapon reactor (6109005-9) is an item reactor that
+     * takes its job's relic, which comes from that job's chamber. Whoever holds a relic places it. A weapon whose job a
+     * real player in the run has waits for that player's relic - one relic is enough, whichever of them brings it. A
+     * weapon whose job no player in the run has may open by a hit where the row says {@code regularJobsOnly}, because
+     * regulars do not do the chambers yet (cwkpq-chambers, 1.6.7). Starting from this member's own slot, so a party
+     * spreads over the five.
+     */
+    private static SolverStep relic(StageView view, RunMember member, List<MechanicsModel.Objective> relics) {
+        int id = member.characterId();
+        for (MechanicsModel.Objective o : relics) {
+            int reactor = Integer.parseInt(o.reactor().trim());
+            if (view.reactorTakes(reactor) != null && view.itemCount(id, o.itemId()) > 0) {
+                return new SolverStep.PlaceItemOn(reactor, o.itemId(), 1, "the relic back on its weapon");
+            }
+        }
+        boolean byHit = MechanicsModel.Stage.REGULAR_JOBS_ONLY.equals(view.stage().opensByHit());
+        int start = Math.max(0, reactors(view).indexOf(sigilFor(view, id)));
+        for (int k = 0; k < relics.size(); k++) {
+            MechanicsModel.Objective o = relics.get((start + k) % relics.size());
+            int reactor = Integer.parseInt(o.reactor().trim());
+            if (view.reactorTakes(reactor) == null) {
+                continue; // restored already
+            }
+            boolean held = view.members().stream().anyMatch(m -> view.itemCount(m.characterId(), o.itemId()) > 0);
+            if (held) {
+                continue; // its holder places it
+            }
+            boolean playerOfJob = view.members().stream()
+                    .anyMatch(m -> !m.bot() && m.hasJob() && (m.jobId() / 100) % 10 == o.job());
+            if (playerOfJob || !byHit) {
+                if (view.stageMemory().putIfAbsent(K_NEEDS + reactor, view.nowMs()) == null) {
+                    return new SolverStep.Say("You'll need " + view.itemName(o.itemId()) + " to open this.");
+                }
+                continue;
+            }
+            return new SolverStep.HitReactor(reactor);
+        }
+        return new SolverStep.Wait(1_500, "the weapons left wait for their relics");
     }
 }

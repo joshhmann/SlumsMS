@@ -150,23 +150,77 @@ class MagatiaPqSolversTest {
         assertInstanceOf(SolverStep.Done.class, solver.next(v, member(true)));
     }
 
+    /**
+     * 1.6.6 b365, the finding behind the change: the old row could not clear this stage. It hit 2618000 by id, and
+     * {@code MapleMap.getReactorById} returns the first match, so every hit went to one beaker. Walked through Reactor.wz
+     * the way {@code Reactor.hitReactor} walks it (event 0 of each state), a beaker counts once - the hit at state 6 -
+     * and then sits at 8 for good, so statusStg3 stopped at 1 of 3. A real party fills three beakers with liquid.
+     */
     @Test
-    void theBeakerIsHitUntilTheCountTheRowNamesIsReached() {
+    void hittingTheFirstBeakerByIdCountsOnceAndNeverAgain() {
+        soloMapling.WzTestData.assumePresent("Reactor.wz");
+        server.maps.ReactorStats stats = server.maps.ReactorFactory.getReactor(2618000);
+        byte state = 0;
+        int counted = 0;
+        for (int hit = 0; hit < 50; hit++) {
+            if (state == 6) {
+                counted++; // scripts/reactor/2618000.js:1-3 counts only while the state is 6
+            }
+            byte next = stats.getNextState(state, (byte) 0);
+            if (next < 0) {
+                break;
+            }
+            state = next;
+        }
+        assertEquals(1, counted, "one beaker counts once, however often it is hit");
+        assertEquals(8, state, "and ends in its last state, where a hit changes nothing");
+        assertEquals(100, stats.getType((byte) 0), "state 0 waits for an item, not a hit");
+        assertEquals(4001132, stats.getReactItem((byte) 0, (byte) 0).getLeft(), "Suspicious Liquid");
+    }
+
+    /** 1.6.6 b365: the beakers are filled with the Homunculus' liquid, one beaker at a time, one liquid per state. */
+    @Test
+    void theBeakersAreFilledWithLiquidOneAtATimeNeverHit() {
         MechanicsModel.Stage stage = row().stages().get(2);
+        assertFalse(stage.objectives().stream().anyMatch(o -> o.kind() == MechanicsModel.ObjectiveKind.HIT_REACTOR),
+                "nothing in the beaker room is opened by a hit");
         View v = new View(stage, stage.mapId());
         ReactorCountSolver solver = new ReactorCountSolver();
+        v.beaker.put("beaker1", 0);
+        v.beaker.put("beaker2", 0);
+        v.beaker.put("beaker3", 0);
 
-        assertEquals(3, ReactorCountSolver.target(stage.clear()));
-        assertEquals(-1, ReactorCountSolver.counter(v), "the event has not written statusStg3 at all yet");
-        assertInstanceOf(SolverStep.Wait.class, solver.next(v, member(true)),
-                "with no counter there is nothing to compare, so the solver says so rather than hitting blindly");
+        v.props.put("statusStg3", "0");
+        SolverStep.Fight fight = assertInstanceOf(SolverStep.Fight.class, solver.next(v, member(true)),
+                "no liquid yet: the Homunculus carry it");
+        assertEquals(List.of(9300147), fight.mobIds());
+        assertEquals(4001132, fight.itemId());
+        v.floorLiquid = 1;
+        assertEquals(new SolverStep.Loot(4001132), solver.next(v, member(true)), "its drop is picked up");
+        v.floorLiquid = 0;
 
+        v.liquidHeld.put(LEADER, 7);
+        v.liquidHeld.put(MEMBER, 7);
+        SolverStep.PlaceItem first = assertInstanceOf(SolverStep.PlaceItem.class, solver.next(v, member(true)));
+        assertEquals("beaker1", first.reactor(), "the count is 0: the first beaker");
+        assertEquals(1, first.count(), "one liquid: a state takes exactly 1");
+        assertInstanceOf(SolverStep.Wait.class, solver.next(v, member(false)),
+                "the other regular waits for that liquid to be taken, not a second one on top");
+        v.beaker.put("beaker1", 1);
+        v.now += 6_500;
+        assertEquals("beaker1", assertInstanceOf(SolverStep.PlaceItem.class, solver.next(v, member(false))).reactor(),
+                "the state moved: the next liquid follows");
+
+        v.beaker.put("beaker1", 7);
+        assertInstanceOf(SolverStep.Wait.class, solver.next(v, member(true)), "a full beaker takes nothing more");
         v.props.put("statusStg3", "1");
-        assertEquals(2618000, assertInstanceOf(SolverStep.HitReactor.class,
-                solver.next(v, member(true))).reactorId(), "one hit per tick while the count is short");
+        assertEquals("beaker2", assertInstanceOf(SolverStep.PlaceItem.class, solver.next(v, member(true))).reactor(),
+                "one counted: the second beaker");
+        v.props.put("statusStg3", "2");
+        assertEquals("beaker3", assertInstanceOf(SolverStep.PlaceItem.class, solver.next(v, member(true))).reactor());
         v.props.put("statusStg3", "3");
         assertInstanceOf(SolverStep.Wait.class, solver.next(v, member(true)),
-                "at three the door is the script's job (2618000.js:37-40), not another hit");
+                "at three the door is the script's job (2618000.js:37-40)");
         v.cleared = true;
         assertInstanceOf(SolverStep.Done.class, solver.next(v, member(true)));
     }
@@ -298,6 +352,9 @@ class MagatiaPqSolversTest {
 
         @Override
         public int itemCount(int characterId, int itemId) {
+            if (itemId == 4001132) {
+                return liquidHeld.getOrDefault(characterId, 0);
+            }
             int[] h = held.get(characterId);
             return h == null ? 0 : h[itemId == 4001134 ? 0 : 1];
         }
@@ -337,9 +394,25 @@ class MagatiaPqSolversTest {
             return npc && npcId == stage.npcId() ? Optional.of(new int[]{0, 0}) : Optional.empty();
         }
 
+        /** b365: liquids lying where this member can pick them up, and each beaker's state by name. */
+        int floorLiquid;
+        final Map<String, Integer> beaker = new HashMap<>();
+        final Map<Integer, Integer> liquidHeld = new HashMap<>();
+        long now;
+
         @Override
         public int floorItems(int itemId, int forCharacterId) {
-            return 0;
+            return itemId == 4001132 ? floorLiquid : 0;
+        }
+
+        @Override
+        public int reactorState(String name) {
+            return beaker.getOrDefault(name, -1);
+        }
+
+        @Override
+        public long nowMs() {
+            return now;
         }
 
         @Override

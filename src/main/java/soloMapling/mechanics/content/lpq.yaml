@@ -291,7 +291,7 @@ stages:
     npc: 2040042
     solver: lpq-farm
     nextPortal: next00
-    mobs: [9300169, 9300170, 9300171]
+    mobs: [9300169, 9300170, 9300171, 9300010]
     roles:
       - id: leader
         who: LEADER
@@ -309,14 +309,10 @@ stages:
       - id: hunt
         kind: KILL_FOR_ITEM
         role: all
-        mob: 9300169
+        mob: 9300010
         item: 4001022
         count: 3
-        note: the three bosses of 922010700 and three boxes (2201002) each hold a pass
-      - id: boxes
-        kind: HIT_REACTOR
-        role: all
-        reactor: "2201002"
+        note: "1.6.6 b363: the passes are the Rombards' (9300010). Each Ratz (9300169-71) stands in its box 2201002 on a ledge; its drop (4001156, drop_data) lands in the box, a mob drop sets off an item reactor (MapleMap.spawnDrop -> activateItemReactors), and 2201002.js summons a Rombard at (1,-211). 2201002 is an item reactor (Reactor.wz state 0 type 100, 1 x 4001156): nothing hits it. Hidden Street (2009): kill the Ratz from range, then the Rombards"
       - id: give-pass
         kind: GIVE_TO_LEADER
         role: collector

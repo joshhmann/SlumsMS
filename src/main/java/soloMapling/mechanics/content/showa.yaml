@@ -42,6 +42,11 @@ stages:
     solver: boss-phases
     # the bot clicks 8001000 once; 9400112 arrives from that click, so the room may stand empty until it does.
     hitReactors: [8001000]
+    # 1.6.6 b365 (owner, 7 Nov: "the leader brings the item"): the reactor is an item reactor (Reactor.wz type 100) and
+    # takes Lady Boss's Comb 4000138 (Yakuza Underboss 9400121). Whoever in the run holds it places it. With a real player in the run and nobody holding it, the room
+    # waits for it and a regular says so once in party chat. Regulars on their own may still open it by a hit - the
+    # written exception below - until they learn to fetch the item (1.6.7).
+    opensByHit: botOnly
     # 60 s is a policy number (the click, the spawn and a respawn animation, with margin), not a WZ one.
     spawnWaitSeconds: 60
     mobs:

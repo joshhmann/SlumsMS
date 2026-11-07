@@ -358,6 +358,158 @@ class BossPhasesSolverTest {
     }
 
     /**
+     * 1.6.6 b365: Latanica's 5411000 is an item reactor (Reactor.wz state 0 type 100, 1 x 4000381 White Essence). A
+     * player opens it by dropping the essence on it; the row's bot clicked it, a hit no client can make, which ran the
+     * summon without the item. The member holding the essence now places it, once.
+     */
+    @Test
+    void latanicasReactorIsOpenedWithTheWhiteEssenceNotAClick() {
+        MechanicsModel.Stage room = MechanicsRuns.contentFor("LatanicaBattle").stages().get(0);
+        View holds = new View(room, List.of(), Map.of());
+        holds.hold(4000381, 1);
+        holds.takes.put(5411000, new int[]{4000381, 1});
+
+        SolverStep.PlaceItemOn place = assertInstanceOf(SolverStep.PlaceItemOn.class, solver.next(holds, member()),
+                "a reactor that takes an item is opened with the item");
+        assertEquals(5411000, place.reactorId());
+        assertEquals(4000381, place.itemId());
+        assertEquals(1, place.count());
+        assertFalse(solver.next(holds, member()) instanceof SolverStep.PlaceItemOn, "placed once per stage");
+    }
+
+    private static final int REGULAR = 1_000_000_123;
+    private static final int REGULAR2 = 1_000_000_124;
+
+    private static RunMember regular(int id, boolean leader) {
+        return new RunMember(id, leader, true, MechanicsPersona.PERFECT);
+    }
+
+    /** The owner's three rows (7 Nov): each reactor, the item it takes, and the row. */
+    private static final Object[][] BOSS_ROWS = {
+            {"PapulatusBattle", 2201004, 4031179},
+            {"ScargaBattle", 5511000, 4032246},
+            {"ShowaBattle", 8001000, 4000138},
+    };
+
+    private static View bossRoom(Object[] row) {
+        MechanicsModel.Stage room = MechanicsRuns.contentFor((String) row[0]).stages().get(0);
+        View v = new View(room, List.of(), Map.of());
+        for (int reactor : room.hitReactors()) {
+            v.takes.put(reactor, new int[]{(Integer) row[2], 1});
+            v.states.put(reactor, 0);
+        }
+        return v;
+    }
+
+    /** b365 rule: the three rows carry the written exception; nothing else does. */
+    @Test
+    void theOwnersThreeBossRowsAreTheOnlyOnesThatMayOpenByHitAndOnlyForRegulars() {
+        for (Object[] row : BOSS_ROWS) {
+            String expected = row[0].equals("ScargaBattle") ? MechanicsModel.Stage.AFTER_FIRST_ITEM
+                    : MechanicsModel.Stage.BOT_ONLY;
+            assertEquals(expected, MechanicsRuns.contentFor((String) row[0]).stages().get(0).opensByHit(),
+                    (String) row[0]);
+        }
+        assertEquals(null, MechanicsRuns.contentFor("LatanicaBattle").stages().get(0).opensByHit(),
+                "Latanica's item is the door's: it is always in hand");
+    }
+
+    /** (a) A real player in the run and nobody holding the item: no hit; one party line naming it; then a wait. */
+    @Test
+    void withARealPlayerInTheRunAnItemReactorWaitsForTheItemAndIsNeverHit() {
+        for (Object[] row : BOSS_ROWS) {
+            View v = bossRoom(row);
+            v.party = List.of(RunMember.player(7, true), regular(REGULAR, false));
+            SolverStep.Say say = assertInstanceOf(SolverStep.Say.class, v.stage().hitReactors().isEmpty() ? null
+                    : solver.next(v, regular(REGULAR, false)), row[0] + ": the regular says what is missing");
+            assertEquals("You'll need Item" + row[2] + " to open this.", say.line());
+            assertFalse(say.line().toLowerCase().contains("bot"), "the name rule");
+            for (int t = 0; t < 5; t++) {
+                v.now += 2_000;
+                SolverStep next = solver.next(v, regular(REGULAR, false));
+                assertFalse(next instanceof SolverStep.HitReactor, row[0] + ": never a hit: " + next);
+                assertFalse(next instanceof SolverStep.Say, row[0] + ": said once");
+            }
+        }
+    }
+
+    /**
+     * The owner's Scarga rule (7 Nov): one Spirit opens both. With a player leading and one Spirit, it goes on Targa's
+     * reactor; once that has taken it, Scarlion's reactor opens by a hit (opensByHit: afterFirstItem).
+     */
+    @Test
+    void oneSpiritOpensBothOfScargasReactors() {
+        View v = bossRoom(BOSS_ROWS[1]);
+        v.party = List.of(RunMember.player(7, true), regular(REGULAR, false));
+        v.heldBy.put(7, 0);
+        v.heldBy.put(REGULAR, 4032246);
+        assertEquals(5511000, assertInstanceOf(SolverStep.PlaceItemOn.class,
+                solver.next(v, regular(REGULAR, false))).reactorId(), "the one Spirit goes on Targa's reactor");
+        v.heldBy.put(REGULAR, 0); // taken by the reactor
+        v.states.put(5511000, 1);
+        v.takes.remove(5511000);
+        assertEquals(5511001, assertInstanceOf(SolverStep.HitReactor.class,
+                solver.next(v, regular(REGULAR, false))).reactorId(), "Scarlion's opens after the first took its item");
+    }
+
+    /** ...and with no Spirit at all, a player-led Scarga does not open by a hit: the first reactor waits for it. */
+    @Test
+    void aPlayerLedScargaWithNoSpiritOpensNothing() {
+        View v = bossRoom(BOSS_ROWS[1]);
+        v.party = List.of(RunMember.player(7, true), regular(REGULAR, false));
+        List<SolverStep> steps = new ArrayList<>();
+        for (int t = 0; t < 5; t++) {
+            v.now += 2_000;
+            steps.add(solver.next(v, regular(REGULAR, false)));
+        }
+        assertFalse(steps.stream().anyMatch(st -> st instanceof SolverStep.HitReactor), "no Spirit, no hit: " + steps);
+    }
+
+    /** (b) Regulars on their own: the written exception, the old click. */
+    @Test
+    void regularsOnTheirOwnMayStillOpenTheRoomByAHit() {
+        for (Object[] row : BOSS_ROWS) {
+            View v = bossRoom(row);
+            v.party = List.of(regular(REGULAR, true), regular(REGULAR2, false));
+            assertEquals(v.stage().hitReactors().get(0), assertInstanceOf(SolverStep.HitReactor.class,
+                    solver.next(v, regular(REGULAR, true))).reactorId(), (String) row[0]);
+        }
+    }
+
+    /** (c) A real player leads and a regular carries the item: the regular places it. */
+    @Test
+    void aRegularCarryingTheItemPlacesItForAPlayerLedRun() {
+        for (Object[] row : BOSS_ROWS) {
+            View v = bossRoom(row);
+            v.party = List.of(RunMember.player(7, true), regular(REGULAR, false));
+            v.heldBy.put(7, 0);
+            v.heldBy.put(REGULAR, (Integer) row[2]);
+            SolverStep.PlaceItemOn place = assertInstanceOf(SolverStep.PlaceItemOn.class,
+                    solver.next(v, regular(REGULAR, false)), (String) row[0]);
+            assertEquals((int) (Integer) row[2], place.itemId());
+            assertEquals(v.stage().hitReactors().get(0), (Integer) place.reactorId());
+        }
+    }
+
+    /** (d) The player puts the item down themselves: the run carries on and nothing hits the opened reactor. */
+    @Test
+    void aPlayerWhoPlacesTheItemThemselvesOpensTheRoomAndTheRunGoesOn() {
+        for (Object[] row : BOSS_ROWS) {
+            View v = bossRoom(row);
+            v.party = List.of(RunMember.player(7, true), regular(REGULAR, false));
+            assertInstanceOf(SolverStep.Say.class, solver.next(v, regular(REGULAR, false)));
+            for (int reactor : v.stage().hitReactors()) {
+                v.takes.remove(reactor); // the stack landed: the reactor moved on to state 1
+                v.states.put(reactor, 1);
+            }
+            v.now += 2_000;
+            SolverStep next = solver.next(v, regular(REGULAR, false));
+            assertFalse(next instanceof SolverStep.HitReactor, row[0] + ": an opened reactor is not hit: " + next);
+            assertFalse(next instanceof SolverStep.Say, row[0] + ": and nobody asks for the item again");
+        }
+    }
+
+    /**
      * Round 10 (Chaos Zakum): the body's phase order comes from the row's own {@code mobs:} list, not from a hardcoded
      * normal-Zakum family. A chaos row (8800100 -> 8800101 -> 8800102) had no rank in the old family and fell back to
      * the order the parts happened to arrive in.
@@ -459,6 +611,27 @@ class BossPhasesSolverTest {
         private final Map<String, String> props;
         private final Map<String, Object> memory = new HashMap<>();
         private final Map<Integer, Integer> held = new HashMap<>();
+        /** b365: what an item reactor on the map takes in its current state (Reactor.wz type 100). */
+        final Map<Integer, int[]> takes = new HashMap<>();
+        /** b365: who is in the run (the default: one real player), reactor states, and who holds what. */
+        List<RunMember> party = List.of(member());
+        final Map<Integer, Integer> states = new HashMap<>();
+        final Map<Integer, Integer> heldBy = new HashMap<>();
+
+        @Override
+        public int reactorState(int reactorId) {
+            return states.getOrDefault(reactorId, -1);
+        }
+
+        @Override
+        public boolean reactorHittable(int reactorId) {
+            return states.getOrDefault(reactorId, -1) == 0; // these reactors' later states take no hit
+        }
+
+        @Override
+        public String itemName(int itemId) {
+            return "Item" + itemId;
+        }
         long now;
 
         View(List<Part> parts, Map<String, String> props) {
@@ -482,6 +655,11 @@ class BossPhasesSolverTest {
         }
 
         @Override
+        public int[] reactorTakes(int reactorId) {
+            return takes.get(reactorId);
+        }
+
+        @Override
         public Map<String, Object> stageMemory() {
             return memory;
         }
@@ -493,7 +671,7 @@ class BossPhasesSolverTest {
 
         @Override
         public List<RunMember> members() {
-            return List.of(member());
+            return party;
         }
 
         @Override
@@ -508,6 +686,9 @@ class BossPhasesSolverTest {
 
         @Override
         public int itemCount(int characterId, int itemId) {
+            if (heldBy.containsKey(characterId)) {
+                return heldBy.get(characterId) == itemId ? 1 : 0;
+            }
             return held.getOrDefault(itemId, 0);
         }
 

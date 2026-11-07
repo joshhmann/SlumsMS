@@ -44,6 +44,11 @@ stages:
     # both reactors, once each, in this order: 5511000 brings Targa's half, 5511001 brings Scarlion's, and neither half
     # can clear anything on its own.
     hitReactors: [5511000, 5511001]
+    # 1.6.6 b365 (owner, 7 Nov: "the leader brings the item"; Scarga: "one Spirit opens both"): both reactors are item
+    # reactors (Reactor.wz type 100) taking Spirit of Fantasy Theme Park 4032246 (NPC 9270047 only checks the leader
+    # holds it). Whoever holds it places it on the first; once one has taken it, the other opens by a hit - the written
+    # exception below. Regulars on their own may hit both. Revisit if v83 research shows two Spirits were needed (1.6.7).
+    opensByHit: afterFirstItem
     # the first half arrives 3.2 s after the first click and the second 3.2 s after the second; 60 s is a policy number
     # (two clicks, two summons and a respawn animation, with margin), not a WZ one.
     spawnWaitSeconds: 60

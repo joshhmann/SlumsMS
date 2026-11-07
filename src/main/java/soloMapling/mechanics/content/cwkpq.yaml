@@ -101,27 +101,67 @@ stages:
         who: ANY
         min: 1
         max: party
+    items:
+      - id: 4001259
+        name: Master Sword
+        cleanup: true
+      - id: 4001258
+        name: Ancestral Bow
+        cleanup: true
+      - id: 4001257
+        name: Staff of First Magic
+        cleanup: true
+      - id: 4001256
+        name: Primal Claw
+        cleanup: true
+      - id: 4001260
+        name: pirate relic
+        cleanup: true
+    # 1.6.6 b365 (Coordinator, 7 Nov): each weapon reactor is an item reactor taking its job's relic, which comes from
+    # that job's chamber - regulars do not do the chambers yet (cwkpq-chambers, 1.6.7). A real player must bring their
+    # own job's relic; a weapon whose job no player in the run has may open by a hit (the written exception).
+    opensByHit: regularJobsOnly
     objectives:
       - id: weapon0
-        kind: HIT_REACTOR
+        kind: PLACE_ITEM
         role: all
         reactor: "6109005"
+        item: 4001259
+        count: 1
+        job: 1
+        note: "Master Sword, warrior chamber 610030510 (9201107); Reactor.wz 6109005 state 0 type 100 takes it"
       - id: weapon1
-        kind: HIT_REACTOR
+        kind: PLACE_ITEM
         role: all
         reactor: "6109006"
+        item: 4001258
+        count: 1
+        job: 3
+        note: "Ancestral Bow, bowman chamber 610030540 (9201108); Reactor.wz 6109006 state 0 type 100 takes it"
       - id: weapon2
-        kind: HIT_REACTOR
+        kind: PLACE_ITEM
         role: all
         reactor: "6109007"
+        item: 4001257
+        count: 1
+        job: 2
+        note: "Staff of First Magic, mage chamber 610030521 (9201109); Reactor.wz 6109007 state 0 type 100 takes it"
       - id: weapon3
-        kind: HIT_REACTOR
+        kind: PLACE_ITEM
         role: all
         reactor: "6109008"
+        item: 4001256
+        count: 1
+        job: 4
+        note: "Primal Claw, thief chamber 610030530 (9201110); Reactor.wz 6109008 state 0 type 100 takes it"
       - id: weapon4
-        kind: HIT_REACTOR
+        kind: PLACE_ITEM
         role: all
         reactor: "6109009"
+        item: 4001260
+        count: 1
+        job: 5
+        note: "pirate relic (reactordrops 6102001); Reactor.wz 6109009 state 0 type 100 takes it"
     clear:
       eventProperty: glpq5
       equals: "5"

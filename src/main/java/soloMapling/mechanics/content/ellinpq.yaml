@@ -55,16 +55,41 @@ stages:
     solver: reactor-state
     hitReactors: [3009000]
     roles:
-      - id: hitter
+      - id: poisoner
         who: ANY
         min: 1
         max: party
+    items:
+      - id: 4001161
+        name: Concentrated Poison
+        cleanup: true
+      - id: 4001162
+        name: Diluted Poison
+        cleanup: true
+    # 1.6.6 b365: the spine is an item reactor (Reactor.wz 3009000 states 0-3 are type 100, 1 x 4001162 each), not a
+    # thing to hit. Eak on this map: carry the 9300173's poison, dilute it at the fountain, use it on the spine.
     objectives:
+      - id: concentrated
+        kind: KILL_FOR_ITEM
+        role: all
+        mob: 9300173
+        item: 4001161
+        count: 1
+        note: "Concentrated Poison: drop_data 9300173 -> 4001161 at 20%; the map respawns them (EllinPQ.js:134-135)"
+      - id: dilute
+        kind: PLACE_ITEM
+        role: all
+        reactor: "3002000"
+        item: 4001161
+        count: 1
+        note: "the fountain at (1057,188): Reactor.wz 3002000 state 0 type 100 takes 1 x 4001161; act() drops (reactordrops 3002000 -> 4001162); reactorTime 1"
       - id: spine
-        kind: HIT_REACTOR
+        kind: PLACE_ITEM
         role: all
         reactor: "3009000"
-        note: "party6_stage.js:19-28 opens at spine state 4; 3009000.js:11-13 shows the clear effect there"
+        item: 4001162
+        count: 1
+        note: "Diluted Poison on the spine at (2331,70), once per state; party6_stage.js:19-28 opens at spine state 4; 3009000.js:11-13 shows the clear effect there"
     clear:
       reactorState:
         id: 3009000
@@ -174,12 +199,22 @@ stages:
     items:
       - id: 4001169
         cleanup: true
+      - id: 4001163
+        name: Magic Stone
+        cleanup: true
     roles:
       - id: fighter
         who: ANY
         min: 1
         max: party
     objectives:
+      - id: altar
+        kind: PLACE_ITEM
+        role: all
+        reactor: "3001000"
+        item: 4001163
+        count: 1
+        note: "1.6.6 b365: Eak - 'Place the obtained Magic Stone on the Altar'. The altar is an item reactor (Reactor.wz 3001000 state 0 type 100, 1 x 4001163); 3001000.js spawns the Poison Golem 9300180, which revives into 9300181 and then 9300182 (Mob.wz info/revive)"
       - id: golem
         kind: KILL_FOR_ITEM
         role: all

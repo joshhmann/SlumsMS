@@ -46,6 +46,11 @@ stages:
     # the bot opens the room: 2201004 is clicked once (the solver remembers it per stage) and 8500000 arrives from that
     # click, so the room may stand empty from the instance's first tick until the click has landed.
     hitReactors: [2201004]
+    # 1.6.6 b365 (owner, 7 Nov: "the leader brings the item"): the reactor is an item reactor (Reactor.wz type 100) and
+    # takes Piece of Cracked Dimension 4031179 (quest 7103). Whoever in the run holds it places it. With a real player in the run and nobody holding it, the room
+    # waits for it and a regular says so once in party chat. Regulars on their own may still open it by a hit - the
+    # written exception below - until they learn to fetch the item (1.6.7).
+    opensByHit: botOnly
     # 60 s is a policy number (the click, the spawn and the first form's death animation, with margin), not a WZ one.
     spawnWaitSeconds: 60
     mobs:
