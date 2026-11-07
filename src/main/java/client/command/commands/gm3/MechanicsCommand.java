@@ -38,6 +38,11 @@ import static soloMapling.BotLogger.log;
  *                                         TOO_FEW, SWITCH_OFF, REFUSED) and a sentence. Refused when
  *                                         -Dslums.mechanics.boss is off or the type has no content row. This command is
  *                                         the ONLY trigger for a bot-captained run: nothing opens a boss room on its own.
+ *   !mechanics pq ROW [me] [N] [rangedK]  1.6.6 mechanics-pq-staging: any party quest row by id (lpq, ellinpq,
+ *                                         magatiapq, opq, zakumpq, ...): N regulars (the row's minimum party when
+ *                                         omitted) on the row's recruit map, K of them bowmen/magicians, the party made
+ *                                         and the PQ started at the row's entry NPC; "me": you lead it. Refused when the
+ *                                         row's own switch is off. One [Mechanics] log line per use.
  *   !mechanics status                     the runs going on
  *   !mechanics release                    let every held run go on (the leader checks, the stage clears)
  *   !mechanics stop                       end every run now (bots released, staged bots despawned); a run that
@@ -67,7 +72,52 @@ public class MechanicsCommand extends Command {
     }
 
     static final String USAGE = "Syntax: !mechanics kpq [me] [bots 2-4] [perfect] [stage1-5] [to1-5] [hold]"
-            + " | boss TYPE [bots] | status | release | stop | dispose kpq [channel]";
+            + " | pq ROW [me] [regulars] [rangedN] | boss TYPE [bots] | status | release | stop | dispose kpq [channel]";
+
+    /**
+     * 1.6.6 mechanics-pq-staging: a parsed {@code !mechanics pq ROW [me] [regulars] [rangedN]} - any party quest row
+     * by its id (lpq, ellinpq, magatiapq, opq, zakumpq...), the GM leading with "me", how many regulars to add (0 = the
+     * row's minimum party), and how many of them are ranged (bowman/magician, alternating).
+     */
+    public record PqRequest(String rowId, boolean withGm, int regulars, int ranged) {
+    }
+
+    /** {@code null} when the arguments do not parse; the row and the party size are checked against the row later. */
+    public static PqRequest parsePq(String[] params, int from) {
+        if (params.length <= from || params[from].isBlank()) {
+            return null;
+        }
+        String row = params[from].toLowerCase(Locale.ROOT);
+        boolean me = false;
+        int regulars = 0;
+        int ranged = 0;
+        for (int i = from + 1; i < params.length; i++) {
+            String p = params[i].toLowerCase(Locale.ROOT);
+            if (p.equals("me")) {
+                me = true;
+            } else if (p.matches("ranged\\d")) {
+                ranged = p.charAt(6) - '0';
+            } else if (p.matches("\\d{1,2}")) {
+                regulars = Integer.parseInt(p);
+            } else {
+                return null;
+            }
+        }
+        if (regulars < 0 || regulars > 30 || (regulars > 0 && ranged > regulars)) {
+            return null;
+        }
+        return new PqRequest(row, me, regulars, ranged);
+    }
+
+    /** The party quest row this id names, or null (boss rows have !mechanics boss; KPQ keeps !mechanics kpq too). */
+    static soloMapling.mechanics.MechanicsModel.Content pqRow(String id) {
+        for (soloMapling.mechanics.MechanicsModel.Content c : soloMapling.mechanics.StageData.load().content()) {
+            if (c.id().equalsIgnoreCase(id) && c.kind() == soloMapling.mechanics.MechanicsModel.Kind.PQ) {
+                return c;
+            }
+        }
+        return null;
+    }
 
     /** A parsed {@code !mechanics boss TYPE [bots]}: the expedition type and how many bots to spawn. */
     public record BossRequest(ExpeditionType type, int bots) {
@@ -237,6 +287,42 @@ public class MechanicsCommand extends Command {
                     } catch (RuntimeException e) { // never leave the GM at "Staging KPQ..." with no answer
                         log("[Mechanics] KPQ staging failed: " + e);
                         gm.yellowMessage("KPQ run did not start: " + e.getMessage());
+                    }
+                });
+            }
+            case "pq" -> {
+                PqRequest req = parsePq(params, 1);
+                soloMapling.mechanics.MechanicsModel.Content row = req == null ? null : pqRow(req.rowId());
+                if (req == null || row == null) {
+                    gm.yellowMessage("Syntax: !mechanics pq ROW [me] [regulars] [rangedN]  (ROW: a party quest row id,"
+                            + " e.g. lpq, ellinpq, magatiapq, opq, zakumpq)");
+                    return;
+                }
+                if (!soloMapling.mechanics.Mechanics.enabledFor(row)) {
+                    gm.yellowMessage(row.name() + " is switched off on this server (-D" + row.flag() + "=true).");
+                    return;
+                }
+                int regulars = req.regulars() > 0 ? req.regulars()
+                        : Math.max(1, row.minPlayers() - (req.withGm() ? 1 : 0));
+                // one line per use: live arms -Dslums.mechanics too, so every staging is on the record
+                log("[Mechanics] PQ staging by " + gm.getName() + ": " + row.id() + (req.withGm() ? " with you leading" : "")
+                        + ", " + regulars + " regular(s), " + req.ranged() + " ranged, channel " + c.getChannel());
+                gm.yellowMessage("Staging " + row.name() + ": " + (req.withGm() ? "you + " : "") + regulars
+                        + " regular(s)" + (req.ranged() > 0 ? ", " + req.ranged() + " ranged" : "") + "...");
+                ExecutorServiceManager.getExecutorService().execute(() -> {
+                    try {
+                        KpqStaging.Staged s = KpqStaging.startPq(row, c.getChannelServer(), gm, req.withGm(), regulars,
+                                req.ranged(), line -> {
+                                    log("[Mechanics] " + line);
+                                    gm.yellowMessage(line);
+                                }, active -> {
+                                });
+                        gm.yellowMessage(s.ok() ? row.name() + " started in " + s.active().instanceName()
+                                + ": progress lines follow; !mechanics status any time, !mechanics stop to end it."
+                                : row.name() + " did not start: " + s.error());
+                    } catch (RuntimeException e) { // never leave the GM at "Staging..." with no answer
+                        log("[Mechanics] PQ staging failed: " + e);
+                        gm.yellowMessage(row.name() + " did not start: " + e.getMessage());
                     }
                 });
             }

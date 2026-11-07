@@ -164,9 +164,28 @@ public final class KpqStaging {
                                int bots, boolean perfect, long budgetMs, int firstStage, int lastStage,
                                Consumer<String> reporter, Consumer<MechanicsRuns.Active> afterCleanup,
                                RealRunPool.Admission admission) {
+        return start(content, tier, on, gm, withGm, bots, 0, perfect, budgetMs, firstStage, lastStage, reporter,
+                afterCleanup, admission);
+    }
+
+    /**
+     * 1.6.6 mechanics-pq-staging: any party quest row, with {@code ranged} of the spawned regulars made bowmen or
+     * magicians (alternating) - Ludi PQ's and similar ledge mobs are only reached from range. Forced real, never counted
+     * in the pool, like every GM or QA staging.
+     */
+    public static Staged startPq(Content content, Channel on, Character gm, boolean withGm, int bots, int ranged,
+                                 Consumer<String> reporter, Consumer<MechanicsRuns.Active> afterCleanup) {
+        return start(content, MechanicsModel.Tier.NORMAL, on, gm, withGm, bots, ranged, false, 0, 1, 0, reporter,
+                afterCleanup, RealRunPool.exempt(RealRunPool.Origin.STAGED));
+    }
+
+    private static Staged start(Content content, MechanicsModel.Tier tier, Channel on, Character gm, boolean withGm,
+                                int bots, int ranged, boolean perfect, long budgetMs, int firstStage, int lastStage,
+                                Consumer<String> reporter, Consumer<MechanicsRuns.Active> afterCleanup,
+                                RealRunPool.Admission admission) {
         boolean playing = false;
         try {
-            Staged staged = stage(content, tier, on, gm, withGm, bots, perfect, budgetMs, firstStage, lastStage,
+            Staged staged = stage(content, tier, on, gm, withGm, bots, ranged, perfect, budgetMs, firstStage, lastStage,
                     reporter, afterCleanup, admission);
             playing = staged.active() != null && !staged.active().run().ended();
             return staged;
@@ -178,7 +197,7 @@ public final class KpqStaging {
     }
 
     private static Staged stage(Content content, MechanicsModel.Tier tier, Channel on, Character gm, boolean withGm,
-                                int bots, boolean perfect, long budgetMs, int firstStage, int lastStage,
+                                int bots, int ranged, boolean perfect, long budgetMs, int firstStage, int lastStage,
                                 Consumer<String> reporter, Consumer<MechanicsRuns.Active> afterCleanup,
                                 RealRunPool.Admission admission) {
         if (!Mechanics.enabled()) {
@@ -226,7 +245,7 @@ public final class KpqStaging {
         // a bot spawns at the row's floor level and up to five above it: Kerning's are 30-35 as before (its row starts
         // at 21), and a row that starts at 51 gets 51-56 - inside the row's own gate either way
         int botMin = Math.max(content.minLevel(), 30);
-        List<Character> botChars = spawnBots(recruit, want, spawned, content.entryNpc(), botMin, botMin + 5);
+        List<Character> botChars = spawnBots(recruit, want, spawned, content.entryNpc(), botMin, botMin + 5, ranged);
         if (botChars.size() < want) {
             cleanup(spawned);
             return new Staged(null, List.of(), "only " + botChars.size() + " of " + want + " bots spawned on "
@@ -519,6 +538,17 @@ public final class KpqStaging {
 
     public static List<Character> spawnBots(MapleMap recruit, int want, List<Integer> spawned, int nearNpc,
                                             int minLevel, int maxLevel) {
+        return spawnBots(recruit, want, spawned, nearNpc, minLevel, maxLevel, 0);
+    }
+
+    /** Bowman (3) and magician (2) take turns for the first {@code ranged} regulars; the rest are any class (0). */
+    static int baseClassFor(int index, int ranged) {
+        return index < ranged ? (index % 2 == 0 ? soloMapling.ArtificialPlayer.BotDecoratorSystem.BotPopulationMix.BOWMAN
+                : soloMapling.ArtificialPlayer.BotDecoratorSystem.BotPopulationMix.MAGICIAN) : 0;
+    }
+
+    public static List<Character> spawnBots(MapleMap recruit, int want, List<Integer> spawned, int nearNpc,
+                                            int minLevel, int maxLevel, int ranged) {
         if (want <= 0) {
             return new ArrayList<>();
         }
@@ -528,7 +558,7 @@ public final class KpqStaging {
         List<Integer> mine = new ArrayList<>();
         for (int i = 0; i < want; i++) {
             Point at = StageSpots.nearLevel(recruit, new Point(by.x + 40 * (i + 1), by.y));
-            int id = BotGeneration.createBot(slotBase + i, at, recruit, 0, minLevel, maxLevel);
+            int id = BotGeneration.createBot(slotBase + i, at, recruit, baseClassFor(i, ranged), minLevel, maxLevel);
             if (id > 0) {
                 mine.add(id);
                 spawned.add(id);
