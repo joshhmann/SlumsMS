@@ -284,9 +284,12 @@ public class BotGeneration {
         playSpawnChoreography(fakechar);
     }
 
-    private static void placeBotOnMap(Character fakechar, Point pos, MapleMap map) {
-        if (fakechar.getMap() == map) {
-            fakechar.getMap().removePlayer(fakechar);
+    static void placeBotOnMap(Character fakechar, Point pos, MapleMap map) {
+        // 1.6.6 bot-offmap-frozen (2a): leave whatever map it is on, not only the target. Before, a bot warped from X
+        // to Y (OPQ lobby -> stage -> exit lobby) stayed in X's lists for good, shown there frozen at its Y position.
+        MapleMap old = fakechar.getMap();
+        if (old != null) {
+            old.removePlayer(fakechar);
         }
         fakechar.setMap(map);
         fakechar.setPosition(pos);
