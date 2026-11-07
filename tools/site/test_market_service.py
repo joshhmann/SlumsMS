@@ -307,6 +307,160 @@ class StoreTest(Base):
         self.assertEqual(out["found"]["pia1"], ms.iso(self.clock.t))
 
 
+class HintTest(Base):
+    """Free card hints: one step per call, the word never printed, per account, rate limited in sqlite."""
+
+    CAP = [c for c, h in ms.HINTS.items() if h["who"] == "cap"]
+    PIA = [c for c, h in ms.HINTS.items() if h["who"] == "pia"]
+
+    def restart(self):
+        """A restarted service: a new Store on the same db file (the rate limits must survive it)."""
+        self.store.db.close()
+        self.store = ms.Store(os.path.join(self.tmp, "m.db"), self.inbox, self.outbox, self.store.items, self.clock)
+
+    def hint(self, who="cap", s=None):
+        return self.store.hint(self.me if s is None else s, {"who": who})
+
+    def test_the_steps_go_clue_then_page_then_letters(self):
+        card = self.CAP[0]
+        out = self.hint()
+        self.assertEqual((out["card"], out["step"], out["line"]), (card, 1, ms.HINTS[card]["clue"]))
+        self.assertNotIn("done", out)
+        self.clock.t += ms.HINT_GAP
+        out = self.hint()
+        self.assertEqual((out["card"], out["step"]), (card, 2))
+        self.assertEqual(out["line"], f"Try it on {ms.HINTS[card]['page']}.")
+        self.clock.t += ms.HINT_GAP
+        out = self.hint()
+        self.assertEqual((out["card"], out["step"]), (card, 3))
+        self.assertIn(ms.hidden(ms.HINTS[card]["word"], 1), out["line"])  # the first letter, the rest hidden
+        self.clock.t += ms.HINT_GAP
+        out = self.hint()
+        self.assertEqual((out["card"], out["step"]), (card, 4))
+        self.assertIn(ms.hidden(ms.HINTS[card]["word"], 2), out["line"])
+
+    def test_no_step_ever_hands_out_the_whole_word(self):
+        for n, (card, h) in enumerate(ms.HINTS.items()):
+            with self.subTest(card=card):
+                me = {"a": 600 + n, "c": f"Hinter{n}"}
+                self.store.found(me, {"ids": [c for c, x in ms.HINTS.items() if x["who"] == h["who"] and c != card]})
+                for step in range(1, 21):
+                    self.clock.t += ms.HINT_GAP
+                    out = self.store.hint(me, {"who": h["who"]})
+                    self.assertEqual((out["card"], out["step"]), (card, step))
+                    self.assertNotIn("word", out)                  # the key never ships, only the masked text
+                    self.assertNotIn(h["word"], out["line"])       # the clue, page and mask never spell it
+                    if step == 1:
+                        self.assertEqual(out["line"], h["clue"])
+                    elif step == 2:
+                        self.assertEqual(out["line"], f"Try it on {h['page']}.")
+                    else:
+                        mask = ms.hidden(h["word"], step - 2)
+                        self.assertIn(mask, out["line"])
+                        self.assertTrue(mask.endswith("_"), mask)  # the last letter is always hidden
+                        self.assertLess(mask.count("_"), len(h["word"]))
+
+    def test_the_letters_step_offers_the_word_only_for_typed_cards(self):
+        me = {"a": 700, "c": "Typer"}
+        self.store.found(me, {"ids": [c for c in ms.HINTS if c not in ("slums", "clicks")]})
+        for card in ("slums", "clicks"):
+            for _ in range(2):  # clue, then page
+                self.clock.t += ms.HINT_GAP
+                self.store.hint(me, {"who": "cap"})
+            self.clock.t += ms.HINT_GAP
+            out = self.store.hint(me, {"who": "cap"})
+            self.assertEqual((out["card"], out["step"]), (card, 3))
+            if card in ms.TYPED_CARDS:
+                self.assertIn(f"Try typing this: {ms.hidden(card, 1)}", out["line"])
+            else:
+                self.assertNotIn("typing", out["line"])  # clicks, not letters: no false typing advice
+            self.store.found(me, {"ids": [card]})        # done with this one: the next card starts at its clue
+
+    def test_hidden_never_shows_the_last_letter(self):
+        self.assertEqual(ms.hidden("huh", 1), "h _ _")
+        self.assertEqual(ms.hidden("ghost", 3), "g h o _ _")
+        self.assertEqual(ms.hidden("ghost", 99), "g h o s _")   # capped at len - 1
+        self.assertEqual(ms.hidden("afk", 0), "_ _ _")
+
+    def test_a_found_card_is_skipped_and_the_next_one_is_offered(self):
+        self.store.found(self.me, {"ids": [self.CAP[0], self.CAP[2]]})
+        self.clock.t += ms.HINT_GAP
+        self.assertEqual(self.hint()["card"], self.CAP[1])
+        self.clock.t += ms.HINT_GAP
+        self.assertEqual(self.hint()["card"], self.CAP[1], "it carries on with the card it already hinted")
+
+    def test_all_found_answers_done(self):
+        self.store.found(self.me, {"ids": list(ms.HINTS)})
+        self.clock.t += ms.HINT_GAP
+        out = self.hint("pia")
+        self.assertEqual(out, {"done": True, "line": ms.HINT_DONE["pia"]})
+        self.clock.t += ms.HINT_GAP
+        self.assertEqual(self.hint("cap")["line"], ms.HINT_DONE["cap"])
+
+    def test_who_picks_the_character(self):
+        self.assertIn(self.hint("pia")["card"], self.PIA)
+        self.clock.t += ms.HINT_GAP
+        self.assertEqual(self.hint("pia")["card"], self.PIA[0], "the first pia card in table order, carried on")
+        self.clock.t += ms.HINT_GAP
+        self.assertIn(self.hint("cap", self.other)["card"], self.CAP)
+        self.clock.t += ms.HINT_GAP
+        self.assertEqual(self.hint("cap", self.other)["card"], self.CAP[0])
+        self.assertEqual({c for c, h in ms.HINTS.items() if h["who"] == "pia"},
+                         {"news", "idea", "book", "meso", "bug", "huh", "mail", "music", "gasp", "hugs", "hello"})
+        self.assertEqual(len(self.CAP) + len(self.PIA), len(ms.SECRET_CARDS))
+
+    def test_an_unknown_or_missing_who_is_refused(self):
+        for bad in ({}, {"who": "slums-chan"}, {"who": None}, {"who": ["cap"]}, {"who": "CAP"}):
+            with self.subTest(body=bad):
+                with self.assertRaises(ms.Refused) as e:
+                    self.store.hint(self.me, bad)
+                self.assertEqual(e.exception.status, 400)
+        self.assertEqual(self.store.q("SELECT COUNT(*) FROM hint_calls")[0][0], 0, "a bad request uses no calls")
+
+    def test_the_rate_limit_and_the_daily_cap_survive_a_restart(self):
+        self.assertEqual(self.hint()["step"], 1)
+        self.clock.t += 1
+        with self.assertRaises(ms.Refused) as e:
+            self.hint()
+        self.assertEqual(e.exception.status, 429)
+        self.restart()  # a restarted service, same db file
+        with self.assertRaises(ms.Refused):
+            self.hint()
+        self.clock.t += 3  # four seconds after the first call
+        with self.assertRaises(ms.Refused):
+            self.hint()
+        self.clock.t += 1
+        self.assertEqual(self.hint()["step"], 2, "five seconds later it answers again")
+        self.restart()
+        calls = 0
+        while True:  # up to the daily cap
+            self.clock.t += ms.HINT_GAP
+            try:
+                self.hint()
+            except ms.Refused:
+                break
+            calls += 1
+            self.assertLess(calls, ms.HINTS_PER_DAY + 5)
+        self.assertEqual(calls, ms.HINTS_PER_DAY - 2)
+        self.restart()
+        self.clock.t += ms.HINT_GAP
+        with self.assertRaises(ms.Refused):
+            self.hint()
+        self.clock.t += 86400  # tomorrow
+        self.assertEqual(self.hint()["step"], ms.HINTS_PER_DAY + 1)
+
+    def test_accounts_are_independent(self):
+        self.hint()
+        self.assertEqual(self.hint(s=self.other)["step"], 1)
+        with self.assertRaises(ms.Refused):
+            self.hint()
+        self.clock.t += ms.HINT_GAP
+        self.assertEqual(self.hint(s=self.other)["step"], 2)
+        self.store.found(self.me, {"ids": self.CAP[:3]})
+        self.clock.t += ms.HINT_GAP
+        self.assertEqual(self.hint(s=self.other)["card"], self.CAP[0], "the other account has found nothing")
+
+
 class HttpTest(Base):
     def setUp(self):
         super().setUp()
@@ -385,6 +539,22 @@ class HttpTest(Base):
         ok = {"kind": "WTB", "itemId": 2000000, "qty": 1, "price": 1}
         self.assertEqual(self.call("POST", "/api/market/posts", ok)[0], 200)
         self.assertEqual(self.call("POST", "/api/market/posts", dict(ok, character="Other"))[0], 400)
+
+
+    def test_hints_over_http(self):
+        self.assertEqual(self.call("POST", "/api/market/hint", {"who": "cap"}, token=False)[0], 401)
+        self.assertEqual(self.call("POST", "/api/market/hint", {"who": "cap"}, headers={})[0], 403)
+        st, body = self.call("POST", "/api/market/hint", {"who": "pia"})
+        self.assertEqual(st, 200, body)
+        self.assertEqual((body["card"], body["step"]), (HintTest.PIA[0], 1))
+        self.assertEqual(body["line"], ms.HINTS[body["card"]]["clue"])
+        self.assertNotIn(ms.HINTS[body["card"]]["word"], body["line"])
+        st, body = self.call("POST", "/api/market/hint", {"who": "nobody"})
+        self.assertEqual(st, 400)
+        self.assertIn("Slums-chan or as Pia", body["error"])
+        st, body = self.call("POST", "/api/market/hint", {"who": "cap"})
+        self.assertEqual(st, 429, "one per five seconds")
+        self.assertIn("Give me a second", body["error"])
 
 
 if __name__ == "__main__":

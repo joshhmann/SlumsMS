@@ -96,6 +96,7 @@ def market_routes(store):
         "posts": lambda s, b: {"id": store.change(s, store.add_post, b)},
         "posts/close": lambda s, b: store.change(s, store.close_post, b),
         "cards": lambda s, b: store.found(s, b),
+        "hint": lambda s, b: store.hint(s, b),
     }
     for path, fn in posts.items():
         bp.add_url_rule("/" + path, "post_" + path.replace("/", "_"), lambda fn=fn: write(fn), methods=["POST"])

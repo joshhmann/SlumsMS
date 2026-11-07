@@ -40,6 +40,7 @@ Endpoints (127.0.0.1 only; nginx passes /api/market/ through):
     GET  /api/market/cards                 the Slums-chan cards this account has found
     GET  /api/market/stamps                this account's Slums Stamps (the game's outbox stamps.json, own row only)
     POST /api/market/cards                 {ids: [...]}  secrets found in the browser (unknown ids are ignored)
+    POST /api/market/hint                  {who: cap|pia}  the next free hint, one step at a time (the HINTS table)
     GET  /api/market/health
 """
 import argparse
@@ -102,6 +103,117 @@ for _pair in range(1, 13):  # 3, 6, ... 36 secrets: one Dynamic duo pair each
     REWARD_CARDS[f"pia{_pair}"] = ByCount(3 * _pair)
 DIRS = ("below", "above")
 
+# Free card hints (owner's design): clicking the Slums-chan beside a page's heading (or Pia) 30 times in a row asks
+# for a hint about a card the account has NOT found yet. One step per call: the clue, then the page, then the word with
+# its last letter always hidden. The answers live only here, so they can't be read from the page source.
+HINT_GAP = 5  # seconds between hints, per account, in sqlite so a service restart doesn't reset it
+HINTS_PER_DAY = 100
+HINT_WHOS = ("cap", "pia")
+# The cards that are found by typing a word (every other card is found by clicking or waiting), so the letters step
+# offers the word to type. For the rest the letters are just the card's own spelling.
+TYPED_CARDS = frozenset(c for c in (
+    "slums", "bustin", "henesys", "kerning", "slime", "maple", "peace", "heart", "rebirth", "zzz", "summer",
+    "hmm", "yay", "ghost", "love", "pout", "ggwp", "glasses", "stretch",
+    "news", "idea", "book", "meso", "bug", "huh", "mail", "music", "gasp", "hugs", "hello"))
+HINT_DONE = {"cap": "You've found every one of my secrets already. Show-off. (I mean it kindly.)",
+             "pia": "You've found all of mine! Go tell Slums-chan how clever you are."}
+# Every card found by typing something or doing something (SECRET_CARDS: the 22 original secrets and the 19 stickers
+# added later). Rewards ("theme", "all", "every") and the twelve Dynamic duo polaroids unlock by count, so no hint.
+# who: "pia" for Pia's eleven stickers, "cap" for Slums-chan's. word: what a player types (for a click card, the card's
+# own id, so the letters step still says something useful). No clue or page may contain its own word.
+HINTS = {
+    "konami": {"who": "cap", "clue": "The oldest cheat code in gaming still works on this site. Ten keys, no spaces.",
+               "page": "any page, with nothing selected", "word": "konami"},
+    "slums": {"who": "cap", "clue": "I'm named after this place, so just say the name of the server.",
+              "page": "any page, with nothing selected", "word": "slums"},
+    "clicks": {"who": "cap", "clue": "My big picture on the front page gets shy if you keep poking her.",
+               "page": "the front page, on the big picture", "word": "clicks"},
+    "bustin": {"who": "cap", "clue": "It's what I've been doing at the keyboard since 2006.",
+               "page": "any page, with nothing selected", "word": "bustin"},
+    "sidekick": {"who": "cap", "clue": "The little me beside a heading wants attention too: poke her five times.",
+                 "page": "a page with a small Slums-chan near the headline", "word": "sidekick"},
+    "wake": {"who": "cap", "clue": "Someone is asleep on a page that goes nowhere. Three pokes and she's up.",
+             "page": "an address that leads nowhere", "word": "wake"},
+    "henesys": {"who": "cap", "clue": "Say the town that is always packed with players.",
+                "page": "any page, with nothing selected", "word": "henesys"},
+    "owl": {"who": "cap", "clue": "Visit in the small hours and stay a moment; I'll be up too.",
+            "page": "any page between 2 and 5 in the morning", "word": "owl"},
+    "kerning": {"who": "cap", "clue": "Name the city of thieves, the one with the dark alleys.",
+                "page": "any page, with nothing selected", "word": "kerning"},
+    "colours": {"who": "cap", "clue": "Try on all three colour dots up top, quickly, one after another.",
+                "page": "the colour dots at the top of any page", "word": "colours"},
+    "afk": {"who": "cap", "clue": "Sit still on one page for five minutes and I'll come sit with you.",
+            "page": "whatever page is open, left alone for five minutes", "word": "afk"},
+    "footer": {"who": "cap", "clue": "The small print at the bottom is pokeable. Three times.",
+               "page": "the bottom of any page, the small print", "word": "footer"},
+    "slime": {"who": "cap", "clue": "Name my favourite pet, the blue round one.",
+              "page": "any page, with nothing selected", "word": "slime"},
+    "bubble": {"who": "cap", "clue": "Poke the words I'm saying five times and see what happens.",
+               "page": "the words beside the headline", "word": "bubble"},
+    "maple": {"who": "cap", "clue": "Name the leaf on my cap.",
+              "page": "any page, with nothing selected", "word": "maple"},
+    "peace": {"who": "cap", "clue": "Say what my fingers are throwing.",
+              "page": "any page, with nothing selected", "word": "peace"},
+    "heart": {"who": "cap", "clue": "Say the shape my fingers make when I'm being sweet.",
+              "page": "any page, with nothing selected", "word": "heart"},
+    "shh": {"who": "cap", "clue": "Stop peeking at the face-down cards and poke one five times.",
+            "page": "OnlySlums, any card that's still face down", "word": "shh"},
+    "rebirth": {"who": "cap", "clue": "Say what you do in game once you've done it all.",
+                "page": "any page, with nothing selected", "word": "rebirth"},
+    "sunday": {"who": "cap", "clue": "I laze about one day a week; visit then and wait a moment.",
+               "page": "any page on the laziest day of the week", "word": "sunday"},
+    "zzz": {"who": "cap", "clue": "Make the sleepy sound.",
+            "page": "any page, with nothing selected", "word": "zzz"},
+    "summer": {"who": "cap", "clue": "Say my favourite time of year, the hot one.",
+               "page": "any page, with nothing selected", "word": "summer"},
+    "hmm": {"who": "cap", "clue": "The sound I make while thinking.",
+            "page": "any page, with nothing selected", "word": "hmm"},
+    "yay": {"who": "cap", "clue": "Cheer for me with the shortest happy sound.",
+            "page": "any page, with nothing selected", "word": "yay"},
+    "ghost": {"who": "cap", "clue": "Say what hides under a white sheet.",
+              "page": "any page, with nothing selected", "word": "ghost"},
+    "love": {"who": "cap", "clue": "Say the feeling my hands are shaping.",
+             "page": "any page, with nothing selected", "word": "love"},
+    "pout": {"who": "cap", "clue": "Say how I look with my arms crossed and a grumpy face.",
+             "page": "any page, with nothing selected", "word": "pout"},
+    "ggwp": {"who": "cap", "clue": "Say well played, the short way: four letters.",
+             "page": "any page, with nothing selected", "word": "ggwp"},
+    "glasses": {"who": "cap", "clue": "Name what sits on my nose when I read.",
+                "page": "any page, with nothing selected", "word": "glasses"},
+    "stretch": {"who": "cap", "clue": "What you do with your arms up after sitting too long.",
+                "page": "any page, with nothing selected", "word": "stretch"},
+    "news": {"who": "pia", "clue": "The megaphone means I have an announcement for everyone.",
+             "page": "any page, with nothing selected", "word": "news"},
+    "idea": {"who": "pia", "clue": "Name the light bulb's job.",
+             "page": "any page, with nothing selected", "word": "idea"},
+    "book": {"who": "pia", "clue": "Name what I'm holding open with both hands.",
+             "page": "any page, with nothing selected", "word": "book"},
+    "meso": {"who": "pia", "clue": "Name the coins in my bag.",
+             "page": "any page, with nothing selected", "word": "meso"},
+    "bug": {"who": "pia", "clue": "Say what I'm writing up on the clipboard.",
+            "page": "any page, with nothing selected", "word": "bug"},
+    "huh": {"who": "pia", "clue": "Name the little noise you make when you don't know.",
+            "page": "any page, with nothing selected", "word": "huh"},
+    "mail": {"who": "pia", "clue": "Say what's in the envelope I'm holding out.",
+             "page": "any page, with nothing selected", "word": "mail"},
+    "music": {"who": "pia", "clue": "Say what the note beside me is for.",
+              "page": "any page, with nothing selected", "word": "music"},
+    "gasp": {"who": "pia", "clue": "Say how I look when I'm surprised.",
+             "page": "any page, with nothing selected", "word": "gasp"},
+    "hugs": {"who": "pia", "clue": "Say what my open arms are asking for.",
+             "page": "any page, with nothing selected", "word": "hugs"},
+    "hello": {"who": "pia", "clue": "Wave back and say the first thing you'd say to a friend.",
+              "page": "any page, with nothing selected", "word": "hello"}
+}
+
+
+def hidden(word, shown):
+    """The word with its first `shown` letters and the rest as underscores. The last letter is always hidden, so no
+    step ever hands out the whole word."""
+    keep = max(0, min(shown, len(word) - 1))
+    return " ".join(list(word[:keep]) + ["_"] * (len(word) - keep))
+
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS watch (account INTEGER, item INTEGER, created INTEGER, PRIMARY KEY (account, item));
 CREATE TABLE IF NOT EXISTS alerts (id TEXT PRIMARY KEY, account INTEGER, item INTEGER, dir TEXT, price INTEGER,
@@ -111,6 +223,9 @@ CREATE TABLE IF NOT EXISTS posts (id TEXT PRIMARY KEY, account INTEGER, characte
 CREATE TABLE IF NOT EXISTS seen_files (name TEXT PRIMARY KEY, mtime REAL);
 CREATE TABLE IF NOT EXISTS notes_seen (account INTEGER PRIMARY KEY, offers_at REAL);
 CREATE TABLE IF NOT EXISTS cards (account INTEGER, card TEXT, found INTEGER, PRIMARY KEY (account, card));
+CREATE TABLE IF NOT EXISTS card_hints (account INTEGER, card TEXT, step INTEGER, asked INTEGER,
+    PRIMARY KEY (account, card));
+CREATE TABLE IF NOT EXISTS hint_calls (account INTEGER, at INTEGER);
 """
 
 
@@ -526,6 +641,53 @@ class Store:
             self.rate(s["a"])
             return self.add_cards(s, body)
 
+    def hint(self, s, body):
+        """One hint step for a card this account has NOT found: the clue, then the page, then the word with its last
+        letter always hidden. The answers stay here (HINTS), so the page source never carries them. Rate limits live in
+        sqlite, so they hold across restarts."""
+        who = body.get("who")
+        if who not in HINT_WHOS:
+            raise Refused("Ask as Slums-chan or as Pia.")
+        with self.lock:
+            self.hint_rate(s["a"])
+            return self.next_hint(s, who)
+
+    def hint_rate(self, a):
+        """At most one hint per account every HINT_GAP seconds and HINTS_PER_DAY a day, from hint_calls."""
+        t = int(self.now())
+        self.db.execute("DELETE FROM hint_calls WHERE at < ?", (t - 86400,))
+        times = [x for (x,) in self.q("SELECT at FROM hint_calls WHERE account=?", a)]
+        if times and t - max(times) < HINT_GAP:
+            raise Refused("Give me a second, I'm still thinking. Ask me again in a moment.", 429)
+        if len(times) >= HINTS_PER_DAY:
+            raise Refused(f"That's {HINTS_PER_DAY} hints today. Come back tomorrow and I'll help again.", 429)
+        self.db.execute("INSERT INTO hint_calls VALUES (?, ?)", (a, t))
+
+    def next_hint(self, s, who):
+        """Among this character's cards the account hasn't found: carry on with a card it already has a hint for, else
+        the first one in table order. The step goes up by one per call; the word itself is never returned."""
+        found = self.cards(s)["found"]
+        left = [c for c, h in HINTS.items() if h["who"] == who and c not in found]
+        if not left:
+            return {"done": True, "line": HINT_DONE[who]}
+        asked = {c for (c,) in self.q("SELECT card FROM card_hints WHERE account=?", s["a"])}
+        card = next((c for c in left if c in asked), left[0])
+        row = self.q("SELECT step FROM card_hints WHERE account=? AND card=?", s["a"], card)
+        step = (row[0][0] if row else 0) + 1
+        self.db.execute("INSERT INTO card_hints (account, card, step, asked) VALUES (?, ?, ?, 1) "
+                        "ON CONFLICT(account, card) DO UPDATE SET step=excluded.step, asked=card_hints.asked+1",
+                        (s["a"], card, step))
+        h = HINTS[card]
+        if step == 1:
+            line = h["clue"]
+        elif step == 2:
+            line = f"Try it on {h['page']}."
+        elif card in TYPED_CARDS:
+            line = f"Try typing this: {hidden(h['word'], step - 2)}"
+        else:
+            line = f"It's spelled like this: {hidden(h['word'], step - 2)}"
+        return {"card": card, "step": step, "line": line}
+
     def change(self, s, fn, *args):
         """Every write: sync, rate limit, apply, then rewrite the inbox, all under one lock."""
         with self.lock:
@@ -610,7 +772,8 @@ def make_handler(sessions, store):
                       "/api/market/alerts/seen": lambda s, b: store.change(s, lambda s_: store.seen(s_)),
                       "/api/market/posts": lambda s, b: {"id": store.change(s, store.add_post, b)},
                       "/api/market/posts/close": lambda s, b: store.change(s, store.close_post, b),
-                      "/api/market/cards": lambda s, b: store.found(s, b)}
+                      "/api/market/cards": lambda s, b: store.found(s, b),
+                      "/api/market/hint": lambda s, b: store.hint(s, b)}
             if path not in routes:
                 return self.send(404, {"ok": False})
             s = self.session()
