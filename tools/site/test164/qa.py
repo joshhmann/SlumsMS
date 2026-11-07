@@ -161,7 +161,8 @@ def gates(http):
            f"{st} {hd.get('Location')}")
         st, _, _, _ = http("GET", p, token=TOKENS["limits"])
         ok(st == 200, f"{p} opens when signed in", str(st))
-    for p in ("/secret/peace.webp", "/secret/look.webp", "/secret/shoulder.webp"):
+    for p in ("/secret/peace.webp", "/secret/look.webp", "/secret/shoulder.webp", "/secret/hmm.webp",
+              "/secret/cap1.webp", "/secret/cards/cap1.webp", "/secret/cards/pia12.webp"):
         st, _, _, _ = http("GET", p)
         st2, hd, _, _ = http("GET", p, token=TOKENS["limits"])
         ok(st == 401 and st2 == 200 and "image" in (hd.get("Content-Type") or ""), f"{p}: 401 signed out, image signed in",

@@ -698,9 +698,11 @@ def build_board(mk):
             '<ul class="mkmine" id="mk-trades"></ul></section></div>')
     mk.page(f"{MARKET}/mine.html", "My market", body, "mine", "Your watchlist, price alerts, posts and trades.")
     # theme.js fills it: the Slums-chan secrets this account has found, saved by the market service
-    body = ('<h1>OnlySlums</h1><p class="lede">Slums-chan has hidden secrets all over the site. Every one you find '
-            'is a card, saved to your account so it shows on your other devices too. Three more come as rewards: '
-            'one for unlocking her theme, one for finding the first fourteen and one for finding them all.</p>'
+    body = ('<h1>OnlySlums</h1><p class="lede">Slums-chan and Pia have hidden secrets all over the site. Every one you '
+            'find is a card, saved to your account so it shows on your other devices too. More come as rewards: '
+            'one for unlocking her theme, one for finding the first fourteen, one for finding every secret, and twelve '
+            '&ldquo;Dynamic duo&rdquo; polaroid pairs, Slums-chan and Pia in the same pose, as you find every third '
+            'secret.</p>'
             '<p class="id" id="cards-n"></p>'
             '<p class="samplebar" id="cards-off" hidden>Your account&rsquo;s cards didn&rsquo;t load, so these are the '
             'ones found on this browser. Try again in a bit.</p>'

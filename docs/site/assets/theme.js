@@ -72,12 +72,14 @@
   setInterval(tick, 30000);
 })();
 
-/* Secrets: twenty-two hidden Slums-chan stickers for signed-in players, each one a card in My cards (market/cards.html).
-   The Konami code; typing "slums", "bustin", "henesys", "kerning", "slime", "maple", "peace", "heart", "rebirth",
-   "zzz" or "summer" outside a text box; clicking the hero
+/* Secrets: forty-one hidden stickers (Slums-chan's and Pia's) for signed-in players, each one a card in OnlySlums
+   (market/cards.html). The Konami code; typing the words in the keydown handler below (both names' stickers) outside a
+   text box; clicking the hero
    picture 7 times in a row, a page's Slums-chan 5 times or the footer line 3 times; waking the sleeping one on the 404
    page (3 clicks); clicking her speech bubble 5 times; trying all three colour dots within 10 seconds; a visit between
-   2 and 5 AM or on a Sunday; 5 minutes without touching a page; or 5 clicks on a face-down card in My cards. The pictures live in secret/, which only the private build has and nginx serves only with a
+   2 and 5 AM or on a Sunday; 5 minutes without touching a page; or 5 clicks on a face-down card in My cards. Twenty-four
+   more are polaroids in twelve "Dynamic duo" pairs (DUOS), handed out by the market service as the account finds every
+   third secret: both of a pair always arrive together. The pictures live in secret/, which only the private build has and nginx serves only with a
    sign-in, so nothing loads until a signed-in player finds one; a signed-out visitor gets a hint to sign in instead
    (not for the late-night and idle ones, which would pop up uninvited). Found ones are kept in localStorage and saved
    to the account (the market service, /api/market/cards), merged both ways once per visit, so they follow the player
@@ -129,9 +131,52 @@
     zzz: { src: "daydream.webp", w: 957, name: "Daydream", hint: "Make a sleepy sound.",
            alt: "Slums-chan lies with her chin in her hand, smiling sleepily" },
     summer: { src: "summer.webp", w: 885, name: "Summer!", hint: "Say her favourite season.",
-              alt: "Slums-chan in a bikini, sunglasses on her cap, raising a cold drink" }
+              alt: "Slums-chan in a bikini, sunglasses on her cap, raising a cold drink" },
+    // ticket 172 follow-up: 8 more Slums-chan stickers and 11 of Pia's. h, tw and th are the picture's own size
+    // (the older cards are all 820 tall, the thumbnails 360); w and h are the full picture, tw and th the card one.
+    hmm: { src: "hmm.webp", w: 349, h: 378, tw: 332, th: 360, name: "Hmm?", hint: "What she says while thinking.",
+           alt: "Slums-chan tilts her head, thinking" },
+    yay: { src: "yay.webp", w: 390, h: 342, tw: 390, th: 342, name: "Yay!", hint: "Cheer for her.",
+           alt: "Slums-chan cheers with her arms up" },
+    ghost: { src: "ghost.webp", w: 406, h: 342, tw: 406, th: 342, name: "Boo!", hint: "Say what hides under a sheet.",
+             alt: "Slums-chan in a sheet, like a ghost" },
+    love: { src: "love.webp", w: 357, h: 304, tw: 357, th: 304, name: "Heart hands", hint: "Say what her hands are making.",
+            alt: "Slums-chan makes a heart with both hands" },
+    pout: { src: "pout.webp", w: 349, h: 304, tw: 349, th: 304, name: "Pout", hint: "Say how she looks when annoyed.",
+            alt: "Slums-chan pouts with her arms crossed" },
+    ggwp: { src: "ggwp.webp", w: 314, h: 345, tw: 314, th: 345, name: "Good game", hint: "Say well played, the short way.",
+            alt: "Slums-chan grins and gives a thumbs up" },
+    glasses: { src: "glasses.webp", w: 265, h: 340, tw: 265, th: 340, name: "Bookworm",
+               hint: "Name what&rsquo;s on her nose.", alt: "Slums-chan pushes her glasses up her nose" },
+    stretch: { src: "stretch.webp", w: 372, h: 337, tw: 372, th: 337, name: "Big stretch",
+               hint: "What you do after sitting too long.", alt: "Slums-chan stretches with her arms overhead" },
+    news: { src: "news.webp", w: 338, h: 339, tw: 338, th: 339, name: "Big news", hint: "Say what the megaphone is for.",
+            alt: "Pia holds a megaphone and grins" },
+    idea: { src: "idea.webp", w: 319, h: 333, tw: 319, th: 333, name: "Bright idea",
+            hint: "Name the light bulb&rsquo;s job.", alt: "Pia points at a light bulb above her head" },
+    book: { src: "book.webp", w: 281, h: 338, tw: 281, th: 338, name: "Pia reads", hint: "Name what is in her hands.",
+            alt: "Pia holds an open book" },
+    meso: { src: "meso.webp", w: 334, h: 329, tw: 334, th: 329, name: "Meso bag", hint: "Name the coins in the bag.",
+            alt: "Pia lifts a bag of meso coins" },
+    bug: { src: "bug.webp", w: 286, h: 315, tw: 286, th: 315, name: "Bug report",
+           hint: "Say what she is writing up on the clipboard.", alt: "Pia writes on a clipboard" },
+    huh: { src: "huh.webp", w: 329, h: 329, tw: 329, th: 329, name: "Shrug", hint: "Say the sound of a shrug.",
+           alt: "Pia shrugs with her palms up" },
+    mail: { src: "mail.webp", w: 323, h: 338, tw: 323, th: 338, name: "You&rsquo;ve got mail",
+            hint: "Say what is in the envelope.", alt: "Pia holds out an envelope" },
+    music: { src: "music.webp", w: 309, h: 338, tw: 309, th: 338, name: "Double peace, Pia",
+             hint: "Say what the note is for.", alt: "Pia throws two peace signs beside a music note" },
+    gasp: { src: "gasp.webp", w: 390, h: 305, tw: 390, th: 305, name: "Oh!", hint: "Say how she looks when surprised.",
+            alt: "Pia gasps with both hands at her cheeks" },
+    hugs: { src: "hugs.webp", w: 425, h: 307, tw: 425, th: 307, name: "Hugs", hint: "Say what her open arms want.",
+            alt: "Pia opens her arms for a hug" },
+    hello: { src: "hello.webp", w: 358, h: 309, tw: 358, th: 309, name: "Hello!", hint: "Wave back.",
+             alt: "Pia waves hello" }
   };
   var IDS = Object.keys(SECRETS), THEME = ["konami", "slums", "clicks"];
+  // The original, cheekier set: the Slums-chan theme's pictures and the "every" reward stay with these (the 19 stickers
+  // added later are cards only, so nobody who had the theme or "All of them" loses it).
+  var ORIGINAL = 22;
   var THEME_ONLY = [{ src: "shy.webp", w: 582, alt: "Slums-chan kneels with a shy smile" },
                     { src: "dpeace.webp", w: 650, alt: "Slums-chan kneels and throws two peace signs" }];
   var REWARDS = {  // the market service hands these out itself (market_service.py REWARD_CARDS)
@@ -141,10 +186,69 @@
     every: { src: "wink2.webp", w: 797, name: "All of them", hint: "Find every secret.",
              alt: "Slums-chan winks with a peace sign, chin in her hand" }
   };
+  // The twelve "Dynamic duo" polaroid pairs (ticket 172 follow-up): cap1..cap12 are Slums-chan, pia1..pia12 are Pia in
+  // the same pose. The market service hands each pair out together once the account has found 3k secrets (see
+  // REWARD_CARDS there); the browser never posts these. They are cards only: not in the theme's pictures.
+  var DUOS = {
+    cap1: { src: "cap1.webp", w: 555, h: 510, tw: 392, th: 360, name: "Dynamic duo 1: Slums-chan",
+            hint: "Find 3 secrets.", alt: "Slums-chan reaching out to you, as a polaroid" },
+    pia1: { src: "pia1.webp", w: 555, h: 515, tw: 388, th: 360, name: "Dynamic duo 1: Pia",
+            hint: "Find 3 secrets.", alt: "Pia reaching out to you, as a polaroid" },
+    cap2: { src: "cap2.webp", w: 385, h: 380, tw: 365, th: 360, name: "Dynamic duo 2: Slums-chan",
+            hint: "Find 6 secrets.", alt: "Slums-chan with her chin on her hands, as a polaroid" },
+    pia2: { src: "pia2.webp", w: 380, h: 375, tw: 365, th: 360, name: "Dynamic duo 2: Pia",
+            hint: "Find 6 secrets.", alt: "Pia with her chin on her hands, as a polaroid" },
+    cap3: { src: "cap3.webp", w: 320, h: 395, tw: 292, th: 360, name: "Dynamic duo 3: Slums-chan",
+            hint: "Find 9 secrets.", alt: "Slums-chan holding a cup, as a polaroid" },
+    pia3: { src: "pia3.webp", w: 345, h: 385, tw: 323, th: 360, name: "Dynamic duo 3: Pia",
+            hint: "Find 9 secrets.", alt: "Pia holding a cup, as a polaroid" },
+    cap4: { src: "cap4.webp", w: 345, h: 390, tw: 318, th: 360, name: "Dynamic duo 4: Slums-chan",
+            hint: "Find 12 secrets.", alt: "Slums-chan looking back over her shoulder with a maple leaf, as a polaroid" },
+    pia4: { src: "pia4.webp", w: 361, h: 390, tw: 333, th: 360, name: "Dynamic duo 4: Pia",
+            hint: "Find 12 secrets.", alt: "Pia looking back over her shoulder with a maple leaf, as a polaroid" },
+    cap5: { src: "cap5.webp", w: 345, h: 340, tw: 345, th: 340, name: "Dynamic duo 5: Slums-chan",
+            hint: "Find 15 secrets.", alt: "Slums-chan hugging a cat plush, as a polaroid" },
+    pia5: { src: "pia5.webp", w: 350, h: 345, tw: 350, th: 345, name: "Dynamic duo 5: Pia",
+            hint: "Find 15 secrets.", alt: "Pia hugging a cat plush, as a polaroid" },
+    cap6: { src: "cap6.webp", w: 310, h: 315, tw: 310, th: 315, name: "Dynamic duo 6: Slums-chan",
+            hint: "Find 18 secrets.", alt: "Slums-chan tipping her glasses, as a polaroid" },
+    pia6: { src: "pia6.webp", w: 315, h: 325, tw: 315, th: 325, name: "Dynamic duo 6: Pia",
+            hint: "Find 18 secrets.", alt: "Pia tipping her glasses, as a polaroid" },
+    cap7: { src: "cap7.webp", w: 360, h: 345, tw: 360, th: 345, name: "Dynamic duo 7: Slums-chan",
+            hint: "Find 21 secrets.", alt: "Slums-chan throwing a peace sign, as a polaroid" },
+    pia7: { src: "pia7.webp", w: 366, h: 340, tw: 366, th: 340, name: "Dynamic duo 7: Pia",
+            hint: "Find 21 secrets.", alt: "Pia throwing a peace sign, as a polaroid" },
+    cap8: { src: "cap8.webp", w: 555, h: 235, tw: 555, th: 235, name: "Dynamic duo 8: Slums-chan",
+            hint: "Find 24 secrets.", alt: "Slums-chan sleeping with Zzz, as a polaroid" },
+    pia8: { src: "pia8.webp", w: 560, h: 235, tw: 560, th: 235, name: "Dynamic duo 8: Pia",
+            hint: "Find 24 secrets.", alt: "Pia sleeping with Zzz, as a polaroid" },
+    cap9: { src: "cap9.webp", w: 338, h: 285, tw: 338, th: 285, name: "Dynamic duo 9: Slums-chan",
+            hint: "Find 27 secrets.", alt: "Slums-chan holding a maple leaf with a heart bubble, as a polaroid" },
+    pia9: { src: "pia9.webp", w: 333, h: 295, tw: 333, th: 295, name: "Dynamic duo 9: Pia",
+            hint: "Find 27 secrets.", alt: "Pia holding a maple leaf with a heart bubble, as a polaroid" },
+    cap10: { src: "cap10.webp", w: 315, h: 305, tw: 315, th: 305, name: "Dynamic duo 10: Slums-chan",
+             hint: "Find 30 secrets.", alt: "Slums-chan sipping bubble tea, as a polaroid" },
+    pia10: { src: "pia10.webp", w: 320, h: 290, tw: 320, th: 290, name: "Dynamic duo 10: Pia",
+             hint: "Find 30 secrets.", alt: "Pia sipping bubble tea, as a polaroid" },
+    cap11: { src: "cap11.webp", w: 420, h: 299, tw: 420, th: 299, name: "Dynamic duo 11: Slums-chan",
+             hint: "Find 33 secrets.", alt: "Slums-chan hugging a leaf pillow, as a polaroid" },
+    pia11: { src: "pia11.webp", w: 420, h: 305, tw: 420, th: 305, name: "Dynamic duo 11: Pia",
+             hint: "Find 33 secrets.", alt: "Pia hugging a leaf pillow, as a polaroid" },
+    cap12: { src: "cap12.webp", w: 452, h: 305, tw: 452, th: 305, name: "Dynamic duo 12: Slums-chan",
+             hint: "Find 36 secrets.", alt: "Slums-chan hiding in a checked blanket, as a polaroid" },
+    pia12: { src: "pia12.webp", w: 457, h: 320, tw: 457, th: 320, name: "Dynamic duo 12: Pia",
+             hint: "Find 36 secrets.", alt: "Pia hiding in a checked blanket, as a polaroid" }
+  };
   var root = document.documentElement;
   var me = document.querySelector('script[src$="assets/theme.js"]');
   var base = me ? me.getAttribute("src").replace(/assets\/theme\.js$/, "") : "";
   var box = null, signedIn = null;
+
+  // Picture sizes: the cards before ticket 172's follow-up are all 820 tall with 360-tall thumbnails, so those two
+  // numbers are the fallback; newer cards carry their own h (full) and tw/th (thumbnail) from the art's manifest.
+  function tall(s) { return s.h || 820; }
+  function wide(s) { return s.tw || Math.round(s.w * 360 / tall(s)); }
+  function thumb(s) { return s.th || 360; }
 
   function found() {
     try { return JSON.parse(localStorage.getItem("slums-secrets") || "[]"); } catch (err) { return []; }
@@ -230,7 +334,7 @@
       var note = left > 0 ? left + (left === 1 ? " more is" : " more are") + " hiding somewhere."
         : "That&rsquo;s all of them. Nice.";
       if (!was && unlocked()) note += " <b>The Slums-chan theme is unlocked:</b> pick it next to the colour dots up top.";
-      var c = card('<img src="' + base + "secret/" + s.src + '" alt="" width="' + s.w + '" height="820">' +
+      var c = card('<img src="' + base + "secret/" + s.src + '" alt="" width="' + s.w + '" height="' + tall(s) + '">' +
         '<p class="secret-note"><b>You found a card: ' + s.name + (/[!?.]$/.test(s.name) ? "" : ".") + "</b> " + note +
         ' <a href="' + base + 'market/cards">OnlySlums</a></p>');
       c.querySelector("img").alt = s.alt;
@@ -250,7 +354,9 @@
     keys = keys.concat(k).slice(-KONAMI.length);
     if (keys.join() === KONAMI.join()) { keys = []; reveal("konami"); return; }
     typed = (typed + (k.length === 1 ? k : " ")).slice(-8);
-    ["slums", "bustin", "henesys", "kerning", "slime", "maple", "peace", "heart", "rebirth", "zzz", "summer"].forEach(function (w) {
+    ["slums", "bustin", "henesys", "kerning", "slime", "maple", "peace", "heart", "rebirth", "zzz", "summer",
+     "hmm", "yay", "ghost", "love", "pout", "ggwp", "glasses", "stretch",
+     "news", "idea", "book", "meso", "bug", "huh", "mail", "music", "gasp", "hugs", "hello"].forEach(function (w) {
       if (typed.slice(-w.length) === w) { typed = ""; reveal(w); }
     });
   });
@@ -320,10 +426,14 @@
     });
   }
 
-  // My cards (market/cards.html): found ones face up with the date, the rest face down with a hint
+  // My cards (market/cards.html): found ones face up with the date, the rest face down with a hint. The order is the
+  // original 25 (22 secrets then the three rewards), then the 19 stickers added later, then the twelve duo pairs with
+  // each pair's two polaroids next to each other.
   function cards(ul, j) {
-    var all = IDS.map(function (id) { return [id, SECRETS[id]]; })
-      .concat(Object.keys(REWARDS).map(function (id) { return [id, REWARDS[id]]; }));
+    var all = IDS.slice(0, ORIGINAL).map(function (id) { return [id, SECRETS[id]]; })
+      .concat(Object.keys(REWARDS).map(function (id) { return [id, REWARDS[id]]; }),
+              IDS.slice(ORIGINAL).map(function (id) { return [id, SECRETS[id]]; }),
+              Object.keys(DUOS).map(function (id) { return [id, DUOS[id]]; }));
     var at = (j && j.found) || {};
     if (!j) found().forEach(function (id) { at[id] = ""; });  // no service: this browser's list
     var n = all.filter(function (x) { return x[0] in at; }).length;
@@ -337,7 +447,7 @@
       if (got) {
         var day = at[id] ? new Date(at[id]).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "";
         li.innerHTML = '<a href="' + base + "secret/" + s.src + '"><img src="' + base + "secret/cards/" + s.src +
-          '" alt="" width="' + Math.round(s.w * 360 / 820) + '" height="360" loading="lazy"></a>' + num +
+          '" alt="" width="' + wide(s) + '" height="' + thumb(s) + '" loading="lazy"></a>' + num +
           "<b>" + s.name + "</b>" + (day ? '<span class="card-d">Found ' + day + "</span>" : "");
         li.querySelector("img").alt = s.alt;
       } else {
@@ -354,15 +464,15 @@
   if (root.getAttribute("data-accent") === "slumschan" && unlocked()) whoami().then(function (ok) {
     if (!ok) return;
     var got = found();
-    var set = IDS.filter(function (id) { return got.indexOf(id) >= 0; }).map(function (id) { return SECRETS[id]; })
+    var set = IDS.slice(0, ORIGINAL).filter(function (id) { return got.indexOf(id) >= 0; }).map(function (id) { return SECRETS[id]; })
       .concat(REWARDS.theme, IDS.slice(0, 14).every(function (id) { return got.indexOf(id) >= 0; }) ? [REWARDS.all] : [],
-              IDS.every(function (id) { return got.indexOf(id) >= 0; }) ? [REWARDS.every] : []);
+              IDS.slice(0, ORIGINAL).every(function (id) { return got.indexOf(id) >= 0; }) ? [REWARDS.every] : []);
     var start = 0;
     for (var i = 0; i < location.pathname.length; i++) start = (start * 31 + location.pathname.charCodeAt(i)) % 9973;
     document.querySelectorAll("img.sidekick, .notfound img, .empty.nap img").forEach(function (img, n) {
       var s = set[(start + n) % set.length];
       img.removeAttribute("srcset");
-      img.width = Math.round(s.w * 360 / 820); img.height = 360;
+      img.width = wide(s); img.height = thumb(s);
       img.src = base + "secret/cards/" + s.src;
       img.alt = s.alt;
     });
@@ -377,12 +487,12 @@
   if (root.getAttribute("data-accent") === "slumschan" && unlocked()) whoami().then(function (ok) {
     if (!ok) return;
     var got = found();
-    var set = IDS.filter(function (id) { return got.indexOf(id) >= 0; }).map(function (id) { return SECRETS[id]; })
+    var set = IDS.slice(0, ORIGINAL).filter(function (id) { return got.indexOf(id) >= 0; }).map(function (id) { return SECRETS[id]; })
       .concat(THEME_ONLY);
     function pic(s, img) {
       img = img || new Image();
       img.removeAttribute("srcset");
-      img.width = s.w; img.height = 820;
+      img.width = s.w; img.height = tall(s);
       img.className = "mascot secret-pic" + (img.classList.contains("is-on") ? " is-on" : "");
       img.src = base + "secret/" + s.src;
       img.alt = s.alt;

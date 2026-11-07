@@ -807,8 +807,46 @@ class WorldTest(unittest.TestCase):
             for sub in ("", "cards"):
                 self.assertTrue(os.path.isfile(os.path.join(build.SRC, "secret", sub, src)), (sub, src))
         rewards = js[js.index("var REWARDS = {"):]
-        self.assertEqual(re.findall(r"^    (\w+): \{ src", rewards[:rewards.index("};")], re.M),
-                         list(market_service.REWARD_CARDS))
+        reward_ids = re.findall(r"^    (\w+): \{ src", rewards[:rewards.index("};")], re.M)
+        self.assertEqual(reward_ids, list(market_service.REWARD_CARDS)[:3])  # theme, all, every: unchanged
+        duos = js[js.index("var DUOS = {"):]
+        duo_ids = re.findall(r"^    (\w+): \{ src", duos[:duos.index("};")], re.M)
+        self.assertEqual(duo_ids, list(market_service.REWARD_CARDS)[3:])  # cap1, pia1, ... in pairs
+        self.assertEqual(duo_ids, [f"{who}{k}" for k in range(1, 13) for who in ("cap", "pia")])
+        self.assertEqual(len(ids) + len(reward_ids) + len(duo_ids), 68)  # the page's "N of 68"
+
+    def test_no_typed_word_starts_another(self):
+        # typing a longer word must not fire a shorter one first: no typed word is a prefix of another (existing included)
+        with open(os.path.join(build.SRC, "assets", "theme.js"), encoding="utf-8") as f:
+            js = f.read()
+        words = re.findall(r'"([a-z]+)"', re.search(r'\[("slums".*?)\]\.forEach\(function \(w\)', js, re.S).group(1))
+        self.assertEqual(len(words), len(set(words)), "a word is listed twice")
+        for a in words:
+            for b in words:
+                if a is not b:
+                    self.assertFalse(b.startswith(a) and b != a, f'typing "{b}" would fire "{a}" first')
+        # every new sticker found by typing is in the list
+        import market_service
+        for w in ("hmm", "yay", "ghost", "love", "pout", "ggwp", "glasses", "stretch", "news", "idea", "book",
+                  "meso", "bug", "huh", "mail", "music", "gasp", "hugs", "hello"):
+            self.assertIn(w, words)
+            self.assertIn(w, market_service.SECRET_CARDS)
+
+    def test_the_new_card_pictures_ship_private_only(self):
+        # the sign-in gate is nginx on /secret/ plus the private build; a public build must not carry them at all
+        tmp = tempfile.mkdtemp(prefix="slums-private-")
+        try:
+            pub, priv = os.path.join(tmp, "pub"), os.path.join(tmp, "priv")
+            os.makedirs(pub)
+            os.makedirs(priv)
+            build.copy_assets(pub)
+            self.assertFalse(os.path.exists(os.path.join(pub, "secret")), "a public build has no secret pictures")
+            build.copy_assets(priv, private=True)
+            for name in ("hmm.webp", "cap1.webp", "pia12.webp"):
+                self.assertTrue(os.path.isfile(os.path.join(priv, "secret", name)), name)
+                self.assertTrue(os.path.isfile(os.path.join(priv, "secret", "cards", name)), name)
+        finally:
+            shutil.rmtree(tmp)
 
     def test_the_seven_new_secrets_have_triggers(self):
         # ticket 172: five typed words, five clicks on a face-down card in My cards, and a quiet Sunday visit
@@ -823,7 +861,7 @@ class WorldTest(unittest.TestCase):
         self.assertIn('every: { src: "wink2.webp"', js)
         from sections import market
         with open(os.path.join(os.path.dirname(market.__file__), "market.py"), encoding="utf-8") as f:
-            self.assertIn("Three more come as rewards", f.read())  # My cards' intro counts the third reward
+            self.assertIn("Dynamic duo", f.read())  # OnlySlums' intro counts the polaroid pairs
 
     def test_every_buddy_picture_exists_and_the_chibis_have_their_topics(self):
         # 2026-11-04: the owner's chibi stickers take the topics that borrowed a general picture
