@@ -166,6 +166,41 @@ class StageStallGuardTest {
         assertTrue(s.run.endedBecause().contains("can't reach reactor 2112011"), s.run.endedBecause());
     }
 
+    /**
+     * 1.6.6 b357: a regular going back and forth on the way to its rock is not closing in. Measured against the last
+     * check only, every other check looked 20 px closer, the "no route" count kept resetting and only the stage budget
+     * ended the run. It is measured against its best distance since the walk began.
+     */
+    @Test
+    void aRegularGoingBackAndForthIsGivenUpOnLikeOneStandingStill() {
+        Setup s = stage31();
+        StepExecutor.routeCheck = (bot, x, y) -> "no route from r10 to r5 walking";
+        Character bot = mock(Character.class);
+        when(bot.getId()).thenReturn(MINER);
+        when(bot.getName()).thenReturn("AqClientAlt1");
+        when(bot.getMapId()).thenReturn(280_010_110);
+        server.maps.MapleMap map = mock(server.maps.MapleMap.class);
+        server.maps.Reactor rock = mock(server.maps.Reactor.class);
+        when(rock.getPosition()).thenReturn(new java.awt.Point(-511, 142));
+        when(rock.getId()).thenReturn(2_112_011);
+        when(map.getReactorById(2_112_011)).thenReturn(rock);
+        when(bot.getMap()).thenReturn(map);
+        StepExecutor exec = new StepExecutor();
+        List<String> lines = new ArrayList<>();
+        SolverStep hit = new SolverStep.HitReactor(2_112_011);
+        java.awt.Point door = new java.awt.Point(1812, 135);
+        java.awt.Point ledge = new java.awt.Point(400, 258);
+        try (org.mockito.MockedStatic<soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement> move =
+                     org.mockito.Mockito.mockStatic(soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.class)) {
+            for (int check = 0; check < 6 && !s.run.ended(); check++) {
+                when(bot.getPosition()).thenReturn(check % 2 == 0 ? door : ledge);
+                exec.execute(s.run, s.orch, null, bot, hit, START + 1_000 + check * 10_000L, lines::add);
+            }
+        }
+        assertTrue(s.run.ended(), "door, ledge, door, ledge... is not progress: lines " + lines);
+        assertTrue(s.run.endedBecause().contains("can't reach reactor 2112011"), s.run.endedBecause());
+    }
+
     /** The stage the run stands on, a miner in the big room with its rock untouched, the leader on the hub. */
     private static final class View implements StageView {
         private final Stage stage;

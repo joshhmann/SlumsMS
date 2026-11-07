@@ -129,8 +129,14 @@ final class StepExecutor {
         /** 1.6.5 b344c: the last route check toward a reactor (when, and how many in a row said "no route"). */
         long routeCheckedMs;
         int noRouteTimes;
-        /** 1.6.5 b344d: how far the bot was from the reactor at the last route check, or -1. */
+        /**
+         * 1.6.5 b344d: how far the bot has been from the reactor, or -1. 1.6.6 b357: the <em>best</em> (closest) distance
+         * at any route check since this walk began, not the last one - a bot going back and forth was "closer" every
+         * other check and never given up on.
+         */
         double routeCheckDist = -1;
+        /** b357: the reactor position {@link #routeCheckDist} was measured to; a new target starts a new best. */
+        Point routeCheckTo;
         /** Set when the planner twice in a row has no route to the reactor this bot must hit; the run gives up. */
         String noRoute;
     }
@@ -147,7 +153,7 @@ final class StepExecutor {
     };
     /** How often a bot walking to a reactor re-checks that a route exists; two "no route" in a row give the stage up. */
     static final long ROUTE_CHECK_MS = 10_000;
-    /** b344d: how much closer to the reactor (px) a bot must be since the last route check to count as getting there. */
+    /** b344d/b357: how much closer to the reactor (px) than its best so far a bot must be to count as getting there. */
     static final int ROUTE_CLOSER_PX = 20;
 
     void forget(int botId) {
@@ -1169,8 +1175,14 @@ final class StepExecutor {
         // stall is still caught by the no-progress window.
         Point at = bot.getPosition();
         double dist = at == null ? -1 : at.distance(rp);
+        if (!rp.equals(beat.routeCheckTo)) {
+            beat.routeCheckTo = new Point(rp);
+            beat.routeCheckDist = -1;
+        }
         boolean closer = dist >= 0 && beat.routeCheckDist >= 0 && dist < beat.routeCheckDist - ROUTE_CLOSER_PX;
-        beat.routeCheckDist = dist;
+        if (dist >= 0 && (beat.routeCheckDist < 0 || dist < beat.routeCheckDist)) {
+            beat.routeCheckDist = dist; // b357: only a new best moves the mark; falling back does not reset it
+        }
         if (reason == null || closer) {
             beat.noRouteTimes = 0;
             return;
