@@ -117,7 +117,7 @@ steps:
   - {id: confirm-handin, do: click, anchor: npc_dialog.next, note: "Yes in the yes/no dialog is the same mode-1 reply as Next: no calibrated npc_dialog.yes point yet"}
   - {do: sleep, ms: 3000, reason: "frame after the hand-in"}
   - {id: stage-55, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 55 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
-  - {id: finished, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN zakumpq cleared in \\d+ s; prizes, bonus and out", char: me}, timeout_ms: 300000}
+  - {id: finished, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN end zakumpq in .*: cleared after \\d+ s", char: me}, timeout_ms: 300000}
   - {id: claim-talk, do: click_npc, npc: 2032002}
   - {do: sleep, ms: 2000, reason: "the prize dialog"}
   - {id: claim-next, do: click, anchor: npc_dialog.next}
@@ -143,6 +143,6 @@ expect:
     - {check: server_line, topic: MECHANICS, regex: "^RUN stage 1 cleared in \\d+ s.*\\[zakumpq", char: me, min: 1}
     - {check: server_line, topic: MECHANICS, regex: "^RUN not started", char: me, max: 0}
     - {check: server_line, topic: MECHANICS, regex: "^DROP \\S+ drops 1 x 4001018 for AqClient", char: me, min: 1}
-    - {check: server_line, topic: MECHANICS, regex: "^RUN zakumpq cleared in \\d+ s", char: me, min: 1}
+    - {check: server_line, topic: MECHANICS, regex: "^RUN end zakumpq in .*: cleared after \\d+ s", char: me, min: 1}
     - {check: client_alive}
   judgment: "PASS = every line above and no warp-back loop; the loop and REACTOR_HIT checks come from the TEST hex logger (Server Dev decodes by the alt's cid). FAIL names the first stage that never clears."
