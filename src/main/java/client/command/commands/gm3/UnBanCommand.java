@@ -63,6 +63,7 @@ public class UnBanCommand extends Command {
             player.message("Failed to unban " + params[0]);
             return;
         }
+        soloMapling.site.auth.BannedFile.requestSweep(); // 1.6.5 P0-7: drop the id from banned.txt
         player.message("Unbanned " + params[0]);
     }
 }
