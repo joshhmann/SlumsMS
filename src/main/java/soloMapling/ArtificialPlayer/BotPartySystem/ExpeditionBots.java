@@ -146,8 +146,8 @@ public final class ExpeditionBots {
     }
 
     /** What the leader reads when the bots' shared daily Chaos Zakum runs are gone. */
-    static final String CHAOS_QUOTA_TEXT = "The bots have used all " + ExpeditionBossLog.CHAOS_ZAKUM_BOT_DAILY_RUNS
-            + " of today's Chaos Zakum runs, so no more bots will join you.";
+    static final String CHAOS_QUOTA_TEXT = "The regulars have used all " + ExpeditionBossLog.CHAOS_ZAKUM_BOT_DAILY_RUNS
+            + " of today's Chaos Zakum runs, so no more regulars will join you.";
 
     /**
      * Chaos Zakum lets roster bots in {@link ExpeditionBossLog#CHAOS_ZAKUM_BOT_DAILY_RUNS} times a day, all together,
@@ -335,7 +335,7 @@ public final class ExpeditionBots {
             }
         }
         ExpeditionType type = exped.getType();
-        sb.append("\r\n\r\nYour party's bots and alts join you on their own when they stand here and are level ")
+        sb.append("\r\n\r\nYour party's regulars and alts join you on their own when they stand here and are level ")
                 .append(type.getMinLevel()).append(type.getMaxLevel() < 255 ? "-" + type.getMaxLevel() : "+")
                 .append(" (a party holds 6). Other players join by talking to me.");
         return sb.toString();
@@ -344,7 +344,7 @@ public final class ExpeditionBots {
     /** The player-facing words for a {@link #skip} reason. */
     static String describe(String why, ExpeditionType type, int level) {
         return switch (why) {
-            case "owner" -> "is another player's bot, so it cannot come with you.";
+            case "owner" -> "is another player's regular, so it cannot come with you.";
             case "banned" -> "was expelled from this expedition.";
             case "dead" -> "is dead.";
             case "map" -> "is not on this map. Bring it here first.";
@@ -352,7 +352,7 @@ public final class ExpeditionBots {
                     + (type.getMaxLevel() < 255 ? " to " + type.getMaxLevel() : " or higher") + ".";
             case "quest" -> "has not done the quest this expedition needs.";
             case "quota" -> type == ExpeditionType.CHAOS_ZAKUM
-                    ? "cannot come: the bots have used all " + ExpeditionBossLog.CHAOS_ZAKUM_BOT_DAILY_RUNS
+                    ? "cannot come: the regulars have used all " + ExpeditionBossLog.CHAOS_ZAKUM_BOT_DAILY_RUNS
                             + " of today's Chaos Zakum runs."
                     : "has no entries left for this boss today.";
             case "busy" -> "is busy and cannot follow you right now.";
@@ -466,13 +466,24 @@ public final class ExpeditionBots {
             return;
         }
         for (int id : ExpeditionHold.botsOf(exped)) {
+            String name = exped.getMembers().get(id);
+            if (name == null) {
+                // 1.6.5 exped-msgs: no longer a member (an owned alt dismissed - exped.door took it off the list - or a
+                // bot that left): nobody is being left behind. TEST 6 Nov: the dismissed AqClientAlt2 drew "A bot is
+                // not at the altar" on a start where every member came.
+                continue;
+            }
             Character bot = altar.getWorldServer().getPlayerStorage().getCharacterById(id);
             if (bot != null && bot.getMap() != null && bot.getMap().getId() == altar.getId()) {
                 continue; // it is coming
             }
-            String name = exped.getMembers().getOrDefault(id, "A bot");
-            exped.getLeader().dropMessage(6, "[Expedition] " + name + " is not at the altar and will not join.");
+            exped.getLeader().dropMessage(6, notAtTheAltarLine(name));
         }
+    }
+
+    /** The leader's line for a member left behind, by name (the name rule: no "bot"). */
+    static String notAtTheAltarLine(String name) {
+        return "[Expedition] " + name + " isn't at the altar and won't join.";
     }
 
     // ── live reads ───────────────────────────────────────────────────────────

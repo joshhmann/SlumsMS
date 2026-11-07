@@ -335,8 +335,13 @@ public final class MechanicsRuns {
         if (leader == null) {
             return;
         }
-        leader.dropMessage(6, "[Expedition] " + bots + (bots == 1 ? " bot is" : " bots are")
-                + " running this fight with you (" + shortName(content.name()) + ").");
+        leader.dropMessage(6, fightLine(bots, content));
+    }
+
+    /** 1.6.5 exped-msgs: the name rule - a player reads "regulars", never "bots". */
+    public static String fightLine(int bots, Content content) {
+        return "[Expedition] " + bots + (bots == 1 ? " regular is" : " regulars are")
+                + " running this fight with you (" + shortName(content.name()) + ").";
     }
 
     /**
@@ -817,7 +822,6 @@ public final class MechanicsRuns {
         return !realPlayerInside || ownsInstance && !cleared;
     }
 
-    /** Ends the run's instance when {@link #shouldEndInstance} says so; reports what it did. */
     /** One pink line to every real player (not a bot, not an owned alt) still in the instance. */
     static void tellRealPlayers(EventInstanceManager eim, String line) {
         try {
@@ -831,6 +835,7 @@ public final class MechanicsRuns {
         }
     }
 
+    /** Ends the run's instance when {@link #shouldEndInstance} says so; reports what it did. */
     private void closeInstance(Active a) {
         EventInstanceManager eim = a.eim;
         if (!eim.isEventDisposed() && a.run.content().kind() == MechanicsModel.Kind.BOSS) {

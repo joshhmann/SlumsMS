@@ -334,7 +334,7 @@ public final class KpqLobby {
                 yielded = true;
             }
             if (yielded && tell != null) {
-                tell.dropMessage(5, "The bots in this channel's Kerning PQ step aside for your party.");
+                tell.dropMessage(5, "The regulars in this channel's Kerning PQ step aside for your party.");
             }
             return yielded;
         } catch (RuntimeException | LinkageError e) {

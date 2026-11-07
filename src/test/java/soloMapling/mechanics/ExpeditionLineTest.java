@@ -90,7 +90,7 @@ class ExpeditionLineTest {
 
         start(eim);
 
-        verify(leader, times(1)).dropMessage(6, "[Expedition] 5 bots are running this fight with you (Zakum).");
+        verify(leader, times(1)).dropMessage(6, "[Expedition] 5 regulars are running this fight with you (Zakum).");
     }
 
     @Test
@@ -106,7 +106,7 @@ class ExpeditionLineTest {
 
         start(eim);
 
-        verify(leader, times(1)).dropMessage(6, "[Expedition] 2 bots are running this fight with you (Zakum).");
+        verify(leader, times(1)).dropMessage(6, "[Expedition] 2 regulars are running this fight with you (Zakum).");
         verify(friend, never()).dropMessage(org.mockito.ArgumentMatchers.anyInt(),
                 org.mockito.ArgumentMatchers.anyString());
     }
