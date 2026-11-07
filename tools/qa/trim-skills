@@ -1,0 +1,46 @@
+#!/bin/bash
+# QA staging on TEST: limit characters' skills to their own job tree, so a QA run is no easier than a real party's
+# (a !maxskill'd alt holds every job's skills, e.g. Haste, Teleport, Flash Jump, and regulars on the map get Haste's
+# speed and jump from any holder).
+#
+#   tools/qa/trim-skills [--apply] <char id>...     (dry run without --apply: prints what it would remove)
+#
+# Kept: the branch's beginner skills (job 0 / 1000 / 2000, Evan 2001) and, for an advanced job J, J's first-job tree
+# (J/100*100) and every step from J/10*10 up to J (Hero 112 keeps 100, 110, 111, 112; Dual Blade 434 keeps 400 and
+# 430-434; Evan 2218 keeps 2001, 2200 and 2210-2218). Everything else goes, GM skills (900/910) and the 4th+1 rows
+# (113, 123, ...) included. One log line per character: job, kept and removed counts per skill job, removed ids.
+# Refuses a character whose account is logged in (the server would save its in-memory skills back over the change).
+# TEST only: the SQL goes to the TEST DB container through test_ssh; it has no live path.
+set -euo pipefail
+. "$(dirname "$0")/../ops/lib.sh"
+apply=0
+[ "${1:-}" = --apply ] && { apply=1; shift; }
+[ $# -ge 1 ] || { echo "usage: tools/qa/trim-skills [--apply] <char id>..." >&2; exit 2; }
+for c in "$@"; do [[ $c =~ ^[0-9]+$ ]] || { echo "not a char id: $c" >&2; exit 2; }; done
+ids=$(IFS=,; echo "$*")
+
+# allowed(job, skill job) as SQL over characters c and skills s
+allowed="(FLOOR(s.skillid/10000) = FLOOR(c.job/1000)*1000
+  OR (FLOOR(s.skillid/10000) = 2001 AND (c.job = 2001 OR c.job BETWEEN 2200 AND 2218))
+  OR (MOD(c.job,1000) >= 100 AND (FLOOR(s.skillid/10000) = FLOOR(c.job/100)*100
+                                  OR FLOOR(s.skillid/10000) BETWEEN FLOOR(c.job/10)*10 AND c.job)))"
+
+sql() { test_ssh 'docker exec -i mapleroot-integration-db sh -c "mysql -uroot -p\"\$MYSQL_ROOT_PASSWORD\" -N mapleroot_persist" 2>&1 | grep -v "Using a password"'; }
+
+online=$(echo "SELECT GROUP_CONCAT(c.id) FROM characters c JOIN accounts a ON a.id=c.accountid WHERE c.id IN ($ids) AND a.loggedin<>0;" | sql)
+[ "$online" = NULL ] || [ -z "$online" ] || { echo "ABORT: logged in (log the account out first): $online" >&2; exit 1; }
+found=$(echo "SELECT COUNT(*) FROM characters WHERE id IN ($ids);" | sql)
+[ "$found" = "$#" ] || { echo "ABORT: $# id(s) given, $found found on TEST" >&2; exit 1; }
+
+echo "SET SESSION group_concat_max_len = 1000000; SELECT c.id, c.name, c.job,
+  (SELECT GROUP_CONCAT(CONCAT(j,':',n) ORDER BY j) FROM (SELECT FLOOR(s.skillid/10000) j, COUNT(*) n FROM skills s WHERE s.characterid=c.id AND $allowed GROUP BY j) k),
+  (SELECT GROUP_CONCAT(CONCAT(j,':',n) ORDER BY j) FROM (SELECT FLOOR(s.skillid/10000) j, COUNT(*) n FROM skills s WHERE s.characterid=c.id AND NOT $allowed GROUP BY j) r),
+  (SELECT GROUP_CONCAT(s.skillid ORDER BY s.skillid) FROM skills s WHERE s.characterid=c.id AND NOT $allowed)
+FROM characters c WHERE c.id IN ($ids) ORDER BY c.id;" | sql | while IFS=$'\t' read -r id name job kept removed rids; do
+  echo "trim-skills $( [ $apply = 1 ] && echo applied || echo dry-run ) $(date -u +%FT%TZ) char $id $name job $job kept[$kept] removed[$removed] removed_ids[$rids]"
+done
+
+if [ $apply = 1 ]; then
+  n=$(echo "DELETE s FROM skills s JOIN characters c ON c.id=s.characterid WHERE c.id IN ($ids) AND NOT $allowed; SELECT ROW_COUNT();" | sql)
+  echo "trim-skills: deleted $n skill row(s) on TEST"
+fi
