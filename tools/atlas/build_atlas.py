@@ -127,6 +127,19 @@ def wz_sha(wz_root):
     return hashlib.sha256("\n".join(sorted(lines)).encode()).hexdigest()
 
 
+def manifest(folder):
+    """sha256sum-style lines for every .json in the folder except the manifest itself, sorted by name."""
+    lines = []
+    for name in sorted(os.listdir(folder)):
+        if name.endswith(".json"):
+            h = hashlib.sha256()
+            with open(os.path.join(folder, name), "rb") as f:
+                for chunk in iter(lambda: f.read(1 << 20), b""):
+                    h.update(chunk)
+            lines.append(f"{h.hexdigest()}  {name}\n")
+    return "".join(lines)
+
+
 def git_head(repo):
     try:
         return subprocess.check_output(["git", "-C", repo, "rev-parse", "HEAD"], text=True).strip()
@@ -174,6 +187,8 @@ def write(out_dir, built, release, server_repo, wz_root, db_root, db_date, built
     with open(os.path.join(out_dir, "meta.json"), "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False, indent=1, sort_keys=True)
         f.write("\n")
+    with open(os.path.join(out_dir, "MANIFEST.sha256"), "w", encoding="utf-8") as f:
+        f.write(manifest(out_dir))
     return meta
 
 

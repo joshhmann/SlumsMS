@@ -53,6 +53,17 @@ class ItemReach(unittest.TestCase):
         self.assertEqual(items["5"]["reach"], "gm")
 
 
+class Manifest(unittest.TestCase):
+    def test_sha256sum_lines_for_json_only(self):
+        with tempfile.TemporaryDirectory() as d:
+            for name, body in (("b.json", "2"), ("a.json", "1"), ("x.txt", "no")):
+                with open(os.path.join(d, name), "w") as f:
+                    f.write(body)
+            lines = B.manifest(d).splitlines()
+        self.assertEqual([l.split("  ")[1] for l in lines], ["a.json", "b.json"])
+        self.assertEqual(lines[0].split("  ")[0], "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+
+
 class Dangling(unittest.TestCase):
     def test_unresolved_refs_by_kind(self):
         built = {k: {} for k in ("quests", "npcs", "items", "mobs", "maps", "scripts")}
