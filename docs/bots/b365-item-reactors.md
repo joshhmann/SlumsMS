@@ -45,3 +45,21 @@ script does not run. Rerun ZPQ's tests and the boss-phase tests to show the 1.6.
 6. Guard.
 
 Every row gets its own fail-before test and its own feed expectation, and none of it goes into release-1.6.5.
+
+## Follow-up (not built): the reverse static check
+
+ellin-altar (7 Nov) was the opposite of a hit. The stage needed an item placed on an item reactor, and nothing in
+the row placed it, so the room stayed empty until the clock ran out. `ItemReactorHitScanTest` cannot see that, because
+it looks for hits.
+
+A reverse check is feasible as a WZ test like the scan:
+1. For each stage, list the reactors its map places (Map.wz `reactor`) whose state 0 is type 100 and whose
+   `scripts/reactor/<id>.js` has an `act()` that does something: spawns, sets a property, drops or clears.
+2. Fail when the row has no PLACE_ITEM objective naming it, and no solver constant or row field names it as a
+   placement (PlaceItemOn/PlaceItem by id, name or position).
+3. Keep a written allowlist for reactors that are deliberately not the bots' job, e.g. OPQ's 2002003 Grass pot before
+   b365, or decorative ones. Each allowlist entry needs a reason.
+
+Expected noise: maps with item reactors the stage never needs, such as LPQ stage 7's 2201003 on 922010700. That's
+what the allowlist is for. Size: about one test class plus the allowlist; the first run tells us how many entries it
+needs.

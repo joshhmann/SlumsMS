@@ -29,6 +29,19 @@ public final class FightTheRoomSolver implements StageSolver {
         if (view.liveMobs() > 0) {
             return new SolverStep.Fight(0, 0, 0);
         }
+        // 1.6.6 b365: a room whose fight is behind an item reactor (Ellin's altar takes the Magic Stone and brings the
+        // Poison Golem): whoever holds the item puts it on the reactor while it still waits for one
+        for (MechanicsModel.Objective o : view.stage().objectives()) {
+            if (o.kind() != MechanicsModel.ObjectiveKind.PLACE_ITEM || !o.hasReactor()
+                    || !o.reactor().trim().chars().allMatch(Character::isDigit)) {
+                continue;
+            }
+            int reactor = Integer.parseInt(o.reactor().trim());
+            int count = o.count().map(c -> c.resolve(view.partySize(), java.util.OptionalInt.empty()).orElse(1)).orElse(1);
+            if (view.reactorTakes(reactor) != null && view.itemCount(id, o.itemId()) >= count) {
+                return new SolverStep.PlaceItemOn(reactor, o.itemId(), count, o.id());
+            }
+        }
         return new SolverStep.Wait(1_500, "the room is empty: waiting for " + view.stage().name() + " to be cleared");
     }
 }

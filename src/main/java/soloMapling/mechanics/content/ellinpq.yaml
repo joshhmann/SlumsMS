@@ -199,12 +199,22 @@ stages:
     items:
       - id: 4001169
         cleanup: true
+      - id: 4001163
+        name: Magic Stone
+        cleanup: true
     roles:
       - id: fighter
         who: ANY
         min: 1
         max: party
     objectives:
+      - id: altar
+        kind: PLACE_ITEM
+        role: all
+        reactor: "3001000"
+        item: 4001163
+        count: 1
+        note: "1.6.6 b365: Eak - 'Place the obtained Magic Stone on the Altar'. The altar is an item reactor (Reactor.wz 3001000 state 0 type 100, 1 x 4001163); 3001000.js spawns the Poison Golem 9300180, which revives into 9300181 and then 9300182 (Mob.wz info/revive)"
       - id: golem
         kind: KILL_FOR_ITEM
         role: all

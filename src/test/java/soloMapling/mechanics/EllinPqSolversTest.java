@@ -51,6 +51,14 @@ class EllinPqSolversTest {
             return now;
         }
 
+        /** b365: what an item reactor on the map still waits for (Reactor.wz type 100). */
+        final Map<Integer, int[]> takes = new java.util.HashMap<>();
+
+        @Override
+        public int[] reactorTakes(int reactorId) {
+            return takes.get(reactorId);
+        }
+
         @Override
         public Map<String, Object> stageMemory() {
             return memory;
@@ -218,6 +226,28 @@ class EllinPqSolversTest {
         v.at.put(MEMBER, 930000200);
         v.cleared = true;
         assertInstanceOf(SolverStep.Done.class, solver.next(v, member(true)));
+    }
+
+    /**
+     * 1.6.6 b365: the last room's golem comes out of the altar 3001000, an item reactor that takes the Magic Stone
+     * (4001163). The leader arrived holding it and the fight-room solver waited in an empty room: nothing placed it.
+     */
+    @Test
+    void theMagicStoneGoesOnTheAltarSoTheGolemComesOut() {
+        MechanicsModel.Stage stage = row().stages().get(5);
+        View v = new View(stage);
+        v.takes.put(3001000, new int[]{4001163, 1});
+        v.held.put(LEADER + ":" + 4001163, 1);
+        SolverStep.PlaceItemOn place = assertInstanceOf(SolverStep.PlaceItemOn.class,
+                new FightTheRoomSolver().next(v, member(true)), "the stone holder puts it on the altar");
+        assertEquals(3001000, place.reactorId());
+        assertEquals(4001163, place.itemId());
+        assertInstanceOf(SolverStep.Wait.class, new FightTheRoomSolver().next(v, member(false)),
+                "the others wait for the golem");
+        v.takes.clear(); // the altar took it
+        v.mobs = 1;
+        assertInstanceOf(SolverStep.Fight.class, new FightTheRoomSolver().next(v, member(true)),
+                "then the three golem forms are fought");
     }
 
     @Test
