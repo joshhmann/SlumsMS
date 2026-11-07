@@ -535,6 +535,61 @@ class FredrickTest(NewToolsTest):
         self.assertEqual('refused (code 33)', str(caught.exception))
 
 
+class ShopTest(NewToolsTest):
+    """1.6.5 GP4: the open NPC shop's buy, sell and close through the QA client (QA build 16)."""
+
+    def test_buy_reports_the_server_code(self):
+        self.d.qa = FakeQa([{'ev': 'shop.result', 'op': 'buy', 'item': 2000000, 'quantity': 50, 'code': 0, 'ok': True}])
+        self.assertEqual({'op': 'buy', 'item': 2000000, 'quantity': 50, 'code': 0}, self.d.shop_buy(2000000, 50))
+        self.assertEqual(['shop_buy 2000000 50'], self.d.qa.sent)
+
+    def test_a_buy_without_the_mesos_is_a_refusal(self):
+        self.d.qa = FakeQa([{'ev': 'shop.result', 'op': 'buy', 'item': 2000000, 'quantity': 50, 'code': 2,
+                             'ok': False, 'error': 'not_enough_mesos'}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.shop_buy(2000000, 50)
+        self.assertEqual('not_enough_mesos', str(caught.exception))
+
+    def test_sell_without_a_quantity_sells_every_stack(self):
+        self.d.qa = FakeQa([{'ev': 'shop.result', 'op': 'sell', 'item': 4000000, 'quantity': 0, 'sold': 130,
+                             'stacks': 2, 'ok': True}])
+        self.assertEqual({'op': 'sell', 'item': 4000000, 'sold': 130, 'stacks': 2}, self.d.shop_sell(4000000))
+        self.assertEqual(['shop_sell 4000000'], self.d.qa.sent)
+
+    def test_sell_with_a_quantity(self):
+        self.d.qa = FakeQa([{'ev': 'shop.result', 'op': 'sell', 'item': 4000000, 'quantity': 10, 'sold': 10,
+                             'stacks': 1, 'ok': True}])
+        self.assertEqual(10, self.d.shop_sell(4000000, 10)['sold'])
+        self.assertEqual(['shop_sell 4000000 10'], self.d.qa.sent)
+
+    def test_a_short_sale_says_how_many_went(self):
+        self.d.qa = FakeQa([{'ev': 'shop.result', 'op': 'sell', 'item': 4000000, 'quantity': 10, 'sold': 4,
+                             'stacks': 1, 'ok': False, 'error': 'not_enough_items'}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.shop_sell(4000000, 10)
+        self.assertEqual('not_enough_items (sold 4)', str(caught.exception))
+
+    def test_close(self):
+        self.d.qa = FakeQa([{'ev': 'shop.result', 'op': 'close', 'ok': True}])
+        self.assertEqual({'op': 'close'}, self.d.shop_close())
+        self.assertEqual(['shop_close'], self.d.qa.sent)
+
+    def test_no_shop_open(self):
+        self.d.qa = FakeQa([{'ev': 'shop.result', 'op': 'close', 'ok': False, 'error': 'no_shop'}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.shop_close()
+        self.assertEqual('no_shop', str(caught.exception))
+
+    def test_the_tools_are_script_steps_with_checked_arguments(self):
+        self.assertIn('shop_buy', self.driver.SCRIPT_TOOLS)
+        self.assertIn('shop_sell', self.driver.SCRIPT_TOOLS)
+        self.assertIn('shop_close', self.driver.SCRIPT_TOOLS)
+        self.assertEqual(('item', 'quantity'), self.driver.REQUIRED['shop_buy'])
+        self.assertEqual(('item',), self.driver.REQUIRED['shop_sell'])
+        self.assertEqual(32767, self.driver.TOOLS['shop_buy']['quantity']['maximum'])
+        self.assertEqual(0, self.driver.TOOLS['shop_sell']['quantity']['minimum'])
+
+
 class PickupTest(NewToolsTest):
     def test_pickup_names_the_slot_it_landed_in(self):
         self.d.qa = FakeQa([{'ev': 'item.picked', 'item': 4001018, 'oid': 7, 'ok': True, 'type': 4, 'slot': 3}])

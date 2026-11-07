@@ -11,7 +11,8 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import qarunner  # noqa: E402
+import qarunner
+import qascript  # noqa: E402
 
 HELLO = {'ev': 'hello', 't': 12, 'pid': 4242, 'release': '1.6.2-qa', 'build': 10701}
 
@@ -122,6 +123,30 @@ class WorkerCallsTest(unittest.TestCase):
         worker.send('me', {'do': 'merchant_open', 'item': 2000000, 'quantity': 5, 'price': 1000})
         self.assertEqual([('merchant_open', {'item': 2000000, 'quantity': 5, 'price': 1000, 'title': 'QA shop'})],
                          transport.calls)
+
+    def test_the_shop_steps_call_the_qa_client_shop_tools(self):
+        # 1.6.5 GP4: buy, sell (by item id; no quantity = every stack) and close on the open NPC shop.
+        worker, transport = self.make()
+        for step in ({'do': 'shop_buy', 'item': 2000000, 'quantity': 50}, {'do': 'shop_sell', 'item': 4000000},
+                     {'do': 'shop_sell', 'item': 4000000, 'quantity': 10}, {'do': 'shop_close'}):
+            self.assertEqual('ok', worker.send('me', step)['result'])
+        self.assertEqual([
+            ('shop_buy', {'item': 2000000, 'quantity': 50}), ('shop_sell', {'item': 4000000, 'quantity': 0}),
+            ('shop_sell', {'item': 4000000, 'quantity': 10}), ('shop_close', {}),
+        ], transport.calls)
+
+    def test_the_shop_steps_validate(self):
+        script = {'id': 'gp4-shop', 'title': 'shop', 'covers': ['b001'], 'status': 'draft', 'server': 'test',
+                  'clients': {'me': {'account': {'vault': 'aq-gm-1'}, 'world': 'Bera', 'channel': 3}},
+                  'steps': [{'do': 'shop_buy', 'item': 2000000, 'quantity': 50},
+                            {'do': 'shop_sell', 'item': 4000000}, {'do': 'shop_close'}],
+                  'expect': {'reviewer': [{'see': 'x', 'in': ['c']}]},
+                  'captures': [{'id': 'c', 'burst': {'fps': 1, 'ms': 1000, 'at': {'signal': 'x'}}}]}
+        errors = [e for e in qascript.validate_text(json.dumps(script))[0] if 'steps' in e]
+        self.assertEqual([], errors)
+        script['steps'] = [{'do': 'shop_buy', 'item': 2000000}]
+        self.assertTrue(any('steps' in e for e in qascript.validate_text(json.dumps(script))[0]),
+                        "shop_buy needs a quantity")
 
     def test_a_qa_client_refusal_fails_the_step(self):
         worker, _ = self.make({'drop_item': answer('not_in_inventory', is_error=True)})

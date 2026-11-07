@@ -125,6 +125,9 @@ At most two clients (`two_clients` in `needs`); with two, every step, capture an
 | `click_npc` | `npc` | clicks an NPC by id where the QA client draws it; it never walks (`out_of_view`: move, then again) |
 | `drop_item` | `item`, `count` | drops `count` (default 1) of the item's first stack through the client's own sender (QA build 3) |
 | `pickup_item` | `item` | picks up the newest drop of the item on the field through the client's own pickup sender; passes only when the server gives it to this character (QA build 15) |
+| `shop_buy` | `item`, `quantity` | (an NPC shop open, e.g. after `click_npc`) buys `quantity` of `item` with the packet the shop's Buy button sends; passes only on the server's answer 0. Refusals: `not_enough_mesos`, `inventory_full`, `not_in_shop`, `no_shop`, `timeout` (QA build 16) |
+| `shop_sell` | `item`, `quantity` | sells by item id; no `quantity` (or 0) sells every stack of it, one request per stack, each answered by the server (8). Refusals: `not_in_inventory`, `not_enough_items (sold n)`, `not_sold`, `no_shop`, `timeout` (QA build 16) |
+| `shop_close` | | closes the open shop as its close button does (the server gets NPC_SHOP leave). Refusal: `no_shop` (QA build 16) |
 | `party_create` | | creates a party through the client's own sender, as the party window's Create does |
 | `merchant_open` | `item`, `quantity`, `price`, `title` | sets up a hired merchant selling `quantity` of `item` (Fredrick check, CREATE, item, Open), as a player does; needs a 503xxxx item and an FM room (P0-2 GP8) |
 | `merchant_close` | | closes this character's hired merchant as its owner does (visit, then close); the rest goes to Fredrick |
