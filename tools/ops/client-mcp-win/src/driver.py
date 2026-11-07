@@ -61,6 +61,8 @@ TOOLS = {
                       'title': {'type': 'string', 'maxLength': 30}},
     'merchant_close': {},
     'fredrick_retrieve': {},
+    # b344: picks up the newest drop of <item> on the field with the client's own pickup sender (QA build 15).
+    'pickup_item': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 5999999}},
     # P0-6: the Incubator on a target (the egg's item id, or inv:slot for an empty slot); only 5060002 is taken.
     'use_cash_item': {'item': {'type': 'integer', 'minimum': 5000000, 'maximum': 5999999},
                       'target': {'type': 'string', 'maxLength': 12}},
@@ -77,7 +79,7 @@ REQUIRED = {'qa_wait': ('signal',), 'qa_burst': ('fps', 'ms', 'label'), 'run_scr
             'login_credentials': ('vault',), 'click_anchor': ('name',), 'select_world': ('world',),
             'select_channel': ('channel',), 'select_character': ('slot',),
             'mouse_drag': ('x1', 'y1', 'x2', 'y2'), 'click_npc': ('npc',), 'click_option': ('option',),
-            'drop_item': ('item',), 'party_invite': ('name',),
+            'drop_item': ('item',), 'party_invite': ('name',), 'pickup_item': ('item',),
             'use_cash_item': ('item', 'target'), 'merchant_open': ('item', 'quantity', 'price')}
 
 # Single taps only: no modifiers, so no Alt+F4, no Ctrl shortcuts. Value = (virtual key, extended).
@@ -205,7 +207,7 @@ SCRIPT_TOOLS = {'start_client', 'login', 'login_credentials', 'click_anchor', 's
                 'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to', 'click_npc', 'click_option',
                 'drop_item', 'party_create', 'party_invite', 'close_dialog',
                 'dialog_next', 'use_cash_item',
-                'merchant_open', 'merchant_close', 'fredrick_retrieve'}
+                'merchant_open', 'merchant_close', 'fredrick_retrieve', 'pickup_item'}
 # A QA vault alias (secrets/<vault>.txt) is a script name: secrets/aq-gm-1.txt. Never a path.
 VAULT = re.compile(r'^[a-z0-9][a-z0-9-]{1,31}$')
 # The QA build writes this once per login (slums.dll bypass.cpp ClientDataCaps); the manifest's caps come from it.
@@ -1043,6 +1045,22 @@ class Driver:
         if not event.get('ok'):
             raise Refusal('%s (code %s)' % (event.get('error') or 'refused', event.get('code')))
         return {'retrieved': True, 'code': event.get('code')}
+
+    def pickup_item(self, item):
+        """b344: picks up the newest drop of <item> on the field through the client's own pickup sender (0x00A09118),
+        the way a player's pickup key does. Passes only when the server's REMOVE_ITEM_FROM_MAP names this character as
+        the picker. Errors: no_drop, taken_by_other (with the picker), drop_gone, field_changed, site_mismatch,
+        field_not_ready, timeout."""
+        pipe = self.need_qa()
+        pipe.send('pickup_item %d' % item)
+        event = pipe.wait('item.picked', 12)
+        if event is None:
+            raise Refusal('timeout')
+        if not event.get('ok'):
+            error = str(event.get('error') or 'refused')
+            raise Refusal('%s (picker %s)' % (error, event.get('picker')) if event.get('picker') else error)
+        return {'picked': True, 'item': event.get('item'), 'oid': event.get('oid'), 'type': event.get('type'),
+                'slot': event.get('slot')}
 
     def use_cash_item(self, item, target):
         """P0-6: uses cash item <item> on <target> (an item id, or inv:slot) through the client's USE_CASH_ITEM packet.

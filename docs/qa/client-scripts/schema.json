@@ -848,6 +848,34 @@
      "type": "object",
      "properties": {
       "do": {
+       "const": "pickup_item"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "item": {
+       "type": "integer",
+       "minimum": 1000000,
+       "maximum": 5999999
+      }
+     },
+     "required": [
+      "do",
+      "item"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
        "const": "party_create"
       },
       "id": {
