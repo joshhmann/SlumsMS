@@ -1,0 +1,41 @@
+# b344 cleanup: log in, end any mechanics run and dismiss the alt (the runner has no finally step). TEST QA account only.
+id: b344-cleanup
+title: "Clean up after the b344 Zakum PQ proof: run stopped, alt dismissed"
+covers: [b344]
+status: draft
+server: test
+needs: [gm, owned_alt, proposed_signals]
+notes: "tarkov2 QA account, TEST."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  - {id: revive, do: gm, line: "!heal"}
+  - {do: sleep, ms: 1000, reason: "let the revive land before the next command"}
+  - {id: stop-run, do: gm, line: "!mechanics stop"}
+  - {id: dismiss-alt, do: chat, text: "@dismiss AqClientAlt1"}
+  - {id: home, do: gm, line: "!warp 211000000"}
+  - {id: left, do: wait, signal: {type: client_signal, name: field.ready, map_id: 211000000}, timeout_ms: 30000}
+  - {id: settle, do: sleep, ms: 3000, reason: "let the server apply the last command before the client stops"}
+captures:
+  - {id: after, burst: {fps: 2, ms: 2000, at: {signal: left}}}
+expect:
+  reviewer:
+    - see: "The human in El Nath, alone"
+      in: [after]
+  checks:
+    - {check: client_alive}
+  judgment: "PASS = every step ran."

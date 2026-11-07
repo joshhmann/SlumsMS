@@ -1,0 +1,46 @@
+# GP6 (1.6.5 gate), real client at gm 0, TEST QA account only. The owner trades by hand with AqClient in Henesys; Server Dev stages and reconciles both characters.
+id: gp6-trade
+title: "GP6: AqClient trades 10 Red Potions and 1,000 mesos with the owner in Henesys"
+covers: [feature-gp6]
+status: draft
+server: test
+needs: [gm, proposed_signals]
+notes: "Staged by Server Dev at 100000000, AqClient gm 0, pet out. The owner invites AqClient and adds an item and 500 mesos. Pass: trade.done, and Server Dev reconciles both inventories and mesos."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: false
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  - {id: in-town, do: wait, signal: {type: client_signal, name: field.ready, map_id: 100000000}, timeout_ms: 20000, optional: true}
+  - {id: wait-invite, do: wait, signal: {type: client_signal, name: trade.invited}, timeout_ms: 300000}
+  - {id: accept, do: trade_accept}
+  - {id: joined, do: wait, signal: {type: client_signal, name: trade.open}, timeout_ms: 15000}
+  - {id: give-item, do: trade_add_item, item: 2000000, quantity: 10}
+  - {id: give-meso, do: trade_add_meso, meso: 1000}
+  - {do: sleep, ms: 8000, reason: "the owner adds their item and mesos; frame of both sides of the window"}
+  - {id: confirm, do: trade_confirm, timeout_ms: 120000}
+  - {do: sleep, ms: 3000, reason: "frame after the trade closes"}
+captures:
+  - {id: window, burst: {fps: 2, ms: 5000, at: {step: give-meso}}}
+  - {id: after, burst: {fps: 2, ms: 3000, at: {step: confirm}}}
+expect:
+  reviewer:
+    - see: "The trade window with both sides' items and mesos before the confirm"
+      in: [window]
+    - see: "The trade window closed and the inventory after the trade"
+      in: [after]
+  checks:
+    - {check: client_alive}
+  judgment: "PASS = trade_confirm passed on trade.done. Quote the signals and the item and meso amounts seen on both sides. Server Dev reconciles both characters."

@@ -1,0 +1,100 @@
+# Zakum end-to-end, PARTIAL (not acceptance): the human expedition leader, both owned alts and three level 50+ filler regulars
+# register a Zakum expedition at NPC 2030013 (211042400, six members: the Zakum minimum), reach the altar (a), and the leader drops the
+# Eye of Fire at the altar with Client's drop_item (b, the client's own packet). The regular's chat-path invite and (c)-(g) are not run:
+# the acceptance run keeps the owner's "regular agrees in chat" path. Label the result "partial, not acceptance" in latest.json.
+# Staging used (noted for latest.json): !heal, !item 4001017 (the Eye of Fire to register; it spends one daily Zakum attempt on TEST),
+# !warp, !roster login and !bot followbot (fillers only), @botme (the owned alts).
+id: zakum-e2e-partial
+title: Zakum expedition with 6 members reaches the altar and the leader drops the Eye of Fire (partial, not acceptance)
+covers: [feature-zakum-e2e, b331]
+status: draft
+server: test
+needs: [gm, owned_alt, proposed_anchors, proposed_signals, proposed_steps]
+notes: "tarkov2 QA account (AqClient lv120 GM; alts AqClientAlt1 105 and AqClientAlt2 106 at gm 0, weapons equipped; fillers thunder54 1000553099, MSbeta 1000551094, GokuBucc 1000553063 at level 131-136). NPC 2030013 on 211042400; menu rows: first dialog 'Lets get this going!' (1); leader menu View members (1), Start the fight! (2), Stop (3); Start answers with an OK dialog that must be pressed. Run h1-cleanup afterwards. Server Dev reads bosslog_daily (Zakum) before and after for the human, 105, 106 and decodes the altar SPAWN_PLAYERs and the Zakum spawn after the drop."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
+  # the three level 100+ filler regulars (Bots: BabyRanger is too low): the expedition needs 6 members; fillers are not under
+  # test, so GM followbot staging is fine. Judge b311 only from the two alts' own attack packets and positions.
+  - {id: revive, do: gm, line: "!heal", note: "AqClient may log in dead (saved at 0 HP after dying in Horntail): !warp is refused while dead"}
+  - {do: sleep, ms: 1000, reason: "let the revive land before the next command"}
+  - {id: eye, do: gm, line: "!item 4001017 1", note: "the expedition leader must hold an Eye of Fire to register (GM-staged prerequisite)"}
+  - {id: to-door, do: gm, line: "!warp 211042400"}
+  - {id: at-door, do: wait, signal: {type: client_signal, name: field.ready, map_id: 211042400}, timeout_ms: 30000}
+  - {id: login-thunder54, do: gm, line: "!roster login thunder54"}
+  - {id: logged-thunder54, do: wait, armed_at: login-thunder54, signal: {type: client_signal, name: chat.received, regex: "login 1000553099: "}, timeout_ms: 20000}
+  - {id: follow-thunder54, do: gm, line: "!bot followbot 1000553099"}
+  - {id: login-msbeta, do: gm, line: "!roster login MSbeta"}
+  - {id: logged-msbeta, do: wait, armed_at: login-msbeta, signal: {type: client_signal, name: chat.received, regex: "login 1000551094: "}, timeout_ms: 20000}
+  - {id: follow-msbeta, do: gm, line: "!bot followbot 1000551094"}
+  - {id: login-gokubucc, do: gm, line: "!roster login GokuBucc"}
+  - {id: logged-gokubucc, do: wait, armed_at: login-gokubucc, signal: {type: client_signal, name: chat.received, regex: "login 1000553063: "}, timeout_ms: 20000}
+  - {id: follow-gokubucc, do: gm, line: "!bot followbot 1000553063"}
+  - {id: call-alt-1, do: chat, text: "@botme AqClientAlt1"}
+  - {id: alt-1-here, do: wait, armed_at: call-alt-1, signal: {type: server_line, topic: OWNED_ALT, regex: "loaded alt=105", char: me}, timeout_ms: 20000}
+  - {id: call-alt-2, do: chat, text: "@botme AqClientAlt2"}
+  - {id: alt-2-here, do: wait, armed_at: call-alt-2, signal: {type: server_line, topic: OWNED_ALT, regex: "loaded alt=106", char: me}, timeout_ms: 20000}
+  - {id: invite-thunder54, do: party_invite, name: thunder54}
+  - {id: joined-thunder54, do: sleep, ms: 2000, reason: "the join is a client notice with no chat or server line: the hex logger shows it"}
+  - {id: invite-msbeta, do: party_invite, name: MSbeta}
+  - {id: joined-msbeta, do: sleep, ms: 2000, reason: "the join is a client notice with no chat or server line: the hex logger shows it"}
+  - {id: invite-gokubucc, do: party_invite, name: GokuBucc}
+  - {id: joined-gokubucc, do: sleep, ms: 2000, reason: "the join is a client notice with no chat or server line: the hex logger shows it"}
+  - {id: gather, do: sleep, ms: 7000, reason: "the followers travel to the recruiter map after the leader"}
+  - {id: roll-call, do: gm, line: "!botstatus"}
+  - {id: here-thunder54, do: wait, armed_at: roll-call, signal: {type: client_signal, name: chat.received, regex: "^1000553099 thunder54 "}, timeout_ms: 20000}
+  - {id: here-msbeta, do: wait, armed_at: roll-call, signal: {type: client_signal, name: chat.received, regex: "^1000551094 MSbeta "}, timeout_ms: 20000}
+  - {id: here-gokubucc, do: wait, armed_at: roll-call, signal: {type: client_signal, name: chat.received, regex: "^1000553063 GokuBucc "}, timeout_ms: 20000}
+  - {id: stand-by-npc, do: gm, line: "!tp -1000 -218", note: "next to the expedition NPC"}
+  - {do: sleep, ms: 1000, reason: "let the teleport settle so the NPC is on screen"}
+  - {id: talk-1, do: click_npc, npc: 2030013}
+  - {id: dialog-1, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: lets-go, do: click, anchor: npc_dialog.option_1}
+  - {id: created, do: wait, armed_at: lets-go, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: close-created, do: click, anchor: npc_dialog.close}
+  - {id: closed-1, do: wait, armed_at: close-created, signal: {type: client_signal, name: window.closed, window: npc_dialog}, timeout_ms: 10000}
+  - {id: talk-roster, do: click_npc, npc: 2030013}
+  - {id: dialog-roster, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: view-members, do: click, anchor: npc_dialog.option_1}
+  - {do: sleep, ms: 2500, reason: "frame of the expedition roster with the members registered"}
+  - {id: close-roster, do: click, anchor: npc_dialog.close}
+  - {id: roster-closed, do: wait, armed_at: close-roster, signal: {type: client_signal, name: window.closed, window: npc_dialog}, timeout_ms: 10000}
+  - {id: talk-2, do: click_npc, npc: 2030013}
+  - {id: dialog-2, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: start-fight, do: click, anchor: npc_dialog.option_2}
+  - {id: after-start, do: wait, armed_at: start-fight, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: ok-after-start, do: click, anchor: npc_dialog.next}
+  - {id: at-altar, do: wait, signal: {type: client_signal, name: field.ready, map_id: 280030000}, timeout_ms: 60000}
+  - {id: alts-arrive, do: sleep, ms: 6000, reason: "give the party time to arrive in the altar room for the frame and the hex logger"}
+  - {id: drop-eye, do: drop_item, item: 4001017, note: "(b) the leader drops the Eye of Fire at the altar with the client's own packet: Zakum is summoned"}
+  - {id: after-drop, do: sleep, ms: 6000, reason: "frame of Zakum being summoned after the drop"}
+captures:
+  - {id: roster, burst: {fps: 2, ms: 3000, at: {step: view-members}}}
+  - {id: answer, burst: {fps: 2, ms: 2500, at: {signal: after-start}}}
+  - {id: altar, burst: {fps: 2, ms: 4000, at: {signal: at-altar}}}
+  - {id: summon, burst: {fps: 4, ms: 5000, at: {step: drop-eye}}}
+expect:
+  reviewer:
+    - see: "The expedition roster listing the leader, both alts and the three fillers"
+      in: [roster]
+    - see: "The leader and the party in Zakum's altar room"
+      in: [altar]
+    - see: "Zakum appearing after the Eye of Fire is dropped"
+      in: [summon]
+  checks:
+    - {check: client_alive}
+  judgment: "Partial, not acceptance. PASS for this script = the leader reaches 280030000, Server Dev's hex shows the five others spawned there, the drop_item answer shows the item left the inventory, and Zakum's body/arms spawn. Run h1-cleanup after it."

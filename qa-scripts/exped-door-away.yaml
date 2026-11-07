@@ -1,0 +1,98 @@
+# exped.door part (a), redo (Bots, Coordinator-approved): ONE regular is really off the altar when the leader starts. Party of six at the altar
+# (human, Alt1, Alt2, MSbeta, thunder54, GokuBucc); MSbeta registers there, then the party walks to the neighbouring map 240050300, MSbeta is stopped
+# there (manualstop), and the leader walks back. Pass with the switch on: "[Expedition] MSbeta is not at the altar and will not join." WITH the name
+# before "The expedition has started!", and MSbeta is not in 240060000 (Server Dev reads the hex log). Fail: no line, the "A bot" fallback, or MSbeta
+# in the room. Afterwards h1-cleanup (it also manualstarts MSbeta). TEST QA account only.
+id: exped-door-away
+title: "exped.door (a): a registered regular off the altar is named and left behind"
+covers: [feature-exped-door]
+status: draft
+server: test
+needs: [gm, owned_alt, proposed_anchors, proposed_signals, proposed_steps]
+notes: "tarkov2 QA account, AqClient gm 4, TEST flag exped.door on, hex logger on. Fillers MSbeta 1000551094, thunder54 1000553099, GokuBucc 1000553063. No dismissal this time (the alts stay registered)."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
+  # the three level 100+ filler regulars (Bots: BabyRanger is too low): the expedition needs 6 members; fillers are not under
+  # test, so GM followbot staging is fine. Judge b311 only from the two alts' own attack packets and positions.
+  - {id: revive, do: gm, line: "!heal", note: "AqClient may log in dead (saved at 0 HP after dying in Horntail): !warp is refused while dead"}
+  - {do: sleep, ms: 1000, reason: "let the revive land before the next command"}
+  - {id: to-door, do: gm, line: "!warp 240050400"}
+  - {id: at-door, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240050400}, timeout_ms: 30000}
+  - {id: stand-by-npc, do: gm, line: "!tp 860 246"}
+  - {id: login-msbeta, do: gm, line: "!roster login MSbeta"}
+  - {id: logged-msbeta, do: wait, armed_at: login-msbeta, signal: {type: client_signal, name: chat.received, regex: "login 1000551094: "}, timeout_ms: 20000}
+  - {id: follow-msbeta, do: gm, line: "!bot followbot 1000551094"}
+  - {id: login-thunder54, do: gm, line: "!roster login thunder54"}
+  - {id: logged-thunder54, do: wait, armed_at: login-thunder54, signal: {type: client_signal, name: chat.received, regex: "login 1000553099: "}, timeout_ms: 20000}
+  - {id: follow-thunder54, do: gm, line: "!bot followbot 1000553099"}
+  - {id: login-gokubucc, do: gm, line: "!roster login GokuBucc"}
+  - {id: logged-gokubucc, do: wait, armed_at: login-gokubucc, signal: {type: client_signal, name: chat.received, regex: "login 1000553063: "}, timeout_ms: 20000}
+  - {id: follow-gokubucc, do: gm, line: "!bot followbot 1000553063"}
+  - {id: call-alt-1, do: chat, text: "@botme AqClientAlt1"}
+  - {id: alt-1-here, do: wait, armed_at: call-alt-1, signal: {type: server_line, topic: OWNED_ALT, regex: "loaded alt=105", char: me}, timeout_ms: 20000}
+  - {id: call-alt-2, do: chat, text: "@botme AqClientAlt2"}
+  - {id: alt-2-here, do: wait, armed_at: call-alt-2, signal: {type: server_line, topic: OWNED_ALT, regex: "loaded alt=106", char: me}, timeout_ms: 20000}
+  - {id: invite-msbeta, do: party_invite, name: MSbeta}
+  - {id: joined-msbeta, do: sleep, ms: 2000, reason: "the join is a client notice with no chat or server line: the hex logger shows it"}
+  - {id: invite-thunder54, do: party_invite, name: thunder54}
+  - {id: joined-thunder54, do: sleep, ms: 2000, reason: "the join is a client notice with no chat or server line: the hex logger shows it"}
+  - {id: invite-gokubucc, do: party_invite, name: GokuBucc}
+  - {id: joined-gokubucc, do: sleep, ms: 2000, reason: "the join is a client notice with no chat or server line: the hex logger shows it"}
+  - {id: gather, do: sleep, ms: 7000, reason: "the followers travel to the recruiter map after the leader"}
+  - {id: roll-call, do: gm, line: "!botstatus"}
+  - {id: here-msbeta, do: wait, armed_at: roll-call, signal: {type: client_signal, name: chat.received, regex: "^1000551094 MSbeta "}, timeout_ms: 20000}
+  - {id: here-thunder54, do: wait, armed_at: roll-call, signal: {type: client_signal, name: chat.received, regex: "^1000553099 thunder54 "}, timeout_ms: 20000}
+  - {id: here-gokubucc, do: wait, armed_at: roll-call, signal: {type: client_signal, name: chat.received, regex: "^1000553063 GokuBucc "}, timeout_ms: 20000}
+  - {id: talk-1, do: click_npc, npc: 2083004}
+  - {id: dialog-1, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: lets-go, do: click, anchor: npc_dialog.option_1}
+  - {id: created, do: wait, armed_at: lets-go, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: close-created, do: click, anchor: npc_dialog.close}
+  - {id: closed-1, do: wait, armed_at: close-created, signal: {type: client_signal, name: window.closed, window: npc_dialog}, timeout_ms: 10000}
+  - {id: msbeta-registered, do: wait, armed_at: lets-go, signal: {type: client_signal, name: chat.received, regex: "MSbeta has joined the expedition"}, timeout_ms: 20000}
+  # the leader walks to the neighbouring map; the followers follow; MSbeta is stopped there
+  - {id: to-next, do: gm, line: "!warp 240050300"}
+  - {id: at-next, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240050300}, timeout_ms: 30000}
+  - {id: followers-arrive, do: sleep, ms: 5000, reason: "the followers walk after the leader to the neighbouring map"}
+  - {id: stop-msbeta, do: gm, line: "!bot manualstop 1000551094", note: "MSbeta stands still on the neighbouring map"}
+  - {id: roll-call-2, do: gm, line: "!botstatus"}
+  - {id: msbeta-off, do: wait, armed_at: roll-call-2, signal: {type: client_signal, name: chat.received, regex: "^1000551094 MSbeta "}, timeout_ms: 20000, note: "proof that MSbeta is on THIS map, not the altar"}
+  - {id: back-to-altar, do: gm, line: "!warp 240050400"}
+  - {id: at-altar-again, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240050400}, timeout_ms: 30000}
+  - {id: others-return, do: sleep, ms: 6000, reason: "the other followers come back with the leader"}
+  - {id: talk-2, do: click_npc, npc: 2083004}
+  - {id: dialog-2, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: start-fight, do: click, anchor: npc_dialog.option_2}
+  - {id: after-start, do: wait, armed_at: start-fight, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: ok-after-start, do: click, anchor: npc_dialog.next}
+  - {id: warned, do: wait, armed_at: start-fight, signal: {type: client_signal, name: chat.received, regex: "MSbeta is not at the altar and will not join"}, timeout_ms: 20000, optional: true}
+  - {id: in-fight, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240060000}, timeout_ms: 60000}
+  - {id: run-members, do: wait, armed_at: after-start, signal: {type: server_line, topic: MECHANICS, regex: "(?i)horntail|too few members|members", char: me}, timeout_ms: 60000, note: "run-min-room proof: the run must start with 5 members (no too-few refusal); MECHANICS topic armed"}
+captures:
+  - {id: away, burst: {fps: 2, ms: 3000, at: {step: msbeta-off}}}
+  - {id: in-room, burst: {fps: 2, ms: 4000, at: {signal: in-fight}}}
+  - {id: chat, chat_log: {span: {from: msbeta-registered, to: in-fight}}}
+expect:
+  reviewer:
+    - see: "The party on the neighbouring map with MSbeta standing still"
+      in: [away]
+    - see: "The party entering the Horntail room"
+      in: [in-room]
+  checks:
+    - {check: client_alive}
+  judgment: "PASS (switch on) = the named line before the start and MSbeta not in 240060000 (Server Dev's hex). FAIL = no line, the generic 'A bot' fallback, or MSbeta in the room."

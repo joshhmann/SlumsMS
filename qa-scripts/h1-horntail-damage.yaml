@@ -1,0 +1,101 @@
+# b311 re-test (H1): a human (AqClient, 120) and two owned 120+ alts enter Horntail through the real expedition path.
+# Pass (Coordinator): the alts enter every room, damage boss parts (from the TEST hex logger) and follow the warps.
+# The alts: AqClientAlt1 and AqClientAlt2, both level 120+.
+# GM staging used (noted in the run record): !warp 240050400, !tp, @botme (the owned alts). NO !horntail.
+id: h1-horntail-damage
+title: "Horntail damage phase: the human waits safely while the two alts fight (b311)"
+covers: [b311]
+status: draft
+server: test
+needs: [gm, owned_alt, proposed_anchors, proposed_signals, proposed_steps]
+notes: "tarkov2 QA account only (TEST, hex logger on, started by Server Dev before the run). Server Dev decodes the logger by the alts' cids: SPAWN_PLAYER/REMOVE_PLAYER per room (240060000, 240060100, 240060200), SPAWN_MONSTER boss parts, attack packets with target oids. Expedition NPC 2083004 on 240050400 at x=898 y=246. Menu rows: the first dialog has 'Lets get this going!' (row 1) and 'No...' (row 2); the leader's menu has View members (1), Start the fight! (2), Stop (3). b346: watch portals hontale_morph (cs00-cs05 on 240040700) and hontale_boss1/2 (mob00 on 240060000/240060100) for no-ops."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
+  # the three level 100+ filler regulars (Bots: BabyRanger is too low): the expedition needs 6 members; fillers are not under
+  # test, so GM followbot staging is fine. Judge b311 only from the two alts' own attack packets and positions.
+  - {id: revive, do: gm, line: "!heal", note: "AqClient may log in dead (saved at 0 HP after dying in Horntail): !warp is refused while dead"}
+  - {do: sleep, ms: 1000, reason: "let the revive land before the next command"}
+  - {id: to-door, do: gm, line: "!warp 240050400"}
+  - {id: at-door, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240050400}, timeout_ms: 30000}
+  - {id: stand-by-npc, do: gm, line: "!tp 860 246"}
+  - {id: login-thunder54, do: gm, line: "!roster login thunder54"}
+  - {id: logged-thunder54, do: wait, armed_at: login-thunder54, signal: {type: client_signal, name: chat.received, regex: "login 1000553099: "}, timeout_ms: 20000}
+  - {id: follow-thunder54, do: gm, line: "!bot followbot 1000553099"}
+  - {id: login-msbeta, do: gm, line: "!roster login MSbeta"}
+  - {id: logged-msbeta, do: wait, armed_at: login-msbeta, signal: {type: client_signal, name: chat.received, regex: "login 1000551094: "}, timeout_ms: 20000}
+  - {id: follow-msbeta, do: gm, line: "!bot followbot 1000551094"}
+  - {id: login-gokubucc, do: gm, line: "!roster login GokuBucc"}
+  - {id: logged-gokubucc, do: wait, armed_at: login-gokubucc, signal: {type: client_signal, name: chat.received, regex: "login 1000553063: "}, timeout_ms: 20000}
+  - {id: follow-gokubucc, do: gm, line: "!bot followbot 1000553063"}
+  - {id: call-alt-1, do: chat, text: "@botme AqClientAlt1"}
+  - {id: alt-1-here, do: wait, armed_at: call-alt-1, signal: {type: server_line, topic: OWNED_ALT, regex: "loaded alt=105", char: me}, timeout_ms: 20000}
+  - {id: call-alt-2, do: chat, text: "@botme AqClientAlt2"}
+  - {id: alt-2-here, do: wait, armed_at: call-alt-2, signal: {type: server_line, topic: OWNED_ALT, regex: "loaded alt=106", char: me}, timeout_ms: 20000}
+  - {id: invite-thunder54, do: party_invite, name: thunder54}
+  - {id: joined-thunder54, do: sleep, ms: 3000, reason: "the join is a client notice with no chat or server line: the hex logger shows it"}
+  - {id: invite-msbeta, do: party_invite, name: MSbeta}
+  - {id: joined-msbeta, do: sleep, ms: 3000, reason: "the join is a client notice with no chat or server line: the hex logger shows it"}
+  - {id: invite-gokubucc, do: party_invite, name: GokuBucc}
+  - {id: joined-gokubucc, do: sleep, ms: 3000, reason: "the join is a client notice with no chat or server line: the hex logger shows it"}
+  - {id: gather, do: sleep, ms: 4000, reason: "the followers travel to the recruiter map after the leader"}
+  - {do: sleep, ms: 4000, reason: "the followers travel to the recruiter map after the leader (second half)"}
+  - {id: roll-call, do: gm, line: "!botstatus"}
+  - {id: here-thunder54, do: wait, armed_at: roll-call, signal: {type: client_signal, name: chat.received, regex: "^1000553099 thunder54 "}, timeout_ms: 20000}
+  - {id: here-msbeta, do: wait, armed_at: roll-call, signal: {type: client_signal, name: chat.received, regex: "^1000551094 MSbeta "}, timeout_ms: 20000}
+  - {id: here-gokubucc, do: wait, armed_at: roll-call, signal: {type: client_signal, name: chat.received, regex: "^1000553063 GokuBucc "}, timeout_ms: 20000}
+  # register the expedition
+  - {id: talk-1, do: click_npc, npc: 2083004}
+  - {id: dialog-1, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: lets-go, do: click, anchor: npc_dialog.option_1}
+  - {id: created, do: wait, armed_at: lets-go, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000, note: "the NPC answers with a second dialog: the expedition has been created"}
+  - {id: close-created, do: click, anchor: npc_dialog.close}
+  - {id: closed-1, do: wait, armed_at: close-created, signal: {type: client_signal, name: window.closed, window: npc_dialog}, timeout_ms: 10000}
+  # the alts join through their own clients' scripts; give them a moment
+  - {do: sleep, ms: 8000, reason: "alts register for the expedition by their own scripts"}
+  # start the fight
+  - {id: talk-2, do: click_npc, npc: 2083004}
+  - {id: dialog-2, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: start-fight, do: click, anchor: npc_dialog.option_2}
+  - {id: after-start, do: wait, armed_at: start-fight, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000, note: "the NPC answers Start the fight with a dialog: capture what it says"}
+  - {do: sleep, ms: 2000, reason: "frame of the NPC's answer to Start the fight"}
+  - {id: ok-after-start, do: click, anchor: npc_dialog.next, note: "OK on Good luck! starts the instance (NPC script 2083004.js:170)"}
+  - {id: in-fight, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240060000}, timeout_ms: 60000}
+  # the human stands still; the alts fight. Watch the run through the map changes the leader is carried along.
+  # damage phase (Coordinator): the human waits at the far-left safe spot, healing every 4 s, for up to 270 s while the hex log
+  # counts each alt's attacks. No GM can kill a head, so the wait for the next room is expected to time out unless head A dies.
+  - {id: safe-spot, do: gm, line: "!tp 110 -300", note: "far left edge of 240060000 (VRLeft 90), away from head A"}
+  - {id: heal-damage, do: gm, line: "!heal"}
+  - {id: damage-window, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240060100}, retry: {steps: [heal-damage], every_ms: 4000, times: 60}, timeout_ms: 270000}
+captures:
+  - {id: door, burst: {fps: 2, ms: 2000, at: {step: stand-by-npc}}}
+  - {id: answer, burst: {fps: 2, ms: 2500, at: {signal: after-start}}}
+  - {id: first-dialog, burst: {fps: 4, ms: 2500, at: {signal: dialog-1}}}
+  - {id: second-dialog, burst: {fps: 4, ms: 2500, at: {signal: dialog-2}}}
+  - {id: party, burst: {fps: 2, ms: 2000, at: {step: alt-2-here}}}
+  - {id: room-1-shot, burst: {fps: 2, ms: 4000, at: {signal: in-fight}}}
+expect:
+  reviewer:
+    - see: "The leader with two alts standing next to it at Horntail's cave entrance"
+      in: [party]
+    - see: "The alts in each Horntail room with the boss parts on the map"
+      in: [room-1-shot]
+  checks:
+    - {check: server_line, topic: COMBAT, regex: "CHOICE AqClientAlt2", char: any, min: 0}
+    - {check: server_line, topic: ATTACK, regex: "AqClientAlt", char: any, min: 0}
+    - {check: client_alive}
+  judgment: "AFTER THE RUN: run h1-cleanup (always, even after a FAIL: the runner has no finally step); Server Dev confirms no Horntail expedition is left open; log the cleanup in latest.json. PASS needs the TEST hex logger: both alts present in each room's SPAWN_PLAYER, boss-part SPAWN_MONSTER, the alts' attack packets on boss parts, and the alts following each warp. FAIL names the first blocker (no expedition member, no entry, idle alts, no damage, no follow)."

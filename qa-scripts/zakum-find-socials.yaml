@@ -1,0 +1,42 @@
+# Zakum chat-path prep: with AqClient still GM, list the bots standing in El Nath (211000000) so Bots/QA can pick level 50+ SocialBots to ask in chat.
+# Read client/me/chat.log of the run: lines "<cid> <name> Lv<n> <job> <kind> (x,y) nav ..." from !botstatus. TEST QA account only.
+id: zakum-find-socials
+title: "List the bots standing in El Nath (for the Zakum chat recruit)"
+covers: [feature-zakum-e2e]
+status: draft
+server: test
+needs: [gm, owned_alt, proposed_signals]
+notes: "tarkov2 QA account, TEST."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  - {id: revive, do: gm, line: "!heal"}
+  - {do: sleep, ms: 1000, reason: "let the revive land before the next command"}
+  - {id: to-town, do: gm, line: "!warp 211000000"}
+  - {id: in-town, do: wait, signal: {type: client_signal, name: field.ready, map_id: 211000000}, timeout_ms: 30000}
+  - {id: list-bots, do: gm, line: "!botstatus"}
+  - {id: listed, do: wait, armed_at: list-bots, signal: {type: client_signal, name: chat.received, regex: "^Bots on map 211000000"}, timeout_ms: 20000}
+  - {do: sleep, ms: 3000, reason: "let all the botstatus lines arrive in the chat log"}
+captures:
+  - {id: town, burst: {fps: 1, ms: 2000, at: {signal: in-town}}}
+expect:
+  reviewer:
+    - see: "The human in El Nath town"
+      in: [town]
+  checks:
+    - {check: client_alive}
+  judgment: "PASS = the list is in client/me/chat.log (first 40 bots by name)."

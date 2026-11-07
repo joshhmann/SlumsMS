@@ -1,0 +1,47 @@
+# b311 prep (D1): look at the Horntail expedition NPC 2083004 (Entrance to Horntail's Cave, 240050400, x=898 y=246).
+# No fight, no expedition created: open the dialog, capture it, close it. Finds the dialog rows and proves click_npc on it.
+id: d1-horntail-door
+title: "Open the Horntail expedition NPC's dialog and close it"
+covers: [b311]
+status: draft
+server: test
+needs: [gm, proposed_signals, proposed_anchors, proposed_steps]
+notes: "tarkov2 QA account only (TEST). GM staging: !warp 240050400, !tp 860 246. Judge from the frames: the first dialog (a party line, then 'Lets get this going!' and 'No, I think I'll wait') and the pipe log npc.pos / click.done events. If click_npc errors (npc_not_on_map, out_of_view) the manifest shows it."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
+  - {id: to-door, do: gm, line: "!warp 240050400"}
+  - {id: at-door, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240050400}, timeout_ms: 30000}
+  - {id: stand-by-npc, do: gm, line: "!tp 860 246"}
+  - {do: sleep, ms: 2000, reason: "let the teleport settle so the NPC is on screen"}
+  - {id: talk, do: click_npc, npc: 2083004}
+  - {id: dialog-open, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {do: sleep, ms: 1500, reason: "frame of the dialog text and menu rows"}
+  - {do: click, anchor: npc_dialog.close}
+  - {id: dialog-closed, do: wait, signal: {type: client_signal, name: window.closed, window: npc_dialog}, timeout_ms: 10000}
+captures:
+  - {id: door, burst: {fps: 2, ms: 2000, at: {step: stand-by-npc}}}
+  - {id: dialog, burst: {fps: 4, ms: 3000, at: {signal: dialog-open}}}
+expect:
+  reviewer:
+    - see: "Horntail's cave entrance with the NPC (Mark of the Squad) near the character"
+      in: [door]
+    - see: "The expedition NPC's first dialog with its menu rows"
+      in: [dialog]
+  checks:
+    - {check: client_alive}
+  judgment: "PASS = the dialog opens (window.open) and closes (window.closed). Note the rows shown and the frame positions for the H1 script."

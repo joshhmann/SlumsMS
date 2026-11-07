@@ -1,0 +1,36 @@
+# e08 (Ramp-shaped bot boot fill): one timed player login, on the QA client on tarkov2. Run it 5 times in a row at each
+# measuring point (+2, +10, +20 minutes after the boot fill starts, plus a quiet baseline) with tools/qa/e08-probe.
+# The measurement is NOT taken from this script's clock: the TEST hex logger timestamps the login request packet and the
+# first map packet on the server (Server Dev decodes it). This script only performs the login and ends in the first map.
+id: e08-login-probe
+title: "One player login from password to the first map (timed by the server)"
+covers: [feature-e08-login]
+status: draft
+server: test
+needs: [gm, proposed_signals]
+notes: "tarkov2 QA account (vault account, AqClient slot 0), TEST only, hex logger on during the window; no other DSH or runner job at the same time; the account is single, so logins are serial. A failed try is a row, not retried. The 60 s cap is the field.ready wait."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: false
+steps:
+  - {id: start, do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 60000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, timeout_ms: 60000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 60000}
+  - {id: pick, do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+captures:
+  - {id: first-map, burst: {fps: 2, ms: 2000, at: {signal: in-game}}}
+expect:
+  reviewer:
+    - see: "The QA character standing in its first map after login"
+      in: [first-map]
+  checks:
+    - {check: client_alive}
+  judgment: "PASS = the client reaches the first map. The interval (login request to first map packet) comes from the hex logger. A timeout on any wait is a failed row with reason timeout."

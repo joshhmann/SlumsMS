@@ -1,0 +1,74 @@
+# b331 (S1, live, 1.6.5): a Zakum PQ stage-1 run drove a bot client with no player into the rock reactor 2112012 and the
+# reactor script threw "this.engines is null" (BotClient.forScripts after the shared bot client was disconnect()ed);
+# the friend dropped 0.75 s after the last error. Server Dev's advice for TEST: start ZPQ the way a player does, through
+# the Zakum PQ NPC 2030008 with the QA account's owned alt in the party, and let slums.mechanics.zakumpq drive it.
+# Case A (this script): a clean fresh-boot run, recorded as evidence. Case B: the alt is dismissed mid-run (the only
+# natural way known so far to clear a client on TEST); Bots' unit test 169e166cd forces the real trigger.
+# The NPE is a server log line, not a feed topic: after the run, grep the TEST journal for "engines is null" and
+# "2112012" between the run's start and end times and attach the lines (or their absence) to the verdict.
+id: b331-zpq-alt-party
+title: Zakum PQ stage 1 with the owned alt in the party runs without a script error or a client drop
+covers: [b331]
+status: draft
+server: test
+needs: [gm, mechanics, owned_alt, proposed_signals, proposed_anchors, proposed_steps]
+notes: "Account aq-alt-owner, owned alt on Bera (botme-alt-basics account). The recruiter refuses without quest 100200 started and level 50: the GM lines fix both. The stage-1 entry is the first option on 2030008's menu ('Enter the Unknown Dead Mine (Stage 1)'); npc_dialog.option_1 is still a PROPOSED anchor, so the first run will say how the click has to be made. The leader must be alone with his alt in the party (@botme creates it) and both on 211042300. Needs a channel with no ZPQ running."
+clients:
+  me:
+    account: {vault: aq-alt-owner}
+    world: Bera
+    channel: 2
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 2}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  - {id: prestop, do: gm, line: "!qa stop", note: "a card that failed before its cleanup leaves its scenario running"}
+  - {id: stopped, do: sleep, ms: 2000, reason: "let the stop land before the next GM command"}
+  - {id: lvl, do: gm, line: "!level 50", note: "ZPQ takes level 50+"}
+  - {id: quest, do: gm, line: "!startquest 100200", note: "the recruiter refuses without the Council approval quest"}
+  - {id: to-recruit, do: gm, line: "!warp 211042300"}
+  - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 211042300}, timeout_ms: 30000}
+  - {id: list, do: chat, text: "@botme"}
+  - id: listed
+    do: wait
+    signal: {type: client_signal, name: chat.received, regex: "Available characters: (?P<alt>[A-Za-z0-9]+)"}
+    bind: {alt: alt}
+    timeout_ms: 15000
+  - {id: summon, do: chat, text: "@botme ${alt}"}
+  - {id: joined, do: wait, signal: {type: client_signal, name: chat.received, regex: "${alt} has joined you and follows you"}, timeout_ms: 20000}
+  - {id: talk, do: click_npc, npc: 2030008}
+  - {id: talk-open, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: pick, do: click, anchor: npc_dialog.option_1}
+  - id: run-start
+    do: wait
+    armed_at: pick
+    signal: {type: server_line, topic: MECHANICS, regex: "^RUN start zakumpq stage 1 ", char: me}
+    timeout_ms: 60000
+  - {id: in-mine, do: wait, signal: {type: client_signal, name: field.ready, map_id: 280010000}, timeout_ms: 60000}
+  - {id: run1, do: sleep, ms: 8000, reason: "the automation walks the hub and hits the rock reactor 2112012 on the way"}
+  - {id: run2, do: sleep, ms: 8000, reason: "keep watching: the report was 0.75 s between the last error and the drop"}
+  - {id: run3, do: sleep, ms: 5000, reason: "keep watching the run"}
+  # case B: clear the alt's client mid-run
+  - {id: dismiss, do: chat, text: "@dismiss ${alt}"}
+  - {id: after-dismiss, do: sleep, ms: 7000, reason: "any bot still driven in the instance now reaches for a script engine"}
+  - {id: cleanup, do: gm, line: "!mechanics stop"}
+captures:
+  - {id: entering, burst: {fps: 3, ms: 5000, at: {signal: run-start}}}
+  - {id: in-hub, burst: {fps: 2, ms: 5000, at: {signal: in-mine}}}
+  - {id: dismissed, burst: {fps: 2, ms: 5000, at: {step: dismiss}}}
+  - {id: chat, chat_log: {span: {from: list, to: cleanup}}}
+expect:
+  reviewer:
+    - see: "You and your party are in the Zakum mine hub and the game window keeps responding: no crash dialog, no frozen frame, no return to the desktop or login screen"
+      in: [entering, in-hub, dismissed]
+  checks:
+    - {check: server_line, topic: MECHANICS, regex: "^RUN start zakumpq stage 1 ", char: me, min: 1}
+    - {check: client_alive}
+  judgment: "Two things settle it and only the first is in this script: client_alive through the whole span, and the TEST journal for the run's window has no 'engines is null' / reactor 2112012 error (collect it with journalctl --since/--until after the run and attach it). A clean pass is evidence, not proof: the NPE needs a prior disconnect() of the shared bot client."

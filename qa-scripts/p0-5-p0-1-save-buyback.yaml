@@ -1,0 +1,58 @@
+# TEST checks P0-5 (saves report failure honestly) and P0-1 (buyback is all-or-nothing), real client. AqClient is gm 6 for !saveall (Server Dev sets it, and back to 4 after).
+# Buyback uses EQUIP slot 4 (item 1092002, an unleveled shield; Server Dev staged it): @qs 4 4, @bb list, @bb 1. Slot 1 holds a ring: never @qs 1 alone. TEST QA account only.
+id: p0-5-p0-1-save-buyback
+title: "P0-5 !saveall reply and P0-1 quick-sell then buyback"
+covers: [feature-p0-5, feature-p0-1]
+status: draft
+server: test
+needs: [gm, proposed_signals]
+notes: "tarkov2 QA account (AqClient gm 6), TEST f11190d43. Pass: reply reads 'N saved, M failed (names)' with M=0 and N near the online count; after @bb 1 the shield is back in slot 4 and the mesos equal the start (777,035 at the last DB save); Server Dev reads the operation_journal row (APPLIED)."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: false
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  - {id: revive, do: gm, line: "!heal", note: "@qs is refused when dead"}
+  - {id: home, do: gm, line: "!warp 100000000", note: "Henesys: not in an event instance"}
+  - {id: at-home, do: wait, signal: {type: client_signal, name: field.ready, map_id: 100000000}, timeout_ms: 20000}
+  - {id: saveall, do: gm, line: "!saveall"}
+  - {do: sleep, ms: 5000, reason: "let the save finish and the reply arrive"}
+  - {id: reply, do: wait, signal: {type: client_signal, name: chat.received, regex: "saved"}, timeout_ms: 10000, optional: true}
+  - {id: qs-before, do: sleep, ms: 2000, reason: "frame of the inventory (shield in slot 4) and mesos before the sale"}
+  - {id: qs, do: chat, text: "@qs 4 4"}
+  - {do: sleep, ms: 3000, reason: "frame after the sale: the shield is gone, mesos up"}
+  - {id: list, do: chat, text: "@bb list"}
+  - {do: sleep, ms: 3000, reason: "frame of the transaction list"}
+  - {id: buyback, do: chat, text: "@bb 1"}
+  - {do: sleep, ms: 4000, reason: "frame after the buyback: shield back, mesos as at the start"}
+captures:
+  - {id: before-sale, burst: {fps: 2, ms: 2000, at: {step: qs-before}}}
+  - {id: after-sale, burst: {fps: 2, ms: 3000, at: {step: qs}}}
+  - {id: tx-list, burst: {fps: 2, ms: 3000, at: {step: list}}}
+  - {id: after-buyback, burst: {fps: 2, ms: 4000, at: {step: buyback}}}
+  - {id: chat, chat_log: {span: {from: saveall, to: buyback}}}
+expect:
+  reviewer:
+    - see: "The inventory with the shield in EQUIP slot 4 and the mesos, before the sale"
+      in: [before-sale]
+    - see: "The shield gone and the mesos up after @qs 4 4"
+      in: [after-sale]
+    - see: "@bb list showing the sale as transaction 1"
+      in: [tx-list]
+    - see: "The shield back in slot 4 and the mesos equal to the start after @bb 1"
+      in: [after-buyback]
+  checks:
+    - {check: client_alive}
+  judgment: "PASS = the !saveall reply in the chat log reads N saved, M failed with M=0; the shield is back and the mesos match the start. Quote the reply line exactly. Server Dev reads the journal row."

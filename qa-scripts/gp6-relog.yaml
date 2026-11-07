@@ -1,0 +1,36 @@
+# GP6 (1.6.5 gate), real client at gm 0, TEST QA account only. The owner trades by hand with AqClient in Henesys; Server Dev stages and reconciles both characters.
+id: gp6-relog
+title: "GP6 relog: AqClient logs in again after the trade and shows its inventory"
+covers: [feature-gp6]
+status: draft
+server: test
+needs: [gm, proposed_signals]
+notes: "Run after gp6-trade. AqClient gm 0. Only frames of the inventory and mesos; Server Dev reconciles from the DB."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: false
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  - {id: inv, do: key, key: I, note: "open the item window for the frame"}
+  - {do: sleep, ms: 3000, reason: "frame of the inventory and mesos after the relog"}
+captures:
+  - {id: after-relog, burst: {fps: 2, ms: 3000, at: {step: inv}}}
+expect:
+  reviewer:
+    - see: "AqClient's inventory and mesos after logging back in"
+      in: [after-relog]
+  checks:
+    - {check: client_alive}
+  judgment: "PASS = the client logs in and shows the inventory. Server Dev reads the rows."

@@ -1,0 +1,52 @@
+# H1 cleanup (Coordinator): run after EVERY H1 run, also after a FAIL (the runner has no finally step). Logs the human in, dismisses
+# the two alts, takes the three fillers out of the party and logs them out (back to the population director), and moves the
+# human out of the Horntail maps. Server Dev then confirms no Horntail expedition is left open. TEST QA account only.
+id: h1-cleanup
+title: "Clean up after an H1 Horntail run: fillers released, alts dismissed, human out of the expedition maps"
+covers: [b311]
+status: draft
+server: test
+needs: [gm, owned_alt, proposed_signals]
+notes: "tarkov2 QA account (AqClient slot 0), TEST. Fillers thunder54 1000553099, MSbeta 1000551094, GokuBucc 1000553063. Log what happened in latest.json."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  - {id: revive, do: gm, line: "!heal", note: "AqClient may log in dead (saved at 0 HP after dying in Horntail): !warp is refused while dead"}
+  - {do: sleep, ms: 2000, reason: "let the revive land before the next command"}
+  - {id: alts-1-away, do: chat, text: "@dismiss AqClientAlt1"}
+  - {id: alts-2-away, do: chat, text: "@dismiss AqClientAlt2"}
+  - {id: restart-msbeta, do: gm, line: "!bot manualstart 1000551094", note: "undo the manualstop of the exped.door away check"}
+  - {id: leave-thunder54, do: gm, line: "!bot leaveparty 1000553099"}
+  - {id: leave-msbeta, do: gm, line: "!bot leaveparty 1000551094"}
+  - {id: leave-gokubucc, do: gm, line: "!bot leaveparty 1000553063"}
+  - {id: out-thunder54, do: gm, line: "!roster logout thunder54"}
+  - {id: out-msbeta, do: gm, line: "!roster logout MSbeta"}
+  - {id: out-gokubucc, do: gm, line: "!roster logout GokuBucc"}
+  - {id: leave-sweetkairi, do: gm, line: "!bot leaveparty 1000536762"}
+  - {id: out-sweetkairi, do: gm, line: "!roster logout SweetKairi"}
+  - {id: home, do: gm, line: "!warp 240000000"}
+  - {id: left, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240000000}, timeout_ms: 30000, optional: true, note: "no field change when the character is already in 240000000"}
+  - {id: settle, do: sleep, ms: 3000, reason: "let the server apply the last command before the client stops"}
+captures:
+  - {id: after, burst: {fps: 2, ms: 2000, at: {step: left}}}
+expect:
+  reviewer:
+    - see: "The human in Leafre, alone"
+      in: [after]
+  checks:
+    - {check: client_alive}
+  judgment: "PASS = every step ran. Then Server Dev confirms no Horntail expedition is left open and the fillers are offline."

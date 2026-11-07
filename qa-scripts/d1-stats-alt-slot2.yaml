@@ -1,0 +1,46 @@
+# b311 prep (D1): realistic level-120 stats for the QA account's alt in slot 2 (AqClientAlt2) so its damage in the Horntail run is not Beginner-sized: 620 AP total, STR 520 and DEX 100 (Coordinator), MaxHP/MP set with !setmaxhp. TEST QA account only. Keep the same stats across both H1 runs.
+id: d1-stats-alt-slot2
+title: "Give AqClientAlt2 realistic level-120 stats (STR 520, DEX 100)"
+covers: [b311]
+status: draft
+server: test
+needs: [gm, proposed_signals]
+notes: "tarkov2 QA account only (TEST). GM staging used: !ap, @dex/@str, !setmaxhp. Judge from the frame of the character stat window: STR/DEX/HP/MP values go in latest.json."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 2}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {id: pick, do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
+  - {id: ap, do: gm, line: "!ap 620"}
+  - {do: sleep, ms: 1000, reason: "let the AP pool land before spending it"}
+  - {id: main-stat, do: chat, text: "@str 520"}
+  - {do: sleep, ms: 1000, reason: "let the first stat assignment land before the second"}
+  - {id: second-stat, do: chat, text: "@dex 100"}
+  - {id: hp, do: gm, line: "!setmaxhp 6500 1200"}
+  - {id: stat-window, do: key, key: S, note: "opens the character stat window for the frame"}
+  - {do: sleep, ms: 6000, reason: "give the server time to apply the stat points and save before the client is stopped"}
+  - {do: sleep, ms: 3000, reason: "let the stat window draw for the frame"}
+captures:
+  - {id: charselect, burst: {fps: 2, ms: 2000, at: {signal: chars}}}
+  - {id: after-level, burst: {fps: 2, ms: 2000, at: {step: stat-window}}}
+expect:
+  reviewer:
+    - see: "The character select screen with the account's characters (names and levels)"
+      in: [charselect]
+    - see: "The character in game at level 120"
+      in: [after-level]
+  checks:
+    - {check: client_alive}
+  judgment: "PASS = the stat window shows STR 520+, DEX 100+ and the set MaxHP; record the values."
