@@ -338,8 +338,12 @@ class RowRunSimulationTest {
                 "and the piece goes on the scar its own WZ trigger names");
         assertTrue(sim.steps().stream().anyMatch(s -> s.contains("reactor=minerva")),
                 "the Root of Life ends the quest on the statue's base");
-        assertTrue(sim.steps().stream().anyMatch(s -> s.contains("HitReactor[reactorId=2001016]")),
-                "Papa Pixie is spawned by the pot, not by waiting");
+        assertTrue(sim.steps().stream().noneMatch(s -> s.contains("HitReactor[reactorId=2001016]")),
+                "b365: the pot 2001016 takes the Royal's Transparent Item; it is never hit");
+        assertTrue(sim.steps().stream().anyMatch(s -> s.contains("PlaceItem[itemId=" + OpqStatueSolver.SEED)),
+                "the garden is grown from the Nependeaths' seeds");
+        assertTrue(sim.steps().stream().anyMatch(s -> s.contains("PlaceItem[itemId=" + OpqStatueSolver.STRANGER_SEED)),
+                "and the Grass of Life from Papa Pixie's seed in 2002003");
     }
 
     // ---- Ludi PQ: nine stages, one door, five boxes out of nine ---------------------------------------
@@ -1153,6 +1157,9 @@ class RowRunSimulationTest {
         private final Map<Integer, Integer> mapsAtStageStart = new LinkedHashMap<>();
         private List<Rectangle> areas = List.of();
         private int mobs;
+        /** b365, OPQ's garden: 0 not there, 1 Nependeaths, 2 a Royal grown from a seed, 3 Papa Pixie. */
+        private int garden;
+        private final java.util.Set<Integer> plantedPots = new java.util.HashSet<>();
         private long now = 1_000;
         private boolean passGiven;
         private boolean altarRefuses;
@@ -1556,10 +1563,7 @@ class RowRunSimulationTest {
                 return;
             }
             if (key.equals("2001016")) {
-                // scripts/reactor/2001016.js: clear the garden, spawn Papa Pixie (the pot is on the garden's map,
-                // which is not the stage's map: the statue's stage drives both)
-                mobs = 2;
-                return;
+                throw new AssertionError("b365: 2001016 takes an item (Reactor.wz type 100); a client never hits it");
             }
             // the room-opened rows: one click is the whole spawn (scripts/reactor/*.js act())
             switch (stageMap) {
@@ -1669,6 +1673,23 @@ class RowRunSimulationTest {
                     assertTrue(p.count() == 1, "one piece per scar");
                     take(id, p.itemId(), p.count());
                     reactors.put(p.reactor(), 1);
+                }
+                case "" -> {
+                    // b365: the garden's pots share a name, so they are placed by position
+                    if (p.itemId() == OpqStatueSolver.SEED) {
+                        assertTrue(p.x() == 430 || p.x() == 200, "a seed goes in a seed pot, never 2002003: " + p);
+                        assertTrue(plantedPots.add(p.x()), "a planted pot takes no second seed");
+                        take(id, p.itemId(), p.count());
+                        garden = 2; // scripts/reactor/2001000.js: this one grows a Royal
+                        mobs = 1;
+                    } else if (p.itemId() == OpqStatueSolver.STRANGER_SEED) {
+                        assertTrue(p.x() == -755, "Papa Pixie's seed goes in 2002003: " + p);
+                        take(id, p.itemId(), p.count());
+                        drop(0, ROOT_OF_LIFE, 1); // scripts/reactor/2002003.js drops the Grass of Life
+                        garden = 0;
+                    } else {
+                        throw new AssertionError("nothing in the garden takes " + p.itemId());
+                    }
                 }
                 case "minerva" -> {
                     assertTrue(p.itemId() == ROOT_OF_LIFE, "the base takes the Root of Life");
@@ -1847,6 +1868,10 @@ class RowRunSimulationTest {
                         for (RunMember m : run.members()) {
                             at.put(m.characterId(), 920010800); // warpEventTeam(920010800)
                         }
+                        if (garden == 0) {
+                            garden = 1; // b365: nine Nependeaths (9300048) stand in the garden
+                            mobs = 9;
+                        }
                     }
                 }
                 default -> {
@@ -1940,6 +1965,21 @@ class RowRunSimulationTest {
         private void fight(int id, SolverStep.Fight f) {
             if (run.content().kind() == MechanicsModel.Kind.BOSS) {
                 bossFight(f);
+                return;
+            }
+            if (garden > 0 && mobs > 0) {
+                mobs--;
+                switch (garden) {
+                    case 1 -> give(id, OpqStatueSolver.SEED, 1); // a Nependeath's seed
+                    case 2 -> {
+                        // the Royal dies at its pot: its Transparent Item lands in 2001016, which brings Papa Pixie
+                        garden = 3;
+                        mobs = 1;
+                    }
+                    case 3 -> give(id, OpqStatueSolver.STRANGER_SEED, 1); // Papa Pixie's Even Stranger Seed
+                    default -> {
+                    }
+                }
                 return;
             }
             if (mobs > 0) {
@@ -2173,6 +2213,17 @@ class RowRunSimulationTest {
         @Override
         public int mapOf(int characterId) {
             return at.getOrDefault(characterId, run.stageData().mapId());
+        }
+
+        @Override
+        public List<StageView.ReactorPlacement> reactorsOn(int mapId) {
+            if (mapId != 920010800) {
+                return List.of();
+            }
+            return List.of(new StageView.ReactorPlacement(1, 2001000, "pot", plantedPots.contains(430) ? 1 : 0, 430, 20),
+                    new StageView.ReactorPlacement(2, 2001001, "pot", plantedPots.contains(200) ? 1 : 0, 200, 20),
+                    new StageView.ReactorPlacement(3, 2001016, "", 0, 199, 29),
+                    new StageView.ReactorPlacement(4, 2002003, "pot", 0, -755, 19));
         }
 
         @Override
