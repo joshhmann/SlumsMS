@@ -3,6 +3,7 @@ package client.command.commands.gm3;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -30,6 +31,35 @@ class MechanicsPqStagingTest {
         }
         assertNull(MechanicsCommand.pqRow("papulatus"), "a boss row has !mechanics boss");
         assertNull(MechanicsCommand.pqRow("nosuchrow"));
+    }
+
+    @Test
+    void qaStagesForAPretendPlayerWhoCannotTypeTheCommand() {
+        MechanicsCommand.PqRequest r = MechanicsCommand.parsePq(
+                new String[]{"pq", "lpq", "for", "AqClient", "4", "ranged2"}, 1);
+        assertEquals(new MechanicsCommand.PqRequest("lpq", false, 4, 2, "AqClient"), r);
+        assertEquals("AqClient", r.leaderName(), "the named character leads");
+        assertFalse(r.withGm(), "the issuer does not lead");
+        assertEquals(4, r.regulars());
+        assertEquals(2, r.ranged());
+        assertEquals(new MechanicsCommand.PqRequest("lpq", false, 0, 0, "AqClient"),
+                MechanicsCommand.parsePq(new String[]{"pq", "lpq", "for", "AqClient"}, 1),
+                "the row's minimum party, and the leader takes a seat in it");
+    }
+
+    @Test
+    void meAndForTogetherAreRefused() {
+        assertNull(MechanicsCommand.parsePq(new String[]{"pq", "lpq", "me", "for", "AqClient"}, 1),
+                "two leaders: the issuer and the named character");
+        assertNull(MechanicsCommand.parsePq(new String[]{"pq", "lpq", "for", "AqClient", "me"}, 1));
+    }
+
+    @Test
+    void forWithoutANameIsRefused() {
+        assertNull(MechanicsCommand.parsePq(new String[]{"pq", "lpq", "for"}, 1));
+        assertNull(MechanicsCommand.parsePq(new String[]{"pq", "lpq", "for", "4"}, 1), "\"4\" is a count, not a name");
+        assertNull(MechanicsCommand.parsePq(new String[]{"pq", "lpq", "for", "AqClient", "for", "Other"}, 1),
+                "one name");
     }
 
     @Test
