@@ -876,6 +876,98 @@
      "type": "object",
      "properties": {
       "do": {
+       "const": "shop_buy"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "item": {
+       "type": "integer",
+       "minimum": 1000000,
+       "maximum": 5999999
+      },
+      "quantity": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 32767
+      }
+     },
+     "required": [
+      "do",
+      "item",
+      "quantity"
+     ],
+     "additionalProperties": false,
+     "description": "1.6.5 GP4: buy from the open NPC shop (QA build 16); passes on the server's answer 0"
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "shop_sell"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "item": {
+       "type": "integer",
+       "minimum": 1000000,
+       "maximum": 4999999
+      },
+      "quantity": {
+       "type": "integer",
+       "minimum": 0,
+       "maximum": 32767
+      }
+     },
+     "required": [
+      "do",
+      "item"
+     ],
+     "additionalProperties": false,
+     "description": "1.6.5 GP4: sell at the open NPC shop by item id; no quantity (or 0) sells every stack"
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "shop_close"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      }
+     },
+     "required": [
+      "do"
+     ],
+     "additionalProperties": false,
+     "description": "1.6.5 GP4: close the open NPC shop the way its close button does"
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
        "const": "party_create"
       },
       "id": {

@@ -63,6 +63,13 @@ TOOLS = {
     'fredrick_retrieve': {},
     # b344: picks up the newest drop of <item> on the field with the client's own pickup sender (QA build 15).
     'pickup_item': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 5999999}},
+    # 1.6.5 GP4: the open NPC shop's own buy / sell / close packets (QA build 16). A sell without a quantity (0) sells
+    # every stack of the item.
+    'shop_buy': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 5999999},
+                 'quantity': {'type': 'integer', 'minimum': 1, 'maximum': 32767}},
+    'shop_sell': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 4999999},
+                  'quantity': {'type': 'integer', 'minimum': 0, 'maximum': 32767}},
+    'shop_close': {},
     # P0-6: the Incubator on a target (the egg's item id, or inv:slot for an empty slot); only 5060002 is taken.
     'use_cash_item': {'item': {'type': 'integer', 'minimum': 5000000, 'maximum': 5999999},
                       'target': {'type': 'string', 'maxLength': 12}},
@@ -80,6 +87,7 @@ REQUIRED = {'qa_wait': ('signal',), 'qa_burst': ('fps', 'ms', 'label'), 'run_scr
             'select_channel': ('channel',), 'select_character': ('slot',),
             'mouse_drag': ('x1', 'y1', 'x2', 'y2'), 'click_npc': ('npc',), 'click_option': ('option',),
             'drop_item': ('item',), 'party_invite': ('name',), 'pickup_item': ('item',),
+            'shop_buy': ('item', 'quantity'), 'shop_sell': ('item',),
             'use_cash_item': ('item', 'target'), 'merchant_open': ('item', 'quantity', 'price')}
 
 # Single taps only: no modifiers, so no Alt+F4, no Ctrl shortcuts. Value = (virtual key, extended).
@@ -207,7 +215,8 @@ SCRIPT_TOOLS = {'start_client', 'login', 'login_credentials', 'click_anchor', 's
                 'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to', 'click_npc', 'click_option',
                 'drop_item', 'party_create', 'party_invite', 'close_dialog',
                 'dialog_next', 'use_cash_item',
-                'merchant_open', 'merchant_close', 'fredrick_retrieve', 'pickup_item'}
+                'merchant_open', 'merchant_close', 'fredrick_retrieve', 'pickup_item',
+                'shop_buy', 'shop_sell', 'shop_close'}
 # A QA vault alias (secrets/<vault>.txt) is a script name: secrets/aq-gm-1.txt. Never a path.
 VAULT = re.compile(r'^[a-z0-9][a-z0-9-]{1,31}$')
 # The QA build writes this once per login (slums.dll bypass.cpp ClientDataCaps); the manifest's caps come from it.
@@ -1061,6 +1070,41 @@ class Driver:
             raise Refusal('%s (picker %s)' % (error, event.get('picker')) if event.get('picker') else error)
         return {'picked': True, 'item': event.get('item'), 'oid': event.get('oid'), 'type': event.get('type'),
                 'slot': event.get('slot')}
+
+    def shop_wait(self, command, timeout):
+        pipe = self.need_qa()
+        pipe.send(command)
+        event = pipe.wait('shop.result', timeout)
+        if event is None:
+            raise Refusal('timeout')
+        return event
+
+    def shop_buy(self, item, quantity):
+        """1.6.5 GP4: buys <quantity> of <item> from the open NPC shop with the packet the shop's Buy button sends.
+        Passes on the server's answer 0. Errors: not_enough_mesos, inventory_full, code_<n>, not_in_shop, no_shop,
+        timeout, site_mismatch."""
+        event = self.shop_wait('shop_buy %d %d' % (item, quantity), 10)
+        if not event.get('ok'):
+            raise Refusal(str(event.get('error') or 'refused'))
+        return {'op': 'buy', 'item': event.get('item'), 'quantity': event.get('quantity'), 'code': event.get('code')}
+
+    def shop_sell(self, item, quantity=0):
+        """1.6.5 GP4: sells <quantity> of <item> at the open NPC shop (0 = every stack), one Sell request per stack, each
+        answered by the server (8 = sold). Errors: not_in_inventory, not_enough_items / not_sold / timeout (with how many
+        were sold before), no_shop, site_mismatch."""
+        command = 'shop_sell %d %d' % (item, quantity) if quantity else 'shop_sell %d' % item
+        event = self.shop_wait(command, 60)
+        if not event.get('ok'):
+            error = str(event.get('error') or 'refused')
+            raise Refusal('%s (sold %s)' % (error, event.get('sold')) if event.get('sold') else error)
+        return {'op': 'sell', 'item': event.get('item'), 'sold': event.get('sold'), 'stacks': event.get('stacks')}
+
+    def shop_close(self):
+        """1.6.5 GP4: closes the open NPC shop the way its close button does (NPC_SHOP [3]). Error: no_shop."""
+        event = self.shop_wait('shop_close', 10)
+        if not event.get('ok'):
+            raise Refusal(str(event.get('error') or 'refused'))
+        return {'op': 'close'}
 
     def use_cash_item(self, item, target):
         """P0-6: uses cash item <item> on <target> (an item id, or inv:slot) through the client's USE_CASH_ITEM packet.

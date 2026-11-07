@@ -482,6 +482,10 @@ class SilviaWorker:
             name, arguments = "fredrick_retrieve", {}
         elif kind == "pickup_item":   # b344: the newest drop of that item, picked up by the client's own sender
             name, arguments = "pickup_item", {"item": step["item"]}
+        elif kind in ("shop_buy", "shop_sell"):   # 1.6.5 GP4: the open NPC shop (shop_sell without quantity: all)
+            name, arguments = kind, {"item": step["item"], "quantity": step.get("quantity", 0)}
+        elif kind == "shop_close":
+            name, arguments = "shop_close", {}
         elif kind == "use_cash_item":   # P0-6: the Incubator on an egg (item id) or on inv:slot
             name, arguments = "use_cash_item", {"item": step["item"], "target": str(step["target"])}
         elif kind in ("wheel", "type", "key_down", "key_up"):
