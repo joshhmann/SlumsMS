@@ -187,6 +187,41 @@ class ValidateAtlasTest(unittest.TestCase):
         problems = self.broken(lambda d: d["quests"]["1000"].update(owner={"ip": "10.0.0.1"}))
         self.assertProblem(problems, "forbidden key 'ip'")
 
+    def test_every_forbidden_key_is_caught(self):
+        for key in ("password", "passwd", "secret", "token", "hash", "ip", "account_name", "Token"):
+            with self.subTest(key=key):
+                problems = self.broken(lambda d: d["quests"]["1000"].update(owner={key: "x"}))
+                self.assertProblem(problems, f"forbidden key {key!r}")
+
+    def test_only_the_four_reach_values_pass(self):
+        for value in ("other", "all", "", "Player", None):
+            with self.subTest(value=value):
+                problems = self.broken(lambda d: d["maps"]["10000"].update(reach=value))
+                self.assertProblem(problems, "maps.json:10000:reach:")
+        for value in V.REACH:
+            with self.subTest(value=value):
+                self.assertEqual(self.broken(lambda d: d["maps"]["10000"].update(reach=value)), [])
+
+    def test_only_the_known_source_kinds_pass(self):
+        for kind in ("web", "xml", "json", "", "WZ"):
+            with self.subTest(kind=kind):
+                problems = self.broken(lambda d: d["items"]["4000000"]["src"][0].update(kind=kind))
+                self.assertProblem(problems, "src[0].kind")
+        for kind in ("wz", "script", "yaml", "java", "doc"):
+            with self.subTest(kind=kind):
+                self.assertEqual(self.broken(lambda d: d["items"]["4000000"]["src"][0].update(kind=kind)), [])
+
+    def test_every_client_code_is_caught(self):
+        for code in ("#b", "#k", "#r", "#d", "#g", "#e", "#n", "#c", "#l", "#L0#", "#B1#", "#p2100#", "#t4000000#",
+                     "#i4000000#", "#m10000#", "#o100100#", "#h0#"):
+            with self.subTest(code=code):
+                problems = self.broken(lambda d: d["quests"]["1000"]["text"].update(start=[f"Hello {code} there"]))
+                self.assertProblem(problems, "client formatting code")
+
+    def test_plain_hash_in_a_name_is_not_a_code(self):
+        problems = self.broken(lambda d: d["items"]["4000000"].update(name="Scroll #2 of Fire"))
+        self.assertEqual(problems, [])
+
     def test_no_secret_keys_in_meta(self):
         problems = self.broken(lambda d: d["meta"].update({'db': {"password": "x"}}))
         self.assertProblem(problems, "meta.json:None:db.password:forbidden key 'password'")
