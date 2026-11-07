@@ -345,7 +345,10 @@ class SilviaWorker:
     # it, it belongs to an earlier action and must not prove a later one (a stale field.ready is not a new map).
     PENDING_TTL_S = 60.0
     SIGNALS = ("worldselect.ready", "channels.ready", "charselect.ready", "field.ready", "chat.received",
-               "window.open", "window.closed")
+               "window.open", "window.closed",
+               # QA build 16/17 (1.6.5 GP4/GP6): the shop and trade events, with no filter (a wait can't pick `who`)
+               "shop.open", "trade.invited", "trade.open", "trade.joined", "trade.item", "trade.meso",
+               "trade.partner_confirmed", "trade.done")
     FILTERS = {"field.ready": ("map_id",), "chat.received": ("regex", "kind"), "window.open": ("window",),
                "window.closed": ("window",)}
     # field.ready already carries no map id (the QA module sends the name only), so "the map I asked for loaded"
