@@ -211,7 +211,15 @@ public final class MechanicsModel {
     }
 
     /** One puzzle answer: a question (or combination) and its answer, mirrored from the stage's script. */
-    public record Answer(int id, String question, int value) {
+    /**
+     * One numbered question and its answer. 1.6.6 kpq1-questions: {@code live} names an answer the server reads at run
+     * time ({@link KpqQuiz}: the world's channel count or EXP rate); {@code value} is then 0 and only a live view can
+     * answer it.
+     */
+    public record Answer(int id, String question, int value, String live) {
+        public Answer(int id, String question, int value) {
+            this(id, question, value, null);
+        }
     }
 
     /** One boss phase: an HP band and what the party does in it (move, dispel, burst, hide). */
@@ -402,7 +410,27 @@ public final class MechanicsModel {
         }
 
         public OptionalInt answer(int questionId) {
-            return answers.stream().filter(a -> a.id() == questionId).mapToInt(Answer::value).findFirst();
+            return answers.stream().filter(a -> a.id() == questionId && a.live() == null).mapToInt(Answer::value)
+                    .findFirst();
+        }
+
+        /**
+         * kpq1-questions: this question's answer, a live one read through {@code live} (key -> value, e.g. the world's
+         * channel count); a fake world in a test passes its own.
+         */
+        public OptionalInt answer(int questionId, java.util.function.ToIntFunction<String> live) {
+            String key = liveAnswer(questionId);
+            if (key == null) {
+                return answer(questionId);
+            }
+            int v = live.applyAsInt(key);
+            return v >= 0 ? OptionalInt.of(v) : OptionalInt.empty();
+        }
+
+        /** kpq1-questions: the live key of this question's answer ({@link KpqQuiz}), or null for a fixed answer. */
+        public String liveAnswer(int questionId) {
+            return answers.stream().filter(a -> a.id() == questionId).map(Answer::live).filter(java.util.Objects::nonNull)
+                    .findFirst().orElse(null);
         }
     }
 

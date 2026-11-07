@@ -83,7 +83,7 @@ class KpqStage1OrchestrationTest {
         @Override
         public OptionalInt answerFor(int id) {
             int q = grid.getOrDefault(id, -1);
-            return q > 0 ? stage.answer(q) : OptionalInt.empty();
+            return q > 0 ? stage.answer(q, KpqQuizFake.WORLD) : OptionalInt.empty();
         }
 
         @Override
@@ -145,10 +145,10 @@ class KpqStage1OrchestrationTest {
                 return;
             }
             if (data == -1) {
-                grid.put(id, rnd.nextInt(7) + 1);
+                grid.put(id, rnd.nextInt(stage.answers().size()) + 1);
                 return;
             }
-            int answer = stage.answer(data).orElseThrow();
+            int answer = stage.answer(data, KpqQuizFake.WORLD).orElseThrow();
             if (itemCount(id, COUPON) == answer) {
                 add(id, COUPON, -answer);
                 add(id, PASS, 1);
@@ -218,7 +218,7 @@ class KpqStage1OrchestrationTest {
             if (data == -1) {
                 talkToCloto(id);
             } else if (data > 0) {
-                int answer = stage.answer(data).orElseThrow();
+                int answer = stage.answer(data, KpqQuizFake.WORLD).orElseThrow();
                 if (itemCount(id, COUPON) < answer) {
                     add(id, COUPON, 1);
                 } else {
@@ -363,8 +363,8 @@ class KpqStage1OrchestrationTest {
                 bot(3, false, MechanicsPersona.PERFECT));
         RunState run = o.start(kpq(), Tier.NORMAL, party);
         FakeKpq kpq = new FakeKpq(run, 1);
-        kpq.grid.put(2, 7); // answer 8
-        kpq.add(2, COUPON, 11);
+        kpq.grid.put(2, 4); // answer 10 (kpq1-questions: the passes at the top)
+        kpq.add(2, COUPON, 13);
         Map<Integer, SolverStep> steps = o.tick(run, kpq, 1_000);
         SolverStep s = steps.get(2);
         assertInstanceOf(SolverStep.DropFor.class, s);

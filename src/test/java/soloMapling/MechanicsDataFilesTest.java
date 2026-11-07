@@ -84,7 +84,7 @@ class MechanicsDataFilesTest {
                 "bossrush7", "zakumpq", "guildquest"),
                 r.content().stream().map(c -> c.id()).toList());
         assertEquals(10, r.content().stream().filter(c -> "kpq".equals(c.id())).findFirst().orElseThrow()
-                .stage(1).orElseThrow().answer(1).orElseThrow());
+                .stage(1).orElseThrow().answer(4).orElseThrow(), "kpq1-questions: the passes at the top");
         assertTrue(origins.stream().allMatch(o -> o == DataFiles.Origin.CLASSPATH), origins.toString());
     }
 

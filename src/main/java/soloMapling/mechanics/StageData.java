@@ -432,12 +432,20 @@ public final class StageData {
                 continue;
             }
             int aid = num(am, "id", -1, p);
-            int value = num(am, "answer", -1, p);
+            String live = opt(am, "live");
+            if (live != null && live.isBlank()) {
+                live = null;
+            }
+            if (live != null && !KpqQuiz.known(live)) {
+                p.add(at + "answer " + aid + ": live is " + KpqQuiz.CHANNELS + " or " + KpqQuiz.EXP_RATE + ", not " + live);
+                continue;
+            }
+            int value = live != null ? 0 : num(am, "answer", -1, p);
             if (aid < 0 || value < 0 || !answerIds.add(aid)) {
                 p.add(at + "answer " + aid + ": needs a unique id and a non-negative answer");
                 continue;
             }
-            answers.add(new Answer(aid, opt(am, "question"), value));
+            answers.add(new Answer(aid, opt(am, "question"), value, live));
         }
 
         List<Objective> objectives = new ArrayList<>();

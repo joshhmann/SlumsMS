@@ -20,7 +20,7 @@ timeLimitMinutes: 30
 sources:
   - "scripts/event/KerningPQ.js and scripts/npc/9020001.js (Cloto): ours, the truth"
   - "wz Map.wz 103000800.img: Cloto at (592, 106), 22 Ligator (9300001) spawns, spawn point sp (-1077, 81)"
-  - "Cross-checked against nutnnut/cosmic_agents (AGPL-3.0) AgentKpqDefinition: same answers 10/35/20/25/25/30/8"
+  - "Stage 1 questions: our own since 1.6.6 kpq1-questions (owner, 7 Nov); the OdinMS set (10/35/20/25/25/30/8) is gone"
   - "Stages 2-4: rectangles and combos copied from scripts/npc/9020001.js in its order (cosmic_agents Kiwiism/cosmic_agents 3c7e09435 lists the stage-2 ropes in another order; ours wins); KpqStageDataTest re-reads the script"
   - "Stage 5 and bonus: wz Map.wz 103000804.img (Cloto (305, -2715), 9300000 x7, 9300002 x3, King Slime 9300003) and drop data (each drops one pass 4001008); 103000805.img (Nella 9020002)"
 afterClear:
@@ -103,13 +103,13 @@ stages:
         role: all
         note: portal opens on clear (eim.linkToNextStage)
     answers:
-      - { id: 1, answer: 10, question: "min level for the warrior 1st job" }
-      - { id: 2, answer: 35, question: "min STR for the warrior 1st job" }
-      - { id: 3, answer: 20, question: "min INT for the magician 1st job" }
-      - { id: 4, answer: 25, question: "min DEX for the bowman 1st job" }
-      - { id: 5, answer: 25, question: "min DEX for the thief 1st job" }
-      - { id: 6, answer: 30, question: "min level for the 2nd job" }
-      - { id: 7, answer: 8, question: "min level for the magician 1st job" }
+      # 1.6.6 kpq1-questions (owner, 7 Nov): our own six; 1 and 2 are the world's settings, read live (KpqQuiz)
+      - { id: 1, live: channels, question: "channels in our world" }
+      - { id: 2, live: expRate, question: "our world's EXP rate" }
+      - { id: 3, answer: 3, question: "fewest people who can start this quest (KerningPQ.js minPlayers)" }
+      - { id: 4, answer: 10, question: "passes Cloto asks for at the top (stage 5)" }
+      - { id: 5, answer: 6, question: "most people one party can hold (PartyOperationHandler: size < 6)" }
+      - { id: 6, answer: 5, question: "ability points per level up" }
     nextPortal: next00
     clear:
       eventProperty: 1stageclear
