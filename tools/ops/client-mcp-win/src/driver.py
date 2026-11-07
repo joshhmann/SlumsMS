@@ -81,6 +81,12 @@ TOOLS = {
     'trade_add_meso': {'meso': {'type': 'integer', 'minimum': 1, 'maximum': 2147483647}},
     'trade_confirm': {'timeout_s': {'type': 'integer', 'minimum': 1, 'maximum': 300}},
     'trade_cancel': {},
+    # b360 (1.6.6): a jump with the game's jump key (Alt, keymap 56): optionally running left/right for run_ms first
+    # and holding Up through it (catch 1) to grab a rope or ladder; everything is released after hold_ms.
+    'jump': {'dir': {'type': 'string', 'maxLength': 5, 'enum': ['none', 'left', 'right']},
+             'catch': {'type': 'integer', 'minimum': 0, 'maximum': 1},
+             'run_ms': {'type': 'integer', 'minimum': 0, 'maximum': 2000},
+             'hold_ms': {'type': 'integer', 'minimum': 100, 'maximum': 2000}},
     # P0-6: the Incubator on a target (the egg's item id, or inv:slot for an empty slot); only 5060002 is taken.
     'use_cash_item': {'item': {'type': 'integer', 'minimum': 5000000, 'maximum': 5999999},
                       'target': {'type': 'string', 'maxLength': 12}},
@@ -119,6 +125,9 @@ COMBOS = {'CTRL+F10': (0x11, 0x79),   # the in-game settings window (slums.dll D
 # A held key repeats its key-down the way a keyboard's auto-repeat does: the game acts once per key-down, so one down
 # held for 3 s attacked once (qa-attack-step, Server Dev's packet read 2026-11-07). Windows' defaults: 250 ms, ~30/s.
 KEY_REPEAT_DELAY = 0.25
+# The game's jump key (keymap 56 = type 5 action 53, the stock binding). Alt is never sent with anything but arrows
+# and Up, so it makes no window shortcut (no F4, Enter, Tab).
+JUMP_KEY = 0x12
 KEY_REPEAT_EVERY = 0.033
 # The first chat line after a client start loses its first key, so command() sends this line first to absorb it.
 # Never a toggle: !unhide casts GM Hide, which toggles, and priming with it before login's own !unhide hid the GM
@@ -233,7 +242,7 @@ SCRIPT_TOOLS = {'start_client', 'login', 'login_credentials', 'click_anchor', 's
                 'dialog_next', 'use_cash_item',
                 'merchant_open', 'merchant_close', 'fredrick_retrieve', 'pickup_item',
                 'shop_buy', 'shop_sell', 'shop_close', 'use_item', 'trade_invite', 'trade_accept',
-                'trade_add_item', 'trade_add_meso', 'trade_confirm', 'trade_cancel'}
+                'trade_add_item', 'trade_add_meso', 'trade_confirm', 'trade_cancel', 'jump'}
 NAME = re.compile(r'^[A-Za-z0-9]{4,12}$')   # a v83 character name (trade_invite)
 # A QA vault alias (secrets/<vault>.txt) is a script name: secrets/aq-gm-1.txt. Never a path.
 VAULT = re.compile(r'^[a-z0-9][a-z0-9-]{1,31}$')
@@ -1192,6 +1201,41 @@ class Driver:
         """1.6.5 GP6: closes the open trade, as its window's close does. Error: no_trade."""
         self.trade_request('trade_cancel')
         return {'op': 'cancel'}
+
+    def jump(self, dir='none', catch=0, run_ms=0, hold_ms=800):
+        """b360: jumps with the game's jump key. dir left/right holds that arrow for run_ms first (a running jump);
+        catch holds Up through the jump, as a player grabs a rope or ladder. Every key is released after hold_ms, also
+        when the owner takes over. Where the character ended up is the server's !pos (or its movement lines)."""
+        arrows = {'none': None, 'left': KEYS['LEFT'], 'right': KEYS['RIGHT']}
+        if dir not in arrows:
+            raise Refusal('dir must be none, left or right')
+        self.field_input()
+        pressed = []
+        try:
+            if arrows[dir]:
+                self.sender.key(arrows[dir][0], True, extended=True)
+                pressed.append(arrows[dir][0])
+                end = time.monotonic() + run_ms / 1000
+                while time.monotonic() < end:
+                    self.guard()
+                    time.sleep(min(0.05, max(0.0, end - time.monotonic())))
+            if catch:
+                self.sender.key(KEYS['UP'][0], True, extended=True)
+                pressed.append(KEYS['UP'][0])
+            self.guard()
+            self.sender.key(JUMP_KEY, True)
+            try:
+                time.sleep(0.06)  # DirectInput polls state; an atomic tap can be missed (as WindowsSender.key)
+            finally:
+                self.sender.key(JUMP_KEY, False)
+            end = time.monotonic() + hold_ms / 1000
+            while time.monotonic() < end:
+                self.guard()
+                time.sleep(min(0.05, max(0.0, end - time.monotonic())))
+        finally:
+            for vk in reversed(pressed):
+                self.sender.key(vk, False, extended=True)
+        return {'jumped': True, 'dir': dir, 'catch': bool(catch)}
 
     def use_cash_item(self, item, target):
         """P0-6: uses cash item <item> on <target> (an item id, or inv:slot) through the client's USE_CASH_ITEM packet.

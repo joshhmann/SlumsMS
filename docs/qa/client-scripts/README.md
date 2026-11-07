@@ -117,7 +117,7 @@ At most two clients (`two_clients` in `needs`); with two, every step, capture an
 | `gm` | `line` | a `!` command |
 | `key` | `key`, `hold_ms` | A-Z, 0-9, F1-F12, arrows, ENTER, ESCAPE, SPACE, CTRL, ALT, SHIFT, CTRL+F10, CTRL+F11 ... |
 | `move` | `dir`, `ms` | holds an arrow key |
-| `jump` | `dir`, `double`, `down` | `double: true` = double-tap (the bounce) |
+| `jump` | `dir`, `catch`, `run_ms`, `hold_ms` | a jump with the game's jump key (Alt); `dir` left/right runs for `run_ms` first; `catch: true` holds Up through it to grab a rope or ladder; all keys released after `hold_ms` (default 800). `double`/`down` are refused (b360, 1.6.6) |
 | `click` | `anchor`, `button` | a NAMED target from `anchors.yaml`, never x,y |
 | `wait` | `signal`, `timeout_ms`, `armed_at`, `bind`, `retry` | see Waits |
 | `sleep` | `ms`, `reason` | discouraged; see Timers |
