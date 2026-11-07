@@ -1,0 +1,60 @@
+# Ellin PQ ("Forest of Poison Haze", row ellinpq): the real-client run. The human leader (AqClient, gm 0 after the
+# staging) starts the run through Ellin 2133000 on the recruit map 300030100, then stays with it while the bots walk
+# the six modelled stages of src/main/java/soloMapling/mechanics/content/ellinpq.yaml (stage 1 empties the forest,
+# stage 2 dilutes the poison onto the spine, stage 3 is Ellin's 2133001 talk, stage 4 the marble hand-in, stage 5 the
+# Purple Stone of Magic, stage 6 the Poison Golem). The run's own clear is the Poison Golem's death, which warps
+# everyone to the exit map 930000800 (EllinPQ.js:30 exitMap, :226-241 clearPQ).
+# Pass (card): `RUN start ellinpq`, the stage 1..6 cleared lines in order tagged [ellinpq, leader AqClient], the final
+# `RUN end ellinpq in ...: cleared after N s`, and the client on 930000800.
+# STAGING: AqClient stays gm 0 and may log in anywhere. QA runs `tools/ops/mechanics-stage pq ellinpq for AqClient 3 ranged1` with `for AqClient` after login (Bots, 166-bots-pq-staging-for @ 8317b1da6); staging moves the leader to the recruit map. Needs the 1.6.6 TEST build with -Dslums.qa, -Dslums.mechanics and the row switch.
+id: ellinpq-full-run
+title: "Ellin PQ: the leader starts the Forest of Poison Haze run and the party clears all six stages"
+covers: [feature-ellinpq]
+status: draft
+server: test
+needs: [gm, mechanics, proposed_signals]
+notes: "tarkov2 QA account, TEST with -Dslums.mechanics=true and -Dslums.mechanics.ellinpq=true. Server Dev stages the party (4-6 adventurers, level >= 44) on 300030100 with AqClient as leader. Channel 5."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 5
+    gm: false
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 5}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
+  - {id: stage-party, do: sleep, ms: 10000, reason: "QA runs tools/ops/mechanics-stage pq ellinpq 3 ranged1 from the shell with `for AqClient`; TEST picks it up within 30 s"}
+  - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 300030100}, timeout_ms: 60000, note: "staging itself moves the leader to the recruit map, so AqClient may log in anywhere"}
+  - id: run-start
+    do: wait
+    armed_at: stage-party
+    signal: {type: server_line, topic: MECHANICS, regex: "^RUN start ellinpq stage 1 in ", char: me}
+    timeout_ms: 60000
+  - {id: stage-1, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 1 cleared in \\d+ s.*\\[ellinpq", char: me}, timeout_ms: 300000}
+  - {id: stage-2, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 2 cleared in \\d+ s.*\\[ellinpq", char: me}, timeout_ms: 300000}
+  - {id: stage-3, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 3 cleared in \\d+ s.*\\[ellinpq", char: me}, timeout_ms: 300000}
+  - {id: stage-4, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 4 cleared in \\d+ s.*\\[ellinpq", char: me}, timeout_ms: 300000}
+  - {id: stage-5, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 5 cleared in \\d+ s.*\\[ellinpq", char: me}, timeout_ms: 300000}
+  - {id: stage-6, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 6 cleared in \\d+ s.*\\[ellinpq", char: me}, timeout_ms: 300000}
+  - {id: finished, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN end ellinpq in .*: cleared after \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: out, do: wait, signal: {type: client_signal, name: field.ready, map_id: 930000800}, timeout_ms: 60000}
+  - {do: sleep, ms: 3000, reason: "frame of the exit map before the cleanup line"}
+captures:
+  - {id: start, burst: {fps: 2, ms: 3000, at: {step: stage-party}}}
+  - {id: exit-map, burst: {fps: 2, ms: 3000, at: {step: out}}}
+  - {id: chat, chat_log: {span: {from: stage-party, to: out}}}
+expect:
+  reviewer:
+    - see: "The leader on the exit map 930000800 after the sixth stage"
+      in: [exit-map]
+  checks:
+    - {check: client_alive}
+  judgment: "PASS = the six stage lines in order (1..6, each tagged [ellinpq, leader AqClient]), the final `RUN end ellinpq in ...: cleared after N s` line, and the client on 930000800. The bot's own log carries why a stage stalls: read the QA log before filing a bug. FAIL names the first stage that never clears."

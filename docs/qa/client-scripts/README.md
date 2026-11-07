@@ -350,6 +350,9 @@ steps itself.
 | `t-mr-2-woman-proposes` | t-mr-2 | draft: two clients, `type`, inventory anchors |
 | `t-rg-1-friendship-ring` | t-rg-1 | draft: two clients, Cash Shop anchors, `type` |
 | `t-rg-2-couple-ring` | t-rg-2 | draft: as t-rg-1, same-gender partner |
+| `ellinpq-full-run` | feature-ellinpq | draft: the party is staged by Server Dev on 300030100; watches the six RUN stages to the exit map 930000800; `click_npc`, `window.open` |
+| `magatiapq-full-run` | feature-magatiapq | draft: staged by Server Dev (exactly four, level >= 71) on 261000021; six stages to 926110700 |
+| `opq-full-run` | feature-opq | draft: staged by Server Dev (5-6, level >= 51) on 200080101; eight stages to 920011200 |
 
 No script for `t-la-1` (the Tauri launcher's checklist): the launcher is a separate desktop app, not the game client;
 the runner drives the QA client only. It stays a hand check with its own page until the launcher gets its own harness.
