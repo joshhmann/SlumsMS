@@ -763,7 +763,7 @@ final class BotNavigationManager {
             if (targetRope == null || BotMovementManager.sameRope(entry.climbRope, targetRope)) {
                 return null;
             }
-            BotMovementManager.jumpToRope(entry, bot, edge.launchStepX);
+            BotMovementManager.jumpToRope(entry, bot, edge.launchStepX, targetRope);
             return new NavigationDirective(rawTargetPos, true);
         }
 
@@ -1671,7 +1671,8 @@ final class BotNavigationManager {
             return false; // ticket 157: never route into a hidden catch floor under the view bounds
         }
         return switch (edge.type) {
-            case WALK, JUMP, DROP, CLIMB -> true;
+            case WALK, JUMP, DROP -> true;
+            case CLIMB -> !edge.clientKickHop || NavRopeHop.enabled(); // v72: the fallback switch
             case PORTAL -> {
                 Portal portal = map.getPortal(edge.portalId);
                 yield portal != null && portal.getPortalStatus();

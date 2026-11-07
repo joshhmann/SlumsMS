@@ -291,10 +291,39 @@ class BotMovementManager {
     }
 
     static void jumpToRope(BotMovementState entry, Character bot, int dx) {
+        jumpToRope(entry, bot, dx, null);
+    }
+
+    /**
+     * v72 (b356/b360): a rope-to-rope jump flies the kick its edge was built with. When the old rope jump (walk speed,
+     * the profile's rope-jump speed up) catches {@code targetRope} from where the bot hangs, it flies exactly as
+     * before; otherwise (a v72 hop edge) it flies the real client's kick, BotPhysicsEngine.CLIENT_ROPE_KICK_*.
+     */
+    static void jumpToRope(BotMovementState entry, Character bot, int dx, Rope targetRope) {
         Rope sourceRope = entry.climbRope;
         int airVelX = resolveAirVelocityX(entry, bot.getMap(), entry.movementProfile, dx);
-        BotPhysicsEngine.beginRopeTransferJump(entry, bot, sourceRope, airVelX);
+        boolean clientKick = usesClientKick(bot.getMap(), bot.getPosition(), dx, targetRope, entry.movementProfile);
+        if (clientKick) {
+            BotPhysicsEngine.beginClientKickRopeHop(entry, bot, sourceRope, dx);
+        } else {
+            BotPhysicsEngine.beginRopeTransferJump(entry, bot, sourceRope, airVelX);
+        }
+        entry.ropeHopFrom = targetRope == null ? null : sourceRope;
+        entry.ropeHopTarget = targetRope;
+        entry.ropeHopClientKick = clientKick;
         broadcastMovement(entry);
+    }
+
+    /** True when only the client kick, not the old rope jump, catches targetRope from {@code from}. */
+    static boolean usesClientKick(MapleMap map, Point from, int dx, Rope targetRope, BotMovementProfile profile) {
+        if (map == null || from == null || targetRope == null || dx == 0 || !NavRopeHop.enabled()) {
+            return false;
+        }
+        int step = Integer.signum(dx) * walkStep(map, profile);
+        if (BotPhysicsEngine.simulateRopeJumpGrab(map, from, step, targetRope, profile) != null) {
+            return false;
+        }
+        return BotPhysicsEngine.simulateClientRopeHop(map, from, dx, targetRope) != null;
     }
 
     private static void applyClimbAction(BotMovementState entry, Character bot, MoveAction action) {
@@ -390,6 +419,7 @@ class BotMovementManager {
             }
             if (result == BotPhysicsEngine.AirborneStepResult.LANDED) {
                 entry.jumpCooldownMs = 0;
+                noteRopeHopMissed(entry, bot);
                 broadcastMovement(entry);
                 return;
             }
@@ -412,6 +442,27 @@ class BotMovementManager {
         }
     }
 
+    /**
+     * v72 guard: a rope-to-rope jump that landed instead of grabbing goes into the stuck log per edge (map, from and to
+     * rope, gap, which kick), so a bad client-kick hop edge shows up in the hotspot report and the TEST soak.
+     */
+    static void noteRopeHopMissed(BotMovementState entry, Character bot) {
+        Rope to = entry.ropeHopTarget;
+        Rope from = entry.ropeHopFrom;
+        entry.ropeHopTarget = null;
+        entry.ropeHopFrom = null;
+        if (to == null || from == null || bot == null) {
+            return;
+        }
+        NavStuckLog.record(NavStuckLog.Kind.ROPE_HOP_MISS, bot.getMapId(), bot.getPosition(), entry.navGraph,
+                ropeHopLabel(from, to, entry.ropeHopClientKick));
+    }
+
+    static String ropeHopLabel(Rope from, Rope to, boolean clientKick) {
+        return "ROPE_HOP x" + from.x() + ">x" + to.x() + " gap " + Math.abs(to.x() - from.x())
+                + (clientKick ? " client-kick" : " old-jump");
+    }
+
     private static boolean successfullyGrabbedRope(BotMovementState entry, Character bot, Point botPos) {
         if (!entry.climbUpIntent) {
             return false;
@@ -429,6 +480,11 @@ class BotMovementManager {
             }
 
             BotPhysicsEngine.attachToRope(entry, bot, rope, botPos.y);
+            if (entry.ropeHopTarget != null && !sameRope(entry.ropeHopTarget, rope)) {
+                noteRopeHopMissed(entry, bot); // caught a different rope than the hop aimed at
+            }
+            entry.ropeHopTarget = null;
+            entry.ropeHopFrom = null;
             broadcastMovement(entry);
             return true;
         }

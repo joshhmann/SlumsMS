@@ -51,7 +51,7 @@ final class BotNavigationGraphProvider {
     //     inside an 8.93 x fs px/s band (no walkSpeed air cap; counter-strafe pins at the
     //     band edge) and no-input flight drags 1 x fs (100 x fs at terminal fall). Committed
     //     arcs still fly the launch key held, so constant-stepX arc sims stay exact.
-    static final int GRAPH_VERSION = 71; // 51: kinetic slippery model + snowshoes; 52: brake-to-stop landings; 53: glide-unless-edge stop policy (slipperyStopDir); 56: uncap straight-drop launch windows (full droppable span, no +/-20 fragmentation); 57: remove the (empirically wrong) 300px down-jump drop cap - down-jumps fall until landing; 58: rope-grab reach counts descent below the ledge (mid-rope jump-grabs from adjacent platforms); 59: fall-sim caps to map height not 1500ms - long single-fall descents (tall shafts: Ellinia tree, Perion) now generate DROP/JUMP/ROPE edges; 60: re-cap drops for organic descent - walk-offs capped at MAX_DROP_PX, down-jumps at the tighter DOWN_JUMP_MAX_DROP_PX, and down-jumps carry DOWN_JUMP_COST_PENALTY_MS so the pathfinder prefers ropes/walk-offs over plummeting an entire vertical map; 61: widened rope top-exit probe (BotPhysicsEngine.findTopExitLanding) - accept a step-off foothold slightly above/below the rope top and a few px off-axis, so uneven/slanted ladder heads mint a clean CLIMB step-off edge instead of only ballistic top jump-offs; 68: nutnnut/Cosmic graph v60-v67 merged onto ours v60-v61 - their 66 (ground walk follows the standing foothold's prev/next chain across a joined fork), 67 (skip phantom cross-region JUMP/FLASH_JUMP edges landing on the source region's own ground), 62 (rope-exit/transfer CLIMB edges carry a Y launch window with per-endpoint cost), 60/61/64/65 (TELEPORT + FLASH_JUMP skill edges with X launch windows; teleport landing SSOT BotPhysicsEngine.teleportLanding, down-teleport to the furthest platform, y-snap 75), keeping our 60 drop caps and 61 widened rope top-exit; their 63 (baked portal route buckets) is not ported; 69: nutnnut/Cosmic v68+v69+v71 walk-off DROP fixes (credit NutNNut) - a directional walk-off's landing is authored with the executor's walk-off sim from the runway anchor on the source region's own foothold (not a lip-pixel fall), and only when every live launch state (sub-pixel phase, carry, arrival speed) lands the same region (stableWalkOffLanding); their v70 zMass walls are not ported; 70 (b109, dead-end pits): ledges narrower than two edge insets get an anchor at every pixel (wall-bound notches get their jump out), regions narrower than the walk-off runway walk off from their far end, and a portal with no ground under it serves the floor up to 100 px above it; 71 (1.6.5 b344c): a ground floor a portal stands on, with no walk-only way out, gets its down-jump without the DOWN_JUMP_MAX_DROP_PX cap (Zakum PQ 280011005: the entry floor's only way down is a 360 px down-jump), every other floor keeps the cap
+    static final int GRAPH_VERSION = 72; // 51: kinetic slippery model + snowshoes; 52: brake-to-stop landings; 53: glide-unless-edge stop policy (slipperyStopDir); 56: uncap straight-drop launch windows (full droppable span, no +/-20 fragmentation); 57: remove the (empirically wrong) 300px down-jump drop cap - down-jumps fall until landing; 58: rope-grab reach counts descent below the ledge (mid-rope jump-grabs from adjacent platforms); 59: fall-sim caps to map height not 1500ms - long single-fall descents (tall shafts: Ellinia tree, Perion) now generate DROP/JUMP/ROPE edges; 60: re-cap drops for organic descent - walk-offs capped at MAX_DROP_PX, down-jumps at the tighter DOWN_JUMP_MAX_DROP_PX, and down-jumps carry DOWN_JUMP_COST_PENALTY_MS so the pathfinder prefers ropes/walk-offs over plummeting an entire vertical map; 61: widened rope top-exit probe (BotPhysicsEngine.findTopExitLanding) - accept a step-off foothold slightly above/below the rope top and a few px off-axis, so uneven/slanted ladder heads mint a clean CLIMB step-off edge instead of only ballistic top jump-offs; 68: nutnnut/Cosmic graph v60-v67 merged onto ours v60-v61 - their 66 (ground walk follows the standing foothold's prev/next chain across a joined fork), 67 (skip phantom cross-region JUMP/FLASH_JUMP edges landing on the source region's own ground), 62 (rope-exit/transfer CLIMB edges carry a Y launch window with per-endpoint cost), 60/61/64/65 (TELEPORT + FLASH_JUMP skill edges with X launch windows; teleport landing SSOT BotPhysicsEngine.teleportLanding, down-teleport to the furthest platform, y-snap 75), keeping our 60 drop caps and 61 widened rope top-exit; their 63 (baked portal route buckets) is not ported; 69: nutnnut/Cosmic v68+v69+v71 walk-off DROP fixes (credit NutNNut) - a directional walk-off's landing is authored with the executor's walk-off sim from the runway anchor on the source region's own foothold (not a lip-pixel fall), and only when every live launch state (sub-pixel phase, carry, arrival speed) lands the same region (stableWalkOffLanding); their v70 zMass walls are not ported; 70 (b109, dead-end pits): ledges narrower than two edge insets get an anchor at every pixel (wall-bound notches get their jump out), regions narrower than the walk-off runway walk off from their far end, and a portal with no ground under it serves the floor up to 100 px above it; 71 (1.6.5 b344c): a ground floor a portal stands on, with no walk-only way out, gets its down-jump without the DOWN_JUMP_MAX_DROP_PX cap (Zakum PQ 280011005: the entry floor's only way down is a 360 px down-jump), every other floor keeps the cap; 72 (1.6.6 b356/b360): add-only rope-to-rope hops with the real client kick (±162, -277 px/s) for rope pairs the old rope jump has no edge for, up to ROPE_HOP_MAX_GAP_PX (measured 109 px reach less a 9 px margin), where both the executed hop and the client-calibrated sim catch (docs/bots/v72-rope-hop.md)
 
     // Drop caps for organic descent (re-added; v57 had removed the old single cap). A bot must
     // never plummet down a whole vertical map. Two distinct downward moves, treated differently:
@@ -2475,6 +2475,74 @@ final class BotNavigationGraphProvider {
                 int costAtMaxY = BotPhysicsEngine.estimateRopeJumpGrabTimeMs(map, new Point(ropeX, maxY), launchDir, targetRope, movementProfile);
                 addRopeWindowEdge(ropeRegion.id, otherRope.id, ropePoint, ropeGrab, minY, maxY, launchDir,
                         costAtMinY, costAtMaxY, cost, outgoing, edgeKeys);
+            }
+        }
+
+        if (clientKickRopeHops) {
+            addClientKickRopeHops(ropeRegion, rope, map, ropeRegions, ropeByRegionId, outgoing, edgeKeys);
+        }
+    }
+
+    /** v72's add-only hop pass; tests and the v71/v72 diff turn it off to build the graph v71 would. Always on in play. */
+    static volatile boolean clientKickRopeHops = true;
+
+    /**
+     * v72 (b356/b360): add-only rope-to-rope hops flown with the real client's kick (±162, -277 px/s). Only for a rope
+     * pair the old rope jump has no edge for, up to BotPhysicsEngine.ROPE_HOP_MAX_GAP_PX (the measured 109 px reach
+     * less its margin), and only from climb heights where both the hop the executor flies and the calibrated client sim
+     * catch the target. Every other edge is left exactly as it was. See docs/bots/v72-rope-hop.md.
+     */
+    static void addClientKickRopeHops(BotNavigationGraph.Region ropeRegion,
+                                      Rope rope,
+                                      MapleMap map,
+                                      List<BotNavigationGraph.Region> ropeRegions,
+                                      Map<Integer, Rope> ropeByRegionId,
+                                      Map<Integer, List<BotNavigationGraph.Edge>> outgoing,
+                                      Set<String> edgeKeys) {
+        Set<Integer> reachedAlready = new HashSet<>();
+        for (BotNavigationGraph.Edge e : outgoing.getOrDefault(ropeRegion.id, List.of())) {
+            reachedAlready.add(e.toRegionId);
+        }
+        int ropeX = rope.x();
+        int loY = BotPhysicsEngine.firstClimbableY(rope);
+        int hiY = rope.bottomY();
+        for (BotNavigationGraph.Region otherRope : ropeRegions) {
+            if (otherRope.id == ropeRegion.id || reachedAlready.contains(otherRope.id)) {
+                continue;
+            }
+            Rope targetRope = ropeByRegionId.get(otherRope.id);
+            if (targetRope == null || targetRope.x() == ropeX
+                    || Math.abs(targetRope.x() - ropeX) > BotPhysicsEngine.ROPE_HOP_MAX_GAP_PX) {
+                continue;
+            }
+            int dir = targetRope.x() > ropeX ? 1 : -1;
+            IntPredicate hops = y -> {
+                Point p = new Point(ropeX, y);
+                return BotPhysicsEngine.simulateClientRopeHop(map, p, dir, targetRope) != null
+                        && BotPhysicsEngine.clientCatchesRopeHop(map, p, dir, targetRope);
+            };
+            for (int anchorY : ropeTransferAnchorYs(rope)) {
+                if (!hops.test(anchorY)) {
+                    continue;
+                }
+                int minY = findRopeLaunchBoundary(anchorY, loY, hiY, true, hops);
+                int maxY = findRopeLaunchBoundary(anchorY, loY, hiY, false, hops);
+                Point ropePoint = new Point(ropeX, (minY + maxY) / 2);
+                Point grab = hops.test(ropePoint.y) ? BotPhysicsEngine.simulateClientRopeHop(map, ropePoint, dir, targetRope) : null;
+                if (grab == null) {
+                    continue;
+                }
+                int cost = BotPhysicsEngine.estimateClientRopeHopTimeMs(map, ropePoint, dir, targetRope);
+                int costAtMinY = BotPhysicsEngine.estimateClientRopeHopTimeMs(map, new Point(ropeX, minY), dir, targetRope);
+                int costAtMaxY = BotPhysicsEngine.estimateClientRopeHopTimeMs(map, new Point(ropeX, maxY), dir, targetRope);
+                List<BotNavigationGraph.Edge> out = outgoing.get(ropeRegion.id);
+                int before = out == null ? 0 : out.size();
+                addRopeWindowEdge(ropeRegion.id, otherRope.id, ropePoint, grab, minY, maxY,
+                        dir * BotPhysicsEngine.clientRopeHopStep(), costAtMinY, costAtMaxY, cost, outgoing, edgeKeys);
+                out = outgoing.get(ropeRegion.id);
+                if (out != null && out.size() > before) {
+                    out.getLast().clientKickHop = true;
+                }
             }
         }
     }

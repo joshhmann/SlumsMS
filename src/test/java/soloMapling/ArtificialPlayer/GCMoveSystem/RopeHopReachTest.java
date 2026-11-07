@@ -9,14 +9,17 @@ import soloMapling.WzTestData;
 import java.awt.Point;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 1.6.6 v72 groundwork (b356/b360, the ZPQ rope room): how far sideways a rope-to-rope jump reaches. Zakum PQ's
- * 280010110 is a chain of rope hops; at the rope at x 359 the next is at x 261, 98 px off, and the base graph has no
- * edge for it, so a regular without Haste cannot reach that room's key rock. The model's rope jump flies the walk speed
- * sideways and JUMP_ROPE_PXS up; the client's kick is (162, -277) px/s (BotPhysicsEngine's own note). This measures
- * both on the real rope with the engine's own grab simulation.
+ * v72 (b356/b360): how far sideways a rope-to-rope hop reaches. Client hopped on the real v83 client (TEST ch3, speed
+ * 100 / jump 100, no buffs, 2026-11-07; agent-runs/client/evidence/b360-reach): caught at 95, 98, 107, 108, 108 and
+ * 109 px, missed at 117. The calibrated sim (BotPhysicsEngine.clientCatchesRopeHop) must give the same answer on each
+ * real pair, from the height the character hung at before the hop (its !pos). Zakum PQ's 280010110 needs the 98 px
+ * hop x 359 -> 261: the old rope jump cannot make it, the client kick the executor now flies can.
  */
 class RopeHopReachTest {
 
@@ -27,37 +30,75 @@ class RopeHopReachTest {
         }
     }
 
-    /** The widest gap (px) a jump off {@code from} at any height grabs a same-height rope, flying vy/step per tick. */
-    static int widestGrab(MapleMap map, Rope from, float vyPerTick, int stepX) {
-        int widest = 0;
-        for (int gap = 40; gap <= 160; gap++) {
-            Rope target = new Rope(from.x() - gap, from.y1(), from.y2(), false);
-            boolean grabbed = false;
-            for (int y = Math.min(from.y1(), from.y2()) + 5; y <= Math.max(from.y1(), from.y2()) && !grabbed; y += 3) {
-                grabbed = BotPhysicsEngine.simulateRopeGrab(map, new Point(from.x(), y), vyPerTick, -stepX, target, 0L) != null;
-            }
-            if (grabbed) {
-                widest = gap;
-            }
+    /** One real-client hop: from the rope at fromX, hanging at fromY, toward the rope at toX. */
+    record Trial(int mapId, int fromX, int fromY, int toX, boolean caught) {
+        int gap() {
+            return Math.abs(toX - fromX);
         }
-        return widest;
+    }
+
+    static final Trial[] TRIALS = {
+            new Trial(280_010_110, 454, -159, 359, true),
+            new Trial(280_010_110, 359, -88, 261, true),
+            new Trial(240_010_901, -644, -110, -751, true),
+            new Trial(240_010_901, 806, 9, 914, true),
+            new Trial(240_010_901, 1399, -26, 1507, true),
+            new Trial(680_000_000, -614, 216, -505, true),
+            new Trial(324_010_000, 1347, -57, 1464, false),
+    };
+
+    private static Rope rope(MapleMap map, int x) {
+        return map.getRopes().stream().filter(r -> r.x() == x).findFirst().orElseThrow();
+    }
+
+    private static boolean calibrated(Trial t) {
+        MapleMap map = BotNavigationMapLoader.loadMapGeometry(t.mapId());
+        return BotPhysicsEngine.clientCatchesRopeHop(map, new Point(t.fromX(), t.fromY()), t.toX() - t.fromX(),
+                rope(map, t.toX()));
     }
 
     @Test
-    void theClientsKickReachesTheZakumRoomsNinetyEightPixelHopAndTheModelsDoesNot() {
+    void theCalibratedSimGivesTheRealClientsAnswerOnEveryMeasuredHop() {
+        WzTestData.assumePresent("Map.wz");
+        StringBuilder wrong = new StringBuilder();
+        for (Trial t : TRIALS) {
+            boolean sim = calibrated(t);
+            System.out.println("rope hop " + t.mapId() + " " + t.fromX() + "->" + t.toX() + " (" + t.gap() + " px): client "
+                    + (t.caught() ? "caught" : "missed") + ", calibrated sim " + (sim ? "caught" : "missed"));
+            if (sim != t.caught()) {
+                wrong.append(' ').append(t);
+            }
+        }
+        assertEquals("", wrong.toString(), "calibrated sim disagrees with the real client on:");
+    }
+
+    @Test
+    void theReachIsTheMeasuredCatchLessTheMargin() {
+        int widestCaught = 0;
+        int narrowestMissed = Integer.MAX_VALUE;
+        for (Trial t : TRIALS) {
+            if (t.caught()) {
+                widestCaught = Math.max(widestCaught, t.gap());
+            } else {
+                narrowestMissed = Math.min(narrowestMissed, t.gap());
+            }
+        }
+        assertEquals(widestCaught, BotPhysicsEngine.CLIENT_ROPE_HOP_REACH_PX, "the reach is the widest measured catch");
+        assertTrue(BotPhysicsEngine.CLIENT_ROPE_HOP_REACH_PX < narrowestMissed);
+        assertEquals(BotPhysicsEngine.CLIENT_ROPE_HOP_REACH_PX - BotPhysicsEngine.ROPE_HOP_MARGIN_PX,
+                BotPhysicsEngine.ROPE_HOP_MAX_GAP_PX);
+        assertTrue(BotPhysicsEngine.ROPE_HOP_MAX_GAP_PX >= 98, "ZPQ's 98 px hop stays inside the graph's reach");
+    }
+
+    @Test
+    void theZakumRoomsNinetyEightPixelHopNeedsTheClientKickAndTheExecutorMakesIt() {
         WzTestData.assumePresent("Map.wz");
         MapleMap map = BotNavigationMapLoader.loadMapGeometry(280_010_110);
-        Rope r359 = map.getRopes().stream().filter(r -> r.x() == 359).findFirst().orElseThrow();
-        Rope r261 = map.getRopes().stream().filter(r -> r.x() == 261).findFirst().orElseThrow();
-        int need = r359.x() - r261.x();
-        float tick = BotPhysicsEngine.cfg.TICK_MS / 1000f;
-        BotMovementProfile base = BotMovementProfile.base();
-        int model = widestGrab(map, r359, -BotPhysicsEngine.ropeJumpForcePerTick(base),
-                BotPhysicsEngine.walkStep(map, base));
-        int client = widestGrab(map, r359, -277f * tick, Math.round(162f * tick));
-        System.out.println("rope hop from x 359 (" + r359 + "): need " + need + " px; model reaches " + model
-                + " px, client kick (162, -277) reaches " + client + " px");
-        assertTrue(model < need, "the model's rope jump does not make the hop (that is the gap): " + model);
-        assertTrue(client >= need, "the client's kick does: " + client);
+        Rope r261 = rope(map, 261);
+        Point hanging = new Point(359, -88);
+        assertNull(BotPhysicsEngine.simulateRopeJumpGrab(map, hanging, -BotPhysicsEngine.walkStep(map, BotMovementProfile.base()),
+                r261, BotMovementProfile.base()), "the old rope jump (walk speed, 375 up) misses: the b360 gap");
+        assertNotNull(BotPhysicsEngine.simulateClientRopeHop(map, hanging, -1, r261), "the executor's client kick catches");
+        assertTrue(BotPhysicsEngine.clientCatchesRopeHop(map, hanging, -1, r261), "and so does the real client");
     }
 }

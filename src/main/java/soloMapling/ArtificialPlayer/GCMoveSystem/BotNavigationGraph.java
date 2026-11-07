@@ -266,6 +266,11 @@ final class BotNavigationGraph implements Serializable {
         final int launchCostMinY;
         final int launchCostMaxY;
         final int cost;
+        /**
+         * v72 (b356/b360): a rope-to-rope hop that only the real client's kick makes (BotNavigationGraphProvider
+         * .addClientKickRopeHops). The planner skips it while NavRopeHop is off. Copies of an edge leave it false.
+         */
+        boolean clientKickHop;
 
         Edge(int fromRegionId,
              int toRegionId,

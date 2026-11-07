@@ -65,6 +65,10 @@ class BotMovementState {
     boolean climbing = false;
     Rope climbRope = null;
     Rope blockedRopeGrab = null;
+    // v72 guard: the rope-to-rope jump in flight (set by BotMovementManager.jumpToRope, cleared on a grab or landing)
+    Rope ropeHopFrom = null;
+    Rope ropeHopTarget = null;
+    boolean ropeHopClientKick = false;
     int climbVerticalDir = 0;             // -1 up, 0 idle, +1 down
     boolean wasMovingX = false;
 
