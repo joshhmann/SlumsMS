@@ -125,6 +125,11 @@ public interface StageView {
         return null;
     }
 
+    /** b365: an item's name as players see it (String.wz), for what a regular tells the party it needs. */
+    default String itemName(int itemId) {
+        return "item " + itemId;
+    }
+
     /**
      * One reactor standing on the stage's map, by everything a script can tell it apart with: the map's own object id
      * (the key {@link SolverStep.HitReactorByOid} addresses it by), its WZ id, its WZ name ({@code ""} when it has

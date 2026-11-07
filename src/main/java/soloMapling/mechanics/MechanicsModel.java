@@ -350,7 +350,27 @@ public final class MechanicsModel {
                         List<List<Integer>> combos, List<Integer> mobs, String nextPortal, String summonProperty,
                         int spawnWaitSeconds, int timeLimitMinutes, List<Integer> hitReactors,
                         List<Integer> entryItems, List<Integer> maps, int loopTo, OnTimeLimit onTimeLimit,
-                        List<Branch> branches) {
+                        List<Branch> branches, String opensByHit) {
+
+        /**
+         * 1.6.6 b365: {@code opensByHit} - when a reactor this stage opens takes an item (Reactor.wz type 100) and nobody
+         * in the run holds it, may it still be opened by a hit? {@code null} (the default): never. {@link #BOT_ONLY}:
+         * only in a run with no real player in it (regulars running a boss on their own); with a player in the run the
+         * room waits for the item, as it does for a party in the real game.
+         */
+        public static final String BOT_ONLY = "botOnly";
+
+        public Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
+                     List<Objective> objectives, List<Position> positions, List<ItemUse> items,
+                     List<Answer> answers, List<BossPhase> phases, Clear clear, String answerProperty,
+                     List<List<Integer>> combos, List<Integer> mobs, String nextPortal, String summonProperty,
+                     int spawnWaitSeconds, int timeLimitMinutes, List<Integer> hitReactors,
+                     List<Integer> entryItems, List<Integer> maps, int loopTo, OnTimeLimit onTimeLimit,
+                     List<Branch> branches) {
+            this(index, mapId, name, npcId, solver, roles, objectives, positions, items, answers, phases, clear,
+                    answerProperty, combos, mobs, nextPortal, summonProperty, spawnWaitSeconds, timeLimitMinutes,
+                    hitReactors, entryItems, maps, loopTo, onTimeLimit, branches, null);
+        }
 
         public Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
                      List<Objective> objectives, List<Position> positions, List<ItemUse> items,

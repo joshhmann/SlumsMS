@@ -44,6 +44,8 @@ public final class BossPhasesSolver implements StageSolver {
 
     /** Where a reactor the bot has already clicked is remembered, so a room with two of them clicks each exactly once. */
     private static final String K_REACTOR = "bossReactorSince";
+    /** b365: when the run was told a reactor needs an item nobody holds (once per reactor per stage). */
+    private static final String K_NEEDS = "bossReactorNeeds";
 
     @Override
     public String id() {
@@ -100,7 +102,6 @@ public final class BossPhasesSolver implements StageSolver {
                 // 1.6.6 b365: a reactor waiting for an item (Reactor.wz type 100) opens the way a player opens it, by
                 // the stack dropped inside its box (Latanica's 5411000 takes the White Essence the door asked for). The
                 // member holding it places it; the others wait for it rather than hitting what no client can hit.
-                // Nobody holding it keeps the old click for now: Papulatus, Scarga and Showa wait on the owner's call.
                 int[] takes = view.reactorTakes(reactorId);
                 if (takes != null) {
                     if (view.itemCount(member.characterId(), takes[0]) >= takes[1]) {
@@ -111,6 +112,22 @@ public final class BossPhasesSolver implements StageSolver {
                     if (someoneHolds(view, takes)) {
                         return new SolverStep.Wait(1_000, "the member with " + takes[0] + " opens the room");
                     }
+                    // nobody has it. The owner's rule (7 Nov): with a real player in the run the room waits for the
+                    // item, as in the real game; a run of regulars alone may open it by a hit only where the row says
+                    // so (opensByHit: botOnly), so the exception is written down
+                    boolean human = view.members().stream().anyMatch(m -> !m.bot());
+                    if (human || !MechanicsModel.Stage.BOT_ONLY.equals(view.stage().opensByHit())) {
+                        if (view.stageMemory().putIfAbsent(K_NEEDS + reactorId, view.nowMs()) == null) {
+                            return new SolverStep.Say("You'll need " + view.itemName(takes[0]) + " to open this.");
+                        }
+                        return new SolverStep.Wait(2_000, "the room opens on " + takes[1] + " x " + takes[0]
+                                + " and nobody in the run has it");
+                    }
+                } else if (view.reactorState(reactorId) > 0 && !view.reactorHittable(reactorId)) {
+                    // (d) someone put the item down themselves - a player does, in the real game - and the reactor
+                    // moved on to a state no client can hit: it is open, and a hit now would be one no client makes
+                    view.stageMemory().put(K_REACTOR + reactorId, view.nowMs());
+                    continue;
                 }
                 view.stageMemory().put(K_REACTOR + reactorId, view.nowMs());
                 return new SolverStep.HitReactor(reactorId);

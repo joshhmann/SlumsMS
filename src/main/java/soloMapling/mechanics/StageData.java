@@ -714,12 +714,20 @@ public final class StageData {
         }
         // the conditional ways on from this stage: the first whose condition holds when the stage clears wins
         List<MechanicsModel.Branch> branches = readBranches(m, at, p);
+        // 1.6.6 b365: whether an item reactor nobody brought the item for may still be opened by a hit
+        String opensByHit = m.get("opensByHit") == null ? null : String.valueOf(m.get("opensByHit")).trim();
+        if (opensByHit != null && !opensByHit.equals(Stage.BOT_ONLY)) {
+            p.add(at + "opensByHit: the only exception written so far is " + Stage.BOT_ONLY + ", not " + opensByHit);
+        }
+        if (opensByHit != null && hitReactors.isEmpty()) {
+            p.add(at + "opensByHit: says how a reactor opens, so the stage names one under hitReactors");
+        }
         return new Stage(index, mapId, name, npc, solver, List.copyOf(roles), List.copyOf(objectives),
                 List.copyOf(positions), List.copyOf(items), List.copyOf(answers), List.copyOf(phases), clear,
                 answerProperty, List.copyOf(combos), List.copyOf(mobs), nextPortal,
                 summonProperty == null || summonProperty.isEmpty() ? null : summonProperty, spawnWait, stageMinutes,
                 List.copyOf(hitReactors), List.copyOf(entryItems), List.copyOf(maps), loopTo, onTimeLimit,
-                List.copyOf(branches));
+                List.copyOf(branches), opensByHit);
     }
 
     /**

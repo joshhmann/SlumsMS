@@ -344,6 +344,12 @@ final class LiveStageView implements StageView {
     }
 
     @Override
+    public String itemName(int itemId) {
+        String name = server.ItemInformationProvider.getInstance().getName(itemId);
+        return name == null || name.isBlank() ? "item " + itemId : name;
+    }
+
+    @Override
     public int[] reactorTakes(int reactorId) {
         server.maps.Reactor reactor = map == null ? null : map.getReactorById(reactorId);
         if (reactor == null || reactor.getStats() == null || reactor.getReactorType() != 100) {
