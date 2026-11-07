@@ -21,8 +21,9 @@
 # botsOnMap, not partyOnMap (1.6.5 b344): a real player in the party roams the mines his own way and the run never
 # steers him, so a whole-party clear held stage 1 for ever and the run kept putting a bot that went ahead back on the hub. The hub therefore
 # appears once per return, because walking back through it is what the party actually does.
-# Chests: reactordrops gives 2112012/2112005 -> 4001015 (the key), 2112004/2112011 -> 4001016 (the ore) and
-# 2112014 -> 4001018 (the document), all at chance 1. A chest yields on its fourth and fifth hit and is inert for ever
+# Chests: reactordrops gives 2112012/2112005 -> 4001015 (Paper Document), 2112004/2112011 -> 4001016 (The Key) and
+# 2112014 -> 4001018 (Fire Ore), all at chance 1 (String.wz names; 1.6.6 zpq-fire-ore-name: the notes had key, ore
+# and document). A chest yields on its fourth and fifth hit and is inert for ever
 # after (Reactor.java:246-315), which is why the solver hits until the reactor answers -1 instead of counting.
 # The hand-in is the last stage: scripts/npc/2032002.js:71-77 wants 4001018 and :121-127 clears either way - the thirty
 # keys only change the message and the reward, and there is no damage, DPS or party-size check anywhere in that file.
@@ -57,13 +58,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -86,13 +87,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -115,13 +116,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -144,13 +145,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -173,13 +174,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -202,13 +203,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -231,13 +232,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -259,13 +260,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -288,13 +289,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -317,13 +318,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -346,13 +347,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -375,13 +376,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -404,13 +405,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -433,13 +434,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -462,13 +463,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -491,13 +492,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -520,13 +521,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -549,13 +550,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -578,13 +579,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -606,13 +607,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -635,13 +636,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -663,13 +664,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -692,13 +693,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -720,13 +721,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -748,13 +749,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -776,13 +777,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -805,13 +806,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -833,13 +834,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -862,13 +863,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -890,13 +891,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -919,13 +920,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -947,13 +948,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -976,13 +977,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -1004,13 +1005,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -1033,13 +1034,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -1062,13 +1063,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -1091,13 +1092,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -1120,13 +1121,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -1149,13 +1150,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -1178,13 +1179,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -1207,13 +1208,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -1236,13 +1237,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -1265,13 +1266,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -1294,13 +1295,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -1322,13 +1323,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -1351,13 +1352,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -1380,13 +1381,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -1409,13 +1410,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -1438,13 +1439,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -1467,13 +1468,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -1496,13 +1497,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -1525,13 +1526,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -1554,13 +1555,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -1583,13 +1584,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
@@ -1610,13 +1611,13 @@ stages:
     items:
       - id: 4001015
         count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+        note: "Paper Document: optional, thirty only buy the better message and reward (2032002.js:78-95)"
       - id: 4001016
         count: 7
-        note: "the ore the big chest eats"
+        note: "The Key: seven open the big chest (Reactor.wz 2112014)"
       - id: 4001018
         count: 1
-        note: "the document out of 2112014"
+        note: "Fire Ore, out of 2112014; Aura takes it (2032002.js:74)"
     roles:
       - id: miner
         who: ANY
