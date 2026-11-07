@@ -85,6 +85,9 @@ rehearsal_gate() {
 #           ST          the staging folder; EXTRA_DIR this folder; REHEARSAL=1 in a rehearsal, 0 live
 #   args  = none. Exit non-zero = the step failed (live: old version restarted; rehearsal: FAIL).
 # It must NEVER hard-code a live path: use $SRV/$WZ/$SQL_CMD. extra_steps_lint refuses the live paths below.
+# In a rehearsal the script runs inside rehearsal_sandbox (live's server folder and /opt/mapleroot read-only): scratch wz/
+# is symlinked into live's, so a write to a wz file NOT listed in WZ_TARGETS (or through any other symlink) fails with
+# "Read-only file system", the step exits non-zero and the rehearsal FAILS. List every wz file the step writes.
 # Files under wz/ it edits in place are listed in the conf as WZ_TARGETS (backed up by deploy.sh, restored by rollback.sh,
 # and given a real COPY in the rehearsal); staged replacements are WZ_REPLACE="repo/file=Dir.wz/rel/path" (staging/wz/).
 LIVE_SRV_DEFAULT="/opt/mapleroot/MapleRoot Full Repack/Server"   # keep equal to SRV in templates/deploy.body.sh
@@ -94,6 +97,16 @@ extra_steps_lint() {
   local hits
   hits=$(grep -rIn -e '/opt/mapleroot/' -e '/opt/mapleroot-deployments/' -e 'buns-clean-db' -e '/srv/slums-patch' -e '/etc/systemd/system' "$1" || true)
   [ -z "$hits" ] || { echo "extra steps hard-code a live path (use \$SRV, \$WZ, \$SQL_CMD, \$EXTRA_DIR; see the contract in lib.sh):" >&2; echo "$hits" >&2; return 1; }
+}
+# rehearsal_sandbox <command...>: run the command (cwd kept) in a mount namespace where live's server folder and
+# /opt/mapleroot are READ-ONLY (systemd-run ReadOnlyPaths=, the read-only set the rehearsal protects). Only the rehearsal
+# uses it: a write to live inside an extra step (an unlisted wz file reached through a symlink, a typo'd absolute path
+# the lint missed) then fails with "Read-only file system", the step exits non-zero, and the REHEARSAL FAILS. The live
+# run does not use it. Tests stub it by redefining this function. Live folder: $REHEARSAL_LIVE_SRV (rehearse-host.sh sets
+# it to --server-src), else the default.
+rehearsal_sandbox() {
+  systemd-run --wait --pipe --collect -q -p "ReadOnlyPaths=${REHEARSAL_LIVE_SRV:-$LIVE_SRV_DEFAULT}" -p ReadOnlyPaths=/opt/mapleroot \
+    -p "WorkingDirectory=$PWD" "$@"
 }
 # run_extra_steps <staged extra dir> <output file>: env SRV, SQL_CMD, REHEARSAL (defaults: live, live, 0). Returns the
 # script's exit code (output echoed and kept in the file); 2 = no script, 3 = lint, 4 = rehearsal pointed at live.
@@ -105,7 +118,8 @@ run_extra_steps() {
   extra_steps_lint "$dir" || return 3
   if [ "$rehearsal" = 1 ] && [ "$srv" = "$LIVE_SRV_DEFAULT" ]; then echo "REHEARSAL=1 but SRV is live's server folder: refused" >&2; return 4; fi
   echo "extra steps: SRV=$srv WZ=$srv/wz REHEARSAL=$rehearsal"
-  (cd "$dir" && env SRV="$srv" WZ="$srv/wz" SQL_CMD="$sql" ST="$(dirname "$dir")" EXTRA_DIR="$dir" REHEARSAL="$rehearsal" bash ./extra-steps.sh) > "$2" 2>&1 || rc=$?
+  local wrap=(); [ "$rehearsal" != 1 ] || wrap=(rehearsal_sandbox)   # rehearsal only: live's folders read-only underneath
+  (cd "$dir" && "${wrap[@]}" env SRV="$srv" WZ="$srv/wz" SQL_CMD="$sql" ST="$(dirname "$dir")" EXTRA_DIR="$dir" REHEARSAL="$rehearsal" bash ./extra-steps.sh) > "$2" 2>&1 || rc=$?
   cat "$2"; echo "extra steps exit $rc"
   return "$rc"
 }

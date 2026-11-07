@@ -131,6 +131,11 @@ in `lib.sh`: env `SRV`, `WZ`, `SQL_CMD`, `ST`, `EXTRA_DIR`, `REHEARSAL`; cwd `st
 - `rehearse-host.sh`: with extras, deploy.sh runs by phase like release night (stop-backup, extra, apply-start, smoke) on the
   scratch copy; a non-zero exit fails the rehearsal and is in `REHEARSAL.md`. WZ targets are real copies in the scratch
   `wz/` (everything else symlinked to live's, never written); they must equal live's bytes again after `rollback.sh`.
+- The extra step runs in the rehearsal inside `rehearsal_sandbox` (`systemd-run --wait --pipe --collect`, live's server folder
+  and `/opt/mapleroot` `ReadOnlyPaths`), because every non-target file in the scratch `wz/` is a symlink into live's. A
+  write to an unlisted wz file then fails the step and the rehearsal. Live runs are not sandboxed. Unproven on a host.
+- `cp -rs` makes one symlink per file of live's wz (big XML trees: many thousands of files, one `cp` process). How long
+  that takes has not been measured; expect seconds to a minute or two, and time it on the first real rehearsal.
 - `deploy.sh` backs the WZ targets up in `stop-backup` (`backup/wz-backup`), copies `staging/wz/` in `apply-start`;
   `restart-old` and `rollback.sh` put them back.
 - `REHEARSAL.md` records `Staging digest` (sha256 of `staging/SHA256SUMS`) and `Scripts digest` (`deploy.sh` + `rollback.sh`).

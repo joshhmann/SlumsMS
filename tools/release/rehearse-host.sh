@@ -228,7 +228,7 @@ if [ "$HAS_EXTRA" = 1 ]; then
   bash "$D/deploy.sh" --phase stop-backup > "$RC/deploy.out" 2>&1 || deploy_rc=$?
   if [ "$deploy_rc" = 0 ]; then
     step "3c1. staged extra steps (staging/extra/extra-steps.sh) on the copy: SRV=$SRV"
-    extra_rc=0; REHEARSAL=1 run_extra_steps "$D/staging/extra" "$RC/extra-steps.out" > "$RC/extra-steps.log" 2>&1 || extra_rc=$?
+    extra_rc=0; REHEARSAL_LIVE_SRV="$SERVER_SRC" REHEARSAL=1 run_extra_steps "$D/staging/extra" "$RC/extra-steps.out" > "$RC/extra-steps.log" 2>&1 || extra_rc=$?
     tail -40 "$RC/extra-steps.log"
     if [ "$extra_rc" != 0 ]; then
       echo "extra steps FAILED (exit $extra_rc): restarting the old version, like release night"

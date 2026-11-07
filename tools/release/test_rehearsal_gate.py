@@ -141,7 +141,7 @@ class ExtraSteps(TmpCase):
     def test_f_env_cwd_and_exit_code(self):
         x = self.make('{ echo "SRV=$SRV"; echo "WZ=$WZ"; echo "SQL=$SQL_CMD"; echo "REH=$REHEARSAL"; echo "PWD=$PWD"; '
                       'echo "ST=$ST"; echo "ED=$EXTRA_DIR"; } > "$EXTRA_DIR/env.out"; exit 0\n')
-        out = sh('REHEARSAL=1 SRV="$2" SQL_CMD="mysql scratch" run_extra_steps "$1" "$3"', x, self.work / 'srv x', self.work / 'o.txt')
+        out = sh('rehearsal_sandbox() { "$@"; }\nREHEARSAL=1 SRV="$2" SQL_CMD="mysql scratch" run_extra_steps "$1" "$3"', x, self.work / 'srv x', self.work / 'o.txt')
         self.assertEqual(out.returncode, 0, out.stderr)
         env = dict(l.split('=', 1) for l in (x / 'env.out').read_text().splitlines())
         self.assertEqual(env['SRV'], str(self.work / 'srv x'))
@@ -178,6 +178,38 @@ class ExtraSteps(TmpCase):
         env = {k: v for k, v in os.environ.items() if k not in ('SRV', 'SQL_CMD')}
         out = subprocess.run(['bash', '-c', probe], text=True, capture_output=True, env=env)
         self.assertEqual(out.stdout.strip(), 'same', out.stdout + out.stderr)
+
+    def test_rehearsal_runs_through_the_read_only_wrapper_and_live_does_not(self):
+        x = self.make('echo ran > "$EXTRA_DIR/ran"\n')
+        stub = ('rehearsal_sandbox() { echo "wrapped $*" >> "$MARK"; "$@"; }\n')
+        mark = self.work / 'mark'
+        env = {'SRV': str(self.work / 's'), 'MARK': str(mark)}
+        self.assertEqual(sh(stub + 'REHEARSAL=1 run_extra_steps "$1" "$2"', x, self.work / 'o', env=env).returncode, 0)
+        self.assertIn('wrapped env', mark.read_text())
+        mark.unlink()
+        (x / 'ran').unlink()
+        self.assertEqual(sh(stub + 'REHEARSAL=0 run_extra_steps "$1" "$2"', x, self.work / 'o', env=env).returncode, 0)
+        self.assertTrue((x / 'ran').exists())
+        self.assertFalse(mark.exists())   # live path: not wrapped
+
+    def test_a_write_to_live_inside_the_sandbox_fails_the_step(self):
+        x = self.make('echo x > "$LIVEFILE"\n')   # stands in for a write to live that the sandbox turns into EROFS
+        stub = 'rehearsal_sandbox() { chmod a-w "$LIVEDIR"; "$@"; }\n'
+        live = self.work / 'live'
+        live.mkdir()
+        self.addCleanup(lambda: live.chmod(0o755))
+        out = sh(stub + 'REHEARSAL=1 run_extra_steps "$1" "$2"', x, self.work / 'o',
+                 env={'SRV': str(self.work / 's'), 'LIVEDIR': str(live), 'LIVEFILE': str(live / 'f')})
+        if os.geteuid() != 0:   # root ignores directory modes; the property under test is "non-zero exit fails the run"
+            self.assertNotEqual(out.returncode, 0)
+        self.assertEqual(sh('rehearsal_sandbox() { false; }\nREHEARSAL=1 run_extra_steps "$1" "$2"', x, self.work / 'o2',
+                            env={'SRV': str(self.work / 's')}).returncode, 1)
+
+    def test_default_sandbox_is_systemd_run_with_live_read_only(self):
+        out = sh('systemd-run() { printf "%s\\n" "$@"; }\nREHEARSAL_LIVE_SRV="/x/live srv" rehearsal_sandbox env A=1 bash t.sh')
+        args = out.stdout.splitlines()
+        for want in ('--wait', '--pipe', '--collect', 'ReadOnlyPaths=/x/live srv', 'ReadOnlyPaths=/opt/mapleroot', 'env', 'bash'):
+            self.assertIn(want, args)
 
     def test_hard_coded_live_path_is_refused(self):
         x = self.make('W="/opt/mapleroot/MapleRoot Full Repack/Server/wz"; echo would-write "$W"\n')
