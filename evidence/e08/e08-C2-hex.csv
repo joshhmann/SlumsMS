@@ -1,0 +1,8 @@
+label,login_no,login_status_utc,first_map_utc,ms_from_status,server_login_ms,server_enter_ms
+C2+2,1,2026-11-06T21:27:14.062Z,2026-11-06T21:27:25.643Z,11581,,88
+C2+2,2,2026-11-06T21:27:53.406Z,2026-11-06T21:28:03.677Z,10270,,26
+C2+2,3,2026-11-06T21:28:28.050Z,2026-11-06T21:28:38.299Z,10249,,24
+C2+2,4,2026-11-06T21:29:02.898Z,2026-11-06T21:29:13.272Z,10374,,23
+C2+2,5,2026-11-06T21:29:37.928Z,2026-11-06T21:29:47.779Z,9851,,40
+# login_status_utc replaces login_req_utc (b351: credential packets are not processed); ms_from_status is ~240 ms shorter than A/B's ms (A/B server_login_ms 236-265). server_login_ms cannot be measured without the request line.
+# a 6th login at 21:30:26.219Z (map 21:30:36.199Z) falls after runner try 5 ended (21:29:58) and is left out (likely the next run's client).
