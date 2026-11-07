@@ -107,8 +107,21 @@ steps:
   - {id: stage-52, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 52 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
   - {id: stage-53, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 53 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
   - {id: stage-54, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 54 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: ore-dropped, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^DROP \\S+ drops 1 x 4001018 for AqClient", char: me}, timeout_ms: 300000, note: "b344e: the regular drops the Fire Ore at the human leader's feet on the hub"}
+  - {do: sleep, ms: 2000, reason: "the drop is owner-only for a moment: pickup before that is ignored"}
+  - {id: pickup-ore, do: pickup_item, item: 4001018}
+  - {id: talk-aura, do: click_npc, npc: 2032002}
+  - {id: aura-menu, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000, optional: true}
+  - {id: brought-items, do: click, anchor: npc_dialog.option_2, note: "I brought items!"}
+  - {do: sleep, ms: 2000, reason: "the yes/no dialog opens"}
+  - {id: confirm-handin, do: click, anchor: npc_dialog.yes}
+  - {do: sleep, ms: 3000, reason: "frame after the hand-in"}
   - {id: stage-55, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 55 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
   - {id: finished, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN zakumpq cleared in \\d+ s; prizes, bonus and out", char: me}, timeout_ms: 300000}
+  - {id: claim-talk, do: click_npc, npc: 2032002}
+  - {do: sleep, ms: 2000, reason: "the prize dialog"}
+  - {id: claim-next, do: click, anchor: npc_dialog.next}
+  - {do: sleep, ms: 3000, reason: "frame after the prize claim (Piece of Fire Ore 4031061)"}
   - {id: end-run, do: gm, line: "!mechanics stop", note: "clean up: end the run after the last wait"}
   - {id: dismiss-alt, do: chat, text: "@dismiss AqClientAlt1"}
 captures:
@@ -129,5 +142,7 @@ expect:
     - {check: server_line, topic: MECHANICS, regex: "^RUN start zakumpq stage 1 ", char: me, min: 1}
     - {check: server_line, topic: MECHANICS, regex: "^RUN stage 1 cleared in \\d+ s.*\\[zakumpq", char: me, min: 1}
     - {check: server_line, topic: MECHANICS, regex: "^RUN not started", char: me, max: 0}
+    - {check: server_line, topic: MECHANICS, regex: "^DROP \\S+ drops 1 x 4001018 for AqClient", char: me, min: 1}
+    - {check: server_line, topic: MECHANICS, regex: "^RUN zakumpq cleared in \\d+ s", char: me, min: 1}
     - {check: client_alive}
   judgment: "PASS = every line above and no warp-back loop; the loop and REACTOR_HIT checks come from the TEST hex logger (Server Dev decodes by the alt's cid). FAIL names the first stage that never clears."
