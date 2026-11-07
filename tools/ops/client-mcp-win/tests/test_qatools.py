@@ -533,3 +533,24 @@ class FredrickTest(NewToolsTest):
         with self.assertRaises(self.driver.Refusal) as caught:
             self.d.fredrick_retrieve()
         self.assertEqual('refused (code 33)', str(caught.exception))
+
+
+class PickupTest(NewToolsTest):
+    def test_pickup_names_the_slot_it_landed_in(self):
+        self.d.qa = FakeQa([{'ev': 'item.picked', 'item': 4001018, 'oid': 7, 'ok': True, 'type': 4, 'slot': 3}])
+        self.assertEqual({'picked': True, 'item': 4001018, 'oid': 7, 'type': 4, 'slot': 3},
+                         self.d.pickup_item(4001018))
+        self.assertEqual(['pickup_item 4001018'], self.d.qa.sent)
+
+    def test_a_drop_taken_by_someone_else_is_a_refusal(self):
+        self.d.qa = FakeQa([{'ev': 'item.picked', 'item': 4001018, 'oid': 7, 'ok': False,
+                             'error': 'taken_by_other', 'picker': 99}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.pickup_item(4001018)
+        self.assertEqual('taken_by_other (picker 99)', str(caught.exception))
+
+    def test_no_answer_is_a_timeout(self):
+        self.d.qa = FakeQa([])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.pickup_item(4001018)
+        self.assertEqual('timeout', str(caught.exception))
