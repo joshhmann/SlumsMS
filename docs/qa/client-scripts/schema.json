@@ -979,6 +979,200 @@
      "type": "object",
      "properties": {
       "do": {
+       "const": "use_item"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "item": {
+       "type": "integer",
+       "minimum": 2000000,
+       "maximum": 2999999
+      }
+     },
+     "required": [
+      "do",
+      "item"
+     ],
+     "additionalProperties": false,
+     "description": "1.6.5 GP4: use the item's first USE stack (a potion); passes when the server took one (QA build 17)"
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "trade_invite"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "name": {
+       "type": "string",
+       "pattern": "^[A-Za-z0-9]{4,12}$"
+      }
+     },
+     "required": [
+      "do",
+      "name"
+     ],
+     "additionalProperties": false,
+     "description": "1.6.5 GP6: open a trade and invite a player on this field (QA build 17)"
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "trade_accept"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      }
+     },
+     "required": [
+      "do"
+     ],
+     "additionalProperties": false,
+     "description": "1.6.5 GP6: accept the last trade invite"
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "trade_add_item"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "item": {
+       "type": "integer",
+       "minimum": 1000000,
+       "maximum": 4999999
+      },
+      "quantity": {
+       "type": "integer",
+       "minimum": 0,
+       "maximum": 32767
+      }
+     },
+     "required": [
+      "do",
+      "item"
+     ],
+     "additionalProperties": false,
+     "description": "1.6.5 GP6: put an item's first stack in the trade; no quantity (or 0) = the whole stack"
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "trade_add_meso"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "meso": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 2147483647
+      }
+     },
+     "required": [
+      "do",
+      "meso"
+     ],
+     "additionalProperties": false,
+     "description": "1.6.5 GP6: offer mesos in the trade"
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "trade_confirm"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "timeout_ms": {
+       "type": "integer",
+       "minimum": 1000,
+       "maximum": 300000
+      }
+     },
+     "required": [
+      "do"
+     ],
+     "additionalProperties": false,
+     "description": "1.6.5 GP6: press Trade and wait for the partner and the result (passes on trade done)"
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "trade_cancel"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      }
+     },
+     "required": [
+      "do"
+     ],
+     "additionalProperties": false,
+     "description": "1.6.5 GP6: close the open trade"
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
        "const": "party_create"
       },
       "id": {

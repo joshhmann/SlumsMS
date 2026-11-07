@@ -135,6 +135,20 @@ class WorkerCallsTest(unittest.TestCase):
             ('shop_sell', {'item': 4000000, 'quantity': 10}), ('shop_close', {}),
         ], transport.calls)
 
+    def test_the_use_and_trade_steps_call_the_qa_client_tools(self):
+        # 1.6.5 GP4 leg B and GP6.
+        worker, transport = self.make()
+        for step in ({'do': 'use_item', 'item': 2000000}, {'do': 'trade_invite', 'name': 'Ownerchar'},
+                     {'do': 'trade_accept'}, {'do': 'trade_add_item', 'item': 4000000, 'quantity': 5},
+                     {'do': 'trade_add_item', 'item': 4000000}, {'do': 'trade_add_meso', 'meso': 1000},
+                     {'do': 'trade_confirm', 'timeout_ms': 120000}, {'do': 'trade_cancel'}):
+            self.assertEqual('ok', worker.send('me', step)['result'])
+        self.assertEqual([
+            ('use_item', {'item': 2000000}), ('trade_invite', {'name': 'Ownerchar'}), ('trade_accept', {}),
+            ('trade_add_item', {'item': 4000000, 'quantity': 5}), ('trade_add_item', {'item': 4000000, 'quantity': 0}),
+            ('trade_add_meso', {'meso': 1000}), ('trade_confirm', {'timeout_s': 120}), ('trade_cancel', {}),
+        ], transport.calls)
+
     def test_the_shop_steps_validate(self):
         script = {'id': 'gp4-shop', 'title': 'shop', 'covers': ['b001'], 'status': 'draft', 'server': 'test',
                   'clients': {'me': {'account': {'vault': 'aq-gm-1'}, 'world': 'Bera', 'channel': 3}},
