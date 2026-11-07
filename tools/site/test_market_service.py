@@ -241,7 +241,7 @@ class StoreTest(Base):
     def test_cards_are_per_account_and_rewards_follow_the_secrets(self):
         out = self.store.found(self.me, {"ids": ["konami", "slums", "made-up", 5]})
         self.assertEqual(set(out["found"]), {"konami", "slums"})
-        self.assertEqual(out["total"], 25)
+        self.assertEqual(out["total"], 68)  # 41 secrets + 3 old rewards + 24 duo polaroids
         self.clock.t += 60
         out = self.store.found(self.me, {"ids": ["clicks", "konami"]})
         self.assertIn("theme", out["found"])  # the first three unlock the theme card
@@ -250,7 +250,10 @@ class StoreTest(Base):
         self.assertNotIn("all", out["found"])
         self.assertEqual(self.store.cards(self.other)["found"], {})
         out = self.store.found(self.me, {"ids": list(ms.SECRET_CARDS)})
-        self.assertEqual(len(out["found"]), 25)
+        self.assertEqual(len(out["found"]), 68)
+        self.assertIn("cap12", out["found"])  # 41 secrets pass every pair's mark; rewards are never posted
+        out = self.store.found(self.other, {"ids": ["cap1", "pia12"]})
+        self.assertEqual(out["found"], {})  # the browser may not hand out a polaroid
         for bad in ({"ids": "konami"}, {}, {"ids": ["x"] * 99}):
             with self.assertRaises(ms.Refused):
                 self.store.found(self.me, bad)
@@ -258,18 +261,50 @@ class StoreTest(Base):
 
     def test_double_peace_stays_at_the_first_fourteen_and_every_card_needs_them_all(self):
         # ticket 172: seven more secrets; Double peace still needs only the old 14, so nobody loses it, and the new
-        # "every" reward needs all of them (22 with the summer one)
+        # "every" reward needs the original 22 (with the summer one) — the 19 stickers added later never take it away
         first = ("konami", "slums", "clicks", "bustin", "sidekick", "wake",
                  "henesys", "owl", "kerning", "colours", "afk", "footer", "slime", "bubble")
         self.assertEqual(ms.SECRET_CARDS[:14], first)
-        self.assertEqual(ms.SECRET_CARDS[14:], ("maple", "peace", "heart", "shh", "rebirth", "sunday", "zzz", "summer"))
+        self.assertEqual(ms.SECRET_CARDS[14:22], ("maple", "peace", "heart", "shh", "rebirth", "sunday", "zzz", "summer"))
+        self.assertEqual(ms.EVERY_CARD, ms.SECRET_CARDS[:22])
         out = self.store.found(self.me, {"ids": list(first)})
         self.assertIn("all", out["found"])
         self.assertNotIn("every", out["found"])
         self.clock.t += 60
-        out = self.store.found(self.me, {"ids": list(ms.SECRET_CARDS[14:])})
+        out = self.store.found(self.me, {"ids": list(ms.SECRET_CARDS[14:22])})
         self.assertEqual(out["found"]["every"], ms.iso(self.clock.t))
         self.assertEqual(out["found"]["all"], ms.iso(self.clock.t - 60))  # the old reward keeps its date
+        self.clock.t += 60
+        out = self.store.found(self.me, {"ids": list(ms.SECRET_CARDS[22:])})  # the 19 stickers added later
+        self.assertEqual(out["found"]["every"], ms.iso(self.clock.t - 60), "All of them is not lost")
+        self.assertEqual(out["found"]["all"], ms.iso(self.clock.t - 120))
+
+    def test_each_dynamic_duo_pair_unlocks_at_three_k_secrets(self):
+        for k in (1, 12):
+            with self.subTest(pair=k):
+                me = {"a": 100 + k, "c": f"Duo{k}"}
+                secrets = list(ms.SECRET_CARDS[:3 * k - 1])
+                out = self.store.found(me, {"ids": secrets})
+                self.assertNotIn(f"cap{k}", out["found"])
+                self.assertNotIn(f"pia{k}", out["found"])
+                self.clock.t += 5
+                out = self.store.found(me, {"ids": [ms.SECRET_CARDS[3 * k - 1]]})
+                self.assertIn(f"cap{k}", out["found"])
+                self.assertIn(f"pia{k}", out["found"])  # both cards of a pair, together
+                self.assertEqual(out["found"][f"cap{k}"], out["found"][f"pia{k}"])
+                self.assertEqual(out["found"][f"cap{k}"], ms.iso(self.clock.t))  # the 3k-th secret's day
+                self.assertNotIn(f"cap{k + 1}", out["found"])
+
+    def test_a_duo_unlocks_on_found_order_not_the_posted_order(self):
+        # an old account finds the last stickers first: its 3rd secret, whichever card, is the one that unlocks pair 1
+        self.clock.t = 1_800_000_100.0
+        self.store.found(self.me, {"ids": [ms.SECRET_CARDS[30]]})
+        self.clock.t += 10
+        self.store.found(self.me, {"ids": [ms.SECRET_CARDS[2]]})
+        self.clock.t += 10
+        out = self.store.found(self.me, {"ids": [ms.SECRET_CARDS[5]]})
+        self.assertEqual(out["found"]["cap1"], ms.iso(self.clock.t))
+        self.assertEqual(out["found"]["pia1"], ms.iso(self.clock.t))
 
 
 class HttpTest(Base):

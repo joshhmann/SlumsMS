@@ -66,14 +66,40 @@ MAX_TOTAL = 2_147_483_647  # qty x price must fit one trade window (Site board c
 WRITES_PER_MIN = 30
 MAX_BODY = 2048
 KINDS = ("WTB", "WTS")
-# The Slums-chan cards (theme.js SECRETS): one per hidden secret, plus three the service hands out itself: "theme" for
-# the three that unlock the theme, "all" for the first fourteen (so nobody who had it loses it when cards are added),
-# "every" for every secret (ticket 172). Nothing here is worth anything; a player who posts every id by hand just sees
-# every card, which the secret/ pictures already allow anyone signed in.
+# The Slums-chan and Pia cards (theme.js SECRETS): one per hidden secret, plus rewards the service hands out itself:
+# "theme" for the three that unlock the theme, "all" for the first fourteen (so nobody who had it loses it when cards
+# are added), "every" for the original twenty-two secrets (the same reason: the 19 stickers added later don't take it
+# away), and the twelve "Dynamic duo" polaroid pairs (cap1/pia1 ... cap12/pia12): both of a pair arrive together once the
+# account has found 3k secrets. Nothing here is worth anything; a player who posts every id by hand just sees every
+# card, which the secret/ pictures already allow anyone signed in.
 FIRST_CARDS = ("konami", "slums", "clicks", "bustin", "sidekick", "wake",
                "henesys", "owl", "kerning", "colours", "afk", "footer", "slime", "bubble")
-SECRET_CARDS = FIRST_CARDS + ("maple", "peace", "heart", "shh", "rebirth", "sunday", "zzz", "summer")
-REWARD_CARDS = {"theme": ("konami", "slums", "clicks"), "all": FIRST_CARDS, "every": SECRET_CARDS}
+SECRET_CARDS = FIRST_CARDS + ("maple", "peace", "heart", "shh", "rebirth", "sunday", "zzz", "summer",
+                              "hmm", "yay", "ghost", "love", "pout", "ggwp", "glasses", "stretch",
+                              "news", "idea", "book", "meso", "bug", "huh", "mail", "music", "gasp", "hugs", "hello")
+EVERY_CARD = SECRET_CARDS[:22]  # "All of them" stays at the original set, or its owners would lose it
+
+
+class ByCount:
+    """A reward for the account's first N secrets, in the order it found them: the day the N-th one was found."""
+
+    def __init__(self, n):
+        self.n = n
+
+    def __eq__(self, other):
+        return isinstance(other, ByCount) and other.n == self.n
+
+    def __hash__(self):
+        return hash((ByCount, self.n))
+
+    def __repr__(self):
+        return f"ByCount({self.n})"
+
+
+REWARD_CARDS = {"theme": ("konami", "slums", "clicks"), "all": FIRST_CARDS, "every": EVERY_CARD}
+for _pair in range(1, 13):  # 3, 6, ... 36 secrets: one Dynamic duo pair each
+    REWARD_CARDS[f"cap{_pair}"] = ByCount(3 * _pair)
+    REWARD_CARDS[f"pia{_pair}"] = ByCount(3 * _pair)
 DIRS = ("below", "above")
 
 SCHEMA = """
@@ -471,10 +497,16 @@ class Store:
             raise Refused("That post isn't yours.", 403)
 
     def cards(self, s):
-        """{card: when it was found}; a reward card counts from when its last secret was found."""
+        """{card: when it was found}; a reward card counts from when its last (or its Nth) secret was found."""
         got = dict(self.q("SELECT card, found FROM cards WHERE account=?", s["a"]))
+        # the secrets in the order the account found them; a tie (one batch) follows the canonical card order
+        order = {c: n for n, c in enumerate(SECRET_CARDS)}
+        when = sorted((t, order[c], c) for c, t in got.items() if c in order)
         for card, need in REWARD_CARDS.items():
-            if all(n in got for n in need):
+            if isinstance(need, ByCount):
+                if len(when) >= need.n:
+                    got[card] = when[need.n - 1][0]
+            elif all(n in got for n in need):
                 got[card] = max(got[n] for n in need)
         return {"found": {c: iso(t) for c, t in got.items()}, "total": len(SECRET_CARDS) + len(REWARD_CARDS)}
 
