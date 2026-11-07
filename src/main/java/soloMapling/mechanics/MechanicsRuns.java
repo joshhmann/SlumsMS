@@ -822,7 +822,6 @@ public final class MechanicsRuns {
         return !realPlayerInside || ownsInstance && !cleared;
     }
 
-    /** Ends the run's instance when {@link #shouldEndInstance} says so; reports what it did. */
     /** One pink line to every real player (not a bot, not an owned alt) still in the instance. */
     static void tellRealPlayers(EventInstanceManager eim, String line) {
         try {
@@ -836,6 +835,7 @@ public final class MechanicsRuns {
         }
     }
 
+    /** Ends the run's instance when {@link #shouldEndInstance} says so; reports what it did. */
     private void closeInstance(Active a) {
         EventInstanceManager eim = a.eim;
         if (!eim.isEventDisposed() && a.run.content().kind() == MechanicsModel.Kind.BOSS) {
