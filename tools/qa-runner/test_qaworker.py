@@ -311,6 +311,30 @@ class WorkerCallsTest(unittest.TestCase):
             worker.character('me')
         self.assertIn('has not logged its build stamp', str(caught.exception))
 
+    def test_a_client_whose_caps_lack_the_qa_bit_is_refused(self):
+        # P1-Q2's negative test: a hello alone is not enough, the build stamp must carry caps bit 31 (kCapQaBuild).
+        worker, _ = self.make({
+            'qa_events': answer({'from': 0, 'next': 1, 'events': [HELLO]}),
+            'status': answer({'client_running': True, 'build': {'sha256': 'b' * 64}}),
+            'read_logs': answer({'integration.log': 'Build stamp: caps 0x00000001\n', 'crash.log': ''}),
+        })
+        worker.events('me')
+        with self.assertRaises(qarunner.RunFailed) as caught:
+            worker.character('me')
+        self.assertIn('stamp lacks the QA module', str(caught.exception))
+
+    def test_a_client_whose_release_is_not_a_qa_release_is_refused(self):
+        player = dict(HELLO, release='1.6.2')
+        worker, _ = self.make({
+            'qa_events': answer({'from': 0, 'next': 1, 'events': [player]}),
+            'status': answer({'client_running': True, 'build': {'sha256': 'b' * 64}}),
+            'read_logs': answer({'integration.log': 'Build stamp: caps 0x80000001\n', 'crash.log': ''}),
+        })
+        worker.events('me')
+        with self.assertRaises(qarunner.RunFailed) as caught:
+            worker.character('me')
+        self.assertIn('stamp lacks the QA module', str(caught.exception))
+
     def test_a_click_uses_the_anchors_calibrated_point(self):
         worker, transport = self.make()
         self.assertEqual('ok', worker.send('me', {'do': 'click', 'anchor': 'channel.1'})['result'])

@@ -51,6 +51,7 @@ DEPLOYED_COMMIT = "/opt/mapleroot-dev/persistence-test/Server/DEPLOYED_COMMIT"
 PLACEHOLDER = qascript.PLACEHOLDER
 # The client logs this once at login: the only place on the box that says which capabilities the client has.
 BUILD_STAMP_CAPS = re.compile(r"Build stamp: caps (0x[0-9A-Fa-f]{8})")
+QA_BUILD_CAP = 1 << 31  # buildstamp_proto.h kCapQaBuild
 
 
 class TestHostRefused(testhost.Refused):
@@ -593,6 +594,10 @@ class SilviaWorker:
         if not all(key in info for key in ("build", "release", "caps")):
             raise RunFailed("the client has not logged its build stamp (release/build/caps) yet: the manifest cannot "
                             "say which client ran", "error")
+        # P1-Q2: a QA client says so twice (cmake/BuildStamp.cmake): caps bit 31 (kCapQaBuild) and a "-qa" release.
+        if not int(info["caps"], 16) & QA_BUILD_CAP or not str(info["release"]).endswith("-qa"):
+            raise RunFailed("the client's build stamp lacks the QA module (release %s, caps %s): not a QA build, so no "
+                            "script step can be trusted" % (info["release"], info["caps"]), "error")
         return info
 
     def burst(self, alias, fps, ms, label):
