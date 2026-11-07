@@ -440,7 +440,7 @@ def build_items(hs, wz_root, db_root=None, repo_root=None):
                          "max": d.get("max_qty")} for d in v.get("global_drops") or []]
         global_drops.sort(key=lambda d: (d["continent"] if d["continent"] is not None else -99, d["chance"] or 0))
         reactor_drops = [{"reactor": _int(r.get("reactorid")), "chance": _int(r.get("chance")),
-                          "quest": ref("quest", _int(r["questid"])) if _int(r.get("questid")) else None}
+                          "quest": ref("quest", _int(r["questid"])) if (_int(r.get("questid")) or 0) > 0 else None}
                          for r in reactor.get(iid, [])]
         reactor_drops.sort(key=lambda d: (d["reactor"] or 0, d["chance"] or 0))
         source, node = wz.item_def(iid, v.get("type"))
@@ -556,7 +556,7 @@ def build_maps(hs, wz_root, db_root=None, repo_root=None):
             target = p.get("target_map_id")
             entry = {
                 "name": p.get("name"), "type": p.get("type"),
-                "target_map": ref("map", target) if target is not None and target != 999999999 else None,
+                "target_map": ref("map", target) if target is not None and 0 <= target != 999999999 else None,
                 "target_portal": p.get("target_portal") or None,
                 "script": ref("script", f"portal/{p['name']}")
                 if p.get("type") == 2 and f"{p.get('name')}.js" in portal_scripts else None,
@@ -625,8 +625,9 @@ def _item_string_files(item_type):
 def _finish(row, rec, reach, note):
     """lang / name_note / reach_note, common to every kind."""
     name = str(rec.get("name") or "")
-    if HANGUL.search(name) and not LATIN.search(name):
-        row["lang"] = "ko"
+    for text in (name, rec.get("desc"), rec.get("name_qualifier"), (rec.get("stats") or {}).get("name")):
+        if isinstance(text, str) and HANGUL.search(text):
+            row["lang"] = "ko"
     if rec.get("name_qualifier"):
         row["name_note"] = plain(rec["name_qualifier"])
     if note:

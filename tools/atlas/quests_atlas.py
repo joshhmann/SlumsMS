@@ -89,7 +89,7 @@ def build(wz_root, script_ids=frozenset(), npc_ids=None):
             (takes if it.get("count", 1) < 0 else gives).append(row)
         a1p = (a1 or {}).get("props", {})
         row = {
-            "id": qid, "name": name, "reach": "unobtainable" if HANGUL.search(name) and not LATIN.search(name) else "player",
+            "id": qid, "name": plain(name), "reach": "unobtainable" if HANGUL.search(name) and not LATIN.search(name) else "player",
             "start_npc": ref("npc", p0["npc"]) if "npc" in p0 else None,
             "end_npc": ref("npc", p1["npc"]) if "npc" in p1 else None,
             "area": ip.get("area"), "parent": ip.get("parent"),
