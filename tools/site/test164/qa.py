@@ -47,10 +47,10 @@ OTHER_CHAR = "AutoQaOne"  # a real TEST character on another account: the server
 # limit test: the market allows 30 writes a minute per account.
 _RUN = 2_000_000_000 + (int(time.time()) // 60 % 100_000) * 10
 FAKE = {name: _RUN + i for i, name in enumerate(("limits", "revoke", "signout", "launcher", "alerts", "posts"))}
-PAGES = ["/", "/join/", "/forgot/", "/login/", "/guide/", "/guide/getting-started.html", "/patch-notes/", "/report/", "/login/",
-         "/world/", "/world/feed/", "/world/feed/megaphone.html", "/world/feed/drama.html", "/world/rankings/level.html",
-         "/world/economy.html", "/robots.txt"]
-GATED = ["/street/", "/market/", "/market/board.html"]
+PAGES = ["/", "/join/", "/forgot/", "/login/", "/guide/", "/guide/getting-started", "/patch-notes/", "/report/", "/login/",
+         "/world/", "/world/feed/", "/world/feed/megaphone", "/world/feed/drama", "/world/rankings/level",
+         "/world/economy", "/robots.txt"]
+GATED = ["/street/", "/market/", "/market/board"]
 BRANDS = ["maplestory", "maple story", "nexon", "wizet", "v83"]
 
 results = []
@@ -132,7 +132,7 @@ def pages(http, quick):
     paths = list(PAGES)
     if not quick:  # Slums Street too: 8 random pages from each of its sections, and its own front pages
         listing = ssh(f"cd {SITE_DIR}/street && for d in items mobs maps npcs quests; do ls $d | shuf -n 8 | sed \"s|^|$d/|\"; done")
-        paths += ["/street/", "/street/changes.html"] + ["/street/" + p for p in listing.split() if p.endswith(".html")]
+        paths += ["/street/", "/street/changes"] + ["/street/" + p[:-5] for p in listing.split() if p.endswith(".html")]
     bad, noindex, brand = [], [], []
     for p in paths:
         st, hd, body, _ = http("GET", p, token=TOKENS["limits"] if p.startswith("/street") else None)
@@ -140,7 +140,7 @@ def pages(http, quick):
             bad.append(f"{p} {st}")
             continue
         low = body.lower()
-        if p.endswith((".html", "/")) and check.NOINDEX not in body:
+        if not p.endswith(".txt") and check.NOINDEX not in body:
             noindex.append(p)
         brand += [f"{p}: {w}" for w in BRANDS if w in low]
     ok(not bad, f"{len(paths)} pages answer 200", "; ".join(bad[:5]))
@@ -150,7 +150,7 @@ def pages(http, quick):
     ok("Disallow: /" in robots, "robots.txt turns every crawler away")
     st, _, _, _ = http("GET", "/forgot/")
     ok(st == 200, "the forgot-password page is public", str(st))
-    st, _, _, _ = http("GET", "/no-such-page.html")
+    st, _, _, _ = http("GET", "/no-such-page")
     ok(st == 404, "an unknown page is a 404", str(st))
 
 
@@ -445,7 +445,7 @@ def browser(quick):
     except ImportError:
         report("SKIP", "light/dark themes and phone width", "Playwright isn't installed")
         return
-    paths = ["/", "/world/", "/world/feed/", "/login/", "/guide/getting-started.html", "/market/", "/street/"]
+    paths = ["/", "/world/", "/world/feed/", "/login/", "/guide/getting-started", "/market/", "/street/"]
     with sync_playwright() as p:
         b = p.chromium.launch()
         problems, same = [], []
