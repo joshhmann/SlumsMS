@@ -1,0 +1,71 @@
+# Magatia PQ, Alcadno variant (row magatiapq): the real-client run. The human leader (AqClient, gm 0 after the
+# staging) starts the run through Juliet 2112003 on the recruit map 261000021, then stays with it while the bots walk
+# the six modelled stages of src/main/java/soloMapling/mechanics/content/magatiapq.yaml (stage 1 the twenty-six books,
+# stage 2 the shelf's empty room, stage 3 the beaker's three counts, stage 4 both files to Juliet 2112005, stage 5 the
+# four rooms and the ten-row climb, stage 6 Yulete 2112010 summons the Frankenroid). The run's own clear is the
+# Frankenroid's death (MagatiaPQ_A.js:450 clearPQ), which warps the party to the exit map 926110700 (:30 exitMap).
+# The Zenumist twin (MagatiaPQ_Z) is a different row and is NOT covered by this card.
+# Pass (card): `RUN start magatiapq`, the stage 1..6 cleared lines in order tagged [magatiapq, leader AqClient], the
+# final `RUN end magatiapq in ...: cleared after N s`, and the client on 926110700.
+# STAGING (Server Dev/Bots, before the run; there is no staging command yet): a party of EXACTLY 4 players
+# (MagatiaPQ_A.js:27-32), every member level >= 71 and standing on 261000021 with AqClient leading. The run is off
+# TEST's own switch (-Dslums.mechanics.magatiapq=true on top of -Dslums.mechanics=true). No party staging step exists,
+# so this script starts from the leader already standing on the recruit map.
+# Juliet's dialog on 261000021 (2112003.js:63-80) has three options and no prize branch; the files hand-in at stage 4
+# is the bots' solver step (magatia-files) with the NPC 2112005, not a click the human leader makes.
+id: magatiapq-full-run
+title: "Magatia PQ (Alcadno): the leader starts the run with four players and the party clears all six stages"
+covers: [feature-magatiapq]
+status: draft
+server: test
+needs: [gm, mechanics, proposed_signals, proposed_anchors, proposed_steps]
+notes: "tarkov2 QA account, TEST with -Dslums.mechanics=true and -Dslums.mechanics.magatiapq=true. Server Dev stages a party of exactly four, level >= 71, on 261000021 with AqClient as leader. Channel 5."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 5
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 5}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
+  - {id: revive, do: gm, line: "!heal"}
+  - {do: sleep, ms: 1000, reason: "let the revive land before the next command"}
+  - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 261000021}, timeout_ms: 20000, optional: true}
+  - {id: talk, do: click_npc, npc: 2112003}
+  - {id: talk-open, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {id: pick, do: click, anchor: npc_dialog.option_1, note: "I want to participate in the party quest (L0)"}
+  - id: run-start
+    do: wait
+    armed_at: pick
+    signal: {type: server_line, topic: MECHANICS, regex: "^RUN start magatiapq stage 1 in ", char: me}
+    timeout_ms: 60000
+  - {id: stage-1, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 1 cleared in \\d+ s.*\\[magatiapq", char: me}, timeout_ms: 300000}
+  - {id: stage-2, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 2 cleared in \\d+ s.*\\[magatiapq", char: me}, timeout_ms: 300000}
+  - {id: stage-3, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 3 cleared in \\d+ s.*\\[magatiapq", char: me}, timeout_ms: 300000}
+  - {id: stage-4, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 4 cleared in \\d+ s.*\\[magatiapq", char: me}, timeout_ms: 300000}
+  - {id: stage-5, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 5 cleared in \\d+ s.*\\[magatiapq", char: me}, timeout_ms: 300000}
+  - {id: stage-6, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 6 cleared in \\d+ s.*\\[magatiapq", char: me}, timeout_ms: 300000}
+  - {id: finished, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN end magatiapq in .*: cleared after \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: out, do: wait, signal: {type: client_signal, name: field.ready, map_id: 926110700}, timeout_ms: 60000}
+  - {do: sleep, ms: 3000, reason: "frame of the exit map before the cleanup line"}
+  - {id: end-run, do: gm, line: "!mechanics stop", note: "clean up after the last wait"}
+captures:
+  - {id: start, burst: {fps: 2, ms: 3000, at: {step: pick}}}
+  - {id: exit-map, burst: {fps: 2, ms: 3000, at: {step: out}}}
+  - {id: chat, chat_log: {span: {from: pick, to: out}}}
+expect:
+  reviewer:
+    - see: "The leader on the exit map 926110700 after the sixth stage"
+      in: [exit-map]
+  checks:
+    - {check: client_alive}
+  judgment: "PASS = the six stage lines in order (1..6, each tagged [magatiapq, leader AqClient]), the final `RUN end magatiapq in ...: cleared after N s` line, and the client on 926110700. FAIL names the first stage that never clears; read the run's QA log before filing a bug."
