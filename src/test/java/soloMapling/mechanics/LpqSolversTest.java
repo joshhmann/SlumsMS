@@ -124,12 +124,34 @@ class LpqSolversTest {
                 new LpqFarmSolver().next(view, member(true))).count());
     }
 
+    /**
+     * 1.6.6 b359: the key is Alishar's (9300012, drop_data), and Alishar comes from a pass landing in reactor 2201003,
+     * an item reactor (Reactor.wz state 0 type 100) - the row had 9300006 dropping the key and every member hitting
+     * 2201003, a hit no client can make.
+     */
+    @Test
+    void theKeyIsAlisharsAndNothingHitsTheItemReactorThatSummonsHim() {
+        MechanicsModel.Stage nine = stageAt(922010900);
+        MechanicsModel.Objective key = nine.objectives().stream()
+                .filter(o -> o.kind() == MechanicsModel.ObjectiveKind.KILL_FOR_ITEM).findFirst().orElseThrow();
+        assertEquals(9300012, key.mobId(), "only Alishar drops 4001023; 9300006 drops a pass");
+        assertEquals(KEY, key.itemId());
+        assertFalse(nine.objectives().stream().anyMatch(o -> o.kind() == MechanicsModel.ObjectiveKind.HIT_REACTOR),
+                "2201003 takes a pass (type 100); it is never hit");
+        assertEquals(0, LpqFarmSolver.boxReactor(nine));
+
+        View view = new View(nine, two());
+        view.mobs = 0; // 9300006 dead, Alishar not up yet (the reactor waits 5 s after the pass lands)
+        assertFalse(new LpqFarmSolver().next(view, member(true)) instanceof SolverStep.HitReactor,
+                "between the shelf mob and Alishar there is nothing to hit");
+    }
+
     @Test
     void theKeyStageHandsInTheKeyNotAPass() {
         View view = new View(stageAt(922010900), two());
         view.mobs = 0;
         view.items.put(LEADER + ":" + PASS, 3);
-        assertInstanceOf(SolverStep.HitReactor.class, new LpqFarmSolver().next(view, member(true)),
+        assertFalse(new LpqFarmSolver().next(view, member(true)) instanceof SolverStep.TalkNpc,
                 "passes do not open 2040044: the key does");
 
         view.items.put(LEADER + ":" + KEY, 1);
