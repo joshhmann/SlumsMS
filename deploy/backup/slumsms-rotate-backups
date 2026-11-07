@@ -14,9 +14,11 @@
 #   C. /opt/mapleroot-dev/*/ (depth <= 4)    test-server backup-* and Cosmic.jar.pre-* older than $TEST_KEEP_DAYS days.
 #                                            Never anything under a mysql/ datadir or integration-db/.
 # Never touched: backups/nightly (slumsms-nightly-backup prunes it), other files in backups/, live server folder.
-# Protected: anything matching $PROTECT_PATHS (default: PreviousServer) is never listed or deleted, and neither is a
+# Protected: anything matching $PROTECT_PATHS (default: PreviousServer, pre-live-baseline-20261019T070109Z) is never
+#            listed or deleted, and neither is a
 #            folder that contains a protected item. Entries without a "/" match a file/folder name anywhere; entries
-#            with a "/" are shell globs matched against the full path. The owner keeps PreviousServer (2026-10-20).
+#            with a "/" are shell globs matched against the full path. The owner keeps PreviousServer (2026-10-20) and
+#            the original-server backup pre-live-baseline-20261019T070109Z (2026-11-07).
 #
 # Two-step safety: every run (dry or not) records each candidate with the time it was FIRST listed in
 # $STATE_DIR/rotate-plan.tsv. --apply deletes only candidates that a previous run already listed at least
@@ -39,8 +41,9 @@ STATE_DIR=${STATE_DIR:-/var/lib/slumsms-backup}
 PRE_ROOT=${PRE_ROOT:-/opt/mapleroot/backups}
 DEPLOY_ROOT=${DEPLOY_ROOT:-/opt/mapleroot-deployments}
 TEST_ROOT=${TEST_ROOT:-/opt/mapleroot-dev}
-# Space-separated. Set PROTECT_PATHS in the conf to replace the list (keep PreviousServer in it unless the owner says so).
-PROTECT_PATHS=${PROTECT_PATHS-PreviousServer}
+# Space-separated. Set PROTECT_PATHS in the conf to replace the list (keep both defaults in it unless the owner says so).
+# pre-live-baseline-20261019T070109Z is the only copy of the original server before SoloMapling (pinned 7 Nov 2026).
+PROTECT_PATHS=${PROTECT_PATHS-PreviousServer pre-live-baseline-20261019T070109Z}
 
 while [ $# -gt 0 ]; do
     case "$1" in
