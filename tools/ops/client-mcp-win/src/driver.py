@@ -116,6 +116,10 @@ KEYS = {**{chr(c): (c, False) for c in range(ord('A'), ord('Z') + 1)},
 # The only key combinations: each opens a SlumsMS window, nothing that closes or leaves the game.
 COMBOS = {'CTRL+F10': (0x11, 0x79),   # the in-game settings window (slums.dll D3D9 host)
           'CTRL+F11': (0x11, 0x7A)}   # freeze / unfreeze the slums.dll HUD
+# A held key repeats its key-down the way a keyboard's auto-repeat does: the game acts once per key-down, so one down
+# held for 3 s attacked once (qa-attack-step, Server Dev's packet read 2026-11-07). Windows' defaults: 250 ms, ~30/s.
+KEY_REPEAT_DELAY = 0.25
+KEY_REPEAT_EVERY = 0.033
 # The first chat line after a client start loses its first key, so command() sends this line first to absorb it.
 # Never a toggle: !unhide casts GM Hide, which toggles, and priming with it before login's own !unhide hid the GM
 # again (bots ignore hidden players: cv-13, 2026-11-01). !dispose only clears NPC/quest dialog state.
@@ -941,10 +945,16 @@ class Driver:
             hold_ms = max(0, min(int(hold_ms), 3000))
             self.sender.key(key[0], True, extended=key[1])
             try:
-                end = time.monotonic() + hold_ms / 1000
+                start = time.monotonic()
+                end = start + hold_ms / 1000
+                repeat = start + KEY_REPEAT_DELAY
                 while time.monotonic() < end:
                     self.guard()
-                    time.sleep(0.05)
+                    now = time.monotonic()
+                    if now >= repeat:
+                        self.sender.key(key[0], True, extended=key[1])   # auto-repeat: another down, no up
+                        repeat = now + KEY_REPEAT_EVERY
+                    time.sleep(max(0.0, min(repeat, end) - time.monotonic()))
             finally:
                 self.sender.key(key[0], False, extended=key[1])
             return {'pressed': name, 'held_ms': hold_ms}
