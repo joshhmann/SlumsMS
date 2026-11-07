@@ -44,8 +44,10 @@ steps:
   - {id: stage-6, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 6 cleared in \\d+ s.*\\[lpq", char: me}, timeout_ms: 300000}
   - {id: stage-7, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 7 cleared in \\d+ s.*\\[lpq", char: me}, timeout_ms: 300000}
   - {id: stage-8, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 8 cleared in \\d+ s.*\\[lpq", char: me}, timeout_ms: 300000}
-  - {id: stage-9, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 9 cleared in \\d+ s.*\\[lpq", char: me}, timeout_ms: 300000}
+  - {id: alishar, do: wait, signal: {type: client_signal, name: chat.received, regex: "Alishar has been summoned"}, timeout_ms: 300000, optional: true, note: "a map message the client receives; it is not in the server feed (Bots)"}
+  - {do: sleep, ms: 10000, reason: "the fight with 9300012 and the key 4001023 reaching the leader"}
   - {id: key-handin, do: click_npc, npc: 2040044, note: "Violet Balloon on 922010900: the first talk is the preamble, the key hand-in is the second"}
+  - {id: stage-9, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 9 cleared in \\d+ s.*\\[lpq", char: me}, timeout_ms: 300000}
   - {id: finished, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN end lpq in .*: cleared after \\d+ s", char: me}, timeout_ms: 300000}
   - {id: bonus, do: wait, signal: {type: client_signal, name: field.ready, map_id: 922011000}, timeout_ms: 30000}
   - {do: sleep, ms: 3000, reason: "frame of the bonus map"}
