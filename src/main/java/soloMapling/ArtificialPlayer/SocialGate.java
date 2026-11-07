@@ -622,17 +622,23 @@ public final class SocialGate {
     private record BotChat(int botCharId, long at) {
     }
 
+    /** 1.6.6 chat-cap-same-bot: whether this bot's chat with this player is still going (tests swap it). */
+    private static volatile java.util.function.BiPredicate<Integer, Integer> liveChat = BotConversation::isTalking;
+
     /** playerId -> the last bot-started chat with them (any bot). */
     private static final Map<Integer, BotChat> lastBotChat = new ConcurrentHashMap<>();
 
     /**
      * m02 fix round 3: whether {@code botCharId} may start a chat with this player now. At most one bot-started chat
      * per player per {@link #botChatGapMs()}, from any bot, so a player is not greeted by five bots in one minute; the
-     * bot that started the last one may carry its own chat on.
+     * bot that started the last one may carry its own chat on while that chat is still going. 1.6.6 chat-cap-same-bot:
+     * once its chat is over, the hour holds for that bot too (TEST 7 Nov: one bot opened two chats with a player 35 min
+     * apart, after a PQ-lobby wrap-up had cleared the pair's 40-minute greet cooldown).
      */
     public static boolean botChatAllowed(int botCharId, int playerId, long now) {
         BotChat last = lastBotChat.get(playerId);
-        return last == null || last.botCharId() == botCharId || now - last.at() >= botChatGapMs();
+        return last == null || now - last.at() >= botChatGapMs()
+                || last.botCharId() == botCharId && liveChat.test(botCharId, playerId);
     }
 
     /** The bot's opening line goes out: no other bot starts a chat with this player for {@link #botChatGapMs()}. */
@@ -880,6 +886,11 @@ public final class SocialGate {
 
     static void useBusyForTest(Predicate<Character> test) {
         busy = test != null ? test : PlayerBusy::isBusy;
+    }
+
+    /** Tests: whether a bot's chat with a player is still going (default: {@link BotConversation#isTalking}). */
+    static void useLiveChatForTest(java.util.function.BiPredicate<Integer, Integer> test) {
+        liveChat = test != null ? test : BotConversation::isTalking;
     }
 
     /** Tests: forgets the ledger, choices, budgets and remembered lines. */
