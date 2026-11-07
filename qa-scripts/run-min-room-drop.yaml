@@ -83,9 +83,14 @@ steps:
   - {id: warned, do: wait, armed_at: start-fight, signal: {type: client_signal, name: chat.received, regex: "MSbeta is not at the altar and will not join"}, timeout_ms: 20000, optional: true}
   - {id: in-fight, do: wait, signal: {type: client_signal, name: field.ready, map_id: 240060000}, timeout_ms: 60000}
   - {id: run-members, do: wait, armed_at: after-start, signal: {type: server_line, topic: MECHANICS, regex: "(?i)horntail|too few members|members", char: me}, timeout_ms: 60000, note: "run-min-room proof: the run must start with 5 members (no too-few refusal); MECHANICS topic armed"}
-  - {id: fight-a-bit, do: sleep, ms: 5000, reason: "let the party engage Horntail before the drop"}
-  - {id: drop-alt, do: chat, text: "@dismiss AqClientAlt2"}
-  - {id: too-few, do: wait, armed_at: drop-alt, signal: {type: server_line, topic: MECHANICS, regex: "too few members left \\(4 < 5\\)", char: me}, timeout_ms: 60000}
+  - {id: fight-a-bit, do: sleep, ms: 3000, reason: "let the party engage Horntail before the drop"}
+  - {id: keep-alive, do: gm, line: "!heal", note: "the leader died 1 s after the first try's dismiss and the chat went to party chat: heal first"}
+  - {do: sleep, ms: 1000, reason: "let the heal land before the chat opens"}
+  - {id: drop-alt2, do: chat, text: "@dismiss AqClientAlt2"}
+  - {id: lost-alt2, do: wait, armed_at: drop-alt2, signal: {type: server_line, topic: MECHANICS, regex: "lost: no longer in the stage", char: me}, timeout_ms: 30000}
+  - {id: keep-alive-2, do: gm, line: "!heal"}
+  - {id: drop-alt1, do: chat, text: "@dismiss AqClientAlt1"}
+  - {id: too-few, do: wait, armed_at: drop-alt1, signal: {type: server_line, topic: MECHANICS, regex: "too few members left \\(3 < 5\\)", char: me}, timeout_ms: 60000}
 captures:
   - {id: away, burst: {fps: 2, ms: 3000, at: {step: msbeta-off}}}
   - {id: in-room, burst: {fps: 2, ms: 4000, at: {signal: in-fight}}}
