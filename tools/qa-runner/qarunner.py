@@ -486,6 +486,18 @@ class SilviaWorker:
             name, arguments = kind, {"item": step["item"], "quantity": step.get("quantity", 0)}
         elif kind == "shop_close":
             name, arguments = "shop_close", {}
+        elif kind == "use_item":   # 1.6.5 GP4 leg B: a potion's first USE stack
+            name, arguments = "use_item", {"item": step["item"]}
+        elif kind in ("trade_accept", "trade_cancel"):   # 1.6.5 GP6
+            name, arguments = kind, {}
+        elif kind == "trade_invite":
+            name, arguments = "trade_invite", {"name": step["name"]}
+        elif kind == "trade_add_item":
+            name, arguments = "trade_add_item", {"item": step["item"], "quantity": step.get("quantity", 0)}
+        elif kind == "trade_add_meso":
+            name, arguments = "trade_add_meso", {"meso": step["meso"]}
+        elif kind == "trade_confirm":
+            name, arguments = "trade_confirm", {"timeout_s": max(1, int(step.get("timeout_ms", 120000)) // 1000)}
         elif kind == "use_cash_item":   # P0-6: the Incubator on an egg (item id) or on inv:slot
             name, arguments = "use_cash_item", {"item": step["item"], "target": str(step["target"])}
         elif kind in ("wheel", "type", "key_down", "key_up"):

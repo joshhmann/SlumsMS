@@ -28,7 +28,10 @@ SECRET_WORDS = re.compile(r"(?i)\b(password|passwd|pwd|pic|secret|token|api[_-]?
 PLACEHOLDER = re.compile(r"\$\{([a-z][a-z0-9_]*)(?:\.([a-z]+))?\}")
 CLIENT_FIELDS = {"name", "id"}
 # client pipe signals the QA module sends today (client-170-qa-module 502f9f5); the rest of the schema's names are proposed
-BUILT_SIGNALS = {"worldselect.ready", "channels.ready", "charselect.ready", "field.ready"}
+BUILT_SIGNALS = {"worldselect.ready", "channels.ready", "charselect.ready", "field.ready",
+                 # 1.6.5 GP4 / GP6 (QA build 17): the open shop and the trade's own events
+                 "shop.open", "trade.open", "trade.invited", "trade.joined", "trade.item", "trade.meso",
+                 "trade.partner_confirmed", "trade.done"}
 RETRYABLE = {"select_world", "select_channel", "click", "key"}
 # step kinds the client-mcp driver cannot do yet (the Silvia worker's run_script must add them)
 PROPOSED_STEPS = {"wheel", "type", "key_down", "key_up"}
