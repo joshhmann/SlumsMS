@@ -1102,6 +1102,7 @@ public class Server {
         long timeLeft = getTimeLeftForNextHour();
         tMan.register(new CharacterDiseaseTask(), YamlConfig.config.server.UPDATE_INTERVAL, YamlConfig.config.server.UPDATE_INTERVAL);
         tMan.register(new CouponTask(), YamlConfig.config.server.COUPON_INTERVAL, timeLeft);
+        tMan.register(soloMapling.site.auth.BannedFile::requestSweep, MINUTES.toMillis(5), 0); // 1.6.5 P0-7: banned.txt at boot, then every 5 min
         tMan.register(new RankingCommandTask(), MINUTES.toMillis(5), MINUTES.toMillis(5));
         tMan.register(new RankingLoginTask(), YamlConfig.config.server.RANKING_INTERVAL, timeLeft);
         tMan.register(new LoginCoordinatorTask(), HOURS.toMillis(1), timeLeft);

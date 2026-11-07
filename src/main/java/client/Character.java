@@ -847,6 +847,7 @@ public class Character extends AbstractCharacterObject {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+        soloMapling.site.auth.BannedFile.requestSweep(); // 1.6.5 P0-7: the site login service reads banned.txt
     }
 
     public static boolean ban(String id, String reason, boolean accountId) {
@@ -880,6 +881,9 @@ public class Character extends AbstractCharacterObject {
                         ret = true;
                     }
                 }
+            }
+            if (ret) {
+                soloMapling.site.auth.BannedFile.requestSweep(); // 1.6.5 P0-7
             }
             return ret;
         } catch (SQLException ex) {
@@ -12107,6 +12111,7 @@ public class Character extends AbstractCharacterObject {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+        soloMapling.site.auth.BannedFile.requestSweep(); // 1.6.5 P0-7
     }
 
     public boolean isBanned() {
