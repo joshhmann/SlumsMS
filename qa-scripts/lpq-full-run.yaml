@@ -1,12 +1,12 @@
 # LPQ (1.6.6, b359/b363, row lpq): the real-client run. The human leader (AqClient, gm 0 after the staging) starts the Ludibrium PQ with a party of 5-6 (at least two ranged or magic) through the Red Sign NPC 2040034 on 221024500, then stays with the run: the party walks the nine stages, and the leader hands the key 4001023 to NPC 2040044 on 922010900 (the bonus map is the clearPQ warp).
 # Pass (card): `RUN start lpq`, stage 1..9 cleared lines in order tagged [lpq, leader AqClient], stage 7's three "has been summoned" lines, stage 9's Alishar line, the final `RUN end lpq in ...: cleared after N s`, the client in the bonus map 922011000, and the feed never shows `hit reactor 2201002` or `hit reactor 2201003`.
-# STAGING (Server Dev/Bots, before the run): the party is formed and standing on 221024500 (AqClient leader, 4-5 regulars level >= 35, two ranged or magic). TEST needs -Dslums.mechanics.lpq. DRAFT: the exact staging command and the menu of 2040034 are unconfirmed until Bots gives the staging line.
+# STAGING: `!mechanics pq lpq me 4 ranged2` (Bots, 166-bots-pq-staging) builds the party and starts the PQ; the leader must be gm 3 (Server Dev). TEST needs -Dslums.mechanics.lpq and the 1.6.6 build with that command.
 id: lpq-full-run
 title: "LPQ: the leader starts the Ludibrium PQ and the party clears all nine stages to the bonus map"
 covers: [feature-lpq]
 status: draft
 server: test
-needs: [gm, mechanics, proposed_signals, proposed_anchors]
+needs: [gm, mechanics, proposed_signals]
 notes: "tarkov2 QA account, TEST on release-1.6.6 with b359/b363 merged and -Dslums.mechanics.lpq. Server Dev stages the party at 221024500."
 clients:
   me:
@@ -27,13 +27,12 @@ steps:
   - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
   - {id: revive, do: gm, line: "!heal"}
   - {do: sleep, ms: 1000, reason: "let the revive land before the next command"}
-  - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 221024500}, timeout_ms: 20000, optional: true}
-  - {id: talk, do: click_npc, npc: 2040034}
-  - {id: talk-open, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
-  - {id: pick, do: click, anchor: npc_dialog.option_1, note: "I want to participate in the party quest (L0)"}
+  - {id: to-recruit, do: gm, line: "!warp 221024500", note: "Ludibrium recruit map next to the Red Sign (2040034)"}
+  - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 221024500}, timeout_ms: 20000}
+  - {id: stage-party, do: gm, line: "!mechanics pq lpq me 4 ranged2", note: "Bots 166-bots-pq-staging: spawns 4 regulars (two ranged), forms the party with AqClient leading and starts the PQ as Lakelis starts KPQ"}
   - id: run-start
     do: wait
-    armed_at: pick
+    armed_at: stage-party
     signal: {type: server_line, topic: MECHANICS, regex: "^RUN start lpq stage 1 ", char: me}
     timeout_ms: 60000
   - {id: stage-1, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 1 cleared in \\d+ s.*\\[lpq", char: me}, timeout_ms: 300000}
@@ -53,9 +52,9 @@ steps:
   - {do: sleep, ms: 3000, reason: "frame of the bonus map"}
   - {id: end-run, do: gm, line: "!mechanics stop", note: "clean up after the last wait"}
 captures:
-  - {id: start, burst: {fps: 2, ms: 3000, at: {step: pick}}}
+  - {id: start, burst: {fps: 2, ms: 3000, at: {step: stage-party}}}
   - {id: bonus-map, burst: {fps: 2, ms: 3000, at: {step: bonus}}}
-  - {id: chat, chat_log: {span: {from: pick, to: bonus}}}
+  - {id: chat, chat_log: {span: {from: stage-party, to: bonus}}}
 expect:
   reviewer:
     - see: "The leader in the bonus map 922011000 after the last stage"
