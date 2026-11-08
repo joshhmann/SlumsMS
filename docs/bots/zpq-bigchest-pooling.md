@@ -32,7 +32,7 @@ On the big chest's map, while the chest is closed (state 0):
 4. **Two observe-only feed lines** (MECHANICS feed), in the wording of Server Dev's boss-feed-lines plan
    (agent-runs/serverdev/plans/boss-feed-lines-167.md), so there is one line per event and work-62's stage-33
    checker matches it:
-   - `RUN zakumpq big chest 2112014 opened on 280011005 by <placer> after <S> s [zakumpq, leader X]`: once per stage,
+   - `RUN zakumpq big chest 2112014 opened on 280011005 by <placer> after <S> s into the run [zakumpq, leader X]`: once per stage,
      when the chest leaves state 0. S is seconds since the run started. Emitted from StepExecutor.execute through
      ZakumMinesSolver.chestOpenedLine.
    - `RUN zakumpq fire ore 4001018 looted by <bot> [zakumpq, leader X]`: once, when a run bot's Loot step really picks
