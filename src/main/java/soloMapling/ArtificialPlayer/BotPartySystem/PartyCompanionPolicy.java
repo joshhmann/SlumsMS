@@ -25,7 +25,17 @@ public final class PartyCompanionPolicy {
         /** alt-supplies-in-boss-fights: autopot thresholds, the out-of-pots warning and the pre-run check. */
         SUPPLIES("supplies"),
         /** alt-revive-respawn (death rules): rest in town after a boss death, then rejoin; sit a fight out. */
-        DEATH_RULES("deathrules");
+        DEATH_RULES("deathrules"),
+        /** alt-qol-batch A: chat reports (pots/stats/slots), "did you mean", low-pots note, bag-full, confirm-drop. */
+        CHAT_REPORTS("reports"),
+        /** alt-qol-batch B: chat toggles (heals/support), per-owner settings that survive relog, the card window. */
+        SETTINGS("settings"),
+        /** alt-qol-batch C: anti-stuck, reserved spot at portals, rope/ladder following, arrival/welcome-back lines. */
+        FOLLOW_PLUS("follow"),
+        /** alt-qol-batch D: per-alt loot mode, sell junk with a protection list, upgrade offer. */
+        LOOT("loot"),
+        /** alt-qol-batch E: quest mirror (party quests the owner takes progress for the alt too). */
+        QUEST_MIRROR("quests");
 
         private final String key;
 
