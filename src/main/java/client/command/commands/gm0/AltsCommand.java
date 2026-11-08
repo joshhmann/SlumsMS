@@ -22,8 +22,9 @@ public class AltsCommand extends Command {
             + "formation split/spread/stack/left/right/random"
             + " [px|tight|loose], tight, loose, snap; trade pots/hp pots/scrolls/use/etc/equips/ammo/rocks/100k/"
             + "<item>/<slot>, show me your hat, drop <what> (it asks first, say yes); any upgrades?, request?, trade upgrades; "
-            + "need pots/hp/mp/ammo/rocks. Reports: pots, stats, slots. A mistyped order to a companion gets "
-            + "\"did you mean 'grind'?\".";
+            + "need pots/hp/mp/ammo/rocks. Reports: pots, stats, slots. Settings (kept across relogs): heals on/off, "
+            + "support on/off, buff pots on/off, pots at 60, mp pots at 40, card (or @alts card <name>). A mistyped "
+            + "order to a companion gets \"did you mean 'grind'?\".";
 
     @Override
     public void execute(Client c, String[] params) {
