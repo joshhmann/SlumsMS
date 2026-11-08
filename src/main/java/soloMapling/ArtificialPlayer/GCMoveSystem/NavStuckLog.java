@@ -58,7 +58,9 @@ public final class NavStuckLog {
         /** Stood in a pit with no way back to the map's exits until the pit rescue put it back (b109). */
         PIT,
         /** v72: a rope-to-rope jump landed instead of grabbing its target rope (edge = from/to rope, gap, kick). */
-        ROPE_HOP_MISS
+        ROPE_HOP_MISS,
+        /** b370: an unobserved bot was put on a goal it has no route to (edge = why + who set the goal). */
+        COARSE_SNAP
     }
 
     static final int SPOT_PX = 50;

@@ -349,6 +349,12 @@ final class GCMovementDriver {
         if (graph == null && !swim) {
             return false; // no cached graph -> let the M1 throttle cover it (don't trigger a bake)
         }
+        return coarseAdvanceOn(entry, bot, target, graph, swim);
+    }
+
+    /* tryCoarseAdvance0 past the graph lookup; package-visible so a test can hand it a graph (b370). */
+    static boolean coarseAdvanceOn(BotMovementState entry, Character bot, Point target, BotNavigationGraph graph,
+                                   boolean swim) {
         long now = System.currentTimeMillis();
         boolean needPlan = entry.coarsePlan == null
                 || entry.coarsePlanMapId != bot.getMapId()
@@ -365,6 +371,9 @@ final class GCMovementDriver {
                 plan = MovementPlan.inMap(graph, bot.getMap(), bot.getPosition(), target);
             }
             if (plan == null) {
+                if (!swim) {
+                    noteCoarseSnap(entry, bot, graph, target); // b370: counted before the bot is moved
+                }
                 arriveCoarse(entry, bot, target); // already in the target region / unplannable
                 return true;
             }
@@ -385,6 +394,34 @@ final class GCMovementDriver {
             arriveCoarse(entry, bot, entry.coarsePlanTarget);
         }
         return true;
+    }
+
+    /*
+     * b370 (1.6.6): an unobserved bot whose goal has no route is put on the goal by arriveCoarse (the b344 proof run
+     * reached 280010110's key this way). Behaviour is unchanged for now; each such snap is counted in the stuck log
+     * (COARSE_SNAP, at the goal, edge "COARSE_SNAP <why> <caller>") so the TEST soak can size the 1.6.7 change. A
+     * same-region arrival is not a snap and is not counted.
+     */
+    static void noteCoarseSnap(BotMovementState entry, Character bot, BotNavigationGraph graph, Point target) {
+        String why = MovementPlan.snapWhy(graph, bot.getMap(), bot.getPosition(), target);
+        if (why != null) {
+            NavStuckLog.record(NavStuckLog.Kind.COARSE_SNAP, bot.getMapId(), target, graph,
+                    "COARSE_SNAP " + why + " " + snapCaller(entry));
+        }
+    }
+
+    /* Who set the goal: the GCMovement.move caller, else the movement state's own source. */
+    static String snapCaller(BotMovementState entry) {
+        if ("gcmove".equals(entry.moveTargetSource) && entry.moveTargetCaller != null) {
+            return entry.moveTargetCaller;
+        }
+        if (entry.following) {
+            return "follow";
+        }
+        if (entry.farmAnchor != null) {
+            return "farm";
+        }
+        return entry.moveTargetSource != null ? entry.moveTargetSource : "other";
     }
 
     /*
