@@ -704,6 +704,21 @@ class PickupTest(NewToolsTest):
             self.d.pickup_item(4001018)
         self.assertEqual('taken_by_other (picker 99)', str(caught.exception))
 
+    def test_pickup_says_which_drop_it_took(self):
+        # qa-pickup-nearest (1.6.6): the client takes the nearest matching drop and says where it was.
+        self.d.qa = FakeQa([{'ev': 'item.picked', 'item': 4001022, 'oid': 501, 'ok': True, 'type': 4, 'slot': 2,
+                             'x': 10, 'y': 130, 'distance': 10}])
+        self.assertEqual({'picked': True, 'item': 4001022, 'oid': 501, 'type': 4, 'slot': 2, 'x': 10, 'y': 130,
+                          'distance': 10}, self.d.pickup_item(4001022))
+
+    def test_a_drop_out_of_the_servers_range_is_named(self):
+        # LPQ run lpq-stage1-handin-20261108T053234Z: the only drop was a monster's 1600 px up; the server ignores it.
+        self.d.qa = FakeQa([{'ev': 'item.picked', 'item': 4001022, 'ok': False, 'error': 'out_of_range',
+                             'x': 212, 'y': -1499, 'distance': 1642}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.pickup_item(4001022)
+        self.assertEqual('out_of_range (nearest drop at 212,-1499, 1642 px away)', str(caught.exception))
+
     def test_no_answer_is_a_timeout(self):
         self.d.qa = FakeQa([])
         with self.assertRaises(self.driver.Refusal) as caught:
