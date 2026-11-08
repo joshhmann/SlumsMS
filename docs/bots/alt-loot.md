@@ -72,8 +72,10 @@ the town stop), so the mesos are exactly what today's junk sale gives and no pri
 
 After an alt loots an equip that `GearUpgrades` scores as an upgrade for its **owner** (or a sibling alt), it says
 once: "found a <item>, better than yours, want it?". One offer per `CompanionUpgradeOffer.OFFER_GAP_MS` (2 min), the
-same item is never offered twice, and `offers off` silences it (`CompanionSettings.offers`). On the owner's "yes" the
-item goes over in a normal trade window (`BotGiveTrade`).
+same item is never offered twice, and `offers off` silences it (`CompanionSettings.offers`). The owner answers in party
+chat: a plain "yes", "ok" or "sure" (the whole line) hands the item over in a normal trade window (`BotGiveTrade`);
+"no" or "later" drops the offer, and anything else is ordinary chat and leaves it waiting until the 2-minute offer
+expires.
 
 ### 4. A regular is unchanged with the defaults
 
@@ -104,7 +106,9 @@ loots exactly as it does today with the default switches, and the mode applies t
     one is, and `offers off` says nothing.
 - `CompanionLootChatTest` - `@alts loot everything` (and "jane loot everything") parses, saves and answers;
   `sell junk`, `sell junk equips too` and `offers off` parse; a regular with the defaults is unchanged and reads them
-  with `-Dslums.companion.loot.regulars=true`.
+  with `-Dslums.companion.loot.regulars=true`; `theOwnersYesHandsTheOfferedPieceOver` - a "yes" said in party chat
+  with an offer waiting is answered and consumed (the piece changes hands) rather than read as an order;
+  `ordinaryChatDoesNotTouchAnOffer` - any other line leaves the offer waiting.
 - `CompanionCardMenuTest.theLootLineFlipsThroughTheModes` - the card's line names the mode in force and a click saves
   the next one.
 - `CompanionLootModeTest.aRegularIsUnchangedUntilTheSwitchIsOnAndAModeIsSaved` - a regular with the default switches
