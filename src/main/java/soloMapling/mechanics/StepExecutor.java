@@ -164,6 +164,32 @@ final class StepExecutor {
     /** b344d/b357: how much closer to the reactor (px) than its best so far a bot must be to count as getting there. */
     static final int ROUTE_CLOSER_PX = 20;
 
+    /**
+     * Observe-only feed line, in the wording of Server Dev's boss-feed-lines plan: a run bot picked up the big chest's
+     * Fire Ore. Null for anything else, or when nothing was picked up. Said once (the caller keeps the flag).
+     */
+    static String fireOreLine(String name, int itemId, int before, int after, String tag) {
+        if (itemId != ZakumMinesSolver.FIRE_ORE || after <= before) {
+            return null;
+        }
+        return "RUN zakumpq fire ore " + itemId + " looted by " + name + tag;
+    }
+
+    /** The run tag every RUN stage line carries: " [zakumpq, leader X]" (MechanicsRuns.tagged). */
+    static String runTag(RunState run, LiveStageView view) {
+        if (run == null) {
+            return "";
+        }
+        String leaderName = null;
+        for (RunMember m : run.members()) {
+            if (m.leader() && view != null) {
+                Character c = view.character(m.characterId());
+                leaderName = c == null ? null : c.getName();
+            }
+        }
+        return " [" + run.content().id() + (leaderName == null ? "" : ", leader " + leaderName) + "]";
+    }
+
     void forget(int botId) {
         beats.remove(botId);
     }
@@ -172,10 +198,21 @@ final class StepExecutor {
                  Consumer<String> log) {
         Beat beat = beats.computeIfAbsent(bot.getId(), id -> new Beat());
         beat.run = run; // b365: the hit guard reads the stage's written exception and who is in the run
+        if (view != null && view.stage() != null
+                && view.stage().hitReactors().contains(ZakumMinesSolver.BIG_CHEST)) { // observe-only feed line
+            int placer = ZakumMinesSolver.placerId(view);
+            Character by = placer > 0 ? view.character(placer) : null;
+            String opened = ZakumMinesSolver.chestOpenedLine(view, by == null ? "?" : by.getName(),
+                    run == null || run.startedMs() <= 0 ? 0 : Math.max(0, (now - run.startedMs()) / 1000),
+                    runTag(run, view));
+            if (opened != null) {
+                log.accept(opened);
+            }
+        }
         switch (step) {
             case SolverStep.MoveTo m -> moveNear(bot, beat, m.x(), m.y(), 30, now);
             case SolverStep.Fight f -> fight(view, bot, beat, f, now, log);
-            case SolverStep.Loot l -> loot(view, bot, beat, l.itemId(), now);
+            case SolverStep.Loot l -> loot(run, view, bot, beat, l.itemId(), now, log);
             case SolverStep.TakeBack t -> takeBack(view, bot, beat, t, now, log);
             case SolverStep.TalkNpc t -> talk(run, orchestrator, view, bot, beat, t, now, log);
             case SolverStep.TalkNpcAt t -> talkAt(run, orchestrator, view, bot, beat, t, now, log);
@@ -640,7 +677,8 @@ final class StepExecutor {
         return best;
     }
 
-    private void loot(LiveStageView view, Character bot, Beat beat, int itemId, long now) {
+    private void loot(RunState run, LiveStageView view, Character bot, Beat beat, int itemId, long now,
+                      Consumer<String> log) {
         MapleMap map = bot.getMap();
         if (map == null) {
             return;
@@ -663,7 +701,14 @@ final class StepExecutor {
             }
         }
         if (best != null) {
+            boolean ore = best.getMeso() <= 0 && best.getItemId() == ZakumMinesSolver.FIRE_ORE;
+            int before = ore ? bot.getItemQuantity(ZakumMinesSolver.FIRE_ORE, false) : 0;
             pickUp(bot, beat, best, now);
+            String line = ore ? fireOreLine(bot.getName(), ZakumMinesSolver.FIRE_ORE, before,
+                    bot.getItemQuantity(ZakumMinesSolver.FIRE_ORE, false), runTag(run, view)) : null;
+            if (line != null && view.stageMemory().putIfAbsent("fireOreSaid", Boolean.TRUE) == null) {
+                log.accept(line);
+            }
         }
     }
 

@@ -9,9 +9,10 @@
 # b344 (6 Nov): some rooms are ONE-WAY - 280010050's only door goes to the hub, as do the ore wing's door 280011000's
 # and 280010070's - so the 040 -> 041 -> 050 wing is walked through and out to the hub, never back, and the wing
 # returns to the hub from its own door. MechanicsRowWzIntegrityTest checks every walked clear is one real door away.
-# A regenerate must keep that order. Known limit (Coordinator, B7): zero margin - an ore a player takes, or ores
-# split across two bots' bags, stalls the run at the big chest: the miner waits for ore, which the b344c no-progress
-# guard does not count as a stall (a waiting bot is not a busy one), so only the PQ's own 30 minutes end it (no crash,
+# A regenerate must keep that order. Known limit (Coordinator, B7), 1.6.6 zpq-stage33-bigchest: zero margin - the
+# chest takes ONE drop of exactly seven, so keys split across regulars' bags are pooled on the regular holding most
+# (ZakumMinesSolver.carrier, the DropFor hand-over), and a party still short (a key a player took) gives the stage up
+# after ZakumMinesSolver.KEY_WAIT_MAX_MS (3 min) instead of waiting out the PQ's 30 minutes (no crash,
 # no loss). b344c: a bot that is busy and changes nothing for 3 minutes, or has no route to its rock, gives the stage
 # up and leaves the PQ to the players (Orchestrator.NO_PROGRESS_MS, StepExecutor.checkRoute).
 # The walk is the row: the maze is a hub (280010000) with fifteen numbered doors and a wing (280011000) behind two of
