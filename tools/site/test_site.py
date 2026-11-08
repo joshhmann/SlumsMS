@@ -128,7 +128,9 @@ class SiteBuildTest(unittest.TestCase):
             flat = " ".join(f.read().split())
         self.assertIn("grab that one yourself", flat)
         self.assertNotIn("Haste", flat)
-        self.assertIn("Horntail can no longer end before all its parts are down", flat)
+        self.assertIn("Horntail now only counts as cleared once every part is down", flat)
+        self.assertIn("Your alts now fight in Horntail&#x27;s two head rooms too.", flat)
+        self.assertIn("07:21 UTC on November 8", flat)
         self.assertIn('href="../../guide/bosses"', flat)
         self.assertTrue(os.path.isfile(os.path.join(self.out, "guide", "bosses.html")))
         for bad in ("MapleStory", "Nexon", "Wizet", "GMS", "v83", "MapleRoot"):
