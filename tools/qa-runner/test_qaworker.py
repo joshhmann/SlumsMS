@@ -160,6 +160,12 @@ class WorkerCallsTest(unittest.TestCase):
         self.assertEqual([('jump', {'dir': 'right', 'catch': 1, 'run_ms': 300, 'hold_ms': 800}),
                           ('jump', {'dir': 'none', 'catch': 0, 'run_ms': 0, 'hold_ms': 800})], transport.calls)
 
+    def test_position_calls_the_position_tool(self):
+        # qa-position-signal (1.6.6): gm-0 scripts learn where the character is from the QA client, not from !pos.
+        worker, transport = self.make()
+        self.assertEqual('ok', worker.send('me', {'do': 'position'})['result'])
+        self.assertEqual([('position', {})], transport.calls)
+
     def test_a_step_the_build_cannot_play_is_refused_not_skipped(self):
         worker, transport = self.make()
         for step, word in (({'do': 'jump', 'dir': 'right', 'double': True}, 'double'),

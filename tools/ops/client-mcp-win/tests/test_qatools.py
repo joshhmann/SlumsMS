@@ -312,6 +312,33 @@ if __name__ == '__main__':
     unittest.main()
 
 
+class PositionTest(NewToolsTest):
+    # qa-position-signal (1.6.6): gm-0 scripts cannot use !pos; the QA client says where the character is.
+    def test_position_is_the_clients_answer(self):
+        self.d.qa = FakeQa([{'ev': 'player.pos', 'ok': True, 'map_id': 103000800, 'x': -110, 'y': -846,
+                             'foothold': True, 'rope': False, 'ladder': False}])
+        self.assertEqual({'map_id': 103000800, 'x': -110, 'y': -846, 'foothold': True, 'rope': False, 'ladder': False},
+                         self.d.position())
+        self.assertEqual(['pos'], self.d.qa.sent)
+        self.assertEqual([], self.d.sender.events, 'position presses nothing')
+
+    def test_position_passes_the_client_error_on(self):
+        self.d.qa = FakeQa([{'ev': 'player.pos', 'ok': False, 'error': 'site_mismatch'}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.position()
+        self.assertEqual('site_mismatch', str(caught.exception))
+
+    def test_position_without_an_answer_is_field_not_ready(self):
+        self.d.qa = FakeQa([])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.position()
+        self.assertEqual('field_not_ready', str(caught.exception))
+
+    def test_position_is_a_script_tool_without_arguments(self):
+        self.assertIn('position', self.driver.SCRIPT_TOOLS)
+        self.assertEqual({}, self.driver.TOOLS['position'])
+
+
 class ClickNpcTest(NewToolsTest):
     def test_click_npc_clicks_where_the_client_says(self):
         self.d.qa = FakeQa([{'ev': 'npc.pos', 'npc': 9999, 'ok': True, 'x': 1, 'y': 1},
