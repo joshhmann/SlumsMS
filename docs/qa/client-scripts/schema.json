@@ -879,6 +879,10 @@
        "type": "string",
        "maxLength": 300
       },
+      "optional": {
+       "type": "boolean",
+       "description": "A refused pickup (the drop was taken by another picker, or nothing is on the floor) is recorded as tolerated and the script goes on; for loops that pick up whatever has landed (LPQ passes the regulars drop for the leader). Never for a check."
+      },
       "item": {
        "type": "integer",
        "minimum": 1000000,
