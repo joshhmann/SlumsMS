@@ -35,6 +35,8 @@ public class Randomizer {
     }
 
     public static int rand(final int lbound, final int ubound) {
-        return (int) ((rand.nextDouble() * (ubound - lbound + 1)) + lbound);
+        // Cosmic #261: cast before adding lbound; adding first made the (int) cast truncate a negative double toward
+        // zero, giving 0 extra mass and never reaching a negative lbound.
+        return ((int) (rand.nextDouble() * (ubound - lbound + 1))) + lbound;
     }
 }

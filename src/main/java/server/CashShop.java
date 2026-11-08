@@ -205,12 +205,20 @@ public class CashShop {
         }
 
         public static CashItem getRandomCashItem() {
-            if (randomitemsns.isEmpty()) {
+            // Cosmic #244: packages (910xxxx) are not real items and crash the client, so they are never in the pool.
+            List<CashItem> pool = new ArrayList<>();
+            for (int sn : randomitemsns) {
+                CashItem item = items.get(sn);
+                if (item != null && !ItemId.isCashPackage(item.getItemId())) {
+                    pool.add(item);
+                }
+            }
+            if (pool.isEmpty()) {
                 return null;
             }
 
-            int rnd = (int) (Math.random() * randomitemsns.size());
-            return items.get(randomitemsns.get(rnd));
+            int rnd = (int) (Math.random() * pool.size());
+            return pool.get(rnd);
         }
 
         public static CashItem getItem(int sn) {
