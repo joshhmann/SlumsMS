@@ -988,6 +988,12 @@ final class BotPhysicsEngine {
         launchAirborne(entry, bot, bot.getPosition(), -ropeJumpForcePerTick(entry.movementProfile), airVelX, true);
     }
 
+    /** v72: the real client's rope-to-rope kick, (±162, -277) px/s; see CLIENT_ROPE_KICK_VX_PXS. */
+    static void beginClientKickRopeHop(BotMovementState entry, Character bot, Rope sourceRope, int dir) {
+        entry.blockedRopeGrab = sourceRope;
+        launchAirborne(entry, bot, bot.getPosition(), clientRopeHopVelY(), Integer.signum(dir) * clientRopeHopStep(), true);
+    }
+
     static void beginDownJump(BotMovementState entry, Character bot) {
         if (!canStartDownJump(bot.getMap(), bot.getPosition())) {
             entry.downJumpPending = false;
@@ -3198,6 +3204,95 @@ final class BotPhysicsEngine {
         }
 
         return null;
+    }
+
+    // ── v72 (b356/b360): rope-to-rope hops with the real client's kick ──
+    // Client's trials on the real v83 client (TEST ch3, speed 100 / jump 100, no buffs, 2026-11-07; evidence in
+    // agent-runs/client/evidence/b360-reach): lateral rope-to-rope hops caught at 95, 98, 107, 108, 108 and 109 px,
+    // missed at 117. The widest catch is the reach; the graph stays a margin inside it. See docs/bots/v72-rope-hop.md.
+    static final int CLIENT_ROPE_HOP_REACH_PX = 109;
+    static final int ROPE_HOP_MARGIN_PX = 9;
+    static final int ROPE_HOP_MAX_GAP_PX = CLIENT_ROPE_HOP_REACH_PX - ROPE_HOP_MARGIN_PX;
+    /** The client's rope-jump kick (packets): ±162 px/s sideways, 277 px/s up. Every profile uses it (never more). */
+    static final float CLIENT_ROPE_KICK_VX_PXS = 162.0f;
+    static final float CLIENT_ROPE_KICK_VY_PXS = 277.0f;
+    /**
+     * The calibrated sim's air-grab half-width: catching 109 px on 680000000 needs at least ~9 px, missing 117 px on
+     * 324010000 needs under ~20 px (RopeHopReachTest). The engine's ROPE_GRAB_X (8) misses the 109 catch by < 1 px.
+     */
+    static final int CLIENT_ROPE_HOP_GRAB_X = 10;
+    private static final double CALIBRATED_SUBSTEP_S = 0.005;
+
+    /** The client kick's sideways step per engine tick (162 px/s -> 8 px per 50 ms tick). */
+    static int clientRopeHopStep() {
+        return Math.round(CLIENT_ROPE_KICK_VX_PXS * tickS());
+    }
+
+    /** The client kick's upward speed per engine tick, as a (negative) initial velY. */
+    static float clientRopeHopVelY() {
+        return -CLIENT_ROPE_KICK_VY_PXS * tickS();
+    }
+
+    /** Executor-faithful: the hop the executor flies (8 px/tick, the engine's own grab). Null when it misses. */
+    static Point simulateClientRopeHop(MapleMap map, Point from, int dir, Rope targetRope) {
+        return simulateRopeGrab(map, from, clientRopeHopVelY(), Integer.signum(dir) * clientRopeHopStep(), targetRope, 0L);
+    }
+
+    static int estimateClientRopeHopTimeMs(MapleMap map, Point from, int dir, Rope targetRope) {
+        return estimateRopeGrabTimeMs(map, from, clientRopeHopVelY(), Integer.signum(dir) * clientRopeHopStep(),
+                targetRope, 0L);
+    }
+
+    /**
+     * Calibrated against the real client (RopeHopReachTest): the client kick flown exactly (162 px/s, 5 ms sub-steps,
+     * the engine's gravity, fall cap and air collisions), caught within CLIENT_ROPE_HOP_GRAB_X of the rope. True when
+     * a real player hopping from {@code from} toward {@code targetRope} would catch it.
+     */
+    static boolean clientCatchesRopeHop(MapleMap map, Point from, int dir, Rope targetRope) {
+        if (map == null || from == null || targetRope == null || dir == 0) {
+            return false;
+        }
+        double dt = CALIBRATED_SUBSTEP_S;
+        double vx = Integer.signum(dir) * CLIENT_ROPE_KICK_VX_PXS;
+        double vy = -CLIENT_ROPE_KICK_VY_PXS;
+        double g = cfg.GRAVITY_PXS2;
+        double maxFall = cfg.MAX_FALL_PXS;
+        double x = from.x;
+        double y = from.y;
+        int prevX = from.x;
+        int prevY = from.y;
+        final int floorY = mapFloorY(map);
+        final int moverZMass = moverZMassAt(map, from);
+        int maxSteps = (int) Math.ceil(FALL_SIM_TICK_CAP * tickS() / dt);
+        for (int i = 0; i < maxSteps; i++) {
+            if (Math.abs(Math.round(x) - targetRope.x()) <= CLIENT_ROPE_HOP_GRAB_X
+                    && Math.round(y) >= firstClimbableY(targetRope) && Math.round(y) <= targetRope.bottomY()) {
+                return true;
+            }
+            x += vx * dt;
+            y += vy * dt + 0.5 * g * dt * dt;
+            vy = Math.min(vy + g * dt, maxFall);
+            int ix = (int) Math.round(x);
+            int iy = (int) Math.round(y);
+            AirCollision collision = resolveAirCollision(map, new Point(prevX, prevY), new Point(ix, iy), moverZMass);
+            if (collision.type() == AirCollisionType.WALL) {
+                x = collision.point().x;
+                y = collision.point().y;
+                vx = 0;
+            } else if (collision.type() == AirCollisionType.CEILING) {
+                x = collision.point().x;
+                y = collision.point().y;
+                vy = 0;
+            } else if (collision.type() == AirCollisionType.LAND) {
+                return false;
+            }
+            if (Math.round(y) > floorY) {
+                return false;
+            }
+            prevX = (int) Math.round(x);
+            prevY = (int) Math.round(y);
+        }
+        return false;
     }
 
     static Point simulateRopeGrab(MapleMap map, // package-private for RopeHopReachTest (v72 groundwork)

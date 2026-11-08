@@ -2,6 +2,7 @@
 # Reported to the Coordinator, not fixed. PqBossReachTest fails on a new cage and on a listed cage that opened (take it off).
 # 1.6.6 nav-cages-triage: the probe takes scripted in-map doors (MazeWalk); 1,846 -> 512, none added.
 # Regenerate: run PqBossReachTest with -Dwz-path, then copy the non-# lines of target/nav-reach-report.txt (key before '    #').
+# 1.6.6 v72 (b356/b360 rope hops with the client kick): 512 -> 505, the 7 Zakum PQ 280010110 lines opened, none added.
 103000804 from in00_1 to npc 9020002 @(-2,-2715)
 103000804 from in00 to npc 9020002 @(-2,-2715)
 103000804 from in01_1 to npc 9020002 @(-2,-2715)
@@ -12,13 +13,6 @@
 280010011 from east01 to reactor 2112009 @(-308,440)
 280010011 from sp to reactor 2112009 @(-308,440)
 280010011 from west00 to reactor 2112009 @(-308,440)
-280010110 from east00 to reactor 2111000 @(-688,139)
-280010110 from east00 to reactor 2112004 @(-511,142)
-280010110 from east00 to reactor 2118001 @(35,142)
-280010110 from sp to reactor 2111000 @(-688,139)
-280010110 from sp to reactor 2112004 @(-511,142)
-280010110 from sp to reactor 2118001 @(35,142)
-280010110 from west00 to reactor 2118001 @(35,142)
 541010100 from sp to npc 9270033 @(283,-79)
 610030300 from next00 to reactor 6109002 @(322,-789)
 610030300 from next00 to reactor 6109003 @(982,-1209)

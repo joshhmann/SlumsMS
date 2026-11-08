@@ -56,7 +56,9 @@ public final class NavStuckLog {
         /** Swam against something without getting closer to the next swim waypoint (ticket 34). */
         SWIM_STUCK,
         /** Stood in a pit with no way back to the map's exits until the pit rescue put it back (b109). */
-        PIT
+        PIT,
+        /** v72: a rope-to-rope jump landed instead of grabbing its target rope (edge = from/to rope, gap, kick). */
+        ROPE_HOP_MISS
     }
 
     static final int SPOT_PX = 50;
