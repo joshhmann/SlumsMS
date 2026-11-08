@@ -642,6 +642,12 @@ class Store:
             return self.add_cards(s, body)
 
     def hint(self, s, body):
+        """What the page gets: the hint without the card id, because every card id is its typed word."""
+        out = dict(self.hint_card(s, body))
+        out.pop("card", None)
+        return out
+
+    def hint_card(self, s, body):
         """One hint step for a card this account has NOT found: the clue, then the page, then the word with its last
         letter always hidden. The answers stay here (HINTS), so the page source never carries them. Rate limits live in
         sqlite, so they hold across restarts."""

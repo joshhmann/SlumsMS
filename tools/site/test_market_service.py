@@ -319,7 +319,7 @@ class HintTest(Base):
         self.store = ms.Store(os.path.join(self.tmp, "m.db"), self.inbox, self.outbox, self.store.items, self.clock)
 
     def hint(self, who="cap", s=None):
-        return self.store.hint(self.me if s is None else s, {"who": who})
+        return self.store.hint_card(self.me if s is None else s, {"who": who})
 
     def test_the_steps_go_clue_then_page_then_letters(self):
         card = self.CAP[0]
@@ -339,6 +339,18 @@ class HintTest(Base):
         self.assertEqual((out["card"], out["step"]), (card, 4))
         self.assertIn(ms.hidden(ms.HINTS[card]["word"], 2), out["line"])
 
+    def test_what_the_page_gets_never_carries_the_card_id_or_word(self):
+        # every card id is its typed word, so the public call must not name the card (found on TEST 2026-11-08)
+        for n, (card, h) in enumerate(ms.HINTS.items()):
+            me = {"a": 900 + n, "c": f"Pub{n}"}
+            self.store.found(me, {"ids": [c for c, x in ms.HINTS.items() if x["who"] == h["who"] and c != card]})
+            for step in range(1, 8):
+                self.clock.t += ms.HINT_GAP
+                out = self.store.hint(me, {"who": h["who"]})
+                self.assertEqual(set(out), {"step", "line"}, out)
+                self.assertNotIn(f'"{h["word"]}"', json.dumps(out))
+                self.assertNotIn(h["word"], out["line"])
+
     def test_no_step_ever_hands_out_the_whole_word(self):
         for n, (card, h) in enumerate(ms.HINTS.items()):
             with self.subTest(card=card):
@@ -346,7 +358,7 @@ class HintTest(Base):
                 self.store.found(me, {"ids": [c for c, x in ms.HINTS.items() if x["who"] == h["who"] and c != card]})
                 for step in range(1, 21):
                     self.clock.t += ms.HINT_GAP
-                    out = self.store.hint(me, {"who": h["who"]})
+                    out = self.store.hint_card(me, {"who": h["who"]})
                     self.assertEqual((out["card"], out["step"]), (card, step))
                     self.assertNotIn("word", out)                  # the key never ships, only the masked text
                     self.assertNotIn(h["word"], out["line"])       # the clue, page and mask never spell it
@@ -366,9 +378,9 @@ class HintTest(Base):
         for card in ("slums", "clicks"):
             for _ in range(2):  # clue, then page
                 self.clock.t += ms.HINT_GAP
-                self.store.hint(me, {"who": "cap"})
+                self.store.hint_card(me, {"who": "cap"})
             self.clock.t += ms.HINT_GAP
-            out = self.store.hint(me, {"who": "cap"})
+            out = self.store.hint_card(me, {"who": "cap"})
             self.assertEqual((out["card"], out["step"]), (card, 3))
             if card in ms.TYPED_CARDS:
                 self.assertIn(f"Try typing this: {ms.hidden(card, 1)}", out["line"])
@@ -546,9 +558,10 @@ class HttpTest(Base):
         self.assertEqual(self.call("POST", "/api/market/hint", {"who": "cap"}, headers={})[0], 403)
         st, body = self.call("POST", "/api/market/hint", {"who": "pia"})
         self.assertEqual(st, 200, body)
-        self.assertEqual((body["card"], body["step"]), (HintTest.PIA[0], 1))
-        self.assertEqual(body["line"], ms.HINTS[body["card"]]["clue"])
-        self.assertNotIn(ms.HINTS[body["card"]]["word"], body["line"])
+        self.assertEqual(body["step"], 1)
+        self.assertNotIn("card", body, "every card id is its typed word, so the page never gets it")
+        self.assertEqual(body["line"], ms.HINTS[HintTest.PIA[0]]["clue"])
+        self.assertNotIn(ms.HINTS[HintTest.PIA[0]]["word"], json.dumps(body))
         st, body = self.call("POST", "/api/market/hint", {"who": "nobody"})
         self.assertEqual(st, 400)
         self.assertIn("Slums-chan or as Pia", body["error"])
