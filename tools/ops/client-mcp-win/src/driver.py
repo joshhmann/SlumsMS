@@ -64,7 +64,8 @@ TOOLS = {
     'merchant_close': {},
     'fredrick_retrieve': {},
     # b344: picks up the newest drop of <item> on the field with the client's own pickup sender (QA build 15).
-    'pickup_item': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 5999999}},
+    'pickup_item': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 5999999},
+                    'count': {'type': 'integer', 'minimum': 1, 'maximum': 10}},
     # 1.6.5 GP4: the open NPC shop's own buy / sell / close packets (QA build 16). A sell without a quantity (0) sells
     # every stack of the item.
     'shop_buy': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 5999999},
@@ -1122,12 +1123,28 @@ class Driver:
             raise Refusal('%s (code %s)' % (event.get('error') or 'refused', event.get('code')))
         return {'retrieved': True, 'code': event.get('code')}
 
-    def pickup_item(self, item):
+    def pickup_item(self, item, count=1):
         """b344: picks up the drop of <item> nearest the character (qa-pickup-nearest, QA build 18b) through the client's
         own pickup sender (0x00A09118), the way a player's pickup key does. Passes only when the server's
         REMOVE_ITEM_FROM_MAP names this character as the picker; the answer says where the drop was. Errors: no_drop,
         out_of_range (the nearest drop is outside the server's 800 x 600 pickup box; it names that drop), taken_by_other
-        (with the picker), drop_gone, field_changed, site_mismatch, field_not_ready, timeout."""
+        (with the picker), drop_gone, field_changed, site_mismatch, field_not_ready, timeout.
+        qa-pickup-count (1.6.7): count N picks N drops one after another (the nearest each time) and answers
+        {picked: N, item, picks: [{oid, x, y, distance, ok}]}; a refusal at pick k stops there with
+        'picked k of N, then <error> | picks [...]'. count 1 answers as before."""
+        if count == 1:
+            return self.pickup_one(item)
+        picks = []
+        for _ in range(count):
+            try:
+                one = self.pickup_one(item)
+            except Refusal as error:
+                raise Refusal('picked %d of %d, then %s | picks %s' % (len(picks), count, error, json.dumps(picks)))
+            picks.append({'oid': one.get('oid'), 'x': one.get('x'), 'y': one.get('y'),
+                          'distance': one.get('distance'), 'ok': True})
+        return {'picked': count, 'item': item, 'picks': picks}
+
+    def pickup_one(self, item):
         pipe = self.need_qa()
         pipe.send('pickup_item %d' % item)
         event = pipe.wait('item.picked', 12)

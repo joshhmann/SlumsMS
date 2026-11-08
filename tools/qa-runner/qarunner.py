@@ -512,6 +512,8 @@ class SilviaWorker:
             name, arguments = "fredrick_retrieve", {}
         elif kind == "pickup_item":   # b344: the newest drop of that item, picked up by the client's own sender
             name, arguments = "pickup_item", {"item": step["item"]}
+            if int(step.get("count", 1)) > 1:   # qa-pickup-count (1.6.7): that many drops, one after another
+                arguments["count"] = int(step["count"])
         elif kind in ("shop_buy", "shop_sell"):   # 1.6.5 GP4: the open NPC shop (shop_sell without quantity: all)
             name, arguments = kind, {"item": step["item"], "quantity": step.get("quantity", 0)}
         elif kind == "shop_close":
@@ -536,7 +538,7 @@ class SilviaWorker:
         text = "\n".join(answer.get("text") or []).strip()
         if answer.get("isError"):
             return {"result": "refused", "detail": text}
-        return {"result": "ok", "detail": text[:200]}
+        return {"result": "ok", "detail": text[:2000] if kind == "pickup_item" else text[:200]}   # every pick's answer
 
     def wait_signal(self, alias, name, timeout_s, extra):
         """The next event named `name` within timeout_s, or None; the pipe closing fails the wait at once."""
@@ -912,7 +914,7 @@ class Run:
         r = self.worker.send(alias, self.prepared(step, alias)) or {}
         if r.get("result", "ok") != "ok":
             raise RunFailed("%s refused: %s" % (kind, r.get("detail", "")), "refused")
-        if kind in ("position", "walk_to", "climb") and r.get("detail"):
+        if kind in ("position", "walk_to", "climb", "pickup_item") and r.get("detail"):
             entry["detail"] = r["detail"]   # where the character is: QA reads it from the manifest, not the outbox
 
     def wait(self, i, step, alias, entry):
