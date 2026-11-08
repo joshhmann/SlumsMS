@@ -201,19 +201,47 @@ public final class BotBuffEffects {
         if (shown.isPartyBuff()) {
             List<Character> members = nearbyPartyMembers(bot);
             StatEffect real = handOutEffect(bot, skillId);
-            if (real != null && !paid && anyRealPlayer(members) && !payFor(bot, skillId)) {
-                real = null;   // no MP: party-member bots see it, players get nothing
+            // 1.6.7 regular-buffs-real: the caster of a party buff holds it too, as a player's own cast does, and it is
+            // one more target a real cast is paid for
+            boolean self = real != null && receivesRealBuff(bot, bot);
+            if (real != null && !paid && (self || anyRealReceiver(bot, members)) && !payFor(bot, skillId)) {
+                real = null;   // no MP: party-member bots see it, real players and companions get nothing
+            }
+            if (real != null && self) {
+                applyToSelf(bot, real);
             }
             applyToTargets(bot, real, skillId, members);
         }
         return shown.getDuration();
     }
 
-    private static boolean anyRealPlayer(Collection<Character> targets) {
+    /*
+     * 1.6.7 regular-buffs-real: whether this cast really reaches anyone - a real player, or a companion the policy
+     * lets a party buff land on. Only a cast that reaches someone is worth its MP.
+     */
+    private static boolean anyRealReceiver(Character caster, Collection<Character> targets) {
         for (Character c : targets) {
-            if (c != null && !BotHelpers.isBot(c)) return true;
+            if (c != null && (receivesRealBuff(caster, c) || !BotHelpers.isBot(c))) return true;
         }
         return false;
+    }
+
+    /*
+     * 1.6.7 regular-buffs-real: whether a party buff cast by {@code caster} is registered on {@code target}. A real
+     * player always gets it; a bot only when it is a companion the policy allows (an owned alt by default, party
+     * regulars with -Dslums.companion.buffs.regulars=true). Any other bot keeps the cosmetic aura.
+     */
+    static boolean receivesRealBuff(Character caster, Character target) {
+        if (target == null) return false;
+        if (!BotHelpers.isBot(target)) return true;
+        return soloMapling.ArtificialPlayer.BotPartySystem.PartyCompanionPolicy.on(
+                soloMapling.ArtificialPlayer.BotPartySystem.PartyCompanionPolicy.Feature.REAL_BUFFS, target);
+    }
+
+    /* A party buff the caster registers on itself, as the primary branch of a player's cast does. */
+    private static void applyToSelf(Character bot, StatEffect effect) {
+        effect.applyToTarget(bot, bot);
+        showReceivedBuff(bot, effect.getSourceId());
     }
 
     /*
@@ -248,11 +276,13 @@ public final class BotBuffEffects {
     private static void applyToTargets(Character bot, StatEffect effect, int skillId, Collection<Character> targets) {
         for (Character target : targets) {
             if (target == null || target == bot) continue;
-            if (BotHelpers.isBot(target)) {
-                showBuff(target, skillId);            // party-member bots stay cosmetic
+            if (BotHelpers.isBot(target) && !receivesRealBuff(bot, target)) {
+                showBuff(target, skillId);            // a bot the policy leaves out stays cosmetic
             } else if (effect != null) {
-                effect.applyToTarget(bot, target);    // real player gets the working buff
+                effect.applyToTarget(bot, target);    // a real player or an allowed companion gets the working buff
                 showReceivedBuff(target, skillId);    // + the "received a party buff" particle
+            } else {
+                showBuff(target, skillId);            // unpaid: nothing working to hand anyone
             }
         }
     }
@@ -339,8 +369,9 @@ public final class BotBuffEffects {
     }
 
     /*
-     * Ticket 161: whether a real party member in reach has lost (or never got) this buff - judged by the buff's first
-     * stat on the member. Only real players count: a bot partner's buff is a picture.
+     * Ticket 161: whether a party member in reach has lost (or never got) this buff - judged by the buff's first stat on
+     * the member. 1.6.7 regular-buffs-real: a companion the policy lets the buff land on counts too, so a dispelled alt
+     * gets its recast; any other bot partner's buff is still only a picture.
      */
     public static boolean partyMemberLacks(Character bot, int skillId) {
         Skill skill = skill(skillId);
@@ -348,7 +379,7 @@ public final class BotBuffEffects {
         if (effect == null || effect.getStatups().isEmpty() || !effect.isPartyBuff()) return false;
         client.BuffStat stat = effect.getStatups().get(0).getLeft();
         for (Character member : nearbyPartyMembers(bot)) {
-            if (!BotHelpers.isBot(member) && member.isAlive() && member.getBuffedValue(stat) == null) {
+            if (receivesRealBuff(bot, member) && member.isAlive() && member.getBuffedValue(stat) == null) {
                 return true;
             }
         }
