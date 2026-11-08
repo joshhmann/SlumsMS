@@ -1,0 +1,36 @@
+# TEST vs live -D flag differences that are allowed (tools/ops/flag-parity). One per line:
+#   test-only <flag>   TEST runs it, live does not, by design
+#   live-only <flag>   live runs it, TEST does not, by design
+#   value     <flag>   both run it with different values (per-host ids, ports, paths)
+# A release's own live changes (the conf's UNIT_EDITS / UNIT_FLAGS_ABSENT) are not listed here; the tool reads the conf.
+# Anything that changes game behaviour does NOT belong here: match TEST to live instead (Coordinator, 2026-11-08).
+
+# QA plumbing on TEST
+test-only slums.qa                  # the !qa suite
+test-only slums.qa.feed             # QA event feed for the client runner
+test-only slums.autoqa              # auto-QA runs
+test-only slums.autoqa.parallel     # auto-QA lanes
+test-only slums.client.allowQa      # the QA client's stamp
+test-only slums.attackcapture       # attack packet capture for QA
+test-only slums.socialtrace         # social act trace for t-sa checks
+
+# live-only debug APIs (TEST reads them through its own QA tools)
+live-only slums.inspect             # bot inspect API (TEST has the port and secret path but not the switch)
+live-only slums.killcalib           # kill-rate calibration log
+
+# per-host values: ids in each host's DB, ports, file and folder paths
+value mapleroot.login-port
+value mapleroot.channel-base-port
+value solomapling.template-id       # template character id in each DB
+value slums.exchange.houseAccount   # house account id in each DB
+value solomapling.dashboard.dir
+value solomapling.dashboard.periodSeconds  # TEST snapshots every 30 s for the soak, live every 60 s
+value solomapling.reportsFile
+value slums.auth.port
+value slums.auth.secretFile
+value slums.auth.revoked
+value slums.inspect.port
+value slums.inspect.secretFile
+test-only slums.weblogin.dir        # TEST site's approvals folder (live's site uses the revoked.txt folder)
+test-only slums.board.inbox         # TEST site board folders (live uses the defaults under /var/lib/slums-market)
+test-only slums.board.outbox
