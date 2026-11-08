@@ -6,11 +6,14 @@ import net.server.world.PartyCharacter;
 import server.life.Monster;
 import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
+import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile;
 import soloMapling.ArtificialPlayer.BotGrindSystem.KsManners;
 import soloMapling.ArtificialPlayer.BotHelpers;
 import soloMapling.ArtificialPlayer.BotPartySystem.CompanionStance;
+import soloMapling.ArtificialPlayer.BotTypes.FollowerFight;
 
 import java.awt.Point;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -255,6 +258,30 @@ public final class OwnedAltCombat {
     }
 
     /**
+     * 1.6.7 companion-shared-picker: the pickers' sort keys beyond distance, in one place, for the cards that follow
+     * this one. {@link #ranksBefore} asks it first and falls back to the nearest mob; a negative result puts {@code a}
+     * first. Returning 0, which it does today, keeps every pick exactly what it was. The assist card and the boss
+     * kill-order card plug in here instead of adding another rule to either caller.
+     */
+    public static volatile Comparator<Monster> priority = (a, b) -> 0;
+
+    /**
+     * 1.6.7 companion-shared-picker: the one ranking rule both pickers share - {@link #target} for an owned alt beside
+     * its owner and {@link #targetInRun} inside a run - so a later sort key (assist, kill order) reaches both at once.
+     * The {@link #priority} keys first, then the mob nearest the bot; ties keep the earlier candidate in map order, as
+     * the distance-only rule always did.
+     */
+    static boolean ranksBefore(Monster a, Monster b, Point at) {
+        int p = priority.compare(a, b);
+        return p != 0 ? p < 0 : at.distanceSq(a.getPosition()) < at.distanceSq(b.getPosition());
+    }
+
+    /** A mob a picker may even look at: alive, with a position, and one a swing may target (never a friendly PQ mob). */
+    private static boolean usable(Monster m) {
+        return m != null && m.getPosition() != null && m.isAlive() && BotAttackDriver.botMayTarget(m);
+    }
+
+    /**
      * As {@link #target(Character, Character, Set, long)}, skipping the mobs {@code skip} names (ones it could not
      * land a hit on lately) and mobs on another ledge than the alt - by the attack driver's own surface test, so the
      * alt never stands at a mob the driver will not face (it follows instead).
@@ -272,35 +299,70 @@ public final class OwnedAltCombat {
             return null;
         }
         Monster best = null;
-        double bestSq = Double.MAX_VALUE;
         // 1.6.5 b311: the population followers' boss-part reach gate (FollowerFight, ticket 130 fix 2), same switch.
         // H1 run 2b: two flying Red Wyverns were the nearest engaged mobs and a melee Hero alt walked under them for
         // four minutes (STALL_MS, then GIVE_UP_MS, then the other one) and never swung at the head it could reach.
-        boolean reachGate = soloMapling.ArtificialPlayer.BotTypes.FollowerFight.reachGateOn();
-        soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile profile = null;
+        boolean reachGate = FollowerFight.reachGateOn();
+        BotAttackProfile profile = null;
         for (Monster m : map.getAllMonsters()) {
-            Point mp = m == null ? null : m.getPosition();
-            if (mp == null || !m.isAlive() || !BotAttackDriver.botMayTarget(m)) {
-                continue;
-            }
-            if (!withinLeash(m, owner, alt)) {
+            if (!usable(m) || !withinLeash(m, owner, alt)) {
                 continue;
             }
             if (!engaged(m, owner, alt, party, now) || skip.test(m) || !BotAttackDriver.onAttackableSurface(map, at, m)
                     || strangers(m, map, party, now)) {
                 continue;
             }
-            if (reachGate && soloMapling.ArtificialPlayer.BotTypes.FollowerFight.isBossPart(m)) {
+            if (reachGate && FollowerFight.isBossPart(m)) {
                 if (profile == null) {
                     profile = BotAttackDriver.primaryAttack(alt);
                 }
-                if (!soloMapling.ArtificialPlayer.BotTypes.FollowerFight.canGetInReach(map, at, m, profile)) {
+                if (!FollowerFight.canGetInReach(map, at, m, profile)) {
                     continue; // a part it can never get in reach of: the next-nearest instead
                 }
             }
-            double d = at.distanceSq(mp);
-            if (d < bestSq) {
-                bestSq = d;
+            if (best == null || ranksBefore(m, best, at)) {
+                best = m;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * 1.6.7 companion-shared-picker: the picker inside a run - a dojo floor, an expedition's run, the leader's party
+     * quest - where the whole instance is the party's fight, not one mob the party engaged beside its owner. The three
+     * rules that read an owned alt's place beside its owner are therefore off: the leash ({@link #withinLeash}), the
+     * "engaged" rule ({@link #engaged}) and the KS-manners "never a stranger's" rule ({@link #strangers}). Every filter
+     * the run path already applied stays: alive, {@link BotAttackDriver#botMayTarget},
+     * {@link BotAttackDriver#onAttackableSurface}, the boss-part reach gate when {@link FollowerFight#reachGateOn()},
+     * and the caller's {@code skip}. Ranked by {@link #ranksBefore}, so the assist and kill-order cards reach a run
+     * through this method alone.
+     *
+     * <p>Used by a party regular inside a run when
+     * {@code PartyCompanionPolicy.on(Feature.SHARED_PICKER, bot)} (off by default for regulars, so an ordinary run
+     * still picks {@code FollowerFight.nearest}).
+     */
+    public static Monster targetInRun(Character bot, java.util.function.Predicate<Monster> skip) {
+        MapleMap map = bot == null ? null : bot.getMap();
+        Point at = bot == null ? null : bot.getPosition();
+        if (map == null || at == null) {
+            return null;
+        }
+        boolean reachGate = FollowerFight.reachGateOn();
+        BotAttackProfile profile = null;
+        Monster best = null;
+        for (Monster m : map.getAllMonsters()) {
+            if (!usable(m) || skip.test(m) || !BotAttackDriver.onAttackableSurface(map, at, m)) {
+                continue;
+            }
+            if (reachGate && FollowerFight.isBossPart(m)) {
+                if (profile == null) {
+                    profile = BotAttackDriver.primaryAttack(bot);
+                }
+                if (!FollowerFight.canGetInReach(map, at, m, profile)) {
+                    continue;
+                }
+            }
+            if (best == null || ranksBefore(m, best, at)) {
                 best = m;
             }
         }
