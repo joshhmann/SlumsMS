@@ -42,6 +42,14 @@ public final class ZakumMinesSolver implements StageSolver {
      * reactor's drop 5 s after it lands ({@code MapleMap.activateItemReactors}); past this window the drop did not take.
      */
     static final long KEY_TAKE_WINDOW_MS = 10_000;
+    /**
+     * zpq-stage33-bigchest (1.6.6): how long the party may wait at a closed big chest for keys before the stage is given
+     * up and left to the players. The same 3 minutes as the no-progress guard ({@code Orchestrator.NO_PROGRESS_MS}),
+     * which never counts a waiting bot: QA 8 Nov waited 270 s on keys split 0/3/0/2/2 and only the PQ's 30 min ended it.
+     */
+    static final long KEY_WAIT_MAX_MS = 180_000;
+    private static final String WAIT_SINCE = "bigChestWaitSinceMs";
+    private static final String OPENED_SAID = "bigChestOpenedSaid";
 
     @Override
     public String id() {
@@ -104,7 +112,23 @@ public final class ZakumMinesSolver implements StageSolver {
             if (floor > 0 && placed instanceof Long at && view.nowMs() - at < KEY_TAKE_WINDOW_MS) {
                 return new SolverStep.Wait(1_500, "the chest takes the keys a few seconds after they land");
             }
+            // zpq-stage33-bigchest: the chest takes ONE drop of exactly seven, so keys split across regulars' bags are
+            // pooled on the one holding most (ties: lowest id), through the same hand-over KPQ passes use
+            // (PassHandover.mayTake keeps it the carrier's). A real player's keys are never asked for.
+            if (keys > 0 && floor <= 0) {
+                int carrier = carrier(view, mapId);
+                if (carrier > 0 && carrier != member.characterId()) {
+                    return new SolverStep.DropFor(KEY, keys, carrier, null);
+                }
+            }
             if (floor <= 0) {
+                Object since = view.stageMemory().putIfAbsent(WAIT_SINCE, view.nowMs());
+                long from = since instanceof Long at ? at : view.nowMs();
+                if (view.nowMs() - from >= KEY_WAIT_MAX_MS) {
+                    return new SolverStep.Abandon("the big chest on 280011005 still wants keys after "
+                            + KEY_WAIT_MAX_MS / 1000 + " s: the party has " + partyKeys(view) + " of the "
+                            + KEYS_NEEDED + " keys the big chest wants");
+                }
                 return new SolverStep.Wait(1_500, "this chest wants seven keys and I have " + keys
                         + ": the keys are in the rooms we have already walked");
             }
@@ -122,6 +146,63 @@ public final class ZakumMinesSolver implements StageSolver {
             return new SolverStep.Wait(2_000, "the room is spent: waiting at the door");
         }
         return new SolverStep.EnterPortalTo(next);
+    }
+
+    /** The regular on this map holding the most keys (ties: the lowest id); 0 when no regular here holds one. */
+    static int carrier(StageView view, int mapId) {
+        int best = 0;
+        int bestKeys = 0;
+        for (RunMember m : view.members()) {
+            if (!m.bot() || view.mapOf(m.characterId()) != mapId) {
+                continue;
+            }
+            int k = view.itemCount(m.characterId(), KEY);
+            if (k > bestKeys || k == bestKeys && k > 0 && m.characterId() < best) {
+                best = m.characterId();
+                bestKeys = k;
+            }
+        }
+        return best;
+    }
+
+    /** Keys the run's regulars hold between them (a real player's are his own and not counted). */
+    static int partyKeys(StageView view) {
+        int n = 0;
+        for (RunMember m : view.members()) {
+            if (m.bot()) {
+                n += view.itemCount(m.characterId(), KEY);
+            }
+        }
+        return n;
+    }
+
+    /**
+     * Observe-only feed line, in the wording of Server Dev's boss-feed-lines plan (one line per event, matched by
+     * work-62's stage-33 checker): the big chest left state 0, so the seven keys took and the Fire Ore dropped. Said
+     * once per stage; null otherwise and for every other room. {@code by}: who placed the keys; {@code afterS}: seconds
+     * since the run started; {@code tag}: the run tag, " [zakumpq, leader X]".
+     */
+    static String chestOpenedLine(StageView view, String by, long afterS, String tag) {
+        if (view == null || view.stage() == null || !view.stage().hitReactors().contains(BIG_CHEST)
+                || view.reactorState(BIG_CHEST) < 1
+                || view.stageMemory().putIfAbsent(OPENED_SAID, Boolean.TRUE) != null) {
+            return null;
+        }
+        return "RUN zakumpq big chest " + BIG_CHEST + " opened on " + view.stage().mapId() + " by " + by + " after "
+                + afterS + " s" + tag;
+    }
+
+    /** Who placed the keys on the big chest this stage (the latest placer), or 0. */
+    static int placerId(StageView view) {
+        int who = 0;
+        long latest = Long.MIN_VALUE;
+        for (java.util.Map.Entry<String, Object> e : view.stageMemory().entrySet()) {
+            if (e.getKey().startsWith("bigChestPlacedMs:") && e.getValue() instanceof Long at && at > latest) {
+                latest = at;
+                who = Integer.parseInt(e.getKey().substring("bigChestPlacedMs:".length()));
+            }
+        }
+        return who;
     }
 
     /** The hand-in stage is the one whose clear is the instance's, not a map's. */
