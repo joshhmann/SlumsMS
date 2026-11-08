@@ -121,9 +121,9 @@ class SiteBuildTest(unittest.TestCase):
         self.assertIn("Regulars in town no longer greet you with", flat)
 
     def test_165_notes_are_the_newest_and_carry_the_hotfix_and_the_zakum_line(self):
-        """1.6.5 is the newest release; its page has the corrected Zakum line (no Haste advice), the hotfix section,
+        """1.6.5's page has the corrected Zakum line (no Haste advice), the hotfix section,
         links to the guide's Zakum page, and no game-company words or bare ticket ids."""
-        self.assertEqual(self.rels[0]["version"], "1.6.5")
+        self.assertIn("1.6.5", [r["version"] for r in self.rels])
         with open(os.path.join(self.out, "patch-notes", "1.6.5", "index.html"), encoding="utf-8") as f:
             flat = " ".join(f.read().split())
         self.assertIn("grab that one yourself", flat)
@@ -137,6 +137,22 @@ class SiteBuildTest(unittest.TestCase):
         self.assertIn('href="../../guide/bosses"', flat)
         self.assertTrue(os.path.isfile(os.path.join(self.out, "guide", "bosses.html")))
         for bad in ("MapleStory", "Nexon", "Wizet", "GMS", "v83", "MapleRoot"):
+            self.assertNotIn(bad, flat)
+        self.assertIsNone(re.search(r"\bbots?\b", flat, re.I))
+
+    def test_166_notes_are_the_newest_and_claim_only_what_was_proven(self):
+        """1.6.6 is the newest release: the four lines, the two known issues, no Fredrick line, and the name rules."""
+        self.assertEqual(self.rels[0]["version"], "1.6.6")
+        with open(os.path.join(self.out, "patch-notes", "1.6.6", "index.html"), encoding="utf-8") as f:
+            flat = " ".join(f.read().split())
+        self.assertIn("including stage 6 and the big chest at stage 33", flat)
+        self.assertIn("Rope routes", flat)
+        self.assertIn("no longer stand frozen in the air off-screen", flat)
+        self.assertIn("every other throwing star and bullet", flat)
+        self.assertIn("turn down your party invites", flat)
+        self.assertIn("Orbis party quest, stage 6", flat)
+        self.assertNotIn("Fredrick", flat)
+        for bad in ("MapleStory", "Nexon", "Wizet", "GMS", "v83", "MapleRoot", "test server"):
             self.assertNotIn(bad, flat)
         self.assertIsNone(re.search(r"\bbots?\b", flat, re.I))
 
@@ -156,11 +172,12 @@ class SiteBuildTest(unittest.TestCase):
             self.assertIn(kept, flat)
 
     def test_whats_coming_is_a_dateless_plan_post_listed_in_the_news(self):
-        """/patch-notes/whats-coming/ says planned and may change, marks unproven work 'In testing', has no date, and is on the News list."""
+        """/patch-notes/whats-coming/ says planned and may change, moves shipped 1.6.6 work out, has no date, and is on the News list."""
         with open(os.path.join(self.out, "patch-notes", "whats-coming", "index.html"), encoding="utf-8") as f:
             flat = " ".join(f.read().split())
         self.assertIn("It is a plan, not a promise", flat)
-        self.assertIn("In testing.", flat)
+        self.assertIn("Shipped in 1.6.6", flat)
+        self.assertNotIn("In testing", flat)
         self.assertNotIn("Patch notes &middot;", flat)
         post = flat[flat.index('class="notes-head"'):flat.index("</main>")]  # the page itself, not Slums-chan's speech bubble
         self.assertIsNone(re.search(r"\b(20\d\d|Nov(ember)?\s+\d)", post))
