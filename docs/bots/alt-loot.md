@@ -89,8 +89,8 @@ loots exactly as it does today with the default switches, and the mode applies t
     own kill picked in MY_KILLS; a mob it never hit left; mesos and its needed quest items picked in every mode
     except NOTHING; etc junk left in LIKE_YOU;
   - `modesAreStoredAndReadBack` - the five chat words map to the five modes and back.
-- `OwnedAltLootTest.theDefaultModeLeavesTheOwnersDropsOnTheFloor` / `...lootEverythingTakesThemAgain` - with no saved
-  setting an alt leaves a party member's drop; with "everything" stored it takes it.
+- `OwnedAltLootTest.theDefaultModeLeavesTheOwnersDropsOnTheFloorAndEverythingTakesThemAgain` - with no saved setting
+  an alt leaves a party member's drop; with "everything" stored it takes it.
 - `CompanionSellJunkTest`:
   - `theProtectionListKeepsScrollsEquipsAndQuestItemsAndSellsEtcJunk` - the sale sells a junk ETC stack, keeps a
     scroll, an equip and a quest item;
@@ -102,10 +102,14 @@ loots exactly as it does today with the default switches, and the mode applies t
     nothing;
   - `theRateLimitHoldsAndTheToggleSilencesIt` - inside `OFFER_GAP_MS` a second item is not offered, after it a new
     one is, and `offers off` says nothing.
-- `CompanionLootChatTest` - `@alts loot everything` parses, saves and answers; `sell junk`, `sell junk equips too` and
-  `offers off` parse; a regular with the defaults is unchanged and reads them with the regulars switch on.
-- `GrindLootLootModeTest` - a regular with the default switches takes a drop its mode would skip (unchanged), and
-  with `-Dslums.companion.loot.regulars=true` and "nothing" stored it leaves it.
+- `CompanionLootChatTest` - `@alts loot everything` (and "jane loot everything") parses, saves and answers;
+  `sell junk`, `sell junk equips too` and `offers off` parse; a regular with the defaults is unchanged and reads them
+  with `-Dslums.companion.loot.regulars=true`.
+- `CompanionCardMenuTest.theLootLineFlipsThroughTheModes` - the card's line names the mode in force and a click saves
+  the next one.
+- `CompanionLootModeTest.aRegularIsUnchangedUntilTheSwitchIsOnAndAModeIsSaved` - a regular with the default switches
+  takes a drop its mode would skip (unchanged), and with `-Dslums.companion.loot.regulars=true` and "my kills" stored
+  it leaves that drop and takes only its own kill.
 
 ## What existing characters keep
 

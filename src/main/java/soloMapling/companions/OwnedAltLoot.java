@@ -1,6 +1,7 @@
 package soloMapling.companions;
 
 import client.Character;
+import client.inventory.Equip;
 import client.inventory.InventoryType;
 import client.inventory.Item;
 import constants.inventory.ItemConstants;
@@ -93,8 +94,13 @@ public final class OwnedAltLoot {
         if (!LootPicker.claimable(drop, id -> id == alt.getId() || party.contains(id), -1, now)) {
             return false; // a stranger's (or a drop nobody owns: a reactor's or an event's) - not the alt's to take
         }
-        return drop.getMeso() > 0 || drop.getItem() == null || drop.getQuest() <= 0
-                || alt.needQuestItem(drop.getQuest(), drop.getItem().getItemId());
+        if (!(drop.getMeso() > 0 || drop.getItem() == null || drop.getQuest() <= 0
+                || alt.needQuestItem(drop.getQuest(), drop.getItem().getItemId()))) {
+            return false; // a quest item none of its own quests needs: the player pickup rule refuses it too
+        }
+        // SlumsMS: 1.6.7 group D - the owner's loot mode for this alt, asked last so it only ever narrows. An alt with
+        // no saved choice picks up only its own kills (CompanionLootMode.of); with the switch off, everything.
+        return CompanionLootMode.allows(alt, drop);
     }
 
     /**
@@ -104,6 +110,38 @@ public final class OwnedAltLoot {
     static MapItem pick(Character alt, Character owner, Set<Integer> party, long now, java.util.Set<InventoryType> full,
                         boolean[] mesoFull) {
         return pick(alt, owner, party, now, full, mesoFull, d -> false);
+    }
+
+    /**
+     * SlumsMS: 1.6.7 group D - the equip this alt went for last, so the tick after it has it can offer it to its owner
+     * ({@link CompanionUpgradeOffer}). Kept here because this is the one place the alt's looting is seen (the
+     * companion's own tick picks through {@link #pick}).
+     */
+    private static final Map<Integer, MapItem> lastPick = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Tests only: forget the equips each alt went for. */
+    static void forgetLastPicks() {
+        lastPick.clear();
+    }
+
+    /**
+     * The equip the alt went for last tick: when it has it now, the owner is told once that it is better than what
+     * they wear. A drop it never got (a full bag, an unreachable one) is forgotten without a word.
+     */
+    private static void settleLastPick(Character alt, Character owner, MapItem next) {
+        MapItem before = lastPick.get(alt.getId());
+        if (before == null || before == next) {
+            return;
+        }
+        lastPick.remove(alt.getId());
+        if (!before.isPickedUp() || !(before.getItem() instanceof Equip piece)) {
+            return;
+        }
+        try {
+            CompanionUpgradeOffer.consider(alt, owner, piece, line -> OwnedAltOrders.say(alt, line));
+        } catch (RuntimeException | LinkageError e) {
+            // an offer is a nicety: it never stops the looting
+        }
     }
 
     /** As pick, leaving the drops {@code skip} names (ones it could not reach lately). */
@@ -117,7 +155,8 @@ public final class OwnedAltLoot {
         int x0 = Math.max(at.x - REACH_X_PX, op.x - OwnedAltCombat.LEASH_X_PX);
         int x1 = Math.min(at.x + REACH_X_PX, op.x + OwnedAltCombat.LEASH_X_PX);
         int range = (int) Math.ceil(Math.hypot(REACH_X_PX, SAME_LEDGE_DY));
-        return LootPicker.nearest(alt, new LootPicker.Reach(range, x0, x1, SAME_LEDGE_DY, SETTLE_MS), now, drop -> {
+        MapItem chosen = LootPicker.nearest(alt, new LootPicker.Reach(range, x0, x1, SAME_LEDGE_DY, SETTLE_MS), now,
+                drop -> {
             if (skip.test(drop) || !mayTake(alt, drop, party, now)) {
                 return false;
             }
@@ -134,6 +173,11 @@ public final class OwnedAltLoot {
             }
             return false;
         });
+        settleLastPick(alt, owner, chosen);
+        if (chosen != null && chosen.getItem() instanceof Equip) {
+            lastPick.put(alt.getId(), chosen); // the next tick knows whether it got it
+        }
+        return chosen;
     }
 
     /** Close enough to pick it up from where it stands (the bots' at-feet reach). */

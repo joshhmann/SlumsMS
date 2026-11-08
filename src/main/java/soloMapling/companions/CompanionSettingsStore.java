@@ -189,6 +189,22 @@ public final class CompanionSettingsStore {
 
     // ── what the bots read (memory only: no query in a tick) ──
 
+    /**
+     * The stored settings of this companion, whatever the {@link PartyCompanionPolicy.Feature#SETTINGS} switch says.
+     * Only for a field another feature owns (group D's loot mode, gated on {@code LOOT}): every behaviour the
+     * settings switch itself gates goes through {@link #of}.
+     */
+    public static CompanionSettings stored(Character companion) {
+        if (companion == null) {
+            return CompanionSettings.DEFAULT;
+        }
+        if (!loaded) {
+            requestLoad();
+        }
+        Entry entry = byCompanion.get(companion.getId());
+        return entry == null ? CompanionSettings.DEFAULT : entry.settings();
+    }
+
     /** The companion's settings, or the defaults - also the defaults when the feature is off for it. */
     public static CompanionSettings of(Character companion) {
         if (!PartyCompanionPolicy.on(PartyCompanionPolicy.Feature.SETTINGS, companion)) {
