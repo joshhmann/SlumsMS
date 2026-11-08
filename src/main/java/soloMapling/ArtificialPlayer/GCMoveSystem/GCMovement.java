@@ -880,6 +880,15 @@ public final class GCMovement {
         return st != null && st.inAir && !st.climbing;
     }
 
+    /**
+     * zpq-stage6-offgraph: {@link #isAirborne}, or held in the visible portal float (60 px over the floor for 1.5-2.1 s
+     * after a portal on an observed map). A route check taken now has no ground under the bot: no verdict.
+     */
+    public static boolean isAirborneOrFloating(Character bot) {
+        BotMovementState st = bot == null ? null : STATES.get(bot.getId());
+        return st != null && ((st.inAir && !st.climbing) || st.portalDropAtMs > 0L);
+    }
+
     // ours: a directional (arced) engage hop toward dx (-1 left / +1 right; 0 = vertical). Unlike
     // jumpInPlace (always vertical), a non-zero dx launches a real moving arc — the manager/physics
     // already carry the ±walkStep horizontal velocity. Used by the grind brain's jump-attack so

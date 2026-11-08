@@ -137,6 +137,8 @@ final class StepExecutor {
         double routeCheckDist = -1;
         /** b357: the reactor position {@link #routeCheckDist} was measured to; a new target starts a new best. */
         Point routeCheckTo;
+        /** zpq-stage6-offgraph: the map {@link #routeCheckTo} was checked on; another map starts the count again. */
+        int routeCheckMap = -1;
         /** b365: the run this bot's current step belongs to (for the item-reactor hit guard), or null. */
         RunState run;
         /** b365: when the guard last told the feed it refused a hit, so a refusal is one line, not one per tick. */
@@ -1219,6 +1221,12 @@ final class StepExecutor {
         if (now - beat.routeCheckedMs < ROUTE_CHECK_MS) {
             return;
         }
+        if (soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isAirborneOrFloating(bot)) {
+            // zpq-stage6-offgraph (TEST 8 Nov 04:25:52): in the air or in the portal float there is no ground under
+            // the bot, so the planner says "off the graph". No verdict, and the slot is not used: the next tick after
+            // it lands asks again
+            return;
+        }
         beat.routeCheckedMs = now;
         String reason;
         try {
@@ -1232,9 +1240,13 @@ final class StepExecutor {
         // stall is still caught by the no-progress window.
         Point at = bot.getPosition();
         double dist = at == null ? -1 : at.distance(rp);
-        if (!rp.equals(beat.routeCheckTo)) {
+        if (!rp.equals(beat.routeCheckTo) || bot.getMapId() != beat.routeCheckMap) {
             beat.routeCheckTo = new Point(rp);
+            beat.routeCheckMap = bot.getMapId();
             beat.routeCheckDist = -1;
+            // zpq-stage6-offgraph: the "no route" count is about this target on this map. One carried from the hub
+            // (or an earlier stage's rock) made the first check on the mine the second in a row
+            beat.noRouteTimes = 0;
         }
         boolean closer = dist >= 0 && beat.routeCheckDist >= 0 && dist < beat.routeCheckDist - ROUTE_CLOSER_PX;
         if (dist >= 0 && (beat.routeCheckDist < 0 || dist < beat.routeCheckDist)) {
