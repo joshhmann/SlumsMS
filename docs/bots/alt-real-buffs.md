@@ -60,7 +60,8 @@ A party buff cast by any bot reaches each party member in the buff box (BotBuffE
 - **Durations and cooldowns:** our Skill.wz values, unchanged. work-62 confirmed that the 3600 s durations are our own
   data, not a bake artefact. The existing recast cadence (BotBuffDriver.maintain) is unchanged.
   - The recast-on-lack rule (partyMemberLacks :345) also counts policy-allowed companions as members that can lack a
-    buff. Otherwise an alt never gets a recast after a dispel.
+    buff. Otherwise an alt never gets a recast after a dispel. It applies the same `isSharedBuff` gate as the cast,
+    so a self-only buff (Combo) is never "lacking" on a companion and never triggers a paid recast.
 - **Dispel (new, shared, in BotPartySupport):**
   - Who casts: a companion with Priest.DISPEL learned (Priest, Bishop), the policy on for the CASTER.
   - When: a party member in reach (player or policy-allowed companion) carries a dispellable disease. This server's
@@ -149,13 +150,14 @@ the GM commands are untouched. `BotDamage` is not edited: only tested. Per-alt t
 
 All of these are real, committed files; the fail-before and pass-after text for each is in REPORT-deepseek.md.
 
-- `RealBuffsTest` (10 tests, `soloMapling/ArtificialPlayer/BotAttackSystem`): an owned alt gets the real party buff at
+- `RealBuffsTest` (11 tests, `soloMapling/ArtificialPlayer/BotAttackSystem`): an owned alt gets the real party buff at
   the caster's level while a regular and a real player are unaffected; `-Dslums.companion.buffs.alts=false` and
   `-Dslums.companion.buffs.regulars=true` move the target set as documented; the caster registers its own party buff;
   a self-only buff (Crusader.COMBO) is never registered, and every one of the 30 `SELF_ONLY` ids stays off the caster
   even when its effect claims a whole-map box; no MP means nothing registered and the alt stays cosmetic; an
   alt-only reach still makes the caster pay; a companion that lost its buff asks for a recast through
-  `partyMemberLacks` while a regular never does; a registered Rage reaches `BotDamage.attacker` once and only once
+  `partyMemberLacks` while a regular never does, and a self-only buff is never lacking on a companion (no churn);
+  a registered Rage reaches `BotDamage.attacker` once and only once
   (100 WATK, the same as a cosmetic bot showing it — 120 would be the double count).
 - `BotPartyDispelTest` (9 tests): a priest alt dispels a SEALed member in reach, pays MP, and does not cast again
   inside `DISPEL_GAP_MS`; Heal wins when someone is under `HEAL_BELOW_PERCENT`; nothing diseased means no cast; a
