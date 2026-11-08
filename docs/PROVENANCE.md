@@ -529,3 +529,20 @@ Where our server's scripts disagree, the scripts win and the row follows them:
   in `Date().getDay()` order), the reactor id `2008006` and the three platform rectangles are read from our own
   `Map.wz/Map/Map9/920010400.img.xml`, `Reactor.wz/2008006.img.xml` and `Map.wz/Map/Map9/920010500.img.xml`; they appear
   only in the two tests above.
+
+### Boss-fight potion lines and the out-of-pots warning, 1.6.7 (branch `167-alt-supplies-in-boss-fights`, ticket 167), nutnnut/Cosmic `b684bf78588d50512bcd62db9bb7cb85e4f73829` (AGPL-3.0)
+
+Taken from `/root/work/research/Cosmic` (`https://github.com/nutnnut/Cosmic.git`), the bot autopot idea only:
+
+- `src/main/java/server/bots/BotManager.java` - `AUTOPOT_HP_THRESH = 0.7f` and `AUTOPOT_MP_THRESH = 0.5f`, the boss
+  lines our `CompanionSupplies.BOSS_HP_POT_AT` / `BOSS_MP_POT_AT` now use, and `POT_LOW_WARN = 100` / `POT_STOP = 10`
+  as the shape of "tell someone that the potions are running out" (our `WARN_AT = 10`).
+- `src/main/java/server/bots/BotPotionManager.java` - `setupAutopotForBot`, `computeAutopotChoice`, `PotionTier` and
+  `PotionRanking`, read for how their code ranks a bag's HP and MP potions before it sets a threshold.
+
+Changed in the port, all marked `// SlumsMS:` in
+`src/main/java/soloMapling/ArtificialPlayer/BotPartySystem/CompanionSupplies.java` and
+`src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/BotVitals.java`: the ratios are a boss-run override of our
+`BotVitals` lines (habit / 0.50 HP, 0.30 MP out in the world) rather than per-bot settings; the potion choice stays
+ours (`BotVitals.drink` uses `SupplyData.Recovery` and `BotHoldings`); and none of the keymap/keybinding and
+client-autopot-key code was taken, because our bots drink through `BotVitals.drink`, not a client autopot key.

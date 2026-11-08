@@ -40,17 +40,23 @@ Two causes in the code:
 
 ## Proof (each test fails before the change)
 
-- `CompanionSuppliesTest.bossRunDrinksAtHigherThresholds` - an owned alt at 65% HP with HP pots drinks in a boss
-  run; the same alt outside the run does not drink at 65% (today's 0.50 line). (a)
-- `CompanionSuppliesTest.bossRunDrinksManaOnTheAttackPath` - an owned alt at 45% MP in a boss run gets an MP potion
-  through `SwingSupply.prepare` + `commit` (the attack path), i.e. it never falls back to "no MP".
-- `CompanionSuppliesTest.warnsOnceAtTenAndOnceAtZero` - the warning is said once at `WARN_AT`, once at 0, and a
+All in `src/test/java/soloMapling/ArtificialPlayer/BotSupplySystem/CompanionSuppliesTest.java` (that package owns
+the `SupplyData` seam the potion data comes through), one boss run built for real through `ExpeditionHold`:
+
+- `inABossRunAnAltPotsAtSeventyPercentButOutsideOneOnlyUnderHalf` - an owned alt at 65% HP with HP pots drinks in a
+  boss run; the same alt outside the run does not drink at 65% (today's 0.50 line). (a)
+- `aBossRunAltDrinksManaOnItsAttackPath` - an owned alt at 45% MP in a boss run gets an MP potion through
+  `SwingSupply.prepare` + `commit` (the attack path), i.e. it never falls back to "no MP". (b)
+- `theOwnerIsToldOnceAtTenPotionsAndOnceWhenTheyAreGone` - the warning is said once at `WARN_AT`, once at 0, and a
   second top-up at the same level says nothing. (c)
-- `CompanionSuppliesTest.shortOfNamesAnEmptyManaUserAndSkipsAStockedOne` - `shortOf` names a 0-MP-pot MP job and
-  returns null for a well-stocked one. (d)
-- `ExpeditionBotsTest.shortfallNamesAShortMember` - the recruiter's text carries the member's line. (d)
-- `CompanionSuppliesTest.regularGetsNoneByDefaultAndAllWithTheSwitch` - a regular is unchanged with the defaults
-  and gets the boss thresholds and the warning with `-Dslums.companion.supplies.regulars=true`. (e)
+- `theRecruiterNamesTheMemberThatWillFightWithoutManaPotions` - the recruiter's text carries "Second has no mana
+  potions." for a member with 0 MP pots and an MP job, and says nothing about a stocked one. (d)
+- `aRegularKeepsTheOldLinesUntilTheRegularSwitchIsOn` - a regular is unchanged with the defaults and gets the boss
+  threshold, the warning and the pre-run line with `-Dslums.companion.supplies.regulars=true`. (e)
+- `aCompanionOutOfARunSaysNothing` - nothing is said outside a run.
+
+The warning reads the stock before the top-up drinks, so it reports the count the companion actually has ("I'm down
+to 10 HP potions"), and the level is only announced the first time it is reached in a run.
 
 ## Out of scope
 

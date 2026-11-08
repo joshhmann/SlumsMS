@@ -26,6 +26,11 @@ public final class ExpeditionBotsAccess {
         ExpeditionBots.quota = REAL;
     }
 
+    /** Registers a bot with an expedition the way {@code autoJoin} does, without the boss-log DB read. */
+    public static void hold(Character bot, Expedition exped) {
+        ExpeditionHold.hold(bot.getId(), exped);
+    }
+
     public static List<String> autoJoin(Character leader, Expedition exped) {
         return ExpeditionBots.autoJoin(leader, exped);
     }
