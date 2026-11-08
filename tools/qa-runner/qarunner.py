@@ -482,11 +482,15 @@ class SilviaWorker:
             name = "press_key"
             arguments = {"name": str(value).upper(), "hold_ms": int(step.get("hold_ms" if kind == "key" else "ms")
                                                                      or 0)}
-        elif kind == "jump":
-            return {"result": "refused", "detail": "a jump step needs the client's jump key and timing: not "
-                                                   "available in this client build"}
+        elif kind == "jump":   # b360 (1.6.6): the worker's jump tool (the game's jump key; Up held to catch a rope)
+            if step.get("double") or step.get("down"):
+                return {"result": "refused", "detail": "a double or down jump is not available in this worker"}
+            name, arguments = "jump", {"dir": step.get("dir", "none"), "catch": 1 if step.get("catch") else 0,
+                                       "run_ms": int(step.get("run_ms", 0)), "hold_ms": int(step.get("hold_ms", 800))}
         elif kind == "click_npc":
             name, arguments = "click_npc", {"npc": step["npc"]}
+        elif kind == "position":   # qa-position-signal (1.6.6): where the character is; the answer is the detail
+            name, arguments = "position", {}
         elif kind == "drop_item":   # P1-Q2: the QA client calls the item window's own sender (QA build 3)
             name, arguments = "drop_item", {"item": step["item"], "count": step.get("count", 1)}
         elif kind == "party_create":

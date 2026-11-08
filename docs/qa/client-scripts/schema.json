@@ -627,12 +627,26 @@
       },
       "down": {
        "type": "boolean"
+      },
+      "catch": {
+       "type": "boolean"
+      },
+      "run_ms": {
+       "type": "integer",
+       "minimum": 0,
+       "maximum": 2000
+      },
+      "hold_ms": {
+       "type": "integer",
+       "minimum": 100,
+       "maximum": 2000
       }
      },
      "required": [
       "do"
      ],
-     "additionalProperties": false
+     "additionalProperties": false,
+     "description": "b360 (1.6.6): a jump with the game's jump key; dir left/right runs for run_ms first; catch holds Up through it to grab a rope or ladder; keys are released after hold_ms (default 800). double/down are not available."
     },
     {
      "type": "object",
@@ -834,6 +848,28 @@
      "required": [
       "do",
       "npc"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "position"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      }
+     },
+     "required": [
+      "do"
      ],
      "additionalProperties": false
     },

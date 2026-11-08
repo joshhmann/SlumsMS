@@ -167,9 +167,23 @@ class WorkerCallsTest(unittest.TestCase):
         self.assertEqual({'result': 'refused', 'detail': 'not_in_inventory'},
                          worker.send('me', {'do': 'drop_item', 'item': 4001017}))
 
+    def test_jump_calls_the_jump_tool(self):
+        # b360 (1.6.6): a running jump holding Up grabs a rope; a plain jump taps the jump key.
+        worker, transport = self.make()
+        self.assertEqual('ok', worker.send('me', {'do': 'jump', 'dir': 'right', 'catch': True, 'run_ms': 300})['result'])
+        self.assertEqual('ok', worker.send('me', {'do': 'jump'})['result'])
+        self.assertEqual([('jump', {'dir': 'right', 'catch': 1, 'run_ms': 300, 'hold_ms': 800}),
+                          ('jump', {'dir': 'none', 'catch': 0, 'run_ms': 0, 'hold_ms': 800})], transport.calls)
+
+    def test_position_calls_the_position_tool(self):
+        # qa-position-signal (1.6.6): gm-0 scripts learn where the character is from the QA client, not from !pos.
+        worker, transport = self.make()
+        self.assertEqual('ok', worker.send('me', {'do': 'position'})['result'])
+        self.assertEqual([('position', {})], transport.calls)
+
     def test_a_step_the_build_cannot_play_is_refused_not_skipped(self):
         worker, transport = self.make()
-        for step, word in (({'do': 'jump', 'dir': 'right'}, 'jump'),
+        for step, word in (({'do': 'jump', 'dir': 'right', 'double': True}, 'double'),
                            ({'do': 'type', 'text': 'x'}, 'type'),
                            ({'do': 'wheel', 'anchor': 'inventory.cash_tab'}, 'wheel')):
             result = worker.send('me', step)

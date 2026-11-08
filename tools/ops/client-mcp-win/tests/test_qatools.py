@@ -312,6 +312,33 @@ if __name__ == '__main__':
     unittest.main()
 
 
+class PositionTest(NewToolsTest):
+    # qa-position-signal (1.6.6): gm-0 scripts cannot use !pos; the QA client says where the character is.
+    def test_position_is_the_clients_answer(self):
+        self.d.qa = FakeQa([{'ev': 'player.pos', 'ok': True, 'map_id': 103000800, 'x': -110, 'y': -846,
+                             'foothold': True, 'rope': False, 'ladder': False}])
+        self.assertEqual({'map_id': 103000800, 'x': -110, 'y': -846, 'foothold': True, 'rope': False, 'ladder': False},
+                         self.d.position())
+        self.assertEqual(['pos'], self.d.qa.sent)
+        self.assertEqual([], self.d.sender.events, 'position presses nothing')
+
+    def test_position_passes_the_client_error_on(self):
+        self.d.qa = FakeQa([{'ev': 'player.pos', 'ok': False, 'error': 'site_mismatch'}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.position()
+        self.assertEqual('site_mismatch', str(caught.exception))
+
+    def test_position_without_an_answer_is_field_not_ready(self):
+        self.d.qa = FakeQa([])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.position()
+        self.assertEqual('field_not_ready', str(caught.exception))
+
+    def test_position_is_a_script_tool_without_arguments(self):
+        self.assertIn('position', self.driver.SCRIPT_TOOLS)
+        self.assertEqual({}, self.driver.TOOLS['position'])
+
+
 class ClickNpcTest(NewToolsTest):
     def test_click_npc_clicks_where_the_client_says(self):
         self.d.qa = FakeQa([{'ev': 'npc.pos', 'npc': 9999, 'ok': True, 'x': 1, 'y': 1},
@@ -360,9 +387,29 @@ class DropAndPartyTest(NewToolsTest):
     """P1-Q2 (Zakum run): drop_item, party_create, party_invite ride the QA client's own senders."""
 
     def test_drop_item_sends_the_item_and_count(self):
-        self.d.qa = FakeQa([{'ev': 'item.drop', 'item': 4001017, 'count': 1, 'type': 4, 'slot': 3, 'ok': True}])
-        self.assertEqual({'item': 4001017, 'count': 1, 'slot': 3}, self.d.drop_item(4001017))
+        self.d.qa = FakeQa([{'ev': 'item.drop', 'item': 4001017, 'count': 1, 'type': 4, 'slot': 3, 'left': 4,
+                             'ok': True}])
+        self.assertEqual({'item': 4001017, 'count': 1, 'slot': 3, 'left': 4}, self.d.drop_item(4001017))
         self.assertEqual(['drop_item 4001017 1'], self.d.qa.sent)
+
+    def test_a_refused_drop_is_not_dropped(self):
+        # qa-drop-honest: build 18b slot 2026-11-08 14:15, the server refused a gm 3 character's drops ("GM
+        # characters cannot drop items.") and drop_item said ok. The client now answers only once the stack shrank.
+        self.d.qa = FakeQa([{'ev': 'item.drop', 'item': 4001022, 'count': 1, 'slot': 33, 'left': 3, 'ok': False,
+                             'error': 'not_dropped'}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.drop_item(4001022)
+        self.assertEqual('not_dropped', str(caught.exception))
+
+    def test_drop_item_waits_past_the_clients_own_wait(self):
+        # The client answers not_dropped after 3 s; a 3 s driver wait would call that no_character instead.
+        waits = []
+        qa = FakeQa([{'ev': 'item.drop', 'item': 4001017, 'count': 1, 'slot': 3, 'left': 0, 'ok': True}])
+        real_wait = qa.wait
+        qa.wait = lambda name, timeout: (waits.append(timeout), real_wait(name, timeout))[1]
+        self.d.qa = qa
+        self.d.drop_item(4001017)
+        self.assertGreater(waits[0], 4.0)
 
     def test_drop_item_passes_the_client_error_on(self):
         self.d.qa = FakeQa([{'ev': 'item.drop', 'item': 4001017, 'count': 1, 'ok': False, 'error': 'not_in_inventory'}])
@@ -676,6 +723,21 @@ class PickupTest(NewToolsTest):
         with self.assertRaises(self.driver.Refusal) as caught:
             self.d.pickup_item(4001018)
         self.assertEqual('taken_by_other (picker 99)', str(caught.exception))
+
+    def test_pickup_says_which_drop_it_took(self):
+        # qa-pickup-nearest (1.6.6): the client takes the nearest matching drop and says where it was.
+        self.d.qa = FakeQa([{'ev': 'item.picked', 'item': 4001022, 'oid': 501, 'ok': True, 'type': 4, 'slot': 2,
+                             'x': 10, 'y': 130, 'distance': 10}])
+        self.assertEqual({'picked': True, 'item': 4001022, 'oid': 501, 'type': 4, 'slot': 2, 'x': 10, 'y': 130,
+                          'distance': 10}, self.d.pickup_item(4001022))
+
+    def test_a_drop_out_of_the_servers_range_is_named(self):
+        # LPQ run lpq-stage1-handin-20261108T053234Z: the only drop was a monster's 1600 px up; the server ignores it.
+        self.d.qa = FakeQa([{'ev': 'item.picked', 'item': 4001022, 'ok': False, 'error': 'out_of_range',
+                             'x': 212, 'y': -1499, 'distance': 1642}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.pickup_item(4001022)
+        self.assertEqual('out_of_range (nearest drop at 212,-1499, 1642 px away)', str(caught.exception))
 
     def test_no_answer_is_a_timeout(self):
         self.d.qa = FakeQa([])

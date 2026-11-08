@@ -117,14 +117,15 @@ At most two clients (`two_clients` in `needs`); with two, every step, capture an
 | `gm` | `line` | a `!` command |
 | `key` | `key`, `hold_ms` | A-Z, 0-9, F1-F12, arrows, ENTER, ESCAPE, SPACE, CTRL, ALT, SHIFT, CTRL+F10, CTRL+F11 ... |
 | `move` | `dir`, `ms` | holds an arrow key |
-| `jump` | `dir`, `double`, `down` | `double: true` = double-tap (the bounce) |
+| `jump` | `dir`, `catch`, `run_ms`, `hold_ms` | a jump with the game's jump key (Alt); `dir` left/right runs for `run_ms` first; `catch: true` holds Up through it to grab a rope or ladder; all keys released after `hold_ms` (default 800). `double`/`down` are refused (b360, 1.6.6) |
 | `click` | `anchor`, `button` | a NAMED target from `anchors.yaml`, never x,y |
 | `wait` | `signal`, `timeout_ms`, `armed_at`, `bind`, `retry` | see Waits |
 | `sleep` | `ms`, `reason` | discouraged; see Timers |
 | `mark` | `id` | a named point for captures and spans |
 | `click_npc` | `npc` | clicks an NPC by id where the QA client draws it; it never walks (`out_of_view`: move, then again) |
-| `drop_item` | `item`, `count` | drops `count` (default 1) of the item's first stack through the client's own sender (QA build 3) |
-| `pickup_item` | `item` | picks up the newest drop of the item on the field through the client's own pickup sender; passes only when the server gives it to this character (QA build 15) |
+| `position` | (none) | the character's map position from the QA client: `map_id`, `x`, `y` (the server's `!pos` coordinates) and `foothold`/`rope`/`ladder` (all false = in the air), in the step's detail; presses nothing. Refusals: `field_not_ready`, `site_mismatch` (qa-position-signal, 1.6.6; QA build 18) |
+| `drop_item` | `item`, `count` | drops `count` (default 1) of the item's first stack through the client's own sender (QA build 3); passes only once the server took the items, a refused drop fails with `not_dropped` (QA build 19) |
+| `pickup_item` | `item` | picks up the drop of the item nearest the character through the client's own pickup sender; passes only when the server gives it to this character (QA build 15). From QA build 18b (qa-pickup-nearest, 1.6.6) it takes the nearest drop, not the newest, and refuses `out_of_range` when the nearest is outside the server's 800 x 600 pickup box |
 | `shop_buy` | `item`, `quantity` | (an NPC shop open, e.g. after `click_npc`) buys `quantity` of `item` with the packet the shop's Buy button sends; passes only on the server's answer 0. Refusals: `not_enough_mesos`, `inventory_full`, `not_in_shop`, `no_shop`, `timeout` (QA build 16) |
 | `shop_sell` | `item`, `quantity` | sells by item id; no `quantity` (or 0) sells every stack of it, one request per stack, each answered by the server (8). Refusals: `not_in_inventory`, `not_enough_items (sold n)`, `not_sold`, `no_shop`, `timeout` (QA build 16) |
 | `shop_close` | | closes the open shop as its close button does (the server gets NPC_SHOP leave). Refusal: `no_shop` (QA build 16) |
