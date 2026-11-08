@@ -72,8 +72,13 @@ public final class BotBuffDriver {
         boolean partied = partiedWithPlayer(bot);
         java.util.concurrent.ThreadLocalRandom rng = java.util.concurrent.ThreadLocalRandom.current();
         int cast = 0;
-        boolean support = partied && soloMapling.ArtificialPlayer.BotSupportSwitches.partySupport();
+        boolean support = partied && soloMapling.ArtificialPlayer.BotSupportSwitches.partySupport()
+                && soloMapling.companions.CompanionSettingsStore.support(bot); // 1.6.7 alt-settings: "support off"
+        boolean wantsSupport = soloMapling.companions.CompanionSettingsStore.support(bot);
         for (int skillId : buffIds) {
+            if (!wantsSupport && BotBuffEffects.isPartyBuff(skillId)) {
+                continue; // 1.6.7 alt-settings: the owner switched this companion's party buffs off
+            }
             boolean partyBuff = support && BotBuffEffects.isPartyBuff(skillId);
             boolean due = now >= timers.getOrDefault(skillId, 0L);
             if (!due && partyBuff && lackGapPassed(bot.getId(), skillId, now)
