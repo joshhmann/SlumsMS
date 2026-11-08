@@ -333,11 +333,11 @@ class HintTest(Base):
         self.clock.t += ms.HINT_GAP
         out = self.hint()
         self.assertEqual((out["card"], out["step"]), (card, 3))
-        self.assertIn(ms.hidden(ms.HINTS[card]["word"], 1), out["line"])  # the first letter, the rest hidden
+        self.assertEqual(out["line"], ms.HINT_METHODS[card])   # konami is found by doing, so: a method hint
         self.clock.t += ms.HINT_GAP
         out = self.hint()
         self.assertEqual((out["card"], out["step"]), (card, 4))
-        self.assertIn(ms.hidden(ms.HINTS[card]["word"], 2), out["line"])
+        self.assertEqual(out["line"], ms.HINT_METHODS[card])
 
     def test_what_the_page_gets_never_carries_the_card_id_or_word(self):
         # every card id is its typed word, so the public call must not name the card (found on TEST 2026-11-08)
@@ -350,6 +350,21 @@ class HintTest(Base):
                 self.assertEqual(set(out), {"step", "line"}, out)
                 self.assertNotIn(f'"{h["word"]}"', json.dumps(out))
                 self.assertNotIn(h["word"], out["line"])
+
+    def test_cards_found_by_doing_something_get_a_method_hint_not_letters(self):
+        untyped = [c for c in ms.HINTS if c not in ms.TYPED_CARDS]
+        self.assertEqual(set(untyped), set(ms.HINT_METHODS), "every non-typed card has a method hint, and only those")
+        for n, card in enumerate(untyped):
+            h = ms.HINTS[card]
+            me = {"a": 950 + n, "c": f"Meth{n}"}
+            self.store.found(me, {"ids": [c for c, x in ms.HINTS.items() if x["who"] == h["who"] and c != card]})
+            for step in range(1, 7):
+                self.clock.t += ms.HINT_GAP
+                line = self.store.hint(me, {"who": h["who"]})["line"]
+                if step >= 3:
+                    self.assertEqual(line, ms.HINT_METHODS[card])
+                self.assertNotRegex(line, r"(^|\s)_(\s|$)", "no letter mask for a card nobody types")
+                self.assertNotIn(card, line.lower().replace("colour dots", ""), "the card id is its word")
 
     def test_no_step_ever_hands_out_the_whole_word(self):
         for n, (card, h) in enumerate(ms.HINTS.items()):
@@ -366,6 +381,8 @@ class HintTest(Base):
                         self.assertEqual(out["line"], h["clue"])
                     elif step == 2:
                         self.assertEqual(out["line"], f"Try it on {h['page']}.")
+                    elif card not in ms.TYPED_CARDS:
+                        self.assertEqual(out["line"], ms.HINT_METHODS[card])   # a method hint, never letters
                     else:
                         mask = ms.hidden(h["word"], step - 2)
                         self.assertIn(mask, out["line"])
