@@ -739,6 +739,39 @@ class PickupTest(NewToolsTest):
             self.d.pickup_item(4001022)
         self.assertEqual('out_of_range (nearest drop at 212,-1499, 1642 px away)', str(caught.exception))
 
+    def picked(self, oid, x, distance):
+        return {'ev': 'item.picked', 'item': 4001022, 'oid': oid, 'ok': True, 'type': 4, 'slot': 2, 'x': x, 'y': 130,
+                'distance': distance}
+
+    def test_count_picks_one_drop_after_another(self):
+        # LPQ Part 2: one pass is one drop object; a DROP line of 3 passes is one step with count 3, not three steps.
+        self.d.qa = FakeQa([self.picked(501, 10, 10), self.picked(502, -30, 30), self.picked(503, 0, 0)])
+        answer = self.d.pickup_item(4001022, count=3)
+        self.assertEqual(['pickup_item 4001022'] * 3, self.d.qa.sent)
+        self.assertEqual(3, answer['picked'])
+        self.assertEqual([{'oid': 501, 'x': 10, 'y': 130, 'distance': 10, 'ok': True},
+                          {'oid': 502, 'x': -30, 'y': 130, 'distance': 30, 'ok': True},
+                          {'oid': 503, 'x': 0, 'y': 130, 'distance': 0, 'ok': True}], answer['picks'])
+
+    def test_a_short_count_says_how_many_and_why_it_stopped(self):
+        self.d.qa = FakeQa([self.picked(501, 10, 10), self.picked(502, -30, 30),
+                            {'ev': 'item.picked', 'item': 4001022, 'ok': False, 'error': 'no_drop'}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.pickup_item(4001022, count=3)
+        message = str(caught.exception)
+        self.assertTrue(message.startswith('picked 2 of 3, then no_drop'), message)
+        self.assertIn('"oid": 502', message)
+        self.assertEqual(3, len(self.d.qa.sent), 'it stops at the first refusal')
+
+    def test_count_one_answers_as_before(self):
+        self.d.qa = FakeQa([self.picked(501, 10, 10)])
+        self.assertEqual({'picked': True, 'item': 4001022, 'oid': 501, 'type': 4, 'slot': 2, 'x': 10, 'y': 130,
+                          'distance': 10}, self.d.pickup_item(4001022, count=1))
+
+    def test_count_is_checked(self):
+        self.assertEqual(1, self.driver.TOOLS['pickup_item']['count']['minimum'])
+        self.assertEqual(10, self.driver.TOOLS['pickup_item']['count']['maximum'])
+
     def test_no_answer_is_a_timeout(self):
         self.d.qa = FakeQa([])
         with self.assertRaises(self.driver.Refusal) as caught:

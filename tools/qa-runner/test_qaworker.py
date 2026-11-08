@@ -181,6 +181,14 @@ class WorkerCallsTest(unittest.TestCase):
         self.assertEqual('ok', worker.send('me', {'do': 'position'})['result'])
         self.assertEqual([('position', {})], transport.calls)
 
+    def test_pickup_item_passes_a_count(self):
+        # LPQ Part 2: count picks that many drops one after another; without it the call is as before.
+        worker, transport = self.make()
+        worker.send('me', {'do': 'pickup_item', 'item': 4001022})
+        worker.send('me', {'do': 'pickup_item', 'item': 4001022, 'count': 3})
+        self.assertEqual([('pickup_item', {'item': 4001022}), ('pickup_item', {'item': 4001022, 'count': 3})],
+                         transport.calls)
+
     def test_walk_to_and_climb_call_their_tools(self):
         # qa-walk-to (1.6.7): QA's walk-1-* timed moves become walks that stop on the QA client's position.
         worker, transport = self.make()
