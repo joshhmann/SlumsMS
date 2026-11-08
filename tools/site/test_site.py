@@ -129,13 +129,47 @@ class SiteBuildTest(unittest.TestCase):
         self.assertIn("grab that one yourself", flat)
         self.assertNotIn("Haste", flat)
         self.assertIn("Horntail now only counts as cleared once every part is down", flat)
-        self.assertIn("Your alts now fight in Horntail&#x27;s two head rooms too.", flat)
+        self.assertIn("including the two head rooms where they used to stand still", flat)
+        self.assertNotIn("closing hired merchants", flat.lower())
+        self.assertNotIn("always show up", flat)
+        self.assertNotIn("no longer stalls", flat)
         self.assertIn("07:21 UTC on November 8", flat)
         self.assertIn('href="../../guide/bosses"', flat)
         self.assertTrue(os.path.isfile(os.path.join(self.out, "guide", "bosses.html")))
         for bad in ("MapleStory", "Nexon", "Wizet", "GMS", "v83", "MapleRoot"):
             self.assertNotIn(bad, flat)
         self.assertIsNone(re.search(r"\bbots?\b", flat, re.I))
+
+    def test_164_notes_carry_the_dated_correction_and_strike_the_overclaims(self):
+        """The live 1.6.4 page keeps its original claims struck out, with a dated correction box at the top."""
+        with open(os.path.join(self.out, "patch-notes", "1.6.4", "index.html"), encoding="utf-8") as f:
+            raw = f.read()
+        flat = " ".join(raw.split())
+        self.assertIn("Correction, November 8, 2026.", flat)
+        self.assertLess(flat.index("Correction, November 8, 2026."), flat.index("To update:"))
+        self.assertIn("<del>Regulars run party quests themselves", flat)
+        self.assertIn("<del>Regular parties join boss expedition fights", flat)
+        self.assertNotIn("clear the stages on their own.</li>", flat)  # the claim only stands inside <del>
+        self.assertIn("not yet tested in a real fight", flat)
+        self.assertIsNone(re.search(r"\bbots?\b", re.sub(r"(?s)<(script|style).*?</\1>", "", flat), re.I))
+        for kept in ("150,000,000 mesos per account per day", "The exchange trades items now"):
+            self.assertIn(kept, flat)
+
+    def test_whats_coming_is_a_dateless_plan_post_listed_in_the_news(self):
+        """/patch-notes/whats-coming/ says planned and may change, marks unproven work 'In testing', has no date, and is on the News list."""
+        with open(os.path.join(self.out, "patch-notes", "whats-coming", "index.html"), encoding="utf-8") as f:
+            flat = " ".join(f.read().split())
+        self.assertIn("It is a plan, not a promise", flat)
+        self.assertIn("In testing.", flat)
+        self.assertNotIn("Patch notes &middot;", flat)
+        post = flat[flat.index('class="notes-head"'):flat.index("</main>")]  # the page itself, not Slums-chan's speech bubble
+        self.assertIsNone(re.search(r"\b(20\d\d|Nov(ember)?\s+\d)", post))
+        with open(os.path.join(self.out, "patch-notes", "index.html"), encoding="utf-8") as f:
+            news = f.read()
+        self.assertIn('href="whats-coming/"', news)
+        for bad in ("MapleStory", "Nexon", "Wizet", "GMS", "v83", "MapleRoot"):
+            self.assertNotIn(bad, flat)
+        self.assertIsNone(re.search(r"\bbots?\b", re.sub(r"(?s)<(script|style).*?</\1>", "", flat), re.I))
 
     def test_164_notes_cover_the_exchange_items(self):
         """1.6.4's page names the item exchange, the 150M cap and the wedding fix, and no game-company words."""

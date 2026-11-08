@@ -34,7 +34,9 @@ def icons(html, root):
     return ICON_TOKEN.sub(lambda m: game_icon(m.group(1), m.group(2), root, m.group(3)), html)
 
 
-def parse_release(path):
+def parse_release(path, post=False):
+    """A release (file name = version) or, with post=True, a post: the same format, but the file name is a slug kept in
+    `version`, and the optional `kind` front-matter line names it on the News list."""
     text = read(path)
     m = re.match(r"---\n(.*?)\n---\n", text, re.S)
     if not m:
@@ -93,6 +95,7 @@ def parse_release(path):
             blocks.append(("p", line.strip()))
     meta["blocks"] = [b for b in blocks if b[0] != "blank"]
     meta["key"] = tuple(int(x) if x.isdigit() else x for x in re.split(r"[.\-]", meta["version"]))
+    meta["post"] = post
     meta["counts"] = {t: sum(1 for b in meta["blocks"] if b[0] == "li" and b[1] == t) for t in TAGS}
     return meta
 
@@ -148,9 +151,14 @@ def render_release(rel, root="../../"):
     toc = "".join(f'<li><a href="#{s["id"]}">{inline(s["title"])}</a></li>' for s in sections)
     words = {"new": ("new thing", "new things"), "change": ("change", "changes"), "fix": ("fix", "fixes")}
     counts = ", ".join(f"{rel['counts'][k]} {words[k][rel['counts'][k] != 1]}" for k in words if rel["counts"][k])
-    body = [f'<div class="notes-head"><h1 class="bigver"><span class="vh">SlumsMS </span>{esc(rel["version"])}</h1>'
-            f'<div><p class="eyebrow">Patch notes &middot; {esc(rel["date"])}</p><p class="sub">{esc(rel["title"])}</p>'
-            f'{f"<p class=meta>{esc(counts)}</p>" if counts else ""}</div></div>',
+    if rel.get("post"):  # a post has no version number and no date: the title is the heading
+        head = (f'<div class="notes-head"><h1>{esc(rel["title"])}</h1>'
+                f'<div><p class="eyebrow">{esc(rel.get("kind", "Post"))}{" &middot; " + esc(rel["date"]) if rel["date"] != "-" else ""}</p></div></div>')
+    else:
+        head = (f'<div class="notes-head"><h1 class="bigver"><span class="vh">SlumsMS </span>{esc(rel["version"])}</h1>'
+                f'<div><p class="eyebrow">Patch notes &middot; {esc(rel["date"])}</p><p class="sub">{esc(rel["title"])}</p>'
+                f'{f"<p class=meta>{esc(counts)}</p>" if counts else ""}</div></div>')
+    body = [head,
             f'<div class="notes"><ul class="toc" aria-label="Sections">{toc}</ul>',
             blocks_html(intro)]
     for s in sections:
@@ -179,8 +187,22 @@ def releases():
     return rels
 
 
+def posts():
+    """Posts that are not releases (docs/site/posts/<slug>.md), newest first by name."""
+    pdir = os.path.join(SRC, "posts")
+    if not os.path.isdir(pdir):
+        return []
+    return [parse_release(os.path.join(pdir, n), post=True) for n in sorted(os.listdir(pdir)) if n.endswith(".md")]
+
+
 def build(out):
     rels = releases()
+    plist = posts()
+    for p in plist:
+        body = ('<a class="backlink" href="../">&larr; News</a>\n'
+                + buddy.place(render_release(p), buddy.figure("../../", "release", p["version"])) + "\n"
+                + '<nav class="pager" aria-label="Releases"><a class="btn" href="../">&larr; All news</a></nav>')
+        write(out, f"patch-notes/{p['version']}/index.html", layout(p["title"], body, "../../", "notes", p["summary"]))
     for i, rel in enumerate(rels):
         pager = ['<nav class="pager" aria-label="Releases">']
         pager.append(f'<a class="btn" href="../">&larr; All news</a>')
@@ -197,6 +219,10 @@ def build(out):
               layout(f"{rel['version']} patch notes", body, "../../", "notes", rel["summary"]))
     # News holds every kind of post; each card says which. Releases are the only kind so far ("Update").
     items = "".join(
+        f'<li><a class="rel" href="{esc(p["version"])}/"><span class="v">{esc(p.get("kind", "Post"))}</span>'
+        f'<span class="t"><span class="kind">{esc(p.get("kind", "Post"))}</span>{esc(p["title"])}</span>'
+        f'<span class="d">{esc(p["summary"])}</span></a></li>' for p in plist)
+    items += "".join(
         f'<li><a class="rel" href="{esc(r["version"])}/"><span class="v">{esc(r["version"])}</span>'
         f'<span class="t"><span class="kind">Update</span>{esc(r["title"])}</span><span class="d">{esc(r["date"])} &middot; '
         f'{esc(r["summary"])}</span><span class="c">{counts_text(r)}</span></a></li>' for r in rels)
