@@ -51,6 +51,11 @@ public class Shop {
     private static final Logger log = LoggerFactory.getLogger(Shop.class);
     private static final Set<Integer> rechargeableItems = new LinkedHashSet<>();
 
+    /** What every NPC shop offers to recharge (test seam, 1.6.6 b-20). */
+    static Set<Integer> rechargeables() {
+        return java.util.Collections.unmodifiableSet(rechargeableItems);
+    }
+
     private final int id;
     private final int npcId;
     private final List<ShopItem> items;
@@ -280,7 +285,7 @@ public class Shop {
         if (item.getQuantity() < slotMax) {
             // 1.6.4 b289: the same WZ price/unitPrice expression as buying and selling a stack, so a refill
             // from empty costs exactly a fresh purchase and the refilled stack sells for what it cost.
-            int price = ii.getPrice(item.getItemId(), slotMax - item.getQuantity());
+            int price = ii.getRechargePrice(item.getItemId(), slotMax - item.getQuantity());
             if (price < 0) {    // no WZ price data for this item: there is no price to charge
                 return;
             }
