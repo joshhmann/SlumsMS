@@ -3,7 +3,7 @@ package soloMapling.ArtificialPlayer.BotPartySystem;
 /*
  * Ported from Incluwin/BotStory src/main/java/server/living/roster/CompanionFieldBossRest.java@81a3b1df, changed: only
  * its rest rule was taken (a companion that died beside a boss stays off follow until its HP and MP are back to
- * REST_PERCENT of their maximum, or REST_MAX_MS has passed); the sit-out rule and its lines were not ported (the owner
+ * REST_PERCENT (70) of their maximum, drinking their own potions, or REST_MAX_MS has passed); the sit-out rule and its lines were not ported (the owner
  * declined it), the runtime lookups became ours ({@link ExpeditionHold}/{@link soloMapling.mechanics.MechanicsHold} for
  * "in a boss run", {@code getOwnedAltOwner}/{@code FollowerBot.leaderId} for the owner, a {@code -D} property instead of
  * LivingWorldConfig), and the rest clock starts at the revive instead of at the death, because the wait for the revive
@@ -56,7 +56,7 @@ public final class CompanionBossRevive {
     static final long PRICE_DEFAULT = 1_000L;
     /** The ported rest rule: back on follow once HP and MP are this percent of their maximum ... */
     static final String REST_PERCENT_KEY = "slums.companion.rest.percent";
-    static final int REST_PERCENT_DEFAULT = 100;
+    static final int REST_PERCENT_DEFAULT = 70; // owner, 8 Nov 2026: 70% HP and MP, drinking while it rests (was 100)
     /** ... or at the latest this long after the revive. */
     static final String REST_MAX_MS_KEY = "slums.companion.rest.maxMs";
     static final long REST_MAX_MS_DEFAULT = 120_000L;
@@ -306,7 +306,7 @@ public final class CompanionBossRevive {
         }
     }
 
-    static int restPercent() {
+    public static int restPercent() {
         return (int) Math.max(0, Math.min(100, number(REST_PERCENT_KEY, REST_PERCENT_DEFAULT)));
     }
 

@@ -300,6 +300,28 @@ public final class BotVitals {
     }
 
     /*
+     * 1.6.7 (owner, 8 Nov 2026): an alt resting after a boss revive drinks its own potions up to the rest line, HP and
+     * MP alike, a few at most per tick like topUp. With no potions it waits on its regen and the rest's time limit.
+     */
+    public static void restTopUp(Character bot, int percent) {
+        if (bot == null || percent <= 0) {
+            return;
+        }
+        synchronized (lock(bot)) {
+            for (int i = 0; i < MAX_DRINKS && (long) bot.getHp() * 100 < (long) bot.getCurrentMaxHp() * percent; i++) {
+                if (!drink(bot, true)) {
+                    break;
+                }
+            }
+            for (int i = 0; i < MAX_DRINKS && (long) bot.getMp() * 100 < (long) bot.getCurrentMaxMp() * percent; i++) {
+                if (!drink(bot, false)) {
+                    break;
+                }
+            }
+        }
+    }
+
+    /*
      * Drinks one potion for HP (or MP): the one that covers what is missing with the least waste, else the
      * strongest, preferring one that restores only what is needed (an Elixir is not wasted on MP alone).
      */
