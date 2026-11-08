@@ -41,6 +41,12 @@ public final class ExpeditionHold {
     }
 
     static void release(Expedition exped) {
+        // 1.6.7 alt-revive-respawn: the run is over for these bots, so their death counts and paid revives go with it
+        joined.forEach((id, e) -> {
+            if (e == exped) {
+                CompanionBossRevive.runEnded(id);
+            }
+        });
         joined.values().removeIf(e -> e == exped);
     }
 
