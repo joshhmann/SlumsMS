@@ -25,11 +25,10 @@ Your own alts are meant to be good partners in boss fights. The goal: you clear 
 - **Simple chat reports and settings:** ask an alt for a short report and change a few settings.
 - **Party buffs:** buffs your alts cast and receive really work (the same values you get), and Priest and Bishop alts use Dispel.
 - **Looting:** alts loot their own kills by default. They sell junk or follow your quests only when you ask.
-- **A new NPC, Pia,** modelled on Slums-chan. The design is not settled yet.
 
 ## Later {#later}
 
-Ideas we may do after that, with no version yet: a set kill order for each boss, positioning by job, and alts arriving one at a time.
+Ideas we may do after that, with no version yet: a set kill order for each boss, positioning by job, alts arriving one at a time, and a new NPC, Pia, modelled on Slums-chan (the design is not settled).
 
 ## 1.7.0: checking everything {#certify}
 
