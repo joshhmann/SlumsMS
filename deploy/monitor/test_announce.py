@@ -456,9 +456,18 @@ class CodyTest(unittest.TestCase):
         for v in lines:
             self.assertIn("Cody", v, "every line is Cody's")
         voice = " ".join(lines)
-        for wz in ("I'm telling you, I really AM from WIZET!", "care to help me out??", "went bananas",
+        for wz in ("I'm telling you, I really DO know what I'm doing!", "care to help me out??", "went bananas",
                    "See you around~"):
             self.assertIn(wz, voice)
+
+    # Player copy never names the game, its makers, the server bases, or calls regulars bots (cody-wizet-lines, 1.6.6).
+    NAME_RULE = r"maplestory|nexon|wizet|\bv83\b|\bgms\b|mapleroot|cosmic|heavenms|big ?bang|\bbots?\b"
+
+    def test_no_line_breaks_the_name_rule(self):
+        for key, variants in mon.CODY.items():
+            for v in variants:
+                text = v.format_map(mon._Fields(self.SAMPLE))
+                self.assertNotRegex(text.lower(), self.NAME_RULE, key)
 
     def test_treasure_start_never_names_the_map(self):
         for v in mon.CODY["treasure_hunt_start"]:

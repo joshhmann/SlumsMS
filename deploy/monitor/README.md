@@ -94,8 +94,8 @@ Updated <t:...:R>
 
 Online means the unit is active and the login port answers. Players are real players only: accounts in game
 (`loggedin = 2`) that own no character with id >= 1000000000 (bots). `VERSION` comes from the target config (bump it
-with each deploy) or `VERSION_FILE`. `STATUS_SHOW_BOTS=1` adds a bots-online line, split the same way as the check:
-`Bots online: 1186 (1255 stale rows from before this boot)`, or `Bots online: 2441 (1255 open rows from before this
+with each deploy) or `VERSION_FILE`. `STATUS_SHOW_BOTS=1` adds a regulars-online line (players read "regulars", never "bots"), split the same way as the check:
+`Regulars online: 1186 (1255 stale rows from before this boot)`, or `Regulars online: 2441 (1255 open rows from before this
 boot, not split yet)` inside the first `BOTS_STALE_MIN` minutes. Nothing is read back from Discord.
 
 ## News (ticket 46, `slumsms-monitor news <target>`)

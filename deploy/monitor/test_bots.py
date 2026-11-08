@@ -216,20 +216,28 @@ class StatusBotLineTest(BotsCase):
         self.boot()
         self.roster(counted=1186, stale=1255)
         text = self.status()
-        self.assertIn("Bots online: 1186 (1255 stale rows from before this boot)", text)
+        self.assertIn("Regulars online: 1186 (1255 stale rows from before this boot)", text)
 
     def test_status_before_the_first_autosave_shows_the_open_total(self):
         self.boot(up_seconds=20 * 60)
         self.roster(counted=1186, stale=1255)
         text = self.status()
-        self.assertIn("Bots online: 2441 (1255 open rows from before this boot, not split yet)", text)
+        self.assertIn("Regulars online: 2441 (1255 open rows from before this boot, not split yet)", text)
 
     def test_status_without_stale_rows_is_unchanged(self):
         self.boot()
         self.roster(counted=1600, stale=0)
         text = self.status()
-        self.assertIn("Bots online: 1600\n", text)
+        self.assertIn("Regulars online: 1600\n", text)
         self.assertNotIn("stale", text)
+
+    def test_status_text_keeps_the_name_rule(self):
+        # the status message is player-facing: same rule as Cody's lines (test_announce NAME_RULE, cody-wizet-lines)
+        from test_announce import CodyTest
+        for up, stale in ((3600, 1255), (20 * 60, 1255), (3600, 0)):
+            self.boot(up_seconds=up)
+            self.roster(counted=1186, stale=stale)
+            self.assertNotRegex(self.status().lower(), CodyTest.NAME_RULE)
 
 
 if __name__ == "__main__":

@@ -1234,7 +1234,7 @@ def cmd_status(t, args):
                 pass
         lines.append("Players online: %s" % ("?" if players is None else players))
         if bots is not None:
-            lines.append("Bots online: %s" % bots)
+            lines.append("Regulars online: %s" % bots)
         lines.append("Version: %s" % read_version(t))
         lines.append("Uptime: %s" % human_duration(info["up_seconds"] or 0))
     elif up:
@@ -1366,12 +1366,12 @@ def cmd_news(t, args):
 # one rate cap per target (ANNOUNCE_MAX_PER_HOUR, ANNOUNCE_MIN_GAP_SEC), scrub_public, username Cody. Over the cap
 # it goes to the local log only. State: <state>/announce.json (send times, last variant per message).
 
-# Cody (NPC 9200000, "Wizet Wizard") is the voice: slightly flustered, swears he really is from Wizet, ends lines
+# Cody (NPC 9200000) is the voice: slightly flustered, swears he really does know what he is doing, ends lines
 # with ~. A few lines are his own v83 strings. Several variants per message, never the same one twice in a row.
 # Fields: {name} world name, {version}, {minutes}, {reason}, {boss}, {map}, {region}, {bonus}, {ch}, {player}, {text}.
 CODY = {
     "maintenance_start": [
-        "I'm telling you, I really AM from WIZET! ...and Wizet says {name} needs a quick update. "
+        "I'm telling you, I really DO know what I'm doing! ...{name} just needs a quick update. "
         "Back in about {minutes} min~ -Cody",
         "Heya Maplers! Cody here~ {name}'s taking a quick nap for an update, back in about {minutes} min! \U0001F341",
         "Hey, care to help me out?? Find a safe spot and log off~ {name} is going down for a quick update, "
@@ -1392,14 +1392,14 @@ CODY = {
     "maintenance_end_client": [
         "{name} is back up with {version}! Press Play in the launcher to update if you haven't yet~ -Cody \U0001F341",
         "Ta-da! {name} is open again. The launcher has {version} ready: press Play to update, then hop on in~ -Cody",
-        "I really AM from WIZET, and Wizet says {name}'s back up! Hit Play in the launcher for {version} first~ -Cody",
+        "See? I really DO know what I'm doing: {name}'s back up! Hit Play in the launcher for {version} first~ -Cody",
         "What's going on? {name}'s back up on {version}, that's what! Press Play to update if you haven't. "
         "See you around~ -Cody",
     ],
     "client_ready": [
         "Psst~ the {version} update is out! Open the launcher and press Play to grab it~ -Cody",
         "Heya Maplers! Cody here~ The launcher has {version} ready for you. Press Play to update! \U0001F341",
-        "I really AM from WIZET, and Wizet says: {version} is ready! Hit Play in the launcher before you hop into {name}~ -Cody",
+        "See? I really DO know what I'm doing: {version} is ready! Hit Play in the launcher before you hop into {name}~ -Cody",
         "Update's in the launcher! Press Play to get {version}, then come say hi in {name}. See you around~ -Cody",
     ],
     "boss_sighting_start": [
@@ -1427,7 +1427,7 @@ CODY = {
         "Hot spot!! +{bonus}% EXP at {map} (Ch {ch}) for the next {minutes} min~ Go go go! -Cody",
         "Psst, I tweaked a little something... {map} gives +{bonus}% EXP for {minutes} min (Ch {ch})! "
         "Don't tell anyone~ -Cody",
-        "I really AM from WIZET, and I say {map} is the place to be! +{bonus}% EXP for {minutes} min, Ch {ch}~ -Cody",
+        "Trust me, I really DO know what I'm doing: {map} is the place to be! +{bonus}% EXP for {minutes} min, Ch {ch}~ -Cody",
     ],
     "free": [  # announce --cody
         "Heya Maplers! Cody here~ {text}",
