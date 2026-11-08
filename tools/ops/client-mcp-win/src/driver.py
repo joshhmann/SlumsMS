@@ -1104,10 +1104,11 @@ class Driver:
         return {'retrieved': True, 'code': event.get('code')}
 
     def pickup_item(self, item):
-        """b344: picks up the newest drop of <item> on the field through the client's own pickup sender (0x00A09118),
-        the way a player's pickup key does. Passes only when the server's REMOVE_ITEM_FROM_MAP names this character as
-        the picker. Errors: no_drop, taken_by_other (with the picker), drop_gone, field_changed, site_mismatch,
-        field_not_ready, timeout."""
+        """b344: picks up the drop of <item> nearest the character (qa-pickup-nearest, QA build 18b) through the client's
+        own pickup sender (0x00A09118), the way a player's pickup key does. Passes only when the server's
+        REMOVE_ITEM_FROM_MAP names this character as the picker; the answer says where the drop was. Errors: no_drop,
+        out_of_range (the nearest drop is outside the server's 800 x 600 pickup box; it names that drop), taken_by_other
+        (with the picker), drop_gone, field_changed, site_mismatch, field_not_ready, timeout."""
         pipe = self.need_qa()
         pipe.send('pickup_item %d' % item)
         event = pipe.wait('item.picked', 12)
@@ -1115,9 +1116,14 @@ class Driver:
             raise Refusal('timeout')
         if not event.get('ok'):
             error = str(event.get('error') or 'refused')
+            if error == 'out_of_range':
+                raise Refusal('out_of_range (nearest drop at %s,%s, %s px away)'
+                              % (event.get('x'), event.get('y'), event.get('distance')))
             raise Refusal('%s (picker %s)' % (error, event.get('picker')) if event.get('picker') else error)
-        return {'picked': True, 'item': event.get('item'), 'oid': event.get('oid'), 'type': event.get('type'),
-                'slot': event.get('slot')}
+        picked = {'picked': True, 'item': event.get('item'), 'oid': event.get('oid'), 'type': event.get('type'),
+                  'slot': event.get('slot')}
+        picked.update({key: event[key] for key in ('x', 'y', 'distance') if key in event})
+        return picked
 
     def shop_wait(self, command, timeout):
         pipe = self.need_qa()
