@@ -608,6 +608,51 @@
   });
 })();
 
+/* Free hints: 30 clicks in a row on a page's Slums-chan (img.sidekick), or on Pia (any .sidekick with
+   data-who="pia"), each click within 3 seconds of the last, ask the market service for a hint about a card the player
+   hasn't found yet: first a clue, then the page to try, then the word with some letters hidden. The answers live only
+   in the service (market_service.py HINTS), never in this file, and never in the page source. A signed-out visitor
+   (a 401, or no answer at all) sees nothing and gets no error. The bubble's own 5-click secret and the figure's
+   5-click counter above are separate counts and stay as they are. */
+(function () {
+  var me = document.querySelector('script[src$="assets/theme.js"]');
+  var base = me ? me.getAttribute("src").replace(/assets\/theme\.js$/, "") : "";
+  var NEED = 30, GAP = 3000, HOLD = 8000;
+  function ask(el, who) {
+    var count = 0, at = 0, busy = false;
+    el.addEventListener("click", function () {
+      var t = Date.now();
+      count = t - at <= GAP ? count + 1 : 1;   // a longer pause than GAP starts the count again
+      at = t;
+      if (count < NEED) return;
+      count = 0;                               // those 30 clicks are spent, whether a request goes out or not
+      if (busy) return;
+      busy = true;
+      fetch(base + "api/market/hint", { method: "POST", credentials: "same-origin",
+        headers: { "Content-Type": "application/json", "X-Slums": "1" }, body: JSON.stringify({ who: who }) })
+        .then(function (r) {                   // signed out (401) and errors: no line, no noise
+          if (r.status === 401) return null;
+          return r.json().then(function (j) {
+            return r.ok ? j : (r.status === 429 && j.error ? { line: j.error } : null);
+          });
+        })
+        .then(function (j) {
+          if (!j || !j.line) return;
+          var fig = el.closest(".buddy"), b = fig && fig.querySelector(".bubble");
+          if (!b) return;
+          var was = b.textContent;
+          b.textContent = j.line;
+          setTimeout(function () { if (b.textContent === j.line) b.textContent = was; }, HOLD);
+        })
+        .catch(function () {})
+        .then(function () { busy = false; });
+    });
+  }
+  document.querySelectorAll('img.sidekick, .sidekick[data-who="pia"]').forEach(function (el) {
+    ask(el, el.getAttribute("data-who") === "pia" ? "pia" : "cap");
+  });
+})();
+
 /* Sign in: once the login service says who's signed in, the header button becomes "Signed in as X · Sign out"
    (character, or the account for a new one). Builds without sign-in have no button; without the service it stays. */
 (function () {
