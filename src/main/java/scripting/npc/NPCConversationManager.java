@@ -326,6 +326,15 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         recordScriptMeso(chr, before);
     }
 
+    /**
+     * A JS Number that is not an int (e.g. {@code price * 1.5}) binds here instead of failing the call. Truncates
+     * toward zero like upstream's {@code gain.intValue()}, and goes through the int overload so the script meso
+     * counters still see the move. // Cosmic #228
+     */
+    public void gainMeso(Double gain) {
+        gainMeso(gain.intValue());
+    }
+
     public void gainMeso(int gain, boolean show) {
         Character chr = getPlayer();
         int before = chr.getMeso();
