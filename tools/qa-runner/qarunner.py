@@ -851,10 +851,15 @@ class Run:
                 self.spans("to", sid)
             entry["result"] = "ok"
         except RunFailed as e:
-            entry["result"] = e.result
-            entry["detail"] = str(e)
-            self.manifest["failed_at"] = i
-            raise
+            if step.get("optional") and step.get("do") == "pickup_item" and e.result == "refused":
+                # a pickup that found nothing, or lost the drop to another picker, is a recorded event, not a failure
+                entry["result"] = "tolerated"
+                entry["detail"] = str(e)
+            else:
+                entry["result"] = e.result
+                entry["detail"] = str(e)
+                self.manifest["failed_at"] = i
+                raise
         finally:
             entry["done_utc"] = iso(self.clock())
             entry["ms"] = int((time.monotonic() - t0) * 1000)

@@ -153,6 +153,26 @@ class OrchestratorTest(unittest.TestCase):
         self.assertEqual(2, worker.world_clicks)
         self.assertEqual(1, next(s for s in m["steps"] if s["id"] == "channels")["retries"])
 
+    def test_an_optional_pickup_that_is_refused_is_tolerated_and_a_required_one_fails(self):
+        # 8 Nov lpq-stage1-handin-20261108T053234Z: the pickup lost the pass drop to a collector bot (taken_by_other)
+        # and the whole run failed; a loop that picks up whatever has landed must go on.
+        run, m, feed, worker = self.run_b140()
+
+        def refuse(i, step, alias, entry):
+            raise qarunner.RunFailed("pickup_item refused: taken_by_other (picker 1000000102)", "refused")
+        run.do = refuse
+        run.play(900, {"do": "pickup_item", "item": 4001022, "optional": True})
+        self.assertEqual("tolerated", run.manifest["steps"][-1]["result"])
+        self.assertIn("taken_by_other", run.manifest["steps"][-1]["detail"])
+        before = run.manifest.get("failed_at")
+        with self.assertRaises(qarunner.RunFailed):
+            run.play(901, {"do": "pickup_item", "item": 4001022})
+        self.assertEqual("refused", run.manifest["steps"][-1]["result"])
+        self.assertEqual(901, run.manifest["failed_at"])
+        self.assertNotEqual(before, 901)
+        with self.assertRaises(qarunner.RunFailed):   # optional is for pickups only
+            run.play(902, {"do": "gm", "line": "!heal", "optional": True})
+
     def test_a_retry_may_resend_a_list_of_steps_in_order(self):
         text = SCRIPT.read_text().replace("retry: {step: pick-world, every_ms: 4000, times: 4}",
                                           "retry: {steps: [pick-world, pick-world], every_ms: 4000, times: 4}")

@@ -71,6 +71,12 @@
    "type": "string",
    "maxLength": 2000
   },
+  "card_cap_ms": {
+   "type": "integer",
+   "minimum": 300000,
+   "maximum": 900000,
+   "description": "The longest wait this script may carry, from its release-book card (boss-pq-sweep). Without it every wait is capped at 300000 ms."
+  },
   "clients": {
    "type": "object",
    "minProperties": 1,
@@ -684,7 +690,7 @@
       "timeout_ms": {
        "type": "integer",
        "minimum": 500,
-       "maximum": 300000
+       "maximum": 900000
       },
       "armed_at": {
        "$ref": "#/$defs/id"
@@ -879,6 +885,10 @@
       "note": {
        "type": "string",
        "maxLength": 300
+      },
+      "optional": {
+       "type": "boolean",
+       "description": "A refused pickup (the drop was taken by another picker, or nothing is on the floor) is recorded as tolerated and the script goes on; for loops that pick up whatever has landed (LPQ passes the regulars drop for the leader). Never for a check."
       },
       "item": {
        "type": "integer",
