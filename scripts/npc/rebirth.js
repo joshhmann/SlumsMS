@@ -16,7 +16,6 @@ function keyItemFor(reborns) {
 
 function start() {
     status = -1;
-    jobChangeChecker = 0;
     if ((cm.getJobId() == 0) || (cm.getJobId() == 100) || (cm.getJobId() == 110) || (cm.getJobId() == 111) || (cm.getJobId() == 120)
         || (cm.getJobId() == 121) || (cm.getJobId() == 130) || (cm.getJobId() == 131) || (cm.getJobId() == 200) || (cm.getJobId() == 210)
         || (cm.getJobId() == 211) || (cm.getJobId() == 220) || (cm.getJobId() == 221) || (cm.getJobId() == 230) || (cm.getJobId() == 231)
