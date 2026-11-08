@@ -1006,6 +1006,12 @@
        "type": "integer",
        "minimum": 1000000,
        "maximum": 5999999
+      },
+      "count": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 10,
+       "description": "Picks that many drops of the item one after another, the nearest each time; the step's detail has one answer per pick. A refusal at pick k stops it with 'picked k of N, then <reason>' (tolerated only with optional)."
       }
      },
      "required": [

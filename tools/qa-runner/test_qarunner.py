@@ -163,6 +163,23 @@ class OrchestratorTest(unittest.TestCase):
         run.play(911, {"do": "walk_to", "x": -117})
         self.assertEqual(answer, run.manifest["steps"][-1]["detail"])
 
+    def test_a_counted_pickup_keeps_every_pick_and_a_short_count_follows_optional(self):
+        # LPQ Part 2: pickup_item count N; the evidence per pick stays in the step record.
+        run, m, feed, worker = self.run_b140()
+        picks = ", ".join('{"oid": %d, "x": %d, "y": 130, "distance": %d, "ok": true}' % (500 + k, k, k)
+                          for k in range(6))
+        answer = '{"picked": 6, "item": 4001022, "picks": [%s]}' % picks
+        worker.send = lambda alias, step: {"result": "ok", "detail": answer}
+        run.play(920, {"do": "pickup_item", "item": 4001022, "count": 6})
+        self.assertEqual(answer, run.manifest["steps"][-1]["detail"], "all six picks, not cut at 200 characters")
+        worker.send = lambda alias, step: {"result": "refused", "detail": "picked 2 of 3, then no_drop | picks [...]"}
+        run.play(921, {"do": "pickup_item", "item": 4001022, "count": 3, "optional": True})
+        self.assertEqual("tolerated", run.manifest["steps"][-1]["result"])
+        self.assertIn("picked 2 of 3, then no_drop", run.manifest["steps"][-1]["detail"])
+        with self.assertRaises(qarunner.RunFailed):
+            run.play(922, {"do": "pickup_item", "item": 4001022, "count": 3})
+        self.assertEqual("refused", run.manifest["steps"][-1]["result"])
+
     def test_an_optional_pickup_that_is_refused_is_tolerated_and_a_required_one_fails(self):
         # 8 Nov lpq-stage1-handin-20261108T053234Z: the pickup lost the pass drop to a collector bot (taken_by_other)
         # and the whole run failed; a loop that picks up whatever has landed must go on.
