@@ -128,6 +128,17 @@ public final class GCMovement {
         move(bot, x, y, null);
     }
 
+    private static final StackWalker WALKER = StackWalker.getInstance();
+
+    /* b370: "Class.method" of the first frame outside GCMovement - whoever asked for this move. */
+    static String callerLabel() {
+        return WALKER.walk(frames -> frames
+                .filter(f -> !f.getClassName().equals(GCMovement.class.getName()))
+                .findFirst()
+                .map(f -> f.getClassName().substring(f.getClassName().lastIndexOf('.') + 1) + "." + f.getMethodName())
+                .orElse("other"));
+    }
+
     /* 1.6.1 (KPQ automation): step a bot through a portal on its map the way BotNav does at a PORTAL edge
      * (GCPortals: a scripted portal inside a PQ only opens when its script's gate is open, PqGates). True when the
      * bot changed map. */
@@ -165,6 +176,7 @@ public final class GCMovement {
         st.moveTargetPrecise = true;
         st.moveTargetSource = "gcmove";
         if (!sameTarget) {
+            st.moveTargetCaller = callerLabel(); // b370: once per new target, not per re-issue
             st.moveBestDist = Integer.MAX_VALUE;
             st.moveProgressAtMs = System.currentTimeMillis();
         }

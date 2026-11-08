@@ -76,6 +76,25 @@ final class MovementPlan {
         return inMap(map.getId(), edges);
     }
 
+    /*
+     * b370: why inMap gives no plan from startPos to targetPos on this graph - "no-region-start", "no-region-goal",
+     * "no-path" - or null when the two share a region (an arrival, not a snap).
+     */
+    static String snapWhy(BotNavigationGraph graph, MapleMap map, Point startPos, Point targetPos) {
+        if (graph == null || map == null || startPos == null || targetPos == null) {
+            return null;
+        }
+        int start = graph.findRegionId(map, startPos);
+        int goal = graph.findRegionId(map, targetPos);
+        if (start < 0) {
+            return "no-region-start";
+        }
+        if (goal < 0) {
+            return "no-region-goal";
+        }
+        return start == goal ? null : "no-path";
+    }
+
     boolean isComplete(long elapsedMs) {
         return elapsedMs >= totalTimeMs;
     }
