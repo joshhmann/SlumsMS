@@ -50,7 +50,9 @@ mesos (the owner's own, the player typing it). Deaths **outside** a boss run sta
    price paid when it was bought: `<Alt> is back up - 120,000 mesos.`).
 7. **Leaving ends it.** If the owner leaves the run, or the run ends, while the companion is dead or resting, the
    companion leaves the instance the way it does today: dead ones are respawned in the death town, saved and sent home
-   (rule 1). Rest and the counters go with the run.
+   (rule 1). Rest and the counters go with the run. "Left" means the owner (or leader) is no longer in the companion's
+   event instance; a revive never moves a companion out of its instance to an owner who left
+   (`anOwnerWhoLeftTheRunDoesNotPullTheDownAltOutToHim`, added in the Bots audit).
 8. **A party regular with the switches off is unchanged**: no death handling appears for it, it takes exactly the tick
    it took before (only the resting check is skipped). With `-Dslums.companion.deathrules.regulars=true` it follows
    rules 2 to 7, and its instant revive is paid by its leader.

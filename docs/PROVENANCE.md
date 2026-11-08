@@ -542,7 +542,8 @@ read for one thing only: a companion that died beside a boss rests after it gets
 | `CompanionFieldBossRest.resting(int, long)`: the rest ends when HP and MP are back to a percentage of max or a time limit passes, its `diedAtMs` map, `isAlive()` check, recovered test `hp*100 >= maxHp*percent && mp*100 >= maxMp*percent` | `soloMapling/ArtificialPlayer/BotPartySystem/CompanionBossRevive.java` (`resting`, `restingSince`, `restPercent`, `restMaxMs`) |
 | `LivingWorldConfig` defaults `COMPANION_FIELD_BOSS_REST_PERCENT = 100`, `COMPANION_FIELD_BOSS_REST_MAX_MS = 120000` | `-Dslums.companion.rest.percent` (100) and `-Dslums.companion.rest.maxMs` (120000), never `config.yaml` keys |
 
-Ours (the new file says so at the top, and marks each changed part with `// SlumsMS:`): their runtime lookups became
+Ours (the new file's header comment names the source and what changed; the file is a rewrite around the one ported
+rule, so it carries no per-line `// SlumsMS:` marks - corrected in the Bots audit): their runtime lookups became
 ours - "in a boss fight" is `ExpeditionHold.inRun` or `MechanicsHold.committed` at the death instead of
 `AgentBossField.near` plus a LivingWorld roster, the owner/leader is `Character.getOwnedAltOwner()` for an owned alt
 and `FollowerBot.leaderId()` for a regular instead of `AgentRuntimeRegistry`/`AgentPartyGatewayRuntime`, and the rest

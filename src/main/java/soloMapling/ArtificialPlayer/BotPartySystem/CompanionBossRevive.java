@@ -109,8 +109,10 @@ public final class CompanionBossRevive {
      * up; returns true either way. Not in a run: false, and any state from a finished run is dropped.
      */
     private static boolean hold(Character companion, long now) {
-        if (!inRun(companion)) {
-            runs.remove(companion.getId()); // the run ended (or the owner left it): the old path takes over
+        if (!inRun(companion) || !ownerInRun(companion, leaderOf(companion))) {
+            // the run ended, or its owner left it (Bots audit, owner's rule: "if the owner leaves the run ... the alt
+            // leaves the instance as today"): the old path takes over
+            runs.remove(companion.getId());
             return false;
         }
         int id = companion.getId();
@@ -180,7 +182,7 @@ public final class CompanionBossRevive {
      * Returns that line.
      */
     private static String revive(Character companion, Character owner, long now, long paid) {
-        if (owner != null && owner.getMap() != null && companion.getMap() != owner.getMap()) {
+        if (ownerInRun(companion, owner) && owner.getMap() != null && companion.getMap() != owner.getMap()) {
             companion.changeMap(owner.getMap(), owner.getPosition()); // the same instance, beside its owner
         }
         companion.applyHpMpChange(0, companion.getCurrentMaxHp(), 0);
@@ -273,6 +275,15 @@ public final class CompanionBossRevive {
      */
     static boolean inRun(Character companion) {
         return ExpeditionHold.inRun(companion) || soloMapling.mechanics.MechanicsHold.committed(companion);
+    }
+
+    /**
+     * Bots audit: the owner (or leader) is still in the companion's run, the same event instance. Null or elsewhere
+     * means the owner left it, so the companion takes its old path and is never moved out of the instance to them.
+     */
+    static boolean ownerInRun(Character companion, Character owner) {
+        return owner != null && companion != null && companion.getEventInstance() != null
+                && owner.getEventInstance() == companion.getEventInstance();
     }
 
     /** Its owner: the player who owns the alt, or the leader a regular follows; null when neither is online. */

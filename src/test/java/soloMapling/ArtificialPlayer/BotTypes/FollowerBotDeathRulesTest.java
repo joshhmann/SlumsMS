@@ -87,7 +87,9 @@ class FollowerBotDeathRulesTest {
         when(w.getPlayerStorage()).thenReturn(storage);
         world.when(SoloMaplingUtilities::world).thenReturn(w);
         joined = ExpeditionBotsFixture.join(altar, LEADER, BOT);
-        when(botChr.getEventInstance()).thenReturn(mock(EventInstanceManager.class));
+        EventInstanceManager run = mock(EventInstanceManager.class);
+        when(botChr.getEventInstance()).thenReturn(run);
+        when(leader.getEventInstance()).thenReturn(run); // the leader is in the run with it
         follower = new FollowerBot(botChr);
         follower.followForTest(LEADER);
         follower.setRunning(true);

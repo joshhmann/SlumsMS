@@ -102,6 +102,7 @@ class CompanionBossReviveTest {
         when(o.getMap()).thenReturn(ownerMap);
         when(o.getPosition()).thenReturn(new Point(0, 0));
         when(o.getMeso()).thenReturn(meso);
+        when(o.getEventInstance()).thenReturn(eim); // the owner is in the run with its alt
         return o;
     }
 
@@ -174,7 +175,9 @@ class CompanionBossReviveTest {
         }
         joined.release(); // the run ends
         runs.add(ExpeditionBotsFixture.join(ownerMap, OWNER, ALT));
-        when(alt.getEventInstance()).thenReturn(mock(EventInstanceManager.class));
+        EventInstanceManager next = mock(EventInstanceManager.class); // the next run: owner and alt both in it
+        when(alt.getEventInstance()).thenReturn(next);
+        when(owner.getEventInstance()).thenReturn(next);
         dies(alt);
         assertTrue(CompanionBossRevive.gate(alt, NOW + 300_000));
         // the same line as the first run's first death, and a second time only because this run's count is back at one
@@ -204,6 +207,29 @@ class CompanionBossReviveTest {
         assertTrue(joined.expedition().hasMember(ALT));
     }
 
+    /**
+     * Bots audit (owner's rule: "if the owner leaves the run ... the alt leaves the instance as today"): an owner who
+     * left the run while the alt was down - died out of Zakum, or walked out - does not pull the alt out of the
+     * instance to wherever he is now. The death rules let go and the old path (town, then home) takes over.
+     */
+    @Test
+    void anOwnerWhoLeftTheRunDoesNotPullTheDownAltOutToHim() throws Exception {
+        Character owner = owner(0);
+        Character alt = alt(owner, bossMap);
+        dies(alt);
+        assertTrue(CompanionBossRevive.gate(alt, NOW), "down in the run, with its owner in it: it waits");
+        assertTrue(CompanionBossRevive.waiting(alt));
+
+        MapleMap town = mock(MapleMap.class);
+        when(owner.getMap()).thenReturn(town);           // the owner is out of the run now
+        when(owner.getEventInstance()).thenReturn(null);
+        assertFalse(CompanionBossRevive.gate(alt, NOW + 10_000), "the old path takes the tick");
+        assertFalse(CompanionBossRevive.waiting(alt));
+        verify(alt, never()).changeMap(eq(town), any(Point.class));
+        verify(alt, never()).applyHpMpChange(anyInt(), anyInt(), anyInt());
+        verify(owner, never()).yellowMessage("Second is back up");
+    }
+
     @Test
     void anInstantReviveCostsAThousandMesosALevelAndDoublesWithinTheRun() throws Exception {
         Character owner = owner(1_000_000);
@@ -228,7 +254,9 @@ class CompanionBossReviveTest {
 
         joined.release(); // the price goes with the run: the next run starts at the first price again
         runs.add(ExpeditionBotsFixture.join(ownerMap, OWNER, ALT));
-        when(alt.getEventInstance()).thenReturn(mock(EventInstanceManager.class));
+        EventInstanceManager next = mock(EventInstanceManager.class); // the next run: owner and alt both in it
+        when(alt.getEventInstance()).thenReturn(next);
+        when(owner.getEventInstance()).thenReturn(next);
         dies(alt);
         CompanionBossRevive.gate(alt, NOW + 100_000);
         assertEquals(120_000, CompanionBossRevive.priceOf(alt));

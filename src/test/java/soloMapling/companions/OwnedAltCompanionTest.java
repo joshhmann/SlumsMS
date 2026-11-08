@@ -601,6 +601,7 @@ class OwnedAltCompanionTest {
         when(alt.getMap()).thenReturn(bossMap);
         scripting.event.EventInstanceManager eim = mock(scripting.event.EventInstanceManager.class);
         when(alt.getEventInstance()).thenReturn(eim);
+        when(owner.getEventInstance()).thenReturn(eim); // its owner is in the run with it
         when(alt.getClient()).thenReturn(mock(BotClient.class)); // a bot, so the companion switches apply to it
         when(alt.getLevel()).thenReturn(120);
         when(alt.getCurrentMaxHp()).thenReturn(1_400);
@@ -641,6 +642,7 @@ class OwnedAltCompanionTest {
         Character alt = alt(owner, 1302000);
         scripting.event.EventInstanceManager eim = mock(scripting.event.EventInstanceManager.class);
         when(alt.getEventInstance()).thenReturn(eim);
+        when(owner.getEventInstance()).thenReturn(eim); // its owner is in the run with it
         when(alt.getClient()).thenReturn(mock(BotClient.class));
         when(alt.getLevel()).thenReturn(120);
         when(alt.getCurrentMaxHp()).thenReturn(1_400);
