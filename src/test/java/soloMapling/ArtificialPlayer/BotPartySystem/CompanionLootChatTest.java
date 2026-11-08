@@ -2,27 +2,37 @@ package soloMapling.ArtificialPlayer.BotPartySystem;
 
 import client.BotClient;
 import client.Character;
+import client.inventory.Equip;
 import net.server.world.Party;
 import net.server.world.PartyCharacter;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
+import server.ItemInformationProvider;
+import server.maps.MapleMap;
+import soloMapling.ArtificialPlayer.BotGearSystem.GearUpgrades;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotCommandParser.Order;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotCommandParser.Verb;
 import soloMapling.ArtificialPlayer.BotPartySystem.PartyCompanionPolicy.Feature;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.companions.CompanionSettingsStore;
+import soloMapling.companions.CompanionUpgradeOffer;
 import soloMapling.companions.OwnedAltService;
 
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -36,17 +46,38 @@ class CompanionLootChatTest {
 
     private static final int OWNER = 1;
     private static final int ALT = 1_000_000_603;
+    /** The scorer below calls this an upgrade for the owner. */
+    private static final int OFFER_UPGRADE = 1302000;
 
     private Character player;
     private Character jane;
     private MockedStatic<CharacterStorage> storage;
     private MockedStatic<OwnedAltService> svc;
     private MockedStatic<CompanionSwitches> sw;
+    private MockedStatic<ItemInformationProvider> itemData;
+    private final List<String> handed = new ArrayList<>();
+    private final java.util.concurrent.atomic.AtomicLong now = new java.util.concurrent.atomic.AtomicLong(1_000L);
+    private MapleMap field;
+
+    @BeforeAll
+    static void loadItemProviderClass() throws Exception {
+        // ItemInformationProvider's static init reads the DB and the WZ; load the class once against mocks
+        try (var db = mockStatic(tools.DatabaseConnection.class);
+             var providers = mockStatic(provider.DataProviderFactory.class)) {
+            db.when(tools.DatabaseConnection::getConnection)
+                    .thenReturn(mock(java.sql.Connection.class, org.mockito.Mockito.RETURNS_DEEP_STUBS));
+            providers.when(() -> provider.DataProviderFactory.getDataProvider(
+                    org.mockito.ArgumentMatchers.any(provider.wz.WZFiles.class)))
+                    .thenReturn(mock(provider.DataProvider.class));
+            Class.forName("server.ItemInformationProvider");
+        }
+    }
 
     @BeforeEach
     void party() {
         player = mock(Character.class);
         when(player.getId()).thenReturn(OWNER);
+        when(player.getName()).thenReturn("Main");
         Party party = mock(Party.class);
         when(player.getParty()).thenReturn(party);
         PartyCharacter pc = mock(PartyCharacter.class);
@@ -58,6 +89,23 @@ class CompanionLootChatTest {
         when(jane.getName()).thenReturn("Jane");
         when(jane.getClient()).thenReturn(mock(BotClient.class));
         when(jane.isOwnedAlt()).thenReturn(true);
+
+        // the upgrade offer: the same seams CompanionUpgradeOfferTest uses (an Equip's constructor reads item data)
+        field = mock(MapleMap.class);
+        when(player.getMap()).thenReturn(field);
+        when(jane.getMap()).thenReturn(field);
+        ItemInformationProvider ii = mock(ItemInformationProvider.class);
+        itemData = mockStatic(ItemInformationProvider.class);
+        itemData.when(ItemInformationProvider::getInstance).thenReturn(ii);
+        when(ii.getEquipLevel(anyInt(), anyBoolean())).thenReturn(0);
+        when(ii.getName(anyInt())).thenReturn("Sword");
+        GearUpgrades.install((wearer, candidate) -> candidate.getItemId() == OFFER_UPGRADE ? 4 : 0);
+        CompanionUpgradeOffer.forget();
+        CompanionUpgradeOffer.useForTest((from, to, piece, say) -> {
+            handed.add(from.getName() + " -> " + to.getName() + " " + piece.getItemId());
+            return true;
+        }, now::get);
+
         BotSM bot = mock(BotSM.class);
         when(bot.getChr()).thenReturn(jane);
 
@@ -77,6 +125,10 @@ class CompanionLootChatTest {
 
     @AfterEach
     void close() {
+        CompanionUpgradeOffer.useForTest(null, null);
+        CompanionUpgradeOffer.forget();
+        GearUpgrades.install(null);
+        itemData.close();
         sw.close();
         svc.close();
         storage.close();
@@ -153,5 +205,30 @@ class CompanionLootChatTest {
         assertEquals(Verb.LOOT, read("loot everything").orElseThrow().verb(), "with the regulars switch on it is read");
         assertEquals(Verb.SELL_JUNK, read("sell junk").orElseThrow().verb());
         assertEquals(Verb.OFFERS, read("offers off").orElseThrow().verb());
+    }
+
+    @Test
+    void theOwnersYesHandsTheOfferedPieceOver() {
+        List<String> said = new ArrayList<>();
+        Equip piece = new Equip(OFFER_UPGRADE, (short) 0);
+        String line = CompanionUpgradeOffer.consider(jane, player, piece, said::add);
+        assertNotNull(line, "the alt found an upgrade for its owner");
+        assertEquals(1, said.size());
+        assertTrue(CompanionUpgradeOffer.waitingFor(player));
+
+        assertTrue(PartyBotOrders.fromPartyChat(player, "yes"), "the yes is the answer, not an order");
+        assertEquals(List.of("Jane -> Main " + OFFER_UPGRADE), handed, "the piece changed hands");
+        assertFalse(CompanionUpgradeOffer.waitingFor(player), "one yes, one handover");
+    }
+
+    @Test
+    void ordinaryChatDoesNotTouchAnOffer() {
+        List<String> said = new ArrayList<>();
+        CompanionUpgradeOffer.consider(jane, player, new Equip(OFFER_UPGRADE, (short) 0), said::add);
+        assertTrue(CompanionUpgradeOffer.waitingFor(player));
+
+        assertFalse(PartyBotOrders.fromPartyChat(player, "brb, one sec"), "not an answer and not an order");
+        assertTrue(CompanionUpgradeOffer.waitingFor(player), "the offer keeps waiting");
+        assertTrue(handed.isEmpty());
     }
 }

@@ -40,9 +40,7 @@ public final class CompanionUpgradeOffer {
     public static final long OFFER_GAP_MS = 120_000L;
 
     /** The words that answer an offer with a yes (the confirm-drop wording, this file's own copy: different package). */
-    private static final Set<String> YES = Set.of("yes", "yep", "yeah", "yea", "y", "ok", "okay", "sure",
-            "confirm", "please", "pls", "now", "then", "thanks", "thank", "you", "k", "kk", "do", "it", "go",
-            "ahead", "for", "of", "course", "fine", "cool", "alright");
+    private static final Set<String> YES = Set.of("yes", "yep", "yeah", "yea", "y", "ok", "okay", "sure", "confirm");
 
     /** The words that cancel an offer: anything said that is not a yes drops it, so a stale "yes" takes nothing. */
     private static final Set<String> NO = Set.of("no", "nope", "nah", "keep", "later", "dont", "don't", "stop");

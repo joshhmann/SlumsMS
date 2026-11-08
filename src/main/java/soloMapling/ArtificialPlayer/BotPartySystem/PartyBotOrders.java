@@ -203,6 +203,9 @@ public final class PartyBotOrders {
         if (!CompanionSwitches.any()) {
             return false;
         }
+        if (soloMapling.companions.CompanionUpgradeOffer.answer(player, line)) {
+            return true; // 1.6.7 group D: the owner's yes to a companion's "found a <item>, want it?"
+        }
         Optional<Order> order = read(player, line);
         if (order.isEmpty()) {
             return false;
