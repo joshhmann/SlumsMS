@@ -83,6 +83,17 @@ class ValidatorTest(unittest.TestCase):
         self.assertRefused(GOOD.replace(", timeout_ms: 60000}", "}"), "missing timeout_ms")
         self.assertRefused(GOOD.replace("timeout_ms: 60000", "timeout_ms: 900000"), "above")
 
+    def test_a_wait_may_exceed_300_s_only_up_to_the_script_card_cap(self):
+        # boss-pq-sweep: the card names the cap (stage 33 of the Zakum PQ needs 900 s); no card, no more than 300 s.
+        long_wait = GOOD.replace("timeout_ms: 60000", "timeout_ms: 600000")
+        self.assertRefused(long_wait, "above this script's cap 300000")
+        capped = long_wait.replace("needs: [gm]", "needs: [gm]\ncard_cap_ms: 900000")
+        errors, _ = check(capped)
+        self.assertEqual([], errors)
+        self.assertRefused(capped.replace("card_cap_ms: 900000", "card_cap_ms: 450000"), "above this script's cap 450000")
+        self.assertRefused(capped.replace("timeout_ms: 600000", "timeout_ms: 900001"), "timeout_ms")
+        self.assertRefused(capped.replace("card_cap_ms: 900000", "card_cap_ms: 1200000"), "card_cap_ms")
+
     def test_unknown_anchors_and_windows_are_refused(self):
         self.assertRefused(GOOD.replace("  - {do: select_character}\n",
                                         "  - {do: select_character}\n  - {do: click, anchor: login.nowhere}\n"),
