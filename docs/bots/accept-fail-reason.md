@@ -69,7 +69,8 @@ ACCEPT. That is about 17 dead invites an hour at that population.
    `BotConversation` and `BotRecognition`, to a regular starting a chat with a real player. INVITE is gated by
    `SocialIntents.mayAim` (PARTY_INVITE, FRIENDLY tier), which does not apply that cap, and an INVITE's target is
    never a real player. So the fallback does not touch the cap, and nothing in it needs the cap. Whether INVITE's
-   public line should also count against nearby players' caps is a question for the Coordinator, not changed here.
+   public line should also count against nearby players' caps was asked: Coordinator, 2026-11-08 ~01:0x UTC, no (the owner's
+   rule is about chats a regular starts with a player, not lines between regulars a player overhears).
 
 ## Proof
 
