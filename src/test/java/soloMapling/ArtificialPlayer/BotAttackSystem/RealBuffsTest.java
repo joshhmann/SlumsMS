@@ -6,8 +6,27 @@ import client.Character;
 import client.Client;
 import client.Job;
 import client.Skill;
+import client.inventory.WeaponType;
+import constants.skills.Aran;
+import constants.skills.Bishop;
+import constants.skills.BlazeWizard;
+import constants.skills.Bowmaster;
 import constants.skills.Crusader;
+import constants.skills.DarkKnight;
+import constants.skills.DawnWarrior;
+import constants.skills.Evan;
+import constants.skills.FPArchMage;
 import constants.skills.Fighter;
+import constants.skills.Hermit;
+import constants.skills.Hero;
+import constants.skills.ILArchMage;
+import constants.skills.Magician;
+import constants.skills.NightLord;
+import constants.skills.NightWalker;
+import constants.skills.Paladin;
+import constants.skills.ThunderBreaker;
+import constants.skills.WhiteKnight;
+import net.server.PlayerBuffValueHolder;
 import net.server.world.Party;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -73,6 +93,7 @@ class RealBuffsTest {
     @AfterEach
     void clean() {
         BotBuffEffects.useForTest(null);
+        BotDamage.useSkillDataForTest(null);
         for (String p : new String[]{"slums.companion.buffs.alts", "slums.companion.buffs.regulars"}) {
             System.clearProperty(p);
         }
@@ -182,6 +203,58 @@ class RealBuffsTest {
         verify(self, never()).applyToTarget(any(), any());
     }
 
+    /*
+     * The ticket's own list of buffs a caster must NEVER register on itself. Not one of them is a buff the caster
+     * shares with the party, whatever box its WZ level happens to carry: Combo, Shadow Partner, Infinity, Berserk,
+     * Enrage, the six White Knight charges and the Paladin/DawnWarrior/ThunderBreaker ones, Mana Reflection,
+     * Concentrate, Shadow Stars, Magic Guard. Each effect here is deliberately given the biggest box WZ could give
+     * (isPartyBuff true), so what keeps them off the caster can only be the explicit list, not the WZ bounds.
+     */
+    @Test
+    void aSelfOnlyBuffIsNeverRegisteredOnTheCasterEvenWithAWholeMapBox() {
+        List<Integer> selfOnly = List.of(
+                Crusader.COMBO, DawnWarrior.COMBO, Hero.ADVANCED_COMBO, DawnWarrior.ADVANCED_COMBO,
+                Hermit.SHADOW_PARTNER, NightWalker.SHADOW_PARTNER,
+                FPArchMage.INFINITY, ILArchMage.INFINITY, Bishop.INFINITY,
+                DarkKnight.BERSERK, Hero.ENRAGE,
+                FPArchMage.MANA_REFLECTION, ILArchMage.MANA_REFLECTION, Bishop.MANA_REFLECTION,
+                Bowmaster.CONCENTRATE, NightLord.SHADOW_STARS,
+                Magician.MAGIC_GUARD, Evan.MAGIC_GUARD, BlazeWizard.MAGIC_GUARD,
+                WhiteKnight.SWORD_FIRE_CHARGE, WhiteKnight.BW_FIRE_CHARGE,
+                WhiteKnight.SWORD_ICE_CHARGE, WhiteKnight.BW_ICE_CHARGE,
+                WhiteKnight.SWORD_LIT_CHARGE, WhiteKnight.BW_LIT_CHARGE,
+                Paladin.SWORD_HOLY_CHARGE, Paladin.BW_HOLY_CHARGE,
+                DawnWarrior.SOUL_CHARGE, ThunderBreaker.LIGHTNING_CHARGE, Aran.COMBO_ABILITY);
+        List<StatEffect> effects = new ArrayList<>();
+        Skill skill = mock(Skill.class);
+        when(skill.getMaxLevel()).thenReturn(30);
+        when(skill.getEffect(anyInt())).thenAnswer(i -> {
+            StatEffect e = buff(10);
+            when(e.getStatups()).thenReturn(List.of(new Pair<>(BuffStat.WATK, 10)));
+            effects.add(e);
+            return e;
+        });
+        BotBuffEffects.useForTest(new BotBuffEffects.Rules() {
+            @Override public Skill skill(int skillId) { return selfOnly.contains(skillId) ? skill : null; }
+            @Override public boolean pay(Character bot, int skillId, int level) { return true; }
+        });
+        Character bot = chr(BOT, true, true, 0);
+        when(map.getCharacters()).thenReturn(List.of(bot));
+
+        for (int id : selfOnly) {
+            when(bot.getSkillLevel(id)).thenReturn(10);
+            effects.clear();
+            BotBuffEffects.castBuff(bot, id);
+
+            assertTrue(!effects.isEmpty(), "the cast resolved an effect for " + id);
+            for (StatEffect effect : effects) {
+                verify(effect, never()).applyToTarget(bot, bot);
+                verify(effect, never()).applyToTarget(any(), any());
+            }
+            verify(bot, never()).registerEffect(any(StatEffect.class), anyLong(), anyLong(), anyBoolean());
+        }
+    }
+
     @Test
     void noMpRegistersNothingAndLeavesTheAltCosmetic() {
         hasMp = false;
@@ -227,13 +300,49 @@ class RealBuffsTest {
         assertTrue(!BotBuffEffects.partyMemberLacks(bot, Fighter.RAGE), "still holding it: nothing to do");
     }
 
+    /*
+     * The damage side, in numbers: a caster that really registered its Rage must have it counted exactly once.
+     * BotDamage adds a shown buff's WATK itself (the totals do not hold it) and adds a registered buff's damage%
+     * only, because Character.recalcLocalStats already put that buff's WATK into getTotalWatk(). So the two routes
+     * must land on the same attack: a companion holding a registered Rage (totals 100 = 80 base + 20 Rage, and the
+     * registered entry adding no WATK) and a cosmetic bot showing the same Rage (totals 80, shown entry adding 20).
+     * 120 would be the double count the ticket rules out.
+     */
     @Test
-    void aRegisteredRageIsCountedOnceOnTheDamageSide() {
-        Character bot = chr(BOT, true, true, 0);
-        when(bot.getJob()).thenReturn(Job.FIGHTER);
-        when(bot.getSkillLevel(Fighter.RAGE)).thenReturn(10);
-        when(bot.hasBuffFromSourceid(Fighter.RAGE)).thenReturn(true);
+    void aRegisteredRageReachesTheDamageOnceAndOnlyOnce() {
+        BotDamage.useSkillDataForTest((id, level) -> id == Fighter.RAGE
+                ? new BotDamage.SkillNumbers(100, 20, 0, 0, 0, 0, 0, 0, 0, null)
+                : BotDamage.SkillNumbers.NONE);
 
-        assertTrue(BotDamage.shownBuffs(bot).isEmpty(), "a registered Rage is not shown again");
+        StatEffect rage = buff(20);
+        when(rage.getDamage()).thenReturn(100);
+        Character registered = chr(BOT, true, true, 0);
+        when(registered.getJob()).thenReturn(Job.FIGHTER);
+        when(registered.getSkillLevel(Fighter.RAGE)).thenReturn(10);
+        when(registered.hasBuffFromSourceid(Fighter.RAGE)).thenReturn(true);
+        when(registered.getTotalWatk()).thenReturn(100);   // already folded in by recalcLocalStats
+        when(registered.getAllBuffs()).thenReturn(List.of(new PlayerBuffValueHolder(1, rage)));
+
+        BotCombatFormula.Attacker registeredHit = BotDamage.attacker(registered, WeaponType.GENERAL1H_SWING);
+
+        assertTrue(BotDamage.shownBuffs(registered).isEmpty(), "a registered Rage is not shown again");
+        assertEquals(100, registeredHit.watk(), "Rage's WATK is counted once, not twice (twice would be 120)");
+        assertEquals(0, registeredHit.damageBonusPct(), "Rage has no damage%, so the registered entry adds none");
+
+        StatEffect shownRage = buff(20);
+        when(shownRage.getDamage()).thenReturn(100);
+        Character cosmetic = chr(ALT, true, true, 0);
+        when(cosmetic.getJob()).thenReturn(Job.FIGHTER);
+        when(cosmetic.getSkillLevel(Fighter.RAGE)).thenReturn(10);
+        when(cosmetic.getTotalWatk()).thenReturn(80);
+        when(cosmetic.getAllBuffs()).thenReturn(List.of());
+        BotDamage.useSkillDataForTest((id, level) -> id == Fighter.RAGE
+                ? new BotDamage.SkillNumbers(100, 20, 0, 0, 0, 0, 0, 0, 0, null)
+                : BotDamage.SkillNumbers.NONE);
+
+        BotCombatFormula.Attacker shownHit = BotDamage.attacker(cosmetic, WeaponType.GENERAL1H_SWING);
+
+        assertTrue(!BotDamage.shownBuffs(cosmetic).isEmpty(), "the cosmetic bot still shows Rage");
+        assertEquals(100, shownHit.watk(), "the same attack as the registered route: Rage once either way");
     }
 }

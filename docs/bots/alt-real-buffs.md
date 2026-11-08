@@ -45,10 +45,14 @@ A party buff cast by any bot reaches each party member in the buff box (BotBuffE
 - **The caster:** if the policy allows the caster, its own party buff is registered on itself, same level and
   duration.
   - BotDamage.shownBuffs already skips a buff `hasBuffFromSourceid`, so its damage is not counted twice. A test
-    proves this.
+    proves it in numbers: a registered Rage puts 100 WATK into the attack (80 base + Rage's 20 through
+    `getTotalWatk`), not 120, and a cosmetic bot showing the same Rage also lands on 100.
   - Self-only buffs (Combo, Shadow Partner, Infinity, Berserk, Enrage, charges, Mana Reflection, Concentrate, Shadow
     Stars, Magic Guard) are NOT registered: unchanged, out of scope. (Combo's aura in particular breaks if
     registered; see BotBuffEffects :119-124.)
+  - Which buffs are self-only is a NAMED list in BotBuffEffects (`SELF_ONLY`), not something inferred from the WZ
+    box: `StatEffect.isPartyBuff` (:1513-1519) only answers "this level has an lt/rb box", which several self buffs
+    carry. A party cast registers on the caster only when `isPartyBuff()` is true AND the id is not in `SELF_ONLY`.
 - **MP:** a cast that will register on any target (a real player OR a policy-allowed companion) is paid at the
   learned level. Today only a real-player target triggers payment (anyRealPlayer :212). An alt already pays every cast
   (Pay.ALL). No free real buff, ever.
@@ -106,7 +110,8 @@ A party buff cast by any bot reaches each party member in the buff box (BotBuffE
 1. An alt in a party with a bot Spearman: Hyper Body cast → the alt has HYPER_BODY_HP registered, at the caster's
    learned level, with the WZ duration. A regular with default switches → nothing registered (cosmetic, as today).
 2. The caster alt has its own party buff registered. BotDamage.attacker on it counts Rage's watk ONCE (not shown + registered).
-3. A self-only buff (Combo, Shadow Partner) is never registered.
+3. A self-only buff (Combo, Shadow Partner) is never registered. Every id in `SELF_ONLY` is covered, each with a
+   whole-map WZ box, so only the named list can keep it off the caster.
 4. MP: a regular caster with only an alt in reach (no real player) pays MP when the alt will receive the real buff.
    If it can't pay, nothing is registered.
 5. Holy Symbol on an alt: Monster EXP multiplier for that alt > 1.0. Without the buff: 1.0.
@@ -144,12 +149,14 @@ the GM commands are untouched. `BotDamage` is not edited: only tested. Per-alt t
 
 All of these are real, committed files; the fail-before and pass-after text for each is in REPORT-deepseek.md.
 
-- `RealBuffsTest` (9 tests, `soloMapling/ArtificialPlayer/BotAttackSystem`): an owned alt gets the real party buff at
+- `RealBuffsTest` (10 tests, `soloMapling/ArtificialPlayer/BotAttackSystem`): an owned alt gets the real party buff at
   the caster's level while a regular and a real player are unaffected; `-Dslums.companion.buffs.alts=false` and
   `-Dslums.companion.buffs.regulars=true` move the target set as documented; the caster registers its own party buff;
-  a self-only buff (Crusader.COMBO) is never registered; no MP means nothing registered and the alt stays cosmetic; an
+  a self-only buff (Crusader.COMBO) is never registered, and every one of the 30 `SELF_ONLY` ids stays off the caster
+  even when its effect claims a whole-map box; no MP means nothing registered and the alt stays cosmetic; an
   alt-only reach still makes the caster pay; a companion that lost its buff asks for a recast through
-  `partyMemberLacks` while a regular never does; a registered Rage is counted once on the damage side.
+  `partyMemberLacks` while a regular never does; a registered Rage reaches `BotDamage.attacker` once and only once
+  (100 WATK, the same as a cosmetic bot showing it — 120 would be the double count).
 - `BotPartyDispelTest` (9 tests): a priest alt dispels a SEALed member in reach, pays MP, and does not cast again
   inside `DISPEL_GAP_MS`; Heal wins when someone is under `HEAL_BELOW_PERCENT`; nothing diseased means no cast; a
   priest without `Priest.DISPEL` learned does nothing; a regular priest with the defaults does nothing (and casts once

@@ -3,7 +3,24 @@ package soloMapling.ArtificialPlayer.BotAttackSystem;
 import client.Character;
 import client.Skill;
 import client.SkillFactory;
+import constants.skills.Aran;
+import constants.skills.Bishop;
+import constants.skills.BlazeWizard;
+import constants.skills.Bowmaster;
 import constants.skills.Crusader;
+import constants.skills.DarkKnight;
+import constants.skills.DawnWarrior;
+import constants.skills.Evan;
+import constants.skills.FPArchMage;
+import constants.skills.Hermit;
+import constants.skills.Hero;
+import constants.skills.ILArchMage;
+import constants.skills.Magician;
+import constants.skills.NightLord;
+import constants.skills.NightWalker;
+import constants.skills.Paladin;
+import constants.skills.ThunderBreaker;
+import constants.skills.WhiteKnight;
 import net.server.Server;
 import net.server.world.Party;
 import server.StatEffect;
@@ -198,7 +215,7 @@ public final class BotBuffEffects {
         StatEffect shown = skill.getEffect(skill.getMaxLevel());
         if (shown == null) return 0;
 
-        if (shown.isPartyBuff()) {
+        if (isSharedBuff(skillId, shown)) {
             List<Character> members = nearbyPartyMembers(bot);
             StatEffect real = handOutEffect(bot, skillId);
             // 1.6.7 regular-buffs-real: the caster of a party buff holds it too, as a player's own cast does, and it is
@@ -236,6 +253,33 @@ public final class BotBuffEffects {
         if (!BotHelpers.isBot(target)) return true;
         return soloMapling.ArtificialPlayer.BotPartySystem.PartyCompanionPolicy.on(
                 soloMapling.ArtificialPlayer.BotPartySystem.PartyCompanionPolicy.Feature.REAL_BUFFS, target);
+    }
+
+    /*
+     * 1.6.7 regular-buffs-real: the buffs that are the CASTER's own, whatever box their WZ level carries. A party cast
+     * must never register one of these on the caster, because a self buff's statup is the caster's alone: Combo (and
+     * Advanced Combo), Shadow Partner, Infinity, Berserk, Enrage, the weapon charges (the White Knight six, the
+     * Paladin holy ones, DawnWarrior's and ThunderBreaker's), Mana Reflection, Concentrate, Shadow Stars and Magic
+     * Guard. isPartyBuff() alone is NOT this list - it answers "the WZ effect has an lt/rb box", which a self buff may
+     * carry and a charge falls under - so the ids are named here instead of inferred.
+     */
+    static final java.util.Set<Integer> SELF_ONLY = java.util.Set.of(
+            Crusader.COMBO, DawnWarrior.COMBO, Hero.ADVANCED_COMBO, DawnWarrior.ADVANCED_COMBO,
+            Hermit.SHADOW_PARTNER, NightWalker.SHADOW_PARTNER,
+            FPArchMage.INFINITY, ILArchMage.INFINITY, Bishop.INFINITY,
+            DarkKnight.BERSERK, Hero.ENRAGE,
+            FPArchMage.MANA_REFLECTION, ILArchMage.MANA_REFLECTION, Bishop.MANA_REFLECTION,
+            Bowmaster.CONCENTRATE, NightLord.SHADOW_STARS,
+            Magician.MAGIC_GUARD, Evan.MAGIC_GUARD, BlazeWizard.MAGIC_GUARD,
+            WhiteKnight.SWORD_FIRE_CHARGE, WhiteKnight.BW_FIRE_CHARGE,
+            WhiteKnight.SWORD_ICE_CHARGE, WhiteKnight.BW_ICE_CHARGE,
+            WhiteKnight.SWORD_LIT_CHARGE, WhiteKnight.BW_LIT_CHARGE,
+            Paladin.SWORD_HOLY_CHARGE, Paladin.BW_HOLY_CHARGE,
+            DawnWarrior.SOUL_CHARGE, ThunderBreaker.LIGHTNING_CHARGE, Aran.COMBO_ABILITY);
+
+    /* True only for a buff the caster shares: it has an area box AND is not one of the caster's own. */
+    private static boolean isSharedBuff(int skillId, StatEffect shown) {
+        return shown.isPartyBuff() && !SELF_ONLY.contains(skillId);
     }
 
     /* A party buff the caster registers on itself, as the primary branch of a player's cast does. */
