@@ -70,7 +70,20 @@ public final class BotCommandParser {
         /** One line of its level, job, hp/mp and stats. */
         STATS,
         /** Used and free slots per bag ("slots", "inv"). */
-        SLOTS
+        SLOTS,
+        // ── 1.6.7 alt-settings ──
+        /** Party heals on/off: arg "on" or "off" ("heals on", "heals off"). */
+        HEALS,
+        /** Party buffs on/off: arg "on" or "off" ("support on", "buffs off"). */
+        SUPPORT,
+        /** Buff potions on/off: arg "on" or "off" ("buff pots on"). */
+        BUFF_POTS,
+        /** The owner's HP potion line, as a number clamped 10..90 ("pots at 60", "hp pots at 60"). */
+        HP_POTS,
+        /** The owner's MP potion line, as a number clamped 10..90 ("mp pots at 40"). */
+        MP_POTS,
+        /** This companion's card window: level, job, hp/mp, pots and the switches above. */
+        CARD
     }
 
     /** The ticket 14 orders: what {@link #parse(String, List)} reads. */
@@ -87,6 +100,9 @@ public final class BotCommandParser {
     public static final Set<Verb> LANES = EnumSet.of(Verb.LANES);
     /** 1.6.7 chat reports (PartyCompanionPolicy CHAT_REPORTS): what a companion has, told to the player who asked. */
     public static final Set<Verb> REPORTS = EnumSet.of(Verb.POTS, Verb.STATS, Verb.SLOTS);
+    /** 1.6.7 alt-settings (PartyCompanionPolicy SETTINGS): the owner's switches, potion lines and the card. */
+    public static final Set<Verb> SETTINGS = EnumSet.of(Verb.HEALS, Verb.SUPPORT, Verb.BUFF_POTS, Verb.HP_POTS,
+            Verb.MP_POTS, Verb.CARD);
 
     /** One party bot that can be told: its id and name, at its slot (1-based position in the list). */
     public record Target(int id, String name) {
@@ -136,7 +152,11 @@ public final class BotCommandParser {
             // 1.6.7 chat reports ("how many pots" is read in simple(), like "go here")
             Map.entry("pots", Verb.POTS), Map.entry("potions", Verb.POTS),
             Map.entry("stats", Verb.STATS),
-            Map.entry("slots", Verb.SLOTS), Map.entry("inv", Verb.SLOTS), Map.entry("inventory", Verb.SLOTS));
+            Map.entry("slots", Verb.SLOTS), Map.entry("inv", Verb.SLOTS), Map.entry("inventory", Verb.SLOTS),
+            // 1.6.7 alt-settings (the words are in the typo dictionary too; settings() reads the whole line)
+            Map.entry("heals", Verb.HEALS), Map.entry("heal", Verb.HEALS), Map.entry("healing", Verb.HEALS),
+            Map.entry("support", Verb.SUPPORT), Map.entry("buffs", Verb.SUPPORT), Map.entry("buff", Verb.SUPPORT),
+            Map.entry("buffpots", Verb.BUFF_POTS), Map.entry("card", Verb.CARD));
 
     /** Words that may ride along with the command word without making the line something else. */
     private static final Set<String> FILLER = Set.of("me", "here", "there", "with", "us", "back", "on", "up",
@@ -285,7 +305,10 @@ public final class BotCommandParser {
         List<String> w = words.subList(from, to);
         Cmd cmd = null;
         if (!BASE.containsAll(allowed)) {
-            cmd = itemCommand(w, allowed, byName);
+            cmd = settings(w, allowed); // 1.6.7 alt-settings
+            if (cmd == null) {
+                cmd = itemCommand(w, allowed, byName);
+            }
             if (cmd == null) {
                 cmd = lanes(w, allowed);
             }
@@ -314,6 +337,11 @@ public final class BotCommandParser {
             from = 3;
         }
         if (verb == null || !allowed.contains(verb)) {
+            return null;
+        }
+        // 1.6.7 alt-settings: these need their argument ("heals on", "pots at 60"); a bare "heals" or "support" is
+        // ordinary chat, and settings() is the only reader of them
+        if (SETTINGS.contains(verb) && VERBS.get(head) == verb) {
             return null;
         }
         // the ticket 14 orders keep their own filler, so a line that was chat before stays chat
@@ -384,6 +412,100 @@ public final class BotCommandParser {
             return null;
         }
         return new Cmd(Verb.FORMATION, f.toArg());
+    }
+
+    // ── 1.6.7 alt-settings (PartyCompanionPolicy SETTINGS) ──
+
+    /** The words a switch takes: "heals on", "heals off". */
+    private static final Map<String, Boolean> ON_OFF = Map.ofEntries(
+            Map.entry("on", Boolean.TRUE), Map.entry("true", Boolean.TRUE), Map.entry("yes", Boolean.TRUE),
+            Map.entry("enable", Boolean.TRUE), Map.entry("enabled", Boolean.TRUE),
+            Map.entry("off", Boolean.FALSE), Map.entry("false", Boolean.FALSE), Map.entry("no", Boolean.FALSE),
+            Map.entry("disable", Boolean.FALSE), Map.entry("disabled", Boolean.FALSE));
+    /** The nouns a potion line is said with ("pots at 60", "hp pots at 60"). */
+    private static final Set<String> POT_NOUNS = Set.of("pot", "pots", "potion", "potions");
+
+    /**
+     * 1.6.7 alt-settings: the owner's switches and potion lines for one companion, and its card - "heals on",
+     * "heals off", "support on", "buffs off", "buff pots on/off", "pots at 60", "hp pots at 60", "mp pots at 40",
+     * "card". Only with these verbs allowed (else the line stays chat). The number is left as text; the store
+     * clamps it to 10..90. Filler after the argument is allowed, but no other meaning.
+     */
+    private static Cmd settings(List<String> w, Set<Verb> allowed) {
+        if (w.isEmpty()) {
+            return null;
+        }
+        Cmd line = potLine(w, allowed);
+        if (line != null) {
+            return line;
+        }
+        String head = w.get(0);
+        if (allowed.contains(Verb.CARD) && head.equals("card") && fillerOnly(w, 1)) {
+            return new Cmd(Verb.CARD, null);
+        }
+        // "heals on/off"
+        if (head.equals("heals") || head.equals("heal") || head.equals("healing")) {
+            Boolean on = onOff(w, 1);
+            return on != null && allowed.contains(Verb.HEALS)
+                    ? new Cmd(Verb.HEALS, on ? "on" : "off") : null;
+        }
+        // "support on/off", "buffs on/off" - the party buffs
+        if (head.equals("support") || head.equals("buffs")) {
+            Boolean on = onOff(w, 1);
+            return on != null && allowed.contains(Verb.SUPPORT)
+                    ? new Cmd(Verb.SUPPORT, on ? "on" : "off") : null;
+        }
+        // "buff pots on/off", "buff potions off", "buffpot on"; a bare "buff on" is the party buffs
+        if (head.equals("buff") || head.equals("buffpot") || head.equals("buffpots")
+                || head.equals("buffpotion") || head.equals("buffpotions")) {
+            int at = head.equals("buff") && w.size() > 1 && POT_NOUNS.contains(w.get(1)) ? 2 : 1;
+            Boolean on = onOff(w, at);
+            return on != null && allowed.contains(Verb.BUFF_POTS)
+                    ? new Cmd(Verb.BUFF_POTS, on ? "on" : "off") : null;
+        }
+        return null;
+    }
+
+    /** "pots at 60", "hp pots at 60", "mp pots at 40", "mp at 40": the owner's potion line (arg is the number). */
+    private static Cmd potLine(List<String> w, Set<Verb> allowed) {
+        int at = w.indexOf("at");
+        if (at < 0) {
+            at = w.indexOf("to");
+        }
+        if (at <= 0 || at + 1 >= w.size() || !fillerOnly(w, at + 2)) {
+            return null;
+        }
+        String number = w.get(at + 1);
+        for (int i = 0; i < number.length(); i++) {
+            if (!Character.isDigit(number.charAt(i))) {
+                return null;
+            }
+        }
+        boolean mp = false;
+        int nouns = 0;
+        for (String word : w.subList(0, at)) {
+            if (word.equals("mp") || word.equals("mana") || word.equals("blue")) {
+                mp = true;
+            } else if (POT_NOUNS.contains(word)) {
+                nouns++;
+            } else if (!word.equals("hp") && !word.equals("red")) {
+                return null; // "trade pots at 60" is not this
+            }
+        }
+        if (nouns != 1) {
+            return null;
+        }
+        Verb verb = mp ? Verb.MP_POTS : Verb.HP_POTS;
+        return allowed.contains(verb) ? new Cmd(verb, number) : null;
+    }
+
+    /** The on/off word at {@code at}, with only filler after it. */
+    private static Boolean onOff(List<String> w, int at) {
+        if (at >= w.size()) {
+            return null;
+        }
+        Boolean on = ON_OFF.get(w.get(at));
+        return on != null && fillerOnly(w, at + 1) ? on : null;
     }
 
     /** Trades, drops, shows, upgrades and supply calls. Null when the words are none of them. */
