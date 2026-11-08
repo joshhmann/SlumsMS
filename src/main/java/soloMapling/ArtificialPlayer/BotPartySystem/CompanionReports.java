@@ -308,6 +308,11 @@ public final class CompanionReports {
         if (clock.getAsLong() - p.at() > CONFIRM_MS || !isYes(line)) {
             return false;
         }
+        // the alt may have walked onto a drop limited map since it asked; there the ground destroys what lands on it
+        if (dropBlocked(p.companion().self())) {
+            p.companion().tell(dropBlockedLine());
+            return true;
+        }
         CompanionItems.dropNow(p.companion(), p.category());
         return true;
     }

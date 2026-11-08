@@ -53,7 +53,7 @@ All of it only when `PartyCompanionPolicy.on(Feature.CHAT_REPORTS, companion)` i
    (yes, yep, yeah, yea, y, ok, okay, sure, confirm, do it, go ahead, go for it) and polite filler ("yes please",
    "ok thanks", "sure then") and nothing else, so "ok i'll be back in five" is a sentence and cancels. Any other line
    from that player cancels it, and so does the 30 s timeout; the items stay where they are and the line stays ordinary chat. On a `FieldLimit.DROP_LIMIT` map the
-   companion refuses instead: "drops are off on this map, i can't drop anything here".
+   companion refuses instead: "drops are off on this map, i can't drop anything here". The map is checked again at the yes (wave 2 audit): a drop limited map destroys what lands on it, so an alt that walked into a Free Market room after asking refuses with the same line and keeps its stacks.
 6. **Regulars keep their old behaviour.** With the defaults a party regular gets no report verb, no typo hint, no
    note, no confirmation and no bag-full window: `read` does not offer the report verbs, `typoHint`/`answer` return
    false, `ack` adds nothing, `maySayFull` says every tick as before. Everything above turns on for regulars with

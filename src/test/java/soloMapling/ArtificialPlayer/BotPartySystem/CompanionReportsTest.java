@@ -392,6 +392,34 @@ class CompanionReportsTest {
         }
     }
 
+    /**
+     * Wave 2 audit: a drop limited map DESTROYS what lands on it (MapleMap.spawnItemDropNoExpire ->
+     * disappearingItemDrop), so the map is checked again at the yes. An alt asked on an open map that walks into a Free
+     * Market room inside the 30 s keeps its stacks and says why.
+     */
+    @Test
+    void aYesAfterTheAltWalkedOntoADropLimitedMapDoesNotDrop() {
+        Character alt = alt();
+        MapleMap open = mock(MapleMap.class);
+        MapleMap market = mock(MapleMap.class);
+        when(market.getFieldLimit()).thenReturn((int) FieldLimit.DROP_LIMIT.getValue());
+        when(alt.getMap()).thenReturn(open);
+        List<String> said = new ArrayList<>();
+        CompanionItems.Companion c = new CompanionItems.Companion(alt, said::add);
+        Character owner = mock(Character.class);
+        when(owner.getId()).thenReturn(OWNER);
+        long[] now = {9_000_000L};
+        CompanionReports.clock(() -> now[0]);
+        try (MockedStatic<CompanionItems> ci = mockStatic(CompanionItems.class)) {
+            assertTrue(CompanionReports.confirmFirst(c, owner, "pots"));
+            when(alt.getMap()).thenReturn(market);
+            now[0] += 10_000L;
+            assertTrue(CompanionReports.confirmDrop(owner, "yes"), "the yes was the answer to the ask: consumed");
+            ci.verify(() -> CompanionItems.dropNow(any(), any()), never());
+            assertEquals(CompanionReports.dropBlockedLine(), said.get(said.size() - 1));
+        }
+    }
+
     // ── how the reports reach the parser ──
 
     /**
