@@ -481,10 +481,44 @@ final class StepExecutor {
             Point at = bot.getPosition();
             return "etc " + free + " free of " + etc.getSlotLimit() + (fits ? "" : ", CANNOT HOLD " + itemId) + ", "
                     + onFloor + " on the floor within " + LOOT_SEARCH_PX + " px (" + takeable + " it may take), at "
-                    + (at == null ? "?" : at.x + "," + at.y) + ", level " + bot.getLevel();
+                    + (at == null ? "?" : at.x + "," + at.y) + ", level " + bot.getLevel()
+                    + aliveTail(alivePositions(view, map));
         } catch (RuntimeException e) {
             return "(could not look: " + e + ")";
         }
+    }
+
+    /** The stage's monsters still alive on this map (all of them when the row names none), where they stand. */
+    static List<Point> alivePositions(LiveStageView view, MapleMap map) {
+        List<Point> out = new java.util.ArrayList<>();
+        if (map == null) {
+            return out;
+        }
+        List<Integer> wanted = view == null || view.stage() == null ? List.of() : view.stage().mobs();
+        for (Monster m : map.getAllMonsters()) {
+            if (m != null && m.isAlive() && (wanted.isEmpty() || wanted.contains(m.getId())) && m.getPosition() != null) {
+                out.add(m.getPosition());
+            }
+        }
+        return out;
+    }
+
+    /**
+     * lpq1-pass-shortfall (QA, TEST 8 Nov 2026): the end of a STALL reason, the monsters still alive and where, so a
+     * stalled stage shows its survivors. At most six positions, then how many more.
+     */
+    static String aliveTail(List<Point> alive) {
+        StringBuilder out = new StringBuilder(", alive: ").append(alive.size());
+        if (!alive.isEmpty()) {
+            out.append(" at");
+            for (int i = 0; i < Math.min(6, alive.size()); i++) {
+                out.append(" (").append(alive.get(i).x).append(',').append(alive.get(i).y).append(')');
+            }
+            if (alive.size() > 6) {
+                out.append(" +").append(alive.size() - 6).append(" more");
+            }
+        }
+        return out.toString();
     }
 
     private void fight(LiveStageView view, Character bot, Beat beat, SolverStep.Fight f, long now,
