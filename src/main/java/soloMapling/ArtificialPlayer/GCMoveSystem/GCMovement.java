@@ -293,6 +293,40 @@ public final class GCMovement {
         return true;
     }
 
+    /*
+     * 1.6.7 follow-plus: put a companion down beside the character it follows on the same map. The existing
+     * cross-map catch-up (OwnedAltService.catchUp) ends in backend.bringHere, which only re-arms the follow on the
+     * same map, and teleportTo() turns into a walk whenever a real player is on the map - which is always true here,
+     * because the one it follows is a player. The player asked for the companion to follow them, so this is their own
+     * command: snap it and count the snap for !qa lk-1 (WatchGate.noteSnappedWhileWatched) rather than walk.
+     */
+    public static boolean setDownBeside(Character bot, int x, int y, String site) {
+        if (bot == null || bot.getMap() == null) {
+            return false;
+        }
+        if (WatchGate.watched(bot)) {
+            WatchGate.noteSnappedWhileWatched(bot, site);
+        }
+        enable(bot);
+        BotMovementState st = STATES.get(bot.getId());
+        if (st == null) {
+            return false;
+        }
+        Point ground = BotPhysicsEngine.findGroundPoint(bot.getMap(), new Point(x, y));
+        BotPhysicsEngine.teleportTo(st, bot, ground != null ? ground : new Point(x, y));
+        BotMovementManager.resetEntryStateAfterTeleport(st);
+        BotMovementManager.broadcastMovement(st);
+        return true;
+    }
+
+    /* 1.6.7 follow-plus: is this bot fighting right now (a swing in flight, an alerted mob, a grind)? A companion
+     * that is fighting is not "stuck" even when it stands still. */
+    public static boolean fighting(Character bot) {
+        BotMovementState st = bot == null ? null : STATES.get(bot.getId());
+        return st != null && (st.grinding || st.attackCooldownMs > 0
+                || st.alertedUntilMs > System.currentTimeMillis());
+    }
+
     /* Flag the bot as combat-alerted so it renders the 5s ALERT pose. The observing client already starts
      * its own alert timer when it renders our attack packet; this keeps the bot's OWN movement broadcasts
      * carrying ALERT instead of STAND for the duration, so a following idle/move packet doesn't cancel the

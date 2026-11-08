@@ -568,3 +568,25 @@ clock starts at the revive instead of at the death, because the wait before the 
 Their sit-out rule (`SIT_OUT_DEATHS`, `SIT_OUT_MAX_MS`, `SIT_OUT_LINES` and its party-chat lines) is **not** ported:
 the owner declined it. The doubling revive wait, the mesos price for an instant revive and `@botme revive` are ours,
 not theirs.
+
+## 1.6.7 wave 2: following that looks like a player
+
+### Anti-stuck, reserved spots, climb following and the arrival / welcome-back lines, 1.6.7 (branch `167-alt-follow-plus`, card `alt-follow-plus`, ticket 167), cosmic_agents `3c7e09435` and BotStory `81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364` (AGPL-3.0)
+
+Read for shapes and thresholds only; no code copied. Files: `/root/work/research/cosmic_agents`
+(`https://github.com/Kiwiism/cosmic_agents.git`), `/root/work/research/BotStory`
+(`https://github.com/Incluwin/BotStory.git`).
+
+| From theirs | Our files |
+| --- | --- |
+| cosmic_agents `src/main/java/server/agents/capabilities/movement/AgentStuckDetectionService.java`: the drift radius, the "grounded" versus "suspended" (in the air or on a rope) split, the per-bot stuck clock that resets whenever the bot is doing something, and the post-recovery cooldown | `BotPartySystem/CompanionStuck.java` (`DRIFT_PX = 8`, `STUCK_MS = 8_000`, the `busy` verdict, `COOLDOWN_MS = 30_000`) |
+| cosmic_agents `src/main/java/server/agents/capabilities/recovery/AgentRecoveryTeleportService.java`: the recovery being a snap of the agent to the thing it follows | `GCMovement.setDownBeside` (same primitives as our `teleportTo`, but it snaps even while a player watches and counts it: the owner asked for the follow) |
+| BotStory `src/main/java/server/living/roster/CompanionFollowGuard.java` `waitsAt`: companions keep clear of a PQ-entrance spot, each at its own ordered place beside the anchor | `BotPartySystem/CompanionSpots.java` (`NEAR_PX = 150`, `STILL_MS = 2_000`, `SLOT_PX = 40`, `CLEAR_PX = 40`; the order is the companion's index among its owner's loaded alts by character id, not a LivingWorld roster) |
+| cosmic_agents `capabilities/navigation/AgentNavigationGraph.java` CLIMB edges and the `Climb*ExecutionService` files; BotStory `capabilities/navigation/AgentNavigationTargetService.java` `recentExitNudgeTarget` (the rope-top exit waypoint) | `BotPartySystem/CompanionClimb.java` (`CLIMB_DY = 60`, `ROPE_EXIT_PX = 24`, `CLIMB_TIMEOUT_MS = 12_000`); the climb itself is our existing `BotNavigationManager` CLIMB planning, so nothing new was added there |
+| BotStory `server/agents/capabilities/dialogue/AgentTownLifeDialogueReactionService.java` (arrival intent per town) and `AgentChatWelcomeBackFlow.java` (`AFK_THRESHOLD_MS = 5 min`, didn't-move-then-moved) | `BotPartySystem/CompanionLines.java` (`OWNER_AFK_MS = 300_000`, one arrival per map with `MAP_COOLDOWN_MS = 600_000`, `GAP_MS = 30_000`) |
+
+Changed in the port, marked `// SlumsMS:` where a line is theirs in shape: their agent runtimes, navigation graph
+regions and dialogue-intent bus became our per-companion static helpers keyed by character id; the lines go through
+our party chat / direct chat (`BotPartyChat.sayInParty`, `PacketCreator.multiChat`) and are silenced by our
+`@quiet bots` (`BotNoiseFilter`); and the "welcome back" is driven by our own still-clock on the owner's position
+rather than an NPC conversation state.
