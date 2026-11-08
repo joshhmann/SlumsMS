@@ -75,7 +75,7 @@ once: "found a <item>, better than yours, want it?". One offer per `CompanionUpg
 same item is never offered twice, and `offers off` silences it (`CompanionSettings.offers`). The owner answers in party
 chat: a plain "yes", "ok" or "sure" (the whole line) hands the item over in a normal trade window (`BotGiveTrade`);
 "no" or "later" drops the offer, and anything else is ordinary chat and leaves it waiting until the 2-minute offer
-expires.
+expires. Party chat is the only place an answer is read; `@alts` stays an order channel.
 
 ### 4. A regular is unchanged with the defaults
 
