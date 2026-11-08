@@ -15,8 +15,9 @@ Switch: `PartyCompanionPolicy.Feature.QUEST_MIRROR` (key `quests`). Owned alts a
 false), so a regular behaves exactly as it does today until an operator turns that switch on.
 
 **Second gate, the owner's call (8 Nov 2026):** mirroring is **off for every owned alt** until its owner types
-`@botme quests on <name>`; `@botme quests off <name>` stops it. The state is per alt, in memory (the base has no
-settings store for alts yet). Both gates must be on: the policy switch and the owner's command. A party regular has no
+`@botme quests on <name>`; `@botme quests off <name>` stops it. The choice is per alt and per owner, kept with the alt's
+settings (`CompanionSettings.quests`, table `companionsettings`, migration 069), so it survives a restart (owner, 8 Nov
+2026; it was memory only in the first wave 2 build). The quest path reads it without waiting (`CompanionSettingsStore.peek`). Both gates must be on: the policy switch and the owner's command. A party regular has no
 owner command in this card; `-Dslums.companion.quests.regulars=true` is its whole opt-in.
 
 ## Why
@@ -82,8 +83,8 @@ touches a setting.
 - A companion that already has a quest started or completed, or has its own progress, is never reset: a start is
   skipped when the status is not NOT_STARTED (`canStartQuestByStatus`), and a completion is skipped unless the status is
   STARTED and the companion meets the requirements.
-- No migration is needed, because no table, column or saved setting is added: the opt-in state is in memory and is lost
-  on a restart, which only turns mirroring off again (the safe direction). An alt that is opted in and then grows a
+- No migration of its own: the opt-in is one more field (`quests`, default off) in the alt's settings JSON in
+  `companionsettings` (migration 069, wave 3). An older row without the field reads as off. An alt that is opted in and then grows a
   quest the player never had keeps it: the mirror never removes a quest or progress.
 
 ## How the tests prove it

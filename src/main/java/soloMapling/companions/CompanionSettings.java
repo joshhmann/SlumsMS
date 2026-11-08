@@ -21,7 +21,7 @@ import java.util.Map;
  * A percentage of {@link #AUTO} (0) means "its own line"; a chosen one is clamped to 10..90 and then replaces the line.
  */
 public record CompanionSettings(boolean heals, boolean support, boolean buffPots, int hpPercent, int mpPercent,
-                                String lootMode) {
+                                String lootMode, boolean quests) {
 
     /** The lowest and highest potion percentage an owner may set. */
     public static final int MIN_PERCENT = 10;
@@ -31,15 +31,21 @@ public record CompanionSettings(boolean heals, boolean support, boolean buffPots
     public static final int AUTO = 0;
 
     /** What an untouched companion runs on, and every field's default. */
-    public static final CompanionSettings DEFAULT = new CompanionSettings(true, true, true, AUTO, AUTO, "");
+    public static final CompanionSettings DEFAULT = new CompanionSettings(true, true, true, AUTO, AUTO, "", false);
 
     public CompanionSettings {
         lootMode = lootMode == null ? "" : lootMode.trim().toLowerCase(Locale.ROOT);
     }
 
+    /** Without the quest switch (off): the wave 3 shape. */
+    public CompanionSettings(boolean heals, boolean support, boolean buffPots, int hpPercent, int mpPercent,
+                             String lootMode) {
+        this(heals, support, buffPots, hpPercent, mpPercent, lootMode, false);
+    }
+
     /** The same settings with the percentages inside 10..90 (0 stays {@link #AUTO}). */
     public CompanionSettings clamped() {
-        return new CompanionSettings(heals, support, buffPots, percent(hpPercent), percent(mpPercent), lootMode);
+        return new CompanionSettings(heals, support, buffPots, percent(hpPercent), percent(mpPercent), lootMode, quests);
     }
 
     /** A percentage inside 10..90, or {@link #AUTO}. */
@@ -56,27 +62,32 @@ public record CompanionSettings(boolean heals, boolean support, boolean buffPots
     }
 
     public CompanionSettings withHeals(boolean on) {
-        return new CompanionSettings(on, support, buffPots, hpPercent, mpPercent, lootMode);
+        return new CompanionSettings(on, support, buffPots, hpPercent, mpPercent, lootMode, quests);
     }
 
     public CompanionSettings withSupport(boolean on) {
-        return new CompanionSettings(heals, on, buffPots, hpPercent, mpPercent, lootMode);
+        return new CompanionSettings(heals, on, buffPots, hpPercent, mpPercent, lootMode, quests);
     }
 
     public CompanionSettings withBuffPots(boolean on) {
-        return new CompanionSettings(heals, support, on, hpPercent, mpPercent, lootMode);
+        return new CompanionSettings(heals, support, on, hpPercent, mpPercent, lootMode, quests);
     }
 
     public CompanionSettings withHpPercent(int percent) {
-        return new CompanionSettings(heals, support, buffPots, percent, mpPercent, lootMode).clamped();
+        return new CompanionSettings(heals, support, buffPots, percent, mpPercent, lootMode, quests).clamped();
     }
 
     public CompanionSettings withMpPercent(int percent) {
-        return new CompanionSettings(heals, support, buffPots, hpPercent, percent, lootMode).clamped();
+        return new CompanionSettings(heals, support, buffPots, hpPercent, percent, lootMode, quests).clamped();
     }
 
     public CompanionSettings withLootMode(String mode) {
-        return new CompanionSettings(heals, support, buffPots, hpPercent, mpPercent, mode);
+        return new CompanionSettings(heals, support, buffPots, hpPercent, mpPercent, mode, quests);
+    }
+
+    /** Owner, 8 Nov 2026: "@botme quests on" kept across a restart (the quest mirror's per-alt opt-in). */
+    public CompanionSettings withQuests(boolean on) {
+        return new CompanionSettings(heals, support, buffPots, hpPercent, mpPercent, lootMode, on);
     }
 
     /** The HP line as a fraction of max HP, or 0 when the companion keeps its own. */
@@ -98,6 +109,7 @@ public record CompanionSettings(boolean heals, boolean support, boolean buffPots
         out.append(",\"hpPercent\":").append(hpPercent);
         out.append(",\"mpPercent\":").append(mpPercent);
         out.append(",\"lootMode\":\"").append(escape(lootMode)).append('"');
+        out.append(",\"quests\":").append(quests);
         return out.append('}').toString();
     }
 
@@ -121,7 +133,8 @@ public record CompanionSettings(boolean heals, boolean support, boolean buffPots
                 flag(fields.get("buffPots"), DEFAULT.buffPots()),
                 percent(number(fields.get("hpPercent"))),
                 percent(number(fields.get("mpPercent"))),
-                unescape(fields.getOrDefault("lootMode", ""))).clamped();
+                unescape(fields.getOrDefault("lootMode", "")),
+                flag(fields.get("quests"), DEFAULT.quests())).clamped();
     }
 
     private static Map<String, String> fields(String json) {
