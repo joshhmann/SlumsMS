@@ -837,6 +837,28 @@
      "type": "object",
      "properties": {
       "do": {
+       "const": "position"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      }
+     },
+     "required": [
+      "do"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
        "const": "drop_item"
       },
       "id": {

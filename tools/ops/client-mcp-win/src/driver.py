@@ -47,6 +47,8 @@ TOOLS = {
     'qa_events': {'since': {'type': 'integer', 'minimum': 0, 'maximum': 1000000}},
     # P1-Q2: click an npc like a player. The QA client says where the npc is on screen (npc_pos); the worker clicks.
     'click_npc': {'npc': {'type': 'integer', 'minimum': 1, 'maximum': 99999999}},
+    # qa-position-signal (1.6.6): where the character is (the server's !pos coordinates), for gm-0 scripts.
+    'position': {},
     'click_option': {'option': {'type': 'integer', 'minimum': 1, 'maximum': 8}},
     # P1-Q2 (Zakum run): the QA client calls the item and party windows' own senders; no mouse, no window anchors.
     'drop_item': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 5999999},
@@ -237,7 +239,7 @@ def log_tail(path, lines):
 SCRIPT_NAME = re.compile(r'^[a-z0-9][a-z0-9_-]{0,47}$')
 SCRIPT_TOOLS = {'start_client', 'login', 'login_credentials', 'click_anchor', 'select_world', 'select_channel',
                 'select_character', 'qa_events', 'command', 'press_key', 'mouse_click', 'mouse_drag', 'screenshot',
-                'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to', 'click_npc', 'click_option',
+                'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to', 'click_npc', 'click_option', 'position',
                 'drop_item', 'party_create', 'party_invite', 'close_dialog',
                 'dialog_next', 'use_cash_item',
                 'merchant_open', 'merchant_close', 'fredrick_retrieve', 'pickup_item',
@@ -996,6 +998,19 @@ class Driver:
             raise Refusal('out_of_view')
         self.sender.click(x, y, right=False, double=False)
         return {'npc': npc, 'clicked': [x, y]}
+
+    def position(self):
+        """qa-position-signal (1.6.6): the character's map position from the QA client: map_id, x, y (the server's !pos
+        coordinates) and whether it stands on a foothold, a rope or a ladder (all false: in the air). Presses nothing.
+        Errors are the client's codes (field_not_ready, site_mismatch)."""
+        pipe = self.need_qa()
+        pipe.send('pos')
+        event = pipe.wait('player.pos', NPC_POS_TIMEOUT)
+        if event is None:
+            raise Refusal('field_not_ready')   # the client did not answer: no field to look in
+        if not event.get('ok'):
+            raise Refusal(str(event.get('error') or 'field_not_ready'))
+        return {key: event[key] for key in ('map_id', 'x', 'y', 'foothold', 'rope', 'ladder')}
 
     def click_option(self, option):
         """P1-Q2: picks row <option> (1-8) of the open npc menu. The QA client ends the dialog through its own reply

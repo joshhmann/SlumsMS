@@ -469,6 +469,8 @@ class SilviaWorker:
                                        "run_ms": int(step.get("run_ms", 0)), "hold_ms": int(step.get("hold_ms", 800))}
         elif kind == "click_npc":
             name, arguments = "click_npc", {"npc": step["npc"]}
+        elif kind == "position":   # qa-position-signal (1.6.6): where the character is; the answer is the detail
+            name, arguments = "position", {}
         elif kind == "drop_item":   # P1-Q2: the QA client calls the item window's own sender (QA build 3)
             name, arguments = "drop_item", {"item": step["item"], "count": step.get("count", 1)}
         elif kind == "party_create":

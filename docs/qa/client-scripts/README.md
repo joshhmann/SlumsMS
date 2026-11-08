@@ -123,6 +123,7 @@ At most two clients (`two_clients` in `needs`); with two, every step, capture an
 | `sleep` | `ms`, `reason` | discouraged; see Timers |
 | `mark` | `id` | a named point for captures and spans |
 | `click_npc` | `npc` | clicks an NPC by id where the QA client draws it; it never walks (`out_of_view`: move, then again) |
+| `position` | (none) | the character's map position from the QA client: `map_id`, `x`, `y` (the server's `!pos` coordinates) and `foothold`/`rope`/`ladder` (all false = in the air), in the step's detail; presses nothing. Refusals: `field_not_ready`, `site_mismatch` (qa-position-signal, 1.6.6; QA build 18) |
 | `drop_item` | `item`, `count` | drops `count` (default 1) of the item's first stack through the client's own sender (QA build 3) |
 | `pickup_item` | `item` | picks up the newest drop of the item on the field through the client's own pickup sender; passes only when the server gives it to this character (QA build 15) |
 | `shop_buy` | `item`, `quantity` | (an NPC shop open, e.g. after `click_npc`) buys `quantity` of `item` with the packet the shop's Buy button sends; passes only on the server's answer 0. Refusals: `not_enough_mesos`, `inventory_full`, `not_in_shop`, `no_shop`, `timeout` (QA build 16) |
