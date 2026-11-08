@@ -90,6 +90,11 @@ public final class FollowerFight {
      * The monster the follower fights: the nearest live one on its map when it stands on a dojo floor, inside its
      * expedition or inside its leader's party quest, with its leader; else, in its leader's party, the party's fight
      * (see the class note); else null (it just follows).
+     *
+     * <p>1.6.7 companion-shared-picker: inside a run, when
+     * {@code -Dslums.companion.picker.regulars=true}, the pick comes from the shared picker in its in-run mode
+     * ({@code OwnedAltCombat.targetInRun}) instead of {@link #nearest}: the same ranking every other companion
+     * pick will use once assist and boss kill order land. Off by default, so a regular's run is unchanged.
      */
     static Monster target(Character bot, Character leader) {
         return target(bot, leader, System.currentTimeMillis());
@@ -105,6 +110,15 @@ public final class FollowerFight {
             return null;
         }
         if (instanceFight(bot, leader, map)) {
+            // 1.6.7 companion-shared-picker: inside a run the shared picker (OwnedAltCombat.targetInRun) is the one
+            // ranking the assist and boss kill-order cards will add sort keys to. Off for a regular by default, so an
+            // ordinary run still takes the nearest mob exactly as before.
+            if (soloMapling.ArtificialPlayer.BotPartySystem.PartyCompanionPolicy.on(
+                    soloMapling.ArtificialPlayer.BotPartySystem.PartyCompanionPolicy.Feature.SHARED_PICKER, bot)) {
+                State inRun = states.get(bot.getId());
+                return soloMapling.companions.OwnedAltCombat.targetInRun(bot,
+                        m -> inRun != null && skipped(inRun, m.getObjectId(), now));
+            }
             return nearest(bot, map, at);
         }
         if (!inLeadersParty(bot, leader)) {
