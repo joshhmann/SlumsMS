@@ -1,7 +1,8 @@
 #!/bin/bash
 # SlumsMS release step 2 (workstation): put one release on the host, ready to rehearse and deploy.
 #
-#   tools/release/stage <version> [--conf FILE] [--replace] [--allow-version-mismatch] [--allow-skipped-tests] [--dry-run]
+#   tools/release/stage <version> [--conf FILE] [--replace] [--allow-version-mismatch] [--allow-skipped-tests]
+#                       [--allow-flag-drift] [--dry-run]
 #
 # Needs tools/release/build first (dist/release-build, same commit as this checkout) and docs/release/<version>.conf
 # (template: tools/release/templates/release.conf.example). Builds dist/release-stage/<version>/ and copies it to
@@ -18,10 +19,11 @@ here=$(cd "$(dirname "$0")" && pwd); . "$here/lib.sh"
 REPO=$(cd "$here/../.." && pwd)
 VERSION=${1:-}; shift || true
 valid_version "$VERSION" || die "usage: stage <version> [options]   (version like 1.3.2)"
-CONF=$REPO/docs/release/$VERSION.conf REPLACE=0 VMISMATCH=0 SKIPPED_OK=0 DRY_RUN=0
+CONF=$REPO/docs/release/$VERSION.conf REPLACE=0 VMISMATCH=0 SKIPPED_OK=0 DRY_RUN=0 FLAG_DRIFT_OK=0
 while [ $# -gt 0 ]; do case $1 in
   --conf) CONF=$(realpath "$2"); shift;; --replace) REPLACE=1;; --allow-version-mismatch) VMISMATCH=1;;
-  --allow-skipped-tests) SKIPPED_OK=1;; --dry-run) DRY_RUN=1;; *) die "unknown option $1";; esac; shift; done
+  --allow-skipped-tests) SKIPPED_OK=1;; --allow-flag-drift) FLAG_DRIFT_OK=1;; --dry-run) DRY_RUN=1;;
+  *) die "unknown option $1";; esac; shift; done
 require_workstation
 BUILD=$REPO/dist/release-build
 OUT=$REPO/dist/release-stage/$VERSION
@@ -30,6 +32,12 @@ cd "$REPO"
 
 step "checks"
 [ -f "$CONF" ] || die "no release conf $CONF (copy tools/release/templates/release.conf.example)"
+# 1.6.6 flag parity (Coordinator 2026-11-08): what TEST proved must be what live runs. TEST's -D flags (deploy/test/
+# start-test.sh) may differ from live's only by docs/release/flag-parity.allow and this release's own unit changes.
+if [ -x "$REPO/tools/ops/flag-parity" ]; then
+  "$REPO/tools/ops/flag-parity" --conf "$CONF" || [ "$FLAG_DRIFT_OK" = 1 ] \
+    || die "TEST and live -D flags differ beyond flag-parity.allow and $(basename "$CONF") (above): match TEST to live, declare it, or --allow-flag-drift"
+fi
 [ -f "$BUILD/BUILD.txt" ] || die "no build; run tools/release/build"
 bcommit=$(sed -n 's/^commit=//p' "$BUILD/BUILD.txt"); jver=$(sed -n 's/^version=//p' "$BUILD/BUILD.txt")
 tests=$(sed -n 's/^tests=//p' "$BUILD/BUILD.txt")
