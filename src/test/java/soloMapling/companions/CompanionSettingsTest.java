@@ -66,4 +66,13 @@ class CompanionSettingsTest {
                 "flipping back is the default again, so the store deletes the row");
         assertEquals("own-kills", CompanionSettings.DEFAULT.withLootMode(" Own-Kills ").lootMode());
     }
+
+    @Test
+    void theQuestsSwitchRoundTripsAndDefaultsOff() {
+        assertFalse(CompanionSettings.DEFAULT.quests(), "quest mirroring is off until the owner says so");
+        CompanionSettings on = CompanionSettings.DEFAULT.withQuests(true);
+        assertEquals(on, CompanionSettings.parse(on.toJson()));
+        assertFalse(on.isDefault());
+        assertFalse(CompanionSettings.parse("{\"heals\":false}").quests(), "an older row without the field: off");
+    }
 }
