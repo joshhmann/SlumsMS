@@ -673,3 +673,21 @@ comment. The fifth item is a removal of MapleRoot-only code, not a port, and car
 | Cat's Eye drop | `bfcadc069` | Drop row for Cat's Eye 4031568 from Meerkat 2100108, quest 3911, chance 80000 (`src/main/resources/db/data/152-drop-data.sql:21102`) | Shipped as an idempotent migration `database/migrations/068-cat-eye-meerkat-drop.sql` with a rollback, inserting only when the (dropperid, itemid) row is absent; the Scorpion 2110301 row is kept |
 | Rebirth class swap (removal) | — | Removed our `jobChangeChecker === 1` branch in `scripts/npc/rebirth.js` (dead: the flag is always 0), `NPCConversationManager.changeRebirthJobCerezeth(int)`, `Character.changeRebirthJobCerezeth(Job)` and their two `scripts/lib.d.ts` declarations | Owner decision 2026-11-08: the method swapped only the job id at the character's current level, so a level-10 rebirth could jump back to a 4th job |
 
+
+## 1.6.7 wave 3: companion settings
+
+### Per-owner companion settings, 1.6.7 (branch `167-alt-settings`, card `alt-qol-batch` group B), BotStory `81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364` and nutnnut/Cosmic `b684bf7` (AGPL-3.0)
+
+| From theirs | Our files |
+| --- | --- |
+| BotStory `server/living/roster/CompanionSettings.java`: the switches and potion percentages, the 10..90 bounds, "not written at its default" | `soloMapling/companions/CompanionSettings.java` |
+| BotStory `server/living/roster/CompanionSettingsApplier.java` (`settings(ownerId, personaId)`: memory, else read once, else defaults) and nutnnut `server/bots/BotPrefsStore.java` (a small prefs table, upsert on change) | `soloMapling/companions/CompanionSettingsStore.java`, `database/migrations/069-companion-settings.sql` |
+| BotStory `server/living/roster/ui/CompanionCardScreens.java`: the card's switch lines and potion counts | `soloMapling/menus/CompanionCardMenu.java` (our `MenuWindow`, no packet code) |
+
+Changed:
+- our own migration 069 replaces their self-creating table;
+- one JSON blob per (owner, companion);
+- no formation or loot-policy types (the loot mode is a stored string);
+- 0 means "the bot's own potion line", so an untouched companion behaves exactly as before;
+- the gates are in our shared `BotPartySupport` / `BotBuffDriver` / `BotVitals`;
+- the load is lazy, and a bot's first read after a restart starts it (Bots).

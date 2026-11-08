@@ -152,6 +152,11 @@ public final class BotVitals {
      * the shared 50% (the simple path).
      */
     static double hpPotAt(Character bot) {
+        // 1.6.7 alt-settings: the one read of the owner's HP line; 0 (unset) leaves today's line, boss run included.
+        int ownerAt = soloMapling.companions.CompanionSettingsStore.hpPercent(bot);
+        if (ownerAt > 0) {
+            return ownerAt / 100.0;
+        }
         if (CompanionSupplies.inBossRun(bot)) {
             return CompanionSupplies.BOSS_HP_POT_AT;   // SlumsMS: in a boss run the whole line moves up
         }
@@ -170,6 +175,10 @@ public final class BotVitals {
      * where a skill-heavy job (Brandish) must drink before it falls back to the plain attack.
      */
     static double mpPotAt(Character bot) {
+        int ownerAt = soloMapling.companions.CompanionSettingsStore.mpPercent(bot); // 1.6.7 alt-settings
+        if (ownerAt > 0) {
+            return ownerAt / 100.0;
+        }
         return CompanionSupplies.inBossRun(bot) ? CompanionSupplies.BOSS_MP_POT_AT : MP_POT_AT;
     }
 
