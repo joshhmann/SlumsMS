@@ -252,6 +252,7 @@ VAULT = re.compile(r'^[a-z0-9][a-z0-9-]{1,31}$')
 BUILD_STAMP_CAPS = re.compile(r'Build stamp: caps (0x[0-9A-Fa-f]{8})')
 QA_EVENTS_MAX = 200
 NPC_POS_TIMEOUT = 3.0   # the client answers npc_pos / click_option on its next frame
+DROP_TIMEOUT = 6.0      # qa-drop-honest: the client waits up to 3 s for the server to take the items
 NPC_OPTION_ANCHOR = re.compile(r'^npc_dialog\.option_([1-8])$')
 CHAR_NAME = re.compile(r'^[A-Za-z0-9]{4,12}$')
 CASH_TARGET = re.compile(r'^([1-5]:[0-9]{1,3}|[1-5][0-9]{6})$')   # inv:slot, or an inventory item id   # v83 character names; the QA client checks the same
@@ -1029,11 +1030,11 @@ class Driver:
             raise Refusal(str(event.get('error') or 'not_a_menu'))
         return {'option': option, 'value': event.get('value')}
 
-    def qa_request(self, command, ev, matches, timeout_error):
+    def qa_request(self, command, ev, matches, timeout_error, timeout=NPC_POS_TIMEOUT):
         """Sends one QA client command and returns its answer event; the client's error code is the refusal."""
         pipe = self.need_qa()
         pipe.send(command)
-        deadline = time.monotonic() + NPC_POS_TIMEOUT
+        deadline = time.monotonic() + timeout
         while True:
             left = deadline - time.monotonic()
             event = pipe.wait(ev, left) if left > 0 else None
@@ -1272,11 +1273,13 @@ class Driver:
 
     def drop_item(self, item, count=1):
         """P1-Q2: drops <count> of the first stack of <item> through the client's own item-move sender (the packet a
-        drag out of the item window sends). Errors: not_in_inventory, no_character, site_mismatch. The answer says the
-        request was sent; the server's drop shows in its lines and on the field."""
+        drag out of the item window sends). qa-drop-honest: ok only once the server took the items (the stack shrank);
+        'left' is what stays in the slot. Errors: not_dropped (the server refused it, e.g. a GM character's drop),
+        not_in_inventory, not_enough_items, no_character, site_mismatch."""
         event = self.qa_request('drop_item %d %d' % (item, count), 'item.drop',
-                                lambda e: e.get('item') == item and e.get('count') == count, 'no_character')
-        return {'item': item, 'count': count, 'slot': event.get('slot')}
+                                lambda e: e.get('item') == item and e.get('count') == count, 'no_character',
+                                DROP_TIMEOUT)
+        return {'item': item, 'count': count, 'slot': event.get('slot'), 'left': event.get('left')}
 
     def party_create(self):
         """P1-Q2: creates a party through the client's own sender (the party window's Create)."""
