@@ -837,7 +837,9 @@ public final class BotAttackDriver {
 
     public static boolean botMayTarget(Monster m) {
         return m != null && m.getId() != constants.id.MobId.TRANSPARENT_ITEM
-                && (m.getStats() == null || !m.getStats().isFriendly());
+                && (m.getStats() == null || !m.getStats().isFriendly())
+                // 1.6.6: never a mob no player can hit (Horntail's invisible body 8810018 cleared a TEST run)
+                && !NoHitboxMobs.noHitbox(m.getId());
     }
 
     /** What walking between two points costs (ms), or {@link GCMovement#UNREACHABLE}; tests stub it. */
