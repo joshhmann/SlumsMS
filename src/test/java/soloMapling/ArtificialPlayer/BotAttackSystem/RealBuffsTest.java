@@ -208,6 +208,26 @@ class RealBuffsTest {
     }
 
     @Test
+    void aCompanionThatLostTheBuffAsksForARecastButARegularDoesNot() {
+        Character bot = caster();
+        Character alt = chr(ALT, true, true, 10);
+        Character regular = chr(REGULAR, true, false, 20);
+        when(atMax.getStatups()).thenReturn(List.of(new Pair<>(BuffStat.WATK, 20)));
+        when(alt.getBuffedValue(BuffStat.WATK)).thenReturn(null);   // a mock answers 0 otherwise
+
+        when(map.getCharacters()).thenReturn(List.of(bot, regular));
+        assertTrue(!BotBuffEffects.partyMemberLacks(bot, Fighter.RAGE),
+                "a regular's cosmetic aura never asks for a recast");
+
+        when(map.getCharacters()).thenReturn(List.of(bot, alt));
+        assertTrue(BotBuffEffects.partyMemberLacks(bot, Fighter.RAGE),
+                "a companion that lost its buff (a mob's Dispel) does ask for one");
+
+        when(alt.getBuffedValue(BuffStat.WATK)).thenReturn(12);
+        assertTrue(!BotBuffEffects.partyMemberLacks(bot, Fighter.RAGE), "still holding it: nothing to do");
+    }
+
+    @Test
     void aRegisteredRageIsCountedOnceOnTheDamageSide() {
         Character bot = chr(BOT, true, true, 0);
         when(bot.getJob()).thenReturn(Job.FIGHTER);

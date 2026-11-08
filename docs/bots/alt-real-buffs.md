@@ -59,8 +59,10 @@ A party buff cast by any bot reaches each party member in the buff box (BotBuffE
     buff. Otherwise an alt never gets a recast after a dispel.
 - **Dispel (new, shared, in BotPartySupport):**
   - Who casts: a companion with Priest.DISPEL learned (Priest, Bishop), the policy on for the CASTER.
-  - When: a party member in reach (player or policy-allowed companion) carries a dispellable disease (seal,
-    darkness, weakness, curse, poison, slow, seduce, confusion; whatever Character.dispelDebuffs clears).
+  - When: a party member in reach (player or policy-allowed companion) carries a dispellable disease. This server's
+    `Character.dispelDebuffs` (:3545) clears exactly six: seal, darkness, weakness, curse, poison, slow. It does NOT
+    clear seduce, zombify, confusion or stun - those go only through `purgeDebuffs` (:3554) - so a companion's Dispel
+    ignores them, the same as a player's does here.
   - How: it casts Dispel through the real StatEffect path, paying MP, at most once per DISPEL_GAP_MS (a constant,
     e.g. 4 s, like HEAL_GAP_MS at BotPartySupport :48). The dispel is the stock one: party members in the box.
   - Heal keeps priority when someone is under HEAL_BELOW_PERCENT (BotPartySupport :47).
@@ -140,20 +142,21 @@ the GM commands are untouched. `BotDamage` is not edited: only tested. Per-alt t
 
 ## Test list (filled in by the implementation, see REPORT-deepseek.md)
 
-- `RealBuffsPolicyTest` (party companion policy): REAL_BUFFS("buffs") is on for an alt and off for a regular by
-  default; `-Dslums.companion.buffs.regulars=true` turns it on for a regular and `-Dslums.companion.buffs.alts=false`
-  off for an alt.
-- `BotBuffRealTargetTest` (BotBuffEffects.applyToTargets): an alt receives the real Hyper Body at the caster's level
-  and WZ duration; a regular with the defaults stays cosmetic; switching `-Dslums.companion.buffs.alts=false` puts the
-  alt back on the cosmetic path.
-- `BotBuffCasterSelfTest`: the caster's own party buff is registered only when paid and only for a party buff; a
-  self-only buff (Combo, Shadow Partner) is never registered; `BotDamage.attacker` counts a registered Rage once.
-- `BotBuffPaymentTest`: a regular caster with only an alt in reach pays MP; with no MP nothing is registered and the
-  alt stays cosmetic.
-- `BotBuffHolySymbolTest`: a registered Holy Symbol on an alt raises its EXP multiplier above 1.0; without the buff it
-  is 1.0.
-- `BotBuffMobDispelTest`: the mob DISPEL path (MobSkillType.DISPEL, as Dark Wyvern 8810021's attack2 carries) removes
-  the alt's real Hyper Body and `partyMemberLacks` then reports the lack.
-- `BotPartyDispelTest`: a priest alt dispels a SEALed member, MP paid, at most once per `DISPEL_GAP_MS`; a member
-  under `HEAL_BELOW_PERCENT` gets Heal first; a regular priest with the defaults does nothing; `heals off` in
-  `CompanionSettings` stops it.
+All of these are real, committed files; the fail-before and pass-after text for each is in REPORT-deepseek.md.
+
+- `RealBuffsTest` (9 tests, `soloMapling/ArtificialPlayer/BotAttackSystem`): an owned alt gets the real party buff at
+  the caster's level while a regular and a real player are unaffected; `-Dslums.companion.buffs.alts=false` and
+  `-Dslums.companion.buffs.regulars=true` move the target set as documented; the caster registers its own party buff;
+  a self-only buff (Crusader.COMBO) is never registered; no MP means nothing registered and the alt stays cosmetic; an
+  alt-only reach still makes the caster pay; a companion that lost its buff asks for a recast through
+  `partyMemberLacks` while a regular never does; a registered Rage is counted once on the damage side.
+- `BotPartyDispelTest` (9 tests): a priest alt dispels a SEALed member in reach, pays MP, and does not cast again
+  inside `DISPEL_GAP_MS`; Heal wins when someone is under `HEAL_BELOW_PERCENT`; nothing diseased means no cast; a
+  priest without `Priest.DISPEL` learned does nothing; a regular priest with the defaults does nothing (and casts once
+  `-Dslums.companion.buffs.regulars=true`); `heals` off in `CompanionSettings` stops it; no MP means no cast and no
+  retry before the gap; a member the policy does not allow is left alone; the target rule takes only the six diseases
+  `Character.dispelDebuffs` clears.
+- `MobDispelBuffTest` (1 test, `server.life` because `MobSkill.Builder` is package-private): a mob skill DISPEL, built
+  the way Dark Wyvern 8810021's attack2 carries mob skill 127, really strips a Hyper Body an alt holds.
+- `HolySymbolExpTest` (1 test): a real Holy Symbol registered on a character raises `Monster`'s EXP multiplier from
+  1.0 to 1.3 for our WZ `x=30`, and a mob's Dispel takes it back to 1.0.
