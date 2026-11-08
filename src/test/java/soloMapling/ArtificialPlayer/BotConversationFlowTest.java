@@ -543,6 +543,9 @@ class BotConversationFlowTest {
         assertTrue(ScriptedReplies.SCAM.contains(said.get(0)), said.toString());
         assertTrue(asked.isEmpty(), "the model never saw it");
         assertTrue(notes.stream().anyMatch(n -> n.startsWith("tried to scam me")), notes.toString());
+        // the reply reaches the player before its tier is counted (BotConversation.deliverChecked counts it after
+        // the line goes out, on the timing thread): wait for the count, not just the line
+        waitFor(() -> ChatStats.count(ChatStats.Tier.FLAGGED) == 1);
         assertEquals(1, ChatStats.count(ChatStats.Tier.FLAGGED));
     }
 
@@ -554,6 +557,9 @@ class BotConversationFlowTest {
         assertEquals(List.of("nah busy rn"), said);
         String system = asked.get(0).get(0).content();
         assertTrue(system.contains("your reply must say so: Say no to the party"), system);
+        // the reply reaches the player before its tier is counted (BotConversation.deliverChecked counts it after
+        // the line goes out, on the timing thread): wait for the count, not just the line
+        waitFor(() -> ChatStats.count(ChatStats.Tier.LLM) == 1);
         assertEquals(1, ChatStats.count(ChatStats.Tier.LLM));
     }
 
@@ -563,6 +569,9 @@ class BotConversationFlowTest {
         whisper("wanna party?");
         waitFor(() -> !said.isEmpty());
         assertTrue(ScriptedReplies.PARTY_NO.contains(said.get(0)), said.toString());
+        // the reply reaches the player before its tier is counted (BotConversation.deliverChecked counts it after
+        // the line goes out, on the timing thread): wait for the count, not just the line
+        waitFor(() -> ChatStats.count(ChatStats.Tier.SCRIPTED) == 1);
         assertEquals(1, ChatStats.count(ChatStats.Tier.SCRIPTED));
     }
 
@@ -572,6 +581,9 @@ class BotConversationFlowTest {
         whisper("trade?");
         waitFor(() -> !said.isEmpty());
         assertTrue(ScriptedReplies.TRADE_NO.contains(said.get(0)), said.toString());
+        // the reply reaches the player before its tier is counted (BotConversation.deliverChecked counts it after
+        // the line goes out, on the timing thread): wait for the count, not just the line
+        waitFor(() -> ChatStats.count(ChatStats.Tier.SCRIPTED) == 1);
         assertEquals(1, ChatStats.count(ChatStats.Tier.SCRIPTED));
     }
 
