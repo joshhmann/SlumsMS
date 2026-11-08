@@ -34,6 +34,7 @@ import provider.DataTool;
 import provider.wz.WZFiles;
 import server.quest.actions.*;
 import server.quest.requirements.*;
+import soloMapling.companions.CompanionQuestMirror;
 import tools.PacketCreator;
 import tools.StringUtil;
 
@@ -298,7 +299,10 @@ public class Quest {
             for (AbstractQuestAction a : acts) {
                 a.run(chr, null);
             }
-            forceStart(chr, npc);
+            if (forceStart(chr, npc)) {
+                // 1.6.7 alt-qol-batch E: a companion in the party quests along (CompanionQuestMirror says who)
+                CompanionQuestMirror.onQuestStarted(chr, this, npc);
+            }
         }
     }
 
@@ -321,6 +325,8 @@ public class Quest {
             if (!this.hasNextQuestAction()) {
                 chr.announceUpdateQuest(Character.DelayedQuestUpdate.INFO, chr.getQuest(this));
             }
+            // 1.6.7 alt-qol-batch E: companions that meet the requirements turn it in too (their own bag, their reward)
+            CompanionQuestMirror.onQuestCompleted(chr, this, npc, selection);
         }
     }
 

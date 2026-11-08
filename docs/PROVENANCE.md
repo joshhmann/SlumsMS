@@ -568,3 +568,28 @@ clock starts at the revive instead of at the death, because the wait before the 
 Their sit-out rule (`SIT_OUT_DEATHS`, `SIT_OUT_MAX_MS`, `SIT_OUT_LINES` and its party-chat lines) is **not** ported:
 the owner declined it. The doubling revive wait, the mesos price for an instant revive and `@botme revive` are ours,
 not theirs.
+
+## 1.6.7 wave 2: the quest mirror
+
+### Party quests mirrored to companions, 1.6.7 (branch `167-alt-quest-mirror`, card `alt-qol-batch` group E), cosmic_agents `3c7e094357329932734a860e5a831d57add27a00` (AGPL-3.0)
+
+From `/root/work/research/cosmic_agents` (`https://github.com/Kiwiism/cosmic_agents.git`),
+`src/main/java/server/agents/capabilities/quest/AgentPartyQuestSyncService.java`:
+
+| From theirs | Our files |
+| --- | --- |
+| `partyAgents(Character)`: the party-members loop that skips the source itself and keeps the headless-controlled members, `onlineMembers`, and the early return when the source has no party | `soloMapling/companions/CompanionQuestMirror.java` (`companions`, `isWith`) |
+| `syncPartyAgentsQuestStart` / `syncPartyAgentsQuestComplete` and their hooks in their `server/quest/Quest.java` `start`, `complete`, `forceStart` and `forceComplete`: the shape of "after the source's own start or turn-in, walk the party", plus passing the source's NPC id on (`resolveQuestNpc`) | `server/quest/Quest.java` (`start`, `complete` only), called through `CompanionQuestMirror.onQuestStarted` / `onQuestCompleted` |
+| `syncPartyAgentsQuestProgress` / `syncKingPepeYetiPartyProgress`: read, then **not** ported (see below) | `Character.raiseQuestMobCount` calls `CompanionQuestMirror.onLeaderKill`, which uses our own counting call |
+
+Changed in the port, all marked `// SlumsMS:` where the code is a rewrite of theirs (the class carries the source line
+in its header comment): they force every party agent's quest (`forceStartWithActions` / `forceCompleteWithActions`);
+ours only mirrors when the companion passes our own `Quest.canStart` / `Quest.canComplete`, so a companion that is too
+low a level or holds no item is skipped instead of being forced. A quest whose turn-in carries the player's reward
+selection (`Quest.complete(chr, npc, selection)` with a non-null selection) is skipped for companions instead of being
+forced with the leader's pick. Their progress mirroring is not used: our server has no party kill sharing to plug into
+(their `syncKingPepeYetiPartyProgress` exists because their parties credit quest kills to the highest damager), so the
+companion simply gets the same `raiseQuestMobCount` call a party member's own kill makes. Their gateway runtimes
+(`AgentQuestSyncGatewayRuntime`, `AgentPartyGatewayRuntime`, `AgentCharacterGatewayRuntime`) are replaced by the party
+and the bot registry we have: `Character.getOwnedAltOwner()` for an owned alt, `FollowerBot.leaderId()` for a regular,
+and `PartyCompanionPolicy` for the switches. The owner's per-alt command gate (`@botme quests on|off <name>`) is ours.

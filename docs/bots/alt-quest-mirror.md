@@ -2,6 +2,14 @@
 
 Card: alt-qol-batch group E, quest mirror. Written before the code.
 
+Status (1.6.7): **built** in the shared layer - `CompanionQuestMirror`
+(`src/main/java/soloMapling/companions/`, hooks called from `Quest.start`, `Quest.complete` and
+`Character.raiseQuestMobCount`) and the `@botme quests on|off <name>` branch in
+`src/main/java/client/command/commands/gm0/BotMeCommand.java`. On for owned alts once their owner types the command
+and the policy switch is on; off for party regulars until `-Dslums.companion.quests.regulars=true`. If no reward
+selection is involved, a companion's turn-in pays it exactly what the server pays any character for that quest, and a
+quest that asks the client to pick a reward item is left alone (see "Known limit" and the report).
+
 Switch: `PartyCompanionPolicy.Feature.QUEST_MIRROR` (key `quests`). Owned alts are on by default
 (`-Dslums.companion.quests.alts`, default true) and party regulars off (`-Dslums.companion.quests.regulars`, default
 false), so a regular behaves exactly as it does today until an operator turns that switch on.
@@ -49,7 +57,16 @@ owner's `@botme quests on <name>`.
    completion says so. A reward-choice policy for companions (BotStory's `AgentQuestRewardChoicePolicy`) is the
    follow-up, written in the report.
 5. **Nothing mirrored for bots' own quests.** A bot's own start/complete (the bot quest planner) does not trigger the
-   mirror; only a real player's quest does.
+   mirror; only a real player's quest does. `BotQuestSystem` is untouched: it keeps planning quests for a bot on its
+   own, and the mirror only ever adds to what the bot has.
+
+## Known limit (reported, not fixed here)
+
+If a companion **also damaged the mob the player killed**, the companion gets its own kill credit from the server's
+per-attacker loop *and* the mirror's credit, so that mob counts twice for it. Telling the two apart needs the monster's
+damage set (`Monster.takenDamage`), which is outside this card's files; the fix is to hook `Monster`'s kill loop once
+per monster instead of the per-character counting call. Until then a companion that fights the same mobs as its player
+moves its kill counters faster than the player does.
 
 ## What existing characters keep
 
@@ -65,27 +82,34 @@ touches a setting.
   skipped when the status is not NOT_STARTED (`canStartQuestByStatus`), and a completion is skipped unless the status is
   STARTED and the companion meets the requirements.
 - No migration is needed, because no table, column or saved setting is added: the opt-in state is in memory and is lost
-  on a restart, which only turns mirroring off again (the safe direction).
+  on a restart, which only turns mirroring off again (the safe direction). An alt that is opted in and then grows a
+  quest the player never had keeps it: the mirror never removes a quest or progress.
 
 ## How the tests prove it
 
 `src/test/java/soloMapling/companions/CompanionQuestMirrorTest.java` (real `Quest` objects from a small WZ fixture, the
-`HiddenQuestsTest` style, mocked characters/party/world):
+`HiddenQuestsTest` style, mocked characters/party/world). With the three hook calls removed - i.e. the behaviour before
+this change - 8 of the 14 fail; the 6 that pass assert that nothing happens (they are the guards). The names below are
+the test methods:
 
 - `altOptedInStartsWhatThePlayerStarts` - a real player starts Q with an opted-in owned alt in the party on the same
-  channel -> the alt's status is STARTED and its start actions ran. Fails before the change (the alt stays
-  NOT_STARTED).
-- `altWithoutTheCommandStartsNothing` - same setup, owner never typed `@botme quests on` -> the alt stays NOT_STARTED;
-  after `@botme quests on <name>` (through the command) it starts.
-- `altOutsideThePartyOrChannelIsNotStarted` - the alt is not a party member, then is a member on another channel ->
-  nothing starts.
-- `altThatCannotStartIsSkipped` - a level requirement the alt fails -> nothing starts, no exception.
+  channel -> the alt's status is STARTED. Fails before: `expected: <STARTED> but was: <NOT_STARTED>`.
+- `altWithoutTheCommandIsLeftAlone` - the owner never typed `@botme quests on` -> the alt stays NOT_STARTED; after the
+  command it starts what the player starts, and it still skips a quest it cannot start.
+- `altToldToStopIsLeftAloneAgain` - `@botme quests off <name>` puts it back to nothing.
+- `altOutsideThePartyIsNotStarted`, `altOnAnotherChannelIsNotStarted` - not a party member, then a member on another
+  channel -> nothing starts.
+- `aRealPlayerInThePartyIsNeverMirroredTo` - a real player in the party never gets anything.
+- `aCompanionThatCannotStartItIsSkippedSilently` - a level requirement the alt fails -> nothing starts, no exception.
 - `altWithTheItemsCompletesOnceAndKeepsTheReward` - the alt holds the completion item -> the alt completes, receives the
   reward item exactly once, and a second completion attempt changes nothing.
-- `altWithoutTheItemsStaysStarted` - the alt holds no item -> stays STARTED, the player's item is untouched.
-- `rewardChoiceQuestIsNotMirrored` - the player completes with a selection -> no companion completes it.
-- `leaderKillCreditsTheAltOnTheSameMap` - the player's `raiseQuestMobCount` moves the alt's mob progress; an alt on
-  another map does not move.
-- `regularUnchangedByDefaultAndMirroredWithTheSwitch` - a party regular (not an owned alt, `FollowerBot` leader) gets
-  nothing with the defaults and starts/completes with `-Dslums.companion.quests.regulars=true`.
-- `playerQuestIsNotMirroredBackToAnotherPlayer` - a real player in the party never gets anything.
+- `altWithoutTheItemsStaysStarted` - the alt holds no item -> stays STARTED, gets no reward; the requirement is read
+  from its own bag, not the player's.
+- `aRewardChoiceQuestIsNotMirrored` - the player completes with a selection -> the alt stays STARTED.
+- `theLeadersKillsCountForTheAltOnTheSameMap`, `theLeadersKillsDoNotCountForAnAltOnAnotherMap` - the player's
+  `raiseQuestMobCount` moves the alt's mob progress to `001` beside it, and not across maps.
+- `aRegularCompanionFollowsTheSwitch` - a party regular (`FollowerBot` leader, no owner) gets nothing with the defaults
+  and starts with `-Dslums.companion.quests.regulars=true`.
+- `anAltThatAlreadyHasTheQuestKeepsWhatItHad` - an alt that already has Q COMPLETED with progress `005` keeps both, and
+  its level and EXP, when the player starts and gets kill credit for Q.
+
