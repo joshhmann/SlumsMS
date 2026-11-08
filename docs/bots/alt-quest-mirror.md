@@ -52,8 +52,9 @@ owner's `@botme quests on <name>`.
    item requirements are read from the companion's own inventory, the actions take from and give to the companion, and
    the companion gets the rewards. A companion that does not meet the requirements itself stays started. Nothing is
    granted twice: `canComplete` requires the status STARTED and completing sets it to COMPLETED.
-4. **Reward choice.** A quest whose completion carries a reward selection (`Quest.complete` with a non-null selection,
-   i.e. the client sent a chosen reward item) is **not** mirrored: no companion completes it, and one log line per
+4. **Reward choice.** A quest whose reward is a pick (`Quest.hasRewardChoice()`: an Act.img item with `prop` -1) is
+   **not** mirrored. The quest data decides, not the packet: QuestActionHandler passes any selection short the
+   client sent, so a non-null selection alone does not mean there was a choice (wave 2 audit). Such a quest: no companion completes it, and one log line per
    completion says so. A reward-choice policy for companions (BotStory's `AgentQuestRewardChoicePolicy`) is the
    follow-up, written in the report.
 5. **Nothing mirrored for bots' own quests.** A bot's own start/complete (the bot quest planner) does not trigger the
@@ -106,6 +107,7 @@ the test methods:
 - `altWithoutTheItemsStaysStarted` - the alt holds no item -> stays STARTED, gets no reward; the requirement is read
   from its own bag, not the player's.
 - `aRewardChoiceQuestIsNotMirrored` - the player completes with a selection -> the alt stays STARTED.
+- `aTurnInThatCarriesASelectionButOffersNoChoiceStillMirrors` (audit) - a selection on a quest without a pick -> the alt completes.
 - `theLeadersKillsCountForTheAltOnTheSameMap`, `theLeadersKillsDoNotCountForAnAltOnAnotherMap` - the player's
   `raiseQuestMobCount` moves the alt's mob progress to `001` beside it, and not across maps.
 - `aRegularCompanionFollowsTheSwitch` - a party regular (`FollowerBot` leader, no owner) gets nothing with the defaults

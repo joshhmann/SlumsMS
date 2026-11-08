@@ -659,6 +659,11 @@ public class Quest {
         }
     }
 
+    /** 1.6.7 quest mirror: finishing this quest asks the player to pick a reward item. */
+    public boolean hasRewardChoice() {
+        return completeActs.get(QuestActionType.ITEM) instanceof ItemAction items && items.hasRewardChoice();
+    }
+
     public boolean hasNextQuestAction() {
         Map<QuestActionType, AbstractQuestAction> acts = completeActs;
         AbstractQuestAction mqa = acts.get(QuestActionType.NEXTQUEST);

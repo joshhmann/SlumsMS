@@ -324,6 +324,29 @@ class CompanionQuestMirrorTest {
         assertEquals(0, alt.getInventory(InventoryType.ETC).countById(REWARD_ITEM));
     }
 
+    /**
+     * Wave 2 audit: QuestActionHandler passes the client's selection short whenever the packet carries one, which is
+     * not the same as the quest offering a choice. Only a quest whose reward really is a pick (an item with prop -1)
+     * is left for the companion; any other turn-in mirrors whatever number came with it.
+     */
+    @Test
+    void aTurnInThatCarriesASelectionButOffersNoChoiceStillMirrors() {
+        Character player = player("Leader");
+        Character alt = alt(player, "Alt1", 2);
+        party(player, alt);
+        CompanionQuestMirror.setOptIn(alt.getId(), true);
+        give(player, NEEDED_ITEM);
+        give(alt, NEEDED_ITEM);
+
+        Quest quest = Quest.getInstance(Q_ITEM);
+        quest.start(player, NPC);
+        quest.complete(player, NPC, 0);   // the packet carried a selection, the quest has no choice
+
+        assertEquals(QuestStatus.Status.COMPLETED, alt.getQuest(quest).getStatus(),
+                "no reward choice in this quest, so the alt turns it in with its player");
+        assertEquals(1, alt.getInventory(InventoryType.ETC).countById(REWARD_ITEM));
+    }
+
     @Test
     void aRewardChoiceQuestIsNotMirrored() {
         Character player = player("Leader");

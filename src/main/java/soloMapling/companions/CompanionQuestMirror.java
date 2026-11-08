@@ -92,8 +92,8 @@ public final class CompanionQuestMirror {
 
     /**
      * {@code leader} turned {@code quest} in: companions that have it started and meet its requirements themselves turn
-     * it in too, and the rewards are theirs. {@code selection} is the client's reward choice, which a companion cannot
-     * make, so such a quest is skipped.
+     * it in too, and the rewards are theirs. A quest whose reward is a pick ({@link Quest#hasRewardChoice()}) is skipped,
+     * because a companion cannot make the choice; {@code selection} is only what the packet carried.
      */
     public static void onQuestCompleted(Character leader, Quest quest, int npc, Integer selection) {
         if (!mirrorsFrom(leader) || quest == null) {
@@ -102,7 +102,8 @@ public final class CompanionQuestMirror {
         if (leader.getQuest(quest).getStatus() != QuestStatus.Status.COMPLETED) {
             return; // not a turn-in (a forfeit, or a failed check)
         }
-        if (selection != null) {
+        if (quest.hasRewardChoice()) {
+            // the quest's own data decides, not whether the packet carried a selection short
             log.info("quest mirror: {} picks a reward item, left for the companions (reward-choice policy not built yet)",
                     quest.getId());
             return;
