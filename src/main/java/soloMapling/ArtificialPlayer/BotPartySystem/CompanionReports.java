@@ -37,7 +37,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
-import java.util.regex.Pattern;
 
 /**
  * 1.6.7 (alt-qol-batch group A): the chat side of companions - the reports a player can ask for ("pots", "stats",
@@ -58,10 +57,16 @@ public final class CompanionReports {
     /** How often the same full bag may be named (OwnedAltLoot's window). */
     public static final long FULL_SAY_MS = 300_000L;
 
-    /** cosmic_agents' AgentChatCommandClassifier: what counts as a yes. */
-    private static final Pattern YES = Pattern.compile(
-            "\\b(yes|yep|yeah|yea|y|ok|okay|sure|confirm|do\\s+it|go\\s+(ahead|for\\s+it))\\b",
-            Pattern.CASE_INSENSITIVE);
+    /**
+     * cosmic_agents' AgentChatCommandClassifier, tightened: what counts as a yes is the whole line, made of these
+     * words and nothing else, so "ok i'll be back in five" is a sentence, not a yes.
+     */
+    private static final Set<String> YES_WORDS = Set.of("yes", "yep", "yeah", "yea", "y", "ok", "okay", "sure",
+            "confirm", "confirming");
+
+    /** Words that may ride along with a yes ("yes please", "ok thanks", "sure then"). */
+    private static final Set<String> YES_FILLER = Set.of("please", "pls", "now", "then", "thanks", "thank", "you",
+            "k", "kk", "do", "it", "go", "ahead", "for", "of", "course", "absolutely", "fine", "cool", "alright");
 
     /**
      * BotStory's CHAT_DENYLIST: ordinary chat that sits close to a verb ("hello" -> help, "yes" -> ...). Never
@@ -281,7 +286,9 @@ public final class CompanionReports {
         if (asker == null) {
             return true; // nobody to say yes: nothing goes on the ground
         }
-        PENDING.put(asker.getId(), new Pending(c, asker, category, clock.getAsLong()));
+        long now = clock.getAsLong();
+        PENDING.values().removeIf(old -> now - old.at() > CONFIRM_MS); // nobody knocks anything stale loose
+        PENDING.put(asker.getId(), new Pending(c, asker, category, now));
         c.tell("just to confirm, drop my " + TradeCategories.said(category) + "? say yes");
         return true;
     }
@@ -298,11 +305,28 @@ public final class CompanionReports {
         if (p == null) {
             return false;
         }
-        if (clock.getAsLong() - p.at() > CONFIRM_MS || !YES.matcher(line.trim()).find()) {
+        if (clock.getAsLong() - p.at() > CONFIRM_MS || !isYes(line)) {
             return false;
         }
         CompanionItems.dropNow(p.companion(), p.category());
         return true;
+    }
+
+    /** The whole line is a yes: a yes word somewhere in it, and nothing but yes words and filler. */
+    private static boolean isYes(String line) {
+        List<String> w = words(line);
+        if (w.isEmpty() || w.size() > 6) {
+            return false;
+        }
+        boolean yes = false;
+        for (String t : w) {
+            if (YES_WORDS.contains(t)) {
+                yes = true;
+            } else if (!YES_FILLER.contains(t)) {
+                return false; // "not", "but", "wait": a sentence, so it cancels
+            }
+        }
+        return yes || (w.contains("go") && (w.contains("ahead") || (w.contains("for") && w.contains("it"))));
     }
 
     /** Tests only: forget every waiting confirm. */

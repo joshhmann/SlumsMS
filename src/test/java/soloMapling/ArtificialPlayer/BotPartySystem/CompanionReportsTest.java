@@ -317,6 +317,29 @@ class CompanionReportsTest {
         }
     }
 
+    /**
+     * A yes buried in a sentence is not a yes: "ok i'll be back in five" only contains "ok". The ask waits for the
+     * player's answer, and a later bare "yes" still does not drop, because that line cancelled it.
+     */
+    @Test
+    void aYesBuriedInASentenceDoesNotDrop() {
+        Character alt = alt();
+        List<String> said = new ArrayList<>();
+        CompanionItems.Companion c = new CompanionItems.Companion(alt, said::add);
+        Character owner = mock(Character.class);
+        when(owner.getId()).thenReturn(OWNER);
+        long[] now = {2_000_000L};
+        CompanionReports.clock(() -> now[0]);
+        try (MockedStatic<CompanionItems> ci = mockStatic(CompanionItems.class)) {
+            assertTrue(CompanionReports.confirmFirst(c, owner, "pots"));
+            assertFalse(CompanionReports.confirmDrop(owner, "ok i'll be back in five"),
+                    "a sentence that happens to contain a yes word is not a yes");
+            ci.verify(() -> CompanionItems.dropNow(c, "pots"), never());
+            assertFalse(CompanionReports.confirmDrop(owner, "yes"), "the sentence cancelled the ask");
+            ci.verify(() -> CompanionItems.dropNow(c, "pots"), never());
+        }
+    }
+
     @Test
     void aYesAfterTheWindowDoesNothing() {
         Character alt = alt();

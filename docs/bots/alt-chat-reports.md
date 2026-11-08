@@ -49,9 +49,10 @@ All of it only when `PartyCompanionPolicy.on(Feature.CHAT_REPORTS, companion)` i
    on the ground; it only stops repeating itself inside the window.
 5. **Confirm before drop** (`CompanionReports.confirmFirst` / `confirmDrop`, `CompanionItems.drop`). `drop <category>`
    asks first: "just to confirm, drop my pots? say yes". Only a yes from the same player within `CONFIRM_MS = 30_000`
-   does the drop, and the companion then says "k, dropping my pots". Yes words: yes, yep, yeah, yea, y, ok, okay,
-   sure, confirm, do it, go ahead, go for it. Any other line from that player cancels it, and so does the 30 s
-   timeout; the items stay where they are and the line stays ordinary chat. On a `FieldLimit.DROP_LIMIT` map the
+   does the drop, and the companion then says "k, dropping my pots". A yes is the whole line, made of yes words
+   (yes, yep, yeah, yea, y, ok, okay, sure, confirm, do it, go ahead, go for it) and polite filler ("yes please",
+   "ok thanks", "sure then") and nothing else, so "ok i'll be back in five" is a sentence and cancels. Any other line
+   from that player cancels it, and so does the 30 s timeout; the items stay where they are and the line stays ordinary chat. On a `FieldLimit.DROP_LIMIT` map the
    companion refuses instead: "drops are off on this map, i can't drop anything here".
 6. **Regulars keep their old behaviour.** With the defaults a party regular gets no report verb, no typo hint, no
    note, no confirmation and no bag-full window: `read` does not offer the report verbs, `typoHint`/`answer` return
@@ -92,7 +93,8 @@ same, and `setLevel` is never called.
   `aRegularWithTheDefaultSwitchesHearsTheSameAckAsBefore`.
 - bag full: `OwnedAltLootTest.aFullTabIsReportedOncePerWindow`.
 - confirm before drop: `CompanionReportsTest.aDropWaitsForAYesFromTheSamePlayerInsideTheWindow`,
-  `aYesAfterTheWindowDoesNothing`, `anythingButAYesCancels`, `aDropLimitedMapRefusesWithALine`;
+  `aYesAfterTheWindowDoesNothing`, `anythingButAYesCancels`, `aYesBuriedInASentenceDoesNotDrop`,
+  `aDropLimitedMapRefusesWithALine`;
   `CompanionItemsTest.dropAsksFirstAndOnlyTheYesDropsIt` (through `CompanionItems.drop`),
   `aDropThatNobodyConfirmsLeavesTheBagAlone`.
 
