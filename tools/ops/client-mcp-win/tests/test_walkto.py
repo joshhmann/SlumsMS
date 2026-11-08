@@ -8,7 +8,7 @@ import unittest
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 
-UP, DOWN, LEFT, RIGHT = 0x26, 0x28, 0x25, 0x27
+UP, DOWN, LEFT, RIGHT, ALT = 0x26, 0x28, 0x25, 0x27, 0x12
 
 
 class World:
@@ -18,10 +18,11 @@ class World:
     and fall), a portal at x `portal` (the map changes)."""
 
     def __init__(self, x=0, y=130, speed=300, slide=3, edge=None, portal=None, ladder_x=-117, top=-180,
-                 climb=250, grab=True):
+                 climb=250, grab=True, bottom=130):
         self.x, self.y = float(x), float(y)
         self.speed, self.slide, self.edge, self.portal = speed, slide, edge, portal
         self.ladder_x, self.top, self.climb, self.grab = ladder_x, top, climb, grab
+        self.bottom = bottom   # the ladder's lowest y; above the floor (130) it needs a jump to reach
         self.held = set()
         self.on_ladder = False
         self.foothold = True
@@ -60,7 +61,8 @@ class World:
             elif self.y >= 130:
                 self.y, self.on_ladder, self.foothold = 130, False, True
             return
-        if self.grab and abs(self.x - self.ladder_x) <= 10 and (UP in self.held and self.y > self.top
+        reach = self.y <= self.bottom or ALT in self.held   # a jump lifts the character to a high ladder bottom
+        if self.grab and abs(self.x - self.ladder_x) <= 10 and (UP in self.held and self.y > self.top and reach
                                                                 or DOWN in self.held and self.y <= self.top):
             self.on_ladder, self.foothold, self.x = True, False, self.ladder_x
             return
@@ -221,6 +223,16 @@ class WalkTest(unittest.TestCase):
         r = d.climb(-180)
         self.assertLessEqual(abs(r['y'] + 180), 6)
         self.assertTrue(r['foothold'])
+        self.assertTrue(self.released())
+
+    def test_12c_a_ladder_above_the_floor_is_grabbed_with_a_jump(self):
+        # QA, lpq-stage1-walk-20261108T150439Z: Up alone at x -120 did not grab LPQ stage 1's ladder (x -117, y 85 to
+        # -178): its bottom is 45 px above the floor at y 130. A player jumps with Up held.
+        d = self.make(x=-119, bottom=85)
+        r = d.climb(-180)
+        self.assertLessEqual(abs(r['y'] + 180), 6)
+        keys = [vk for vk, down in self.w.events if down]
+        self.assertEqual([UP, ALT], keys[:2], 'Up first, then the jump with Up still held')
         self.assertTrue(self.released())
 
     def test_12b_no_ladder_here(self):
