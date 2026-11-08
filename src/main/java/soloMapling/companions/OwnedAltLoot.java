@@ -6,8 +6,11 @@ import client.inventory.Item;
 import constants.inventory.ItemConstants;
 import server.maps.MapItem;
 import soloMapling.ArtificialPlayer.BotGrindSystem.LootPicker;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionReports;
+import soloMapling.ArtificialPlayer.BotPartySystem.PartyCompanionPolicy;
 
 import java.awt.Point;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -123,7 +126,9 @@ public final class OwnedAltLoot {
             }
             InventoryType bag = bagOf(drop);
             if (bag != null) {
-                full.add(bag);
+                if (maySayFull(alt, bag, now)) {
+                    full.add(bag);
+                }
             } else if (mesoFull != null && mesoFull.length > 0) {
                 mesoFull[0] = true;
             }
@@ -134,6 +139,32 @@ public final class OwnedAltLoot {
     /** Close enough to pick it up from where it stands (the bots' at-feet reach). */
     static boolean inReach(Character alt, MapItem drop) {
         return LootPicker.atFeet(alt.getPosition(), drop.getPosition());
+    }
+
+    /** When each alt was last allowed to name a full bag (alt id and tab), 1.6.7's once-per-window rule. */
+    private static final Map<Long, Long> fullSaidAt = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * 1.6.7 reports: a full tab is named once per {@link CompanionReports#FULL_SAY_MS} on a companion with the
+     * reports switch on; a regular (defaults) keeps today's behaviour and is told every tick.
+     */
+    private static boolean maySayFull(Character alt, InventoryType bag, long now) {
+        if (alt == null
+                || !PartyCompanionPolicy.on(PartyCompanionPolicy.Feature.CHAT_REPORTS, alt)) {
+            return true;
+        }
+        long key = ((long) alt.getId() << 8) | bag.ordinal();
+        Long last = fullSaidAt.get(key);
+        if (last != null && now - last < CompanionReports.FULL_SAY_MS) {
+            return false;
+        }
+        fullSaidAt.put(key, now);
+        return true;
+    }
+
+    /** Tests only: forget when each tab was last named. */
+    static void forgetFullSays() {
+        fullSaidAt.clear();
     }
 
     /** The line the alt says when a bag is full (once until it has room again). */

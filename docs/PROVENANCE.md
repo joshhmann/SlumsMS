@@ -604,3 +604,32 @@ regions and dialogue-intent bus became our per-companion static helpers keyed by
 our party chat / direct chat (`BotPartyChat.sayInParty`, `PacketCreator.multiChat`) and are silenced by our
 `@quiet bots` (`BotNoiseFilter`); and the "welcome back" is driven by our own still-clock on the owner's position
 rather than an NPC conversation state.
+
+## 1.6.7: the chat side of companions (branch `167-alt-chat-reports`, card `alt-chat-reports`)
+
+### Reports, the typo hint and the confirm before a drop, 1.6.7, BotStory `81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364` and cosmic_agents `3c7e094357329932734a860e5a831d57add27a00` (both AGPL-3.0)
+
+Read from `/root/work/research/BotStory` and `/root/work/research/cosmic_agents`. Both projects' source files carry
+no licence header of their own; the licence is the repository's AGPL-3.0, quoted at the top of
+`src/main/java/soloMapling/ArtificialPlayer/BotPartySystem/CompanionReports.java` together with the paths and the
+"changed:" notes.
+
+| From theirs | Our files |
+| --- | --- |
+| BotStory `src/main/java/server/agents/capabilities/dialogue/AgentDialogueReportFormatter.java`: `potionCount` (count the HP and MP stacks in the bag), `stats` (one line of level, job, hp/mp, the four stats, free AP) | `CompanionReports.pots`, `CompanionReports.stats` |
+| BotStory `src/main/java/server/agents/capabilities/dialogue/AgentInventoryDialogueReporter.java`: `slotsReport` (used/total per tab, tab order equip, use, etc, setup) | `CompanionReports.slots` |
+| BotStory `src/main/java/server/agents/capabilities/dialogue/AgentSupplyDialogueReporter.java`: `grindStartMessage` (the acknowledgement carries a low-supply aside) | `CompanionReports.lowNote` / `lowLine`, `OwnedAltOrders.ack`, `PartyBotOrders.carryOut` |
+| BotStory `src/main/java/server/agents/commands/AgentCommandTypoSuggester.java`: `suggest`, `MIN_DISTANCE`-style bounded Levenshtein with an early exit, the 1-edit-under-6 / 2-edit rule and `CHAT_DENYLIST` | `CompanionReports.typoSuggestion`, `CompanionReports.distance`, `PartyBotOrders.typoHint`, `AltsCommand` |
+| cosmic_agents `src/main/java/server/agents/dialogue/AgentDialogueCatalog.java`: the "just to confirm ... say yes" prompt shape | `CompanionReports.confirmFirst` |
+| cosmic_agents `src/main/java/server/agents/dialogue/AgentPendingChatActionFlow.java`: one pending action per player; anything that is not the confirmation cancels it | `CompanionReports.confirmDrop` (one `Pending` per asker, `PENDING.remove` first) |
+| cosmic_agents `src/main/java/server/agents/chat/AgentChatCommandClassifier.java`: the yes words | `CompanionReports.YES` |
+| cosmic_agents `src/main/java/server/agents/inventory/AgentInventoryDropService.java`: refuse a drop on a map whose `FieldLimit` forbids it | `CompanionReports.dropBlocked` / `dropBlockedLine`, `CompanionItems.drop` |
+| cosmic_agents `src/main/java/server/agents/capabilities/loot/AgentPassiveLootService.java`: a time window on the bag-full warning | `OwnedAltLoot.maySayFull` (per alt and tab, `CompanionReports.FULL_SAY_MS`) |
+
+Changed in the port, all marked `// SlumsMS:` or stated in the file header: everything sits behind
+`PartyCompanionPolicy.Feature.CHAT_REPORTS` (owned alts on, regulars off) and one class serves both kinds of companion;
+the pot and slot counts come from our own code (`BotVitals.potionCount`, `Inventory.getSlotLimit/getNumFreeSlot`) and
+the typo dictionary is our parser's `Verb` words, not BotStory's separate command list; the typo hint fires only on a
+line addressed to a companion; the confirmation is one pending drop per player keyed by character id, 30 s, with no
+item-choice, trade or skill-tree flows; and the bag-full window is a suppression inside `OwnedAltLoot.pick` because the
+line is said by `OwnedAltCompanion.loot`.

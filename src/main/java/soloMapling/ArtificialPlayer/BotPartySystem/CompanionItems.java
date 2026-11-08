@@ -44,6 +44,14 @@ public final class CompanionItems {
 
     static final int MAX_UPGRADE_LINES = 3;
 
+    /** Who runs a paced step (the shared bot timer in game); tests collect them and run them by hand. */
+    static volatile java.util.function.BiConsumer<Long, Runnable> later = BotTiming::after;
+
+    /** Tests only: take over the paced steps (null for the real timer). */
+    static void useForTest(java.util.function.BiConsumer<Long, Runnable> l) {
+        later = l == null ? BotTiming::after : l;
+    }
+
     private static final List<String> OPEN_LINES = List.of("k, inv u", "sure, one sec", "ok opening trade",
             "sec, inv u");
     private static final List<String> DONE_LINES = List.of("there u go", "all yours", "that's it", "here");
@@ -128,7 +136,7 @@ public final class CompanionItems {
                 give(c, leader, items, 0, null);
             }
             case SHOW -> show(c, leader, order.arg());
-            case DROP -> drop(c, order.arg());
+            case DROP -> drop(c, leader, order.arg());
             case TRADE_UPGRADES -> tradeUpgrades(c, leader, all);
             default -> {
             }
@@ -198,17 +206,32 @@ public final class CompanionItems {
 
     // ── drop ──
 
+    /**
+     * 1.6.7: asks first ("just to confirm, drop my pots? say yes") and waits for the player's yes from
+     * {@link CompanionReports}; with the reports switch off it drops straight away as before.
+     */
+    private static void drop(Companion c, Character leader, String category) {
+        if (CompanionReports.confirmFirst(c, leader, category)) {
+            return;
+        }
+        dropNow(c, category);
+    }
+
     /** Drops a category on the ground at a person's pace (one stack a beat), at most a window's worth. */
-    private static void drop(Companion c, String category) {
+    static void dropNow(Companion c, String category) {
         Character self = c.self();
         List<Give> items = TradeCategories.select(self, category);
+        if (items.isEmpty()) {
+            c.tell("i don't have any " + TradeCategories.said(category) + " anymore");
+            return;
+        }
         List<Give> batch = items.subList(0, Math.min(BotGiveTrade.WINDOW_SLOTS, items.size()));
         c.tell("k, dropping my " + TradeCategories.said(category));
         Random rng = new Random(ThreadLocalRandom.current().nextLong());
         long at = 0;
         for (Give g : List.copyOf(batch)) {
             at += TradePacing.stepMs(rng);
-            BotTiming.after(at, () -> {
+            later.accept(at, () -> {
                 Item now = self.getInventory(g.type()).getItem(g.item().getPosition());
                 if (now == g.item() && self.getMap() != null) {
                     InventoryManipulator.drop(self.getClient(), g.type(), g.item().getPosition(), g.quantity());

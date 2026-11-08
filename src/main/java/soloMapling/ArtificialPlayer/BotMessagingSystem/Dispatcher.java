@@ -5,6 +5,7 @@ import soloMapling.ArtificialPlayer.BotConversation;
 import soloMapling.ArtificialPlayer.BotMegaphoneSystem.BotNoiseFilter;
 import soloMapling.ArtificialPlayer.BotMenus;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotCommandParser;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionReports;
 import soloMapling.ArtificialPlayer.BotPartySystem.PartyBotOrders;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.ArtificialPlayer.BotTypes.FollowerBot;
@@ -100,6 +101,9 @@ public class Dispatcher implements Runnable {
     }
 
     private void dispatch(ChatMessage message) {
+        if (CompanionReports.confirmDrop(message.getSender(), message.getContent())) {
+            return; // 1.6.7: the player's yes to a companion's "drop my pots?"
+        }
         if (partyOrder(message)) {
             return;
         }
@@ -128,7 +132,8 @@ public class Dispatcher implements Runnable {
         }
         java.util.Optional<BotCommandParser.Order> order = PartyBotOrders.read(sender, message.getContent());
         if (order.isEmpty()) {
-            return false;
+            // 1.6.7: a mistyped order that opens with a companion's name gets "did you mean 'grind'?"
+            return PartyBotOrders.typoHint(sender, message.getContent(), false);
         }
         BotCommandParser.Order o = order.get();
         if (o.targets().size() == 1) {

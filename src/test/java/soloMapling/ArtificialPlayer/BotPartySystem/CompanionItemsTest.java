@@ -6,9 +6,11 @@ import client.Client;
 import client.inventory.Inventory;
 import client.inventory.InventoryType;
 import client.inventory.Item;
+import client.inventory.manipulator.InventoryManipulator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 import server.Trade;
 import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotCommandParser.Order;
@@ -30,7 +32,11 @@ import java.util.regex.Pattern;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -40,6 +46,7 @@ import static org.mockito.Mockito.when;
 class CompanionItemsTest {
 
     static final int RED = 2000000;
+    static final long NOW = 70_000_000L;
     final MapleMap map = mock(MapleMap.class);
     final List<String> opened = new ArrayList<>();
     final List<Runnable> steps = new ArrayList<>();
@@ -75,6 +82,12 @@ class CompanionItemsTest {
         });
         SupplyShare.useForTest((holder, kind, needy) -> kind == SupplyShare.Kind.HP
                 ? new ArrayList<>(holder.getInventory(InventoryType.USE).list()) : List.of());
+        CompanionItems.useForTest((ms, step) -> steps.add(step)); // 1.6.7: the paced drop step, run by hand below
+        CompanionReports.clearPending(); // 1.6.7: one waiting confirm per player, shared by every test in the run
+        CompanionReports.clock(() -> NOW);
+        said.clear();
+        steps.clear();
+        opened.clear();
     }
 
     @AfterEach
@@ -82,6 +95,9 @@ class CompanionItemsTest {
         BotGiveTrade.useForTest(null, null);
         TradeCategories.useForTest(null);
         SupplyShare.useForTest(null);
+        CompanionItems.useForTest(null);
+        CompanionReports.clearPending();
+        CompanionReports.clock(null);
     }
 
     private Character chr(int id, String name, boolean alt, int reds, int mesos) {
@@ -177,12 +193,45 @@ class CompanionItemsTest {
         assertEquals(List.of("B: A, have some of my hp pots"), lines);
     }
 
+    /**
+     * 1.6.7: a drop asks first, and only the asker's yes inside the window drops anything - through the normal
+     * inventory drop, one stack a beat.
+     */
+    @Test
+    void dropAsksFirstAndOnlyTheYesDropsIt() {
+        Character owner = chr(1, "Owner", false, 0, 0);
+        Character a = chr(2, "A", true, 5, 0);
+        try (MockedStatic<InventoryManipulator> drops = mockStatic(InventoryManipulator.class)) {
+            CompanionItems.carryOut(owner, everyone(Verb.DROP, "pots"), List.of(companion(a)));
+            assertEquals(List.of("just to confirm, drop my pots? say yes"), said.get(a));
+            assertTrue(steps.isEmpty(), "nothing is dropped before the yes");
+
+            assertTrue(CompanionReports.confirmDrop(owner, "yes"));
+            assertEquals("k, dropping my pots", said.get(a).get(1));
+            assertEquals(1, steps.size());
+            steps.forEach(Runnable::run);
+            drops.verify(() -> InventoryManipulator.drop(a.getClient(), InventoryType.USE, (short) 1, (short) 5));
+        }
+    }
+
+    @Test
+    void aDropThatNobodyConfirmsLeavesTheBagAlone() {
+        Character owner = chr(1, "Owner", false, 0, 0);
+        Character a = chr(2, "A", true, 5, 0);
+        CompanionItems.carryOut(owner, everyone(Verb.DROP, "pots"), List.of(companion(a)));
+        assertEquals(List.of("just to confirm, drop my pots? say yes"), said.get(a));
+        CompanionReports.confirmDrop(owner, "no thanks");
+        steps.forEach(Runnable::run);
+        assertEquals(1, a.getInventory(InventoryType.USE).list().size(), "still in the bag");
+    }
+
     /** Owner rule: a companion never says or hints it is anything but a player. */
     @Test
     void nothingACompanionSaysGivesItAway() throws Exception {
         Pattern literal = Pattern.compile("\"((?:[^\"\\\\]|\\\\.)*)\"");
         Pattern giveaway = Pattern.compile("(?i)\\b(bot|bots|robot|ai|a\\.i\\.|npc|program|script|algorithm|automated)\\b");
         for (String file : List.of(
+                "src/main/java/soloMapling/ArtificialPlayer/BotPartySystem/CompanionReports.java",
                 "src/main/java/soloMapling/ArtificialPlayer/BotPartySystem/CompanionItems.java",
                 "src/main/java/soloMapling/ArtificialPlayer/BotTradeSystem/BotGiveTrade.java",
                 "src/main/java/soloMapling/companions/OwnedAltOrders.java",
