@@ -54,11 +54,13 @@ only per-player bot choices kept across restarts are `@quiet`, `@romance off` an
   `reloadForTest()` (a restart reading the store again). (1)
 - `BotPartySupportTest.healsOffStopsTheHealForThatCompanionOnly` - with `heals off` stored for alt A, A's tick heals
   nothing while alt B still heals; with the switch off for the whole feature both are as before. (2, 3)
-- `BotBuffDriverTest.supportOffSkipsThePartyBuffs` - with support off the party buff is not cast, the self-buff is.
-- `BotVitalsTest.theOwnersPercentageMovesThePotionLine` - an HP percentage of 60 makes the bot drink at 55%, and 0
+- `CompanionSettingSupportTest.supportOffSkipsThePartyBuffsAndKeepsTheSelfBuffs` - with support off the party buff is not cast, the self-buff is.
+- `BotVitalsOwnerLineTest.theOwnersPercentagesMoveThePotionLines` - an HP percentage of 60 makes the bot drink at 55%, and 0
   leaves `hpPotAt` at today's value.
 - `CompanionCardMenuTest.theCardListsTheTogglesAndAClickFlipsOne` - the page carries the level/job line, the potion
   counts and the three switch lines; clicking "Party heals: ON" saves heals off and the redrawn page says OFF.
+- `CompanionSettingsStoreTest.aRestartedServerReadsTheStoredSettingsWithoutTheOwnerDoingAnything` (Bots' audit) -
+  after a restart, with nobody typing anything, the bot's own first read loads the table, so "heals off" stays off.
 - `CompanionSettingsChatTest` - "heals off" / "support off" / "buff pots off" / "pots at 60" / "mp pots at 40" parse
   to their verbs and args, save, and answer; a regular is unchanged with the defaults and reacts with the regulars
   switch on. (2, 5)
@@ -79,3 +81,32 @@ applied to any database by this branch.
 
 The loot mode's behaviour (group D): this branch only stores the string. Formation and stance orders stay
 session-only. `OwnedAltCompanion`, `GCFollow`, `OwnedAltLoot` and `GrindLoot` are untouched.
+
+## Who wrote what (finished by Bots, 8 Nov 2026)
+
+The DeepSeek helper stopped early three times on the official provider (16:43 an empty turn, 16:52 a malformed tool
+call, 16:55 an empty turn). The owner chose to have Bots finish it. The helper's work is kept as its own commits:
+- `8cdd7732e` (this file's expected outcome);
+- `c64f5d7c6` (store, migration 069, the three shared gates and their tests);
+- `2a6c50b75` (its unfinished chat verbs, orders and card, committed unchanged by Bots).
+
+Bots added, on top:
+- **The restart load.** Nothing read the table after a restart until the owner used `@alts` or a toggle, so a bot's
+  tick saw the defaults and a stored "heals off" quietly came back on. `CompanionSettingsStore.of` now queues one load
+  off the tick's thread when nothing is loaded yet. There is one queued load at a time, and after a failed read at most
+  one a minute.
+- **Tests:**
+  - `CompanionSettingsChatTest`: the verbs, the regular's defaults, the answers, the typo hint learning the new words,
+    and `card jane`;
+  - `CompanionCardMenuTest`;
+  - the restart test above.
+- **Help text.** The `@alts` help now lists the settings. `@alts card <name>` needed no new code: "card jane" is read
+  as the card order for Jane.
+
+Bots also checked the helper's committed gates. With `BotPartySupport`, `BotBuffDriver` and `BotVitals` put back to
+the base, its three gate tests fail (`:170`, `:64`, `:41`).
+
+Known limits:
+- The bots' table is keyed by companion. A regular followed by two leaders (only with the regulars switch on) keeps
+  the last leader's choice.
+- In the first moments after a restart, before the load lands, a bot reads the defaults.

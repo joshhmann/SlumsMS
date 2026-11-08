@@ -80,6 +80,22 @@ class CompanionSettingsStoreTest {
         assertEquals(0, CompanionSettingsStore.mpPercent(alt), "an unset line stays the companion's own");
     }
 
+    /**
+     * Bots' audit of the helper's store: after a real restart nothing called the load until the owner used @alts or
+     * a toggle, so a bot's tick read the defaults and "heals off" quietly came back on. The bots' own read now starts
+     * the load (off the tick's thread; this test's executor runs it at once).
+     */
+    @Test
+    void aRestartedServerReadsTheStoredSettingsWithoutTheOwnerDoingAnything() {
+        Character alt = alt(1_000_000_505);
+        CompanionSettingsStore.save(owner, alt, CompanionSettings.DEFAULT.withHeals(false));
+
+        CompanionSettingsStore.forgetForTest(); // a restart: nothing loaded, and nobody has typed anything yet
+
+        CompanionSettingsStore.heals(alt);      // the bot's first tick asks
+        assertFalse(CompanionSettingsStore.heals(alt), "heals off stays off after a restart");
+    }
+
     @Test
     void anotherOwnersRowForTheSameCompanionIsNotOurs() {
         Character alt = alt(1_000_000_504);

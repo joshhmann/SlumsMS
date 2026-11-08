@@ -6,8 +6,8 @@ package soloMapling.companions;
 // and from https://github.com/nutnnut/Cosmic.git
 //   src/main/java/server/bots/BotPrefsStore.java (a small per-bot prefs table, upsert on change) @ b684bf7
 // changed: our own migration 069 instead of a self-creating table (AGENTS.md), BotStory's JSON settings columns split
-// into one table keyed (OwnerId, CompanionId), the read is lazy on the first player-facing use rather than a boot hook
-// (see the report: MapleRootSolo is outside this branch's file list), writes go through BotDbGate and SerialWrites the
+// into one table keyed (OwnerId, CompanionId), the read is lazy - on the first player-facing use, or (Bots' audit) on a
+// bot's first settings read after a restart, queued off the tick's thread - rather than a boot hook, writes go through BotDbGate and SerialWrites the
 // way SocialGate's do, and the in-memory side is indexed by companion so a bot's tick can read it without a query.
 
 import client.Character;
@@ -194,8 +194,37 @@ public final class CompanionSettingsStore {
         if (!PartyCompanionPolicy.on(PartyCompanionPolicy.Feature.SETTINGS, companion)) {
             return CompanionSettings.DEFAULT;
         }
+        if (!loaded) {
+            requestLoad(); // after a restart the bots' own read starts the load; never waits for it
+        }
         Entry entry = byCompanion.get(companion.getId());
         return entry == null ? CompanionSettings.DEFAULT : entry.settings();
+    }
+
+    /** One queued load at a time, so a bot tick never floods the db executor (Bots' audit, 8 Nov 2026). */
+    private static final java.util.concurrent.atomic.AtomicBoolean loadQueued =
+            new java.util.concurrent.atomic.AtomicBoolean();
+    /** Runs the load off the tick's thread: the bot-db executor in game, the caller's in tests. */
+    private static volatile Executor loader = ExecutorServiceManager::runBotDb;
+
+    private static void requestLoad() {
+        long tried = loadTriedAt;
+        if (tried > 0 && System.currentTimeMillis() - tried < 60_000L) {
+            return; // a failed read is retried at most once a minute, as ensureLoaded does
+        }
+        if (loadQueued.compareAndSet(false, true)) {
+            try {
+                loader.execute(() -> {
+                    try {
+                        ensureLoaded();
+                    } finally {
+                        loadQueued.set(false);
+                    }
+                });
+            } catch (RuntimeException e) {
+                loadQueued.set(false);
+            }
+        }
     }
 
     /** Whether this companion heals the party ({@link #of}). */
@@ -329,6 +358,7 @@ public final class CompanionSettingsStore {
     public static void useForTest(Store testStore, Executor testWriter) {
         store = testStore != null ? testStore : new Jdbc();
         writer = testWriter != null ? testWriter : ExecutorServiceManager::runBotDb;
+        loader = testWriter != null ? testWriter : ExecutorServiceManager::runBotDb;
         forgetForTest();
         if (testStore != null) {
             ensureLoaded();
