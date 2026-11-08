@@ -169,21 +169,22 @@ public final class GameSocialFlows implements SocialFlows {
         }
         BotTalk.WorldSense sense = new BotTalk.WorldSense();
         Map<Ask, Offer> offers = sense.offers(a, b, false, now, SocialSim.random(actorId, "social-flow"));
-        Offer pick = offers.get(Ask.PARTY);
-        String what;
-        if (pick != null) {
-            what = pick.slots() != null && pick.slots().containsKey("pq") ? "a PQ party (" + pick.about() + ")" : "a duo party";
-        } else {
-            pick = offers.get(Ask.COME_ALONG);
-            what = pick == null ? null : "a trip to " + pick.about();
-        }
-        if (pick == null || sense.reserved != null && pick.ask() != Ask.PARTY) {
+        Offer pick = invitation(offers);
+        if (pick == null || pick.payload() != sense.reserved) {
             LfgParty.release(sense.reserved); // a PQ slot reserved for an offer that was not the one made
-            if (pick == null) {
-                return null;
-            }
         }
+        if (pick == null) {
+            return null;
+        }
+        String what = pick.ask() == Ask.COME_ALONG ? "a trip to " + pick.about()
+                : pick.slots() != null && pick.slots().containsKey("pq") ? "a PQ party (" + pick.about() + ")" : "a duo party";
         return new SocialActions.Invite(0, actorId, targetId, what, a.getMapId(), now, 0, pick);
+    }
+
+    /** Which of {@code offers} an INVITE makes, or null for none. */
+    static Offer invitation(Map<Ask, Offer> offers) {
+        Offer party = offers.get(Ask.PARTY);
+        return party != null ? party : offers.get(Ask.COME_ALONG);
     }
 
     @Override
