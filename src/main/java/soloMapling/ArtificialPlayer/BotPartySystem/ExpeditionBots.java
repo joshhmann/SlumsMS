@@ -302,6 +302,7 @@ public final class ExpeditionBots {
                 + " you have " + have + ".");
         Party party = leader == null ? null : leader.getParty();
         List<String> out = new ArrayList<>();
+        List<String> shortOfSupplies = new ArrayList<>();
         if (party != null && !BotHelpers.isBot(leader)) {
             for (PartyCharacter pc : party.getMembers()) {
                 if (pc == null || pc.getId() == leader.getId()) {
@@ -325,6 +326,11 @@ public final class ExpeditionBots {
                 }
                 if (why != null && !"member".equals(why)) {
                     out.add(bot.getName() + " " + describe(why, exped.getType(), bot.getLevel()));
+                } else {
+                    String line = suppliesLine(bot);
+                    if (line != null) {
+                        shortOfSupplies.add(line);
+                    }
                 }
             }
         }
@@ -334,11 +340,25 @@ public final class ExpeditionBots {
                 sb.append("\r\n - ").append(line);
             }
         }
+        // 1.6.7: a member that will fight anyway, but cannot last the run (Horntail, 8 Nov 2026: two Hero alts ran
+        // out of MP on the way in). Only told, never blocked.
+        if (!shortOfSupplies.isEmpty()) {
+            sb.append("\r\n\r\nJoining, but short of supplies:");
+            for (String line : shortOfSupplies) {
+                sb.append("\r\n - ").append(line);
+            }
+        }
         ExpeditionType type = exped.getType();
         sb.append("\r\n\r\nYour party's regulars and alts join you on their own when they stand here and are level ")
                 .append(type.getMinLevel()).append(type.getMaxLevel() < 255 ? "-" + type.getMaxLevel() : "+")
                 .append(" (a party holds 6). Other players join by talking to me.");
         return sb.toString();
+    }
+
+    /** The recruiter's line for one member that will join but is short of supplies, or null when it is ready. */
+    private static String suppliesLine(Character bot) {
+        CompanionSupplies.ShortOf shortOf = CompanionSupplies.shortOf(bot);
+        return shortOf == null ? null : shortOf.line(bot.getName());
     }
 
     /** The player-facing words for a {@link #skip} reason. */
