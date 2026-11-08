@@ -491,6 +491,12 @@ class SilviaWorker:
             name, arguments = "click_npc", {"npc": step["npc"]}
         elif kind == "position":   # qa-position-signal (1.6.6): where the character is; the answer is the detail
             name, arguments = "position", {}
+        elif kind == "walk_to":    # qa-walk-to (1.6.7): walk on the floor until the QA client's position arrives
+            name, arguments = "walk_to", {"x": int(step["x"]), "tolerance": int(step.get("tolerance", 6)),
+                                          "timeout_ms": int(step.get("timeout_ms", 12000))}
+        elif kind == "climb":      # qa-walk-to (1.6.7): climb a ladder or rope to a height
+            name, arguments = "climb", {"y": int(step["y"]), "tolerance": int(step.get("tolerance", 6)),
+                                        "timeout_ms": int(step.get("timeout_ms", 15000))}
         elif kind == "drop_item":   # P1-Q2: the QA client calls the item window's own sender (QA build 3)
             name, arguments = "drop_item", {"item": step["item"], "count": step.get("count", 1)}
         elif kind == "party_create":

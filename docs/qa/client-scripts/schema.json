@@ -877,6 +877,82 @@
      "type": "object",
      "properties": {
       "do": {
+       "const": "walk_to"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "x": {
+       "type": "integer",
+       "minimum": -5000,
+       "maximum": 5000
+      },
+      "tolerance": {
+       "type": "integer",
+       "minimum": 2,
+       "maximum": 50
+      },
+      "timeout_ms": {
+       "type": "integer",
+       "minimum": 500,
+       "maximum": 30000
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      }
+     },
+     "required": [
+      "do",
+      "x"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "climb"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "y": {
+       "type": "integer",
+       "minimum": -5000,
+       "maximum": 5000
+      },
+      "tolerance": {
+       "type": "integer",
+       "minimum": 2,
+       "maximum": 50
+      },
+      "timeout_ms": {
+       "type": "integer",
+       "minimum": 500,
+       "maximum": 30000
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      }
+     },
+     "required": [
+      "do",
+      "y"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
        "const": "drop_item"
       },
       "id": {

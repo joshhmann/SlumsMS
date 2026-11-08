@@ -12,7 +12,8 @@ UP, DOWN, LEFT, RIGHT = 0x26, 0x28, 0x25, 0x27
 
 
 class World:
-    """A floor at y 130 from x -400 to 400 (walls beyond), walked at `speed` px/s, sliding `slide` px after a release.
+    """A floor at y 130 from x -400 to 400 (walls beyond), walked at `speed` px/s, sliding up to `slide` px after a release
+    (no more than the hold walked).
     A ladder at x -117 from y 130 up to -180, where a platform starts. Optional: an open edge at x `edge` (walk past it
     and fall), a portal at x `portal` (the map changes)."""
 
@@ -28,14 +29,17 @@ class World:
         self.t = time.monotonic()
         self.slide_left = 0.0
         self.last_dir = 0
+        self.x0 = self.x
 
     def key(self, vk, down=None, extended=False):
         self.advance()
         if down:
             self.held.add(vk)
+            if vk in (LEFT, RIGHT):
+                self.x0 = self.x
         else:
             if vk in (LEFT, RIGHT) and vk in self.held:
-                self.slide_left = self.slide
+                self.slide_left = min(self.slide, abs(self.x - self.x0))   # a short tap slides less
                 self.last_dir = 1 if vk == RIGHT else -1
             self.held.discard(vk)
         self.events.append((vk, down))
@@ -143,14 +147,20 @@ class WalkTest(unittest.TestCase):
         self.assertLessEqual(abs(r['x'] - 120), 6)
         self.assertTrue(self.released())
 
-    def test_4b_a_slide_it_cannot_correct_is_overshoot(self):
-        d = self.make(x=0, slide=40)
+    def test_4b_taps_that_cannot_land_are_overshoot(self):
+        # Every tap moves 10 px whatever its length, from x 95 to a target 120 +- 2: 105, 115, 125, 115, ... never.
+        d = self.make(x=95, slide=0)
+        d._walk_hold = lambda *args, **kwargs: None
+
+        def tap(vk, hold):
+            self.w.x += 10 if vk == RIGHT else -10
+        d._walk_tap = tap
         message = self.refusal(lambda: d.walk_to(120, tolerance=2))
         self.assertTrue(message.startswith('overshoot'), message)
 
     def test_5_a_wall_is_no_progress(self):
         d = self.make(x=380)
-        message = self.refusal(lambda: d.walk_to(399, tolerance=2))
+        message = self.refusal(lambda: d.walk_to(420, tolerance=2))
         self.assertTrue(message.startswith('no_progress'), message)
 
     def test_6_walking_off_an_edge_is_fell(self):

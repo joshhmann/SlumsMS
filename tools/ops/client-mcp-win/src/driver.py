@@ -85,6 +85,13 @@ TOOLS = {
     'trade_cancel': {},
     # b360 (1.6.6): a jump with the game's jump key (Alt, keymap 56): optionally running left/right for run_ms first
     # and holding Up through it (catch 1) to grab a rope or ladder; everything is released after hold_ms.
+    # qa-walk-to (1.6.7): walk on the current floor / climb a ladder or rope until the QA client's position says so.
+    'walk_to': {'x': {'type': 'integer', 'minimum': -5000, 'maximum': 5000},
+                'tolerance': {'type': 'integer', 'minimum': 2, 'maximum': 50},
+                'timeout_ms': {'type': 'integer', 'minimum': 500, 'maximum': 30000}},
+    'climb': {'y': {'type': 'integer', 'minimum': -5000, 'maximum': 5000},
+              'tolerance': {'type': 'integer', 'minimum': 2, 'maximum': 50},
+              'timeout_ms': {'type': 'integer', 'minimum': 500, 'maximum': 30000}},
     'jump': {'dir': {'type': 'string', 'maxLength': 5, 'enum': ['none', 'left', 'right']},
              'catch': {'type': 'integer', 'minimum': 0, 'maximum': 1},
              'run_ms': {'type': 'integer', 'minimum': 0, 'maximum': 2000},
@@ -240,6 +247,7 @@ SCRIPT_NAME = re.compile(r'^[a-z0-9][a-z0-9_-]{0,47}$')
 SCRIPT_TOOLS = {'start_client', 'login', 'login_credentials', 'click_anchor', 'select_world', 'select_channel',
                 'select_character', 'qa_events', 'command', 'press_key', 'mouse_click', 'mouse_drag', 'screenshot',
                 'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to', 'click_npc', 'click_option', 'position',
+                'walk_to', 'climb',
                 'drop_item', 'party_create', 'party_invite', 'close_dialog',
                 'dialog_next', 'use_cash_item',
                 'merchant_open', 'merchant_close', 'fredrick_retrieve', 'pickup_item',
@@ -253,6 +261,15 @@ BUILD_STAMP_CAPS = re.compile(r'Build stamp: caps (0x[0-9A-Fa-f]{8})')
 QA_EVENTS_MAX = 200
 NPC_POS_TIMEOUT = 3.0   # the client answers npc_pos / click_option on its next frame
 DROP_TIMEOUT = 6.0      # qa-drop-honest: the client waits up to 3 s for the server to take the items
+# qa-walk-to (1.6.7): position polling while an arrow is held.
+WALK_POLL = 0.04        # s between position reads
+WALK_STALL = 0.6        # s without 2 px of progress = no_progress
+WALK_AIR = 0.3          # s off every foothold, rope and ladder = fell
+WALK_DROP_PX = 12       # standing this far below the start floor = fell
+WALK_TAP = 0.03         # s a correction tap holds the arrow (halved after a tap crosses the target) ...
+WALK_TAP_MIN = 0.015    # ... down to this; shorter taps can fall between DirectInput's polls
+WALK_TAPS = 6           # correction taps before overshoot
+GRAB_WAIT = 0.5         # s for Up / Down to grab the ladder or rope
 NPC_OPTION_ANCHOR = re.compile(r'^npc_dialog\.option_([1-8])$')
 CHAR_NAME = re.compile(r'^[A-Za-z0-9]{4,12}$')
 CASH_TARGET = re.compile(r'^([1-5]:[0-9]{1,3}|[1-5][0-9]{6})$')   # inv:slot, or an inventory item id   # v83 character names; the QA client checks the same
@@ -1258,6 +1275,148 @@ class Driver:
             for vk in reversed(pressed):
                 self.sender.key(vk, False, extended=True)
         return {'jumped': True, 'dir': dir, 'catch': bool(catch)}
+
+    def _walk_read(self, start, deadline, track):
+        """One position read for walk_to / climb, with the checks every read gets: timeout, map change, a fall."""
+        self.guard()
+        p = self.position()
+        where = '(x %d, y %d)' % (p['x'], p['y'])
+        if p['map_id'] != start['map_id']:
+            raise Refusal('map_changed (map %d, x %d, y %d)' % (p['map_id'], p['x'], p['y']))
+        now = time.monotonic()
+        if p['foothold'] or p['rope'] or p['ladder']:
+            track['air'] = None
+        elif track.get('air') is None:
+            track['air'] = now
+        elif now - track['air'] > WALK_AIR:
+            raise Refusal('fell ' + where)
+        if track.get('floor') and p['foothold'] and p['y'] > start['y'] + WALK_DROP_PX:
+            raise Refusal('fell ' + where)
+        if now > deadline:
+            raise Refusal('timeout ' + where)
+        return p
+
+    def _walk_settle(self, start, deadline, track, axis):
+        """After a release: reads until the character stops (two equal reads, at most 0.5 s)."""
+        last = self._walk_read(start, deadline, track)
+        end = time.monotonic() + 0.5
+        while time.monotonic() < end:
+            time.sleep(WALK_POLL)
+            p = self._walk_read(start, deadline, track)
+            if p[axis] == last[axis]:
+                return p
+            last = p
+        return last
+
+    def _walk_hold(self, vk, start, deadline, track, axis, reached, grab=False):
+        """Holds <vk> until reached(position) or the character stops making progress; releases it on every exit."""
+        self.sender.key(vk, True, extended=True)
+        try:
+            p = self._walk_read(start, deadline, track)
+            if grab:
+                end = time.monotonic() + GRAB_WAIT
+                while not (p['ladder'] or p['rope']):
+                    if time.monotonic() > end:
+                        raise Refusal('no_ladder (x %d, y %d)' % (p['x'], p['y']))
+                    time.sleep(WALK_POLL)
+                    p = self._walk_read(start, deadline, track)
+            moved_at, moved_from = time.monotonic(), p[axis]
+            while not reached(p):
+                time.sleep(WALK_POLL)
+                p = self._walk_read(start, deadline, track)
+                now = time.monotonic()
+                if abs(p[axis] - moved_from) >= 2:
+                    moved_at, moved_from = now, p[axis]
+                elif now - moved_at > WALK_STALL:
+                    raise Refusal('no_progress (x %d, y %d)' % (p['x'], p['y']))
+            return p
+        finally:
+            self.sender.key(vk, False, extended=True)
+
+    def _walk_tap(self, vk, hold):
+        self.guard()
+        self.sender.key(vk, True, extended=True)
+        try:
+            time.sleep(hold)
+        finally:
+            self.sender.key(vk, False, extended=True)
+
+    def _walk_correct(self, p, axis, target, tolerance, more, less, start, deadline, track):
+        """Short taps toward <target> until within <tolerance>; a tap that crosses the target halves the next one."""
+        hold = WALK_TAP
+        for _ in range(WALK_TAPS):
+            if abs(target - p[axis]) <= tolerance:
+                return
+            side = target > p[axis]
+            self._walk_tap(KEYS[more if side else less][0], hold)
+            p = self._walk_settle(start, deadline, track, axis)
+            if (target > p[axis]) != side and abs(target - p[axis]) > tolerance:
+                hold = max(WALK_TAP_MIN, hold / 2)
+        if abs(target - p[axis]) > tolerance:
+            raise Refusal('overshoot (x %d, y %d)' % (p['x'], p['y']))
+
+    def walk_to(self, x, tolerance=6, timeout_ms=12000):
+        """qa-walk-to (1.6.7): walks on the current floor until the QA client's position is within <tolerance> px of
+        <x>, holding the arrow a player holds; a slide past the target is corrected with short taps. Errors (with the
+        final x, y): not_on_ground, no_progress (a wall, the map edge, a window), fell, map_changed, overshoot,
+        timeout. Every key it pressed is released."""
+        self.field_input()
+        began = time.monotonic()
+        deadline = began + timeout_ms / 1000
+        start = self.position()
+        if not start['foothold']:
+            raise Refusal('not_on_ground (x %d, y %d)' % (start['x'], start['y']))
+        track = {'floor': True}
+        p = start
+        if abs(x - p['x']) > tolerance:
+            right = x > p['x']
+            vk = KEYS['RIGHT'][0] if right else KEYS['LEFT'][0]
+            speed = {'v': 0.0, 'at': time.monotonic(), 'x': p['x']}
+
+            def reached(q):
+                now = time.monotonic()
+                if now > speed['at']:
+                    speed['v'] = abs(q['x'] - speed['x']) / (now - speed['at'])
+                speed['at'], speed['x'] = now, q['x']
+                left = (x - q['x']) if right else (q['x'] - x)
+                return left <= speed['v'] * WALK_POLL + 2   # release a poll early: the slide does the rest
+            self._walk_hold(vk, start, deadline, track, 'x', reached)
+            p = self._walk_settle(start, deadline, track, 'x')
+            self._walk_correct(p, 'x', x, tolerance, 'RIGHT', 'LEFT', start, deadline, track)
+            p = self._walk_settle(start, deadline, track, 'x')
+        return {'map_id': p['map_id'], 'x': p['x'], 'y': p['y'], 'from_x': start['x'], 'moved': p['x'] - start['x'],
+                'ms': int((time.monotonic() - began) * 1000)}
+
+    def climb(self, y, tolerance=6, timeout_ms=15000):
+        """qa-walk-to (1.6.7): climbs the ladder or rope the character is on (or stands at the foot or top of: Up / Down
+        grabs it) until its y is within <tolerance> px of <y>. Climbing past the top or bottom steps onto the floor
+        there. Errors (with x, y): no_ladder, stopped_at_top / stopped_at_bottom, no_progress, fell, map_changed,
+        timeout. Every key it pressed is released."""
+        self.field_input()
+        began = time.monotonic()
+        deadline = began + timeout_ms / 1000
+        start = self.position()
+        track = {}
+        p = start
+        if abs(y - p['y']) > tolerance:
+            up = y < p['y']
+            vk = KEYS['UP'][0] if up else KEYS['DOWN'][0]
+
+            def reached(q):
+                if not (q['ladder'] or q['rope']):
+                    return True              # stepped off at the top or bottom (or fell: the next read says)
+                return q['y'] <= y if up else q['y'] >= y
+            p = self._walk_hold(vk, start, deadline, track, 'y', reached,
+                                grab=not (p['ladder'] or p['rope']))
+            p = self._walk_settle(start, deadline, track, 'y')
+            if abs(y - p['y']) > tolerance:
+                if not (p['ladder'] or p['rope']):
+                    raise Refusal('%s (x %d, y %d)' % ('stopped_at_top' if up else 'stopped_at_bottom', p['x'], p['y']))
+                self._walk_correct(p, 'y', y, tolerance, 'DOWN', 'UP', start, deadline, track)
+                p = self._walk_settle(start, deadline, track, 'y')
+        return {'map_id': p['map_id'], 'x': p['x'], 'y': p['y'], 'foothold': p['foothold'], 'rope': p['rope'],
+                'ladder': p['ladder'], 'from_y': start['y'], 'moved': p['y'] - start['y'],
+                'ms': int((time.monotonic() - began) * 1000)}
 
     def use_cash_item(self, item, target):
         """P0-6: uses cash item <item> on <target> (an item id, or inv:slot) through the client's USE_CASH_ITEM packet.
