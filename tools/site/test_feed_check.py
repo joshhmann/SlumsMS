@@ -26,6 +26,11 @@ class FeedCheckTest(unittest.TestCase):
         self.assertEqual(feed_check.main(["--feed", self.feed("1.6.5", "SlumsMS 1.6.10"), "--releases", self.d]), 1)
         self.assertEqual(feed_check.main(["--feed", self.feed("1.6.10", "SlumsMS 1.6.5"), "--releases", self.d]), 1)
 
+    def test_expect_overrides_the_release_pages(self):
+        feed = self.feed("1.6.6", "SlumsMS 1.6.6")
+        self.assertEqual(feed_check.main(["--feed", feed, "--expect", "1.6.6"]), 0)
+        self.assertEqual(feed_check.main(["--feed", feed, "--expect", "1.6.7"]), 1)
+
     def test_unreadable_feed_is_not_a_pass(self):
         self.assertEqual(feed_check.main(["--feed", os.path.join(self.d, "nope.json"), "--releases", self.d]), 2)
 
