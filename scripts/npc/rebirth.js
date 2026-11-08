@@ -1,11 +1,8 @@
 var status;
 var jobId = 0;
-var jobChangeChecker = 0;
 const YamlConfig = Java.type('config.YamlConfig');
 const GameConstants = Java.type('constants.game.GameConstants');
 const EssenceStones = Java.type('soloMapling.rebirth.EssenceStones'); // 1.6.1: players make their Essence Stone here
-let rebornDataString = ""
-let rebornData;
 let rebornChoice = 0;
 // let remainingSkillPoints = ""
 
@@ -92,43 +89,15 @@ function action(mode, type, selection) {
             cm.dispose();
         }
     } else if (status === 3) {
-        
-         if (jobChangeChecker === 0) {
-            // 0 => beginner, 1000 => noblesse, 2000 => legend
-            // makes this very easy :-)
-            jobId = selection * 1000;
+        // 0 => beginner, 1000 => noblesse, 2000 => legend
+        // makes this very easy :-)
+        jobId = selection * 1000;
 
-            var job = "";
-            if (selection === 0) job = "Beginner";
-            else if (selection === 1) job = "Noblesse";
-            else if (selection === 2) job = "Legend";
-            cm.sendYesNo("Are you sure you want to be reborn as a " + job + "?");
-        }
-        else if (jobChangeChecker === 1) { // change to previous rebirth class
-            rebornDataString = cm.getChar().getAllRebornDataCerezeth(); // get rebirth data
-            rebornData = JSON.parse(rebornDataString); // change it to json object
-            if (selection === 0) {
-                cm.changeRebirthJobCerezeth(rebornData[0].job)
-                cm.sendOk("Ok changed job to " + GameConstants.getJobName(rebornData[0].job))
-            }
-            else if (selection === 1) {
-                cm.changeRebirthJobCerezeth(rebornData[1].job)
-                cm.sendOk("Ok changed job to " + GameConstants.getJobName(rebornData[1].job))
-            }
-            else if (selection === 2) {
-                cm.changeRebirthJobCerezeth(rebornData[2].job)
-                cm.sendOk("Ok changed job to " + GameConstants.getJobName(rebornData[2].job))
-            }
-            else if (selection === 3) {
-                cm.changeRebirthJobCerezeth(rebornData[3].job)
-                cm.sendOk("Ok changed job to " + GameConstants.getJobName(rebornData[3].job))
-            }
-            cm.dispose();
-        }
-        else {
-            cm.sendOk("GG if you see this something went wrong LOOOOL");
-            cm.dispose();
-        }
+        var job = "";
+        if (selection === 0) job = "Beginner";
+        else if (selection === 1) job = "Noblesse";
+        else if (selection === 2) job = "Legend";
+        cm.sendYesNo("Are you sure you want to be reborn as a " + job + "?");
     }
     else if (status === 4 && type === 1) {
         // 1.6.0: the key item is spent here, once, after every check passes (it used to be checked but never taken).

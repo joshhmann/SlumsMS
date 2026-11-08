@@ -584,10 +584,6 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         getPlayer().setGiftLogCerezeth(giftid);
     }
 
-    public void changeRebirthJobCerezeth(int jobid) {
-        getPlayer().changeRebirthJobCerezeth(Job.getById(jobid));
-    }
-
     /**
      * 1.6.4: a quest script that advances to a job this server has no entry for (2570.js asks for 501 Cannoneer,
      * 23011.js for 3200 Battle Mage) gets null from Job.getById, and Character.changeJob(null) is a silent return.
