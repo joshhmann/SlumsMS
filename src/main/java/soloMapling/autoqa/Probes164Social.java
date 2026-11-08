@@ -300,7 +300,15 @@ final class Probes164Social {
             String kind = e.getKey().substring(0, dot);
             String outcome = e.getKey().substring(dot + 1);
             // "ACCEPT.failed: nobody could join" (1.6.6: the flow reason) is the reason breakdown of "ACCEPT.failed", already counted
-            if (outcome.contains(":")) continue;
+            if (outcome.contains(":")) {
+                // 1.6.6 accept-fail-reason step 2: a policy decline ("LFG rules said no") is the rules working, not a
+                // refusal; it comes off the kind's refused count (the counter still shows)
+                String reason = outcome.substring(outcome.indexOf(':') + 1).trim();
+                if (SocialActions.POLICY_DECLINES.contains(reason)) {
+                    byKind.computeIfAbsent(kind, k -> new long[2])[1] -= e.getValue();
+                }
+                continue;
+            }
             long[] row = byKind.computeIfAbsent(kind, k -> new long[2]);
             if (outcome.equals("ok")) row[0] += e.getValue();
             else row[1] += e.getValue();

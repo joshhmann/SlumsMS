@@ -264,6 +264,19 @@ class Probes164SocialTest {
                 "11 failures in 25 attempts is under half; counted twice it was 22 of 36");
     }
 
+    @Test
+    void socialActsDoesNotCountPolicyDeclinesAsRefusals() {
+        // TEST c42a85edf (1.6.6 accept-fail-reason step 2): ACCEPT 16 ok, 28 failed, all "LFG rules said no" - the LFG
+        // rules working, not a broken act
+        Map<String, Long> declined = actCounters("GREET.ok", "12", "CONVERSE.ok", "30", "ACCEPT.ok", "16",
+                "ACCEPT.failed", "28", "ACCEPT.failed: LFG rules said no", "28");
+        assertNull(Probes164Social.socialActsProblem(declined, budgetCounters(250, 12, 3)));
+        Map<String, Long> broken = actCounters("GREET.ok", "12", "CONVERSE.ok", "30", "ACCEPT.ok", "16",
+                "ACCEPT.failed", "28", "ACCEPT.failed: one of them left", "28");
+        assertEquals("ACCEPT was refused or held back 28 time(s) in 44 attempt(s): a staging problem, not a working act",
+                Probes164Social.socialActsProblem(broken, budgetCounters(250, 12, 3)));
+    }
+
     // ── t-pi-1 ──
 
     @Test

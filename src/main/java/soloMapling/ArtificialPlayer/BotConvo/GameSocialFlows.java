@@ -181,10 +181,22 @@ public final class GameSocialFlows implements SocialFlows {
         return new SocialActions.Invite(0, actorId, targetId, what, a.getMapId(), now, 0, pick);
     }
 
-    /** Which of {@code offers} an INVITE makes, or null for none. */
+    /**
+     * Which of {@code offers} an INVITE makes, or null for none. 1.6.6 accept-fail-reason step 2: an offer already
+     * decided no (a PQ party the LFG rules declined, BotTalk.pqOffer) is never sent, since it could only fail at
+     * ACCEPT (TEST c42a85edf: all 28 failed ACCEPTs); the come-along stands in when there is one.
+     */
     static Offer invitation(Map<Ask, Offer> offers) {
         Offer party = offers.get(Ask.PARTY);
-        return party != null ? party : offers.get(Ask.COME_ALONG);
+        if (open(party)) {
+            return party;
+        }
+        Offer come = offers.get(Ask.COME_ALONG);
+        return open(come) ? come : null;
+    }
+
+    private static boolean open(Offer o) {
+        return o != null && (o.decided() == null || o.decided().ok());
     }
 
     @Override
