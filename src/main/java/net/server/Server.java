@@ -1065,6 +1065,7 @@ public class Server {
         soloMapling.site.TradeRatings.start(); // 1.6.0 Track D: trade ratings, batched to traderatings every minute
         soloMapling.site.auth.SiteAuthApi.startIfEnabled(); // ticket 105: sign-up/sign-in API on 127.0.0.1, off unless -Dslums.auth.port
         soloMapling.inspect.BotInspectApi.startIfEnabled(); // ticket 157: read-only bot inspect on 127.0.0.1, off unless -Dslums.inspect.port; 1.6.2 ships it on for live
+        soloMapling.ops.OpsNoticeApi.startIfEnabled(); // b377: deploy.sh's "restarting in 1 minute" notice on 127.0.0.1, off unless -Dslums.ops.port and its own secret file
         soloMapling.Economy.exchange.ExchangeService.startIfEnabled(); // 1.6.1 NX exchange (ticket 113), off unless -Dslums.exchange=true
         soloMapling.Economy.exchange.volatility.MarketVolatility.startIfEnabled(); // 1.6.1 volatility: traders/events/rumours, off unless their -D flags
         soloMapling.Economy.board.SiteBoard.startIfEnabled(); // 1.6.0 site board + price alerts (file channel), off unless -Dslums.board=true

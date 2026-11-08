@@ -175,6 +175,7 @@ export DUMP_CMD="mysqldump --defaults-extra-file=$ROOTCNF -h127.0.0.1 -P3307 --l
 export STOP_CMD="systemctl stop $UNIT || true" START_CMD="bash $R/start.sh" IS_ACTIVE_CMD="systemctl is-active --quiet $UNIT"
 export DAEMON_RELOAD_CMD=true LOGIN_PORT CHANNEL_BASE
 export MONITOR=""   # a copy of live: no maintenance file, no public post
+export NOTICE_SECONDS=0   # b377: its unit copy names live's ops port, so a rehearsal never posts in game
 env | grep -E '^(SRV|B|LOG|RECEIPT|JOURNAL_UNIT|UNIT_FILE|SQL_CMD|DUMP_CMD|STOP_CMD|START_CMD|IS_ACTIVE_CMD|DAEMON_RELOAD_CMD|LOGIN_PORT|CHANNEL_BASE|MONITOR)=' | sort > "$RC/env.txt"
 
 snapshot() {
