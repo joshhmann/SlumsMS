@@ -495,6 +495,16 @@ public class ItemInformationProvider {
         return getItemPriceData(itemId).getRight();
     }
 
+    /**
+     * 1.6.6 b-20 (B-20/B-22): what refilling {@code quantity} units of a rechargeable costs. The same expression as
+     * {@link #getPrice} (b289 parity), except an item whose WZ info has a unitPrice but no price (Crystal Ilbi 2070016,
+     * Balanced Fury 2070018) counts its whole price as 0 instead of refusing: before, its recharge silently did nothing.
+     * -1 when WZ has neither (nothing to charge).
+     */
+    public int getRechargePrice(int itemId, int quantity) {
+        return ShopMath.rechargePrice(getWholePrice(itemId), getUnitPrice(itemId), quantity);
+    }
+
     public int getPrice(int itemId, int quantity) {
         int retPrice = getWholePrice(itemId);
         if (retPrice == -1) {

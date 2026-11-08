@@ -83,7 +83,7 @@ public class ItemId {
     // Bullet
     public static final int BULLET = 2330000;
     private static final int BULLET_MIN = BULLET;
-    private static final int BULLET_MAX = 2330005;
+    private static final int BULLET_MAX = 2330006; // 1.6.6 b-20: Bullet for Novice Pirates is in WZ (price 20000, unitPrice 1)
     public static final int BLAZE_CAPSULE = 2331000;
     public static final int GLAZE_CAPSULE = 2332000;
 

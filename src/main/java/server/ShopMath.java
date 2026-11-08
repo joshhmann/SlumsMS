@@ -36,4 +36,16 @@ public final class ShopMath {
         }
         return total > MAX_MESO ? -1 : total;
     }
+
+    /**
+     * 1.6.6 b-20: refilling {@code quantity} units of a rechargeable, from its WZ {@code info/price} ({@code wholePrice},
+     * -1 when absent) and {@code info/unitPrice}: price + ceil(quantity x unitPrice), as buying and selling a stack (b289);
+     * with no price but a unitPrice (Crystal Ilbi, Balanced Fury) just ceil(quantity x unitPrice); -1 with neither.
+     */
+    public static int rechargePrice(int wholePrice, double unitPrice, int quantity) {
+        if (wholePrice < 0) {
+            return unitPrice > 0 ? (int) Math.ceil(quantity * unitPrice) : -1;
+        }
+        return wholePrice + (int) Math.ceil(quantity * unitPrice);
+    }
 }
