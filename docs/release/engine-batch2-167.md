@@ -39,8 +39,10 @@ rewritten by this fix; a non-ASCII account's old truncated hash keeps matching u
 
 Proved by: `AccountPasswordsMultibyteTest` (`src/test/java/client/`): (a) a SHA-512 value made the old way for
 `pässwörd` still matches (guards "no existing player loses access"; passes before and after); (b) a SHA-512 value made
-from all the bytes matches (fails before); (c) the old truncated value does not match a different password that shares
-its first characters; (d) ASCII passwords match both ways.
+from all the bytes matches (fails before); (c) the old truncated value does not match a different password whose own
+truncated digest differs (for `pässwörd` that is `pässwöX`, the truncated digest of 7 bytes rather than 8) - a password
+that shares the whole old byte prefix still matches, by construction, which is what keeping the old values working
+buys; (d) ASCII passwords match both ways.
 
 ## 4. b375: the t-xc-5 probe and the trader brain respect the daily item-sell cap
 
@@ -53,10 +55,11 @@ exactly as it is (`Exchange.sellCap`, code `ITEMS_CAP`). The two callers that ig
   exposure `Exchange.sellCap` uses) before it proposes an item SELL, and drops a sell whose notional would be refused.
   A cap of 0 means no cap and changes nothing.
 
-Proved by: `MarketQaItemsCapTest` and `MarketTradersSellCapTest` (`src/test/java/soloMapling/Economy/exchange/`): a spy
-exchange answering `ITEMS_CAP` for the first trader and a real answer for the second makes the check pass on the
-second (before: `FAIL ... refused: ITEMS_CAP`); a trader whose account is at the cap places no item sell (before: it
-places one and the exchange refuses it). The exchange's own cap rule is not touched.
+Proved by: two new methods in `MarketQaTest` plus `MarketTradersSellCapTest` (`src/test/java/soloMapling/Economy/
+exchange/volatility/`): a spy exchange answering `ITEMS_CAP` for the first trader and a real answer for the second
+makes the check pass on the second (before: `FAIL ... refused: ITEMS_CAP`); a trader whose account is at the cap
+places no item sell (before: it places one and the exchange refuses it); with no cap, or room left under it, the
+trader quotes as before. The exchange's own cap rule is not touched.
 
 ## Verification
 

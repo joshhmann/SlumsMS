@@ -277,10 +277,11 @@ public final class MarketQa {
             }
         }
         // a real order through the exchange, from a holder's own holdings: the first SELL its own decision makes. An
-        // archetype that never sells a held scroll (MOMENTUM waits for a trend) or a trader inside its order cooldown
-        // (the other checks and the traders' own turns order too) is passed over for the next holder.
+        // archetype that never sells a held scroll (MOMENTUM waits for a trend), a trader inside its order cooldown (the
+        // other checks and the traders' own turns order too) or one whose account is at the daily item-sell ceiling
+        // (b375: no sell of its own can post today) is passed over for the next holder.
         boolean judged = false;
-        int cooling = 0;
+        int cooling = 0, capped = 0;
         for (Cand c : picks) {
             TraderBrain.Place sell = firstSell(ex, c.t, c.w, c.k, now);
             if (sell == null) {
@@ -289,6 +290,10 @@ public final class MarketQa {
             String st = judgeSell(ex, c.t, c.w, c.k, sell, now, out, bad);
             if ("COOLDOWN".equals(st)) {
                 cooling++;
+                continue;
+            }
+            if ("ITEMS_CAP".equals(st)) {
+                capped++;
                 continue;
             }
             judged = true;
@@ -303,10 +308,12 @@ public final class MarketQa {
                 out.add(noHolder + ": staging a scroll");
             } else {
                 out.add("no organic holder could be judged (" + picks.size() + " holder(s)"
-                        + (cooling > 0 ? ", " + cooling + " in the order cooldown" : ", none whose archetype sells it")
+                        + (cooling > 0 ? ", " + cooling + " in the order cooldown" : "")
+                        + (capped > 0 ? (cooling > 0 ? ", " : ", ") + capped + " at the daily item-sell cap" : "")
+                        + (cooling == 0 && capped == 0 ? ", none whose archetype sells it" : "")
                         + "): staging a scroll");
             }
-            int coolStaged = 0;
+            int coolStaged = 0, capStaged = 0;
             staging:
             for (MarketTraders.Trader t : roster.traders()) {
                 LiveWallet w = roster.walletOf(t);
@@ -319,6 +326,10 @@ public final class MarketQa {
                         coolStaged++;
                         continue staging;
                     }
+                    if ("ITEMS_CAP".equals(st)) {
+                        capStaged++;
+                        continue staging;
+                    }
                     if ("DONE".equals(st)) {
                         judged = true;
                         break staging;
@@ -326,8 +337,12 @@ public final class MarketQa {
                 }
             }
             if (!judged && bad.isEmpty()) {
-                out.add(0, coolStaged > 0
-                        ? "SKIP every trader whose archetype sells a scroll was inside the order cooldown; run this again"
+                String blocked = coolStaged > 0 && capStaged > 0
+                        ? "inside the order cooldown or at the daily item-sell cap"
+                        : coolStaged > 0 ? "inside the order cooldown"
+                        : capStaged > 0 ? "at the daily item-sell cap" : null;
+                out.add(0, blocked != null
+                        ? "SKIP every trader whose archetype sells a scroll was " + blocked + "; run this again"
                         : "SKIP no online trader's archetype sells a scroll on a flat market (" + online
                         + " online); run this again");
                 return out;
@@ -376,7 +391,9 @@ public final class MarketQa {
         }
     }
 
-    /** Places the sell through the exchange and judges post, hold, band and cancel. "COOLDOWN" or "DONE". */
+    /**
+     * Places the sell through the exchange and judges post, hold, band and cancel. "COOLDOWN", "ITEMS_CAP" or "DONE".
+     */
     private static String judgeSell(Exchange ex, MarketTraders.Trader t, LiveWallet w, Ticker tk,
                                     TraderBrain.Place sell, long now, List<String> out, List<String> bad) {
         long have0 = w.have(tk.asset()), meso0 = w.have(Asset.MESO);
@@ -385,6 +402,13 @@ public final class MarketQa {
         if ("COOLDOWN".equals(r.code())) {
             out.add("trader " + t.id() + " is inside the order cooldown: trying the next one");
             return "COOLDOWN";
+        }
+        if ("ITEMS_CAP".equals(r.code())) {
+            // b375: the holder's account already has its day's item-sell ceiling in filled or resting orders, so no
+            // sell of its own can post today. That is the holder's state, not a fault of the sell being checked: pass
+            // it over like the cooldown instead of failing on the refusal.
+            out.add("trader " + t.id() + " is at the daily item-sell cap (" + r.message() + "): trying the next one");
+            return "ITEMS_CAP";
         }
         if (!r.ok()) {
             out.add("the sell of " + sell.qty() + " " + tk.id() + " at " + sell.price() + " was refused: "
