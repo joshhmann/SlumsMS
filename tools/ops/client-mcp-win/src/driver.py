@@ -270,6 +270,7 @@ WALK_TAP = 0.03         # s a correction tap holds the arrow (halved after a tap
 WALK_TAP_MIN = 0.015    # ... down to this; shorter taps can fall between DirectInput's polls
 WALK_TAPS = 6           # correction taps before overshoot
 GRAB_WAIT = 0.5         # s for Up / Down to grab the ladder or rope
+GRAB_JUMP_WAIT = 0.8    # s after the jump (Up held) for the grab, before no_ladder
 NPC_OPTION_ANCHOR = re.compile(r'^npc_dialog\.option_([1-8])$')
 CHAR_NAME = re.compile(r'^[A-Za-z0-9]{4,12}$')
 CASH_TARGET = re.compile(r'^([1-5]:[0-9]{1,3}|[1-5][0-9]{6})$')   # inv:slot, or an inventory item id   # v83 character names; the QA client checks the same
@@ -1315,9 +1316,20 @@ class Driver:
             p = self._walk_read(start, deadline, track)
             if grab:
                 end = time.monotonic() + GRAB_WAIT
+                jumped = vk != KEYS['UP'][0]   # only Up gets the jump
                 while not (p['ladder'] or p['rope']):
                     if time.monotonic() > end:
-                        raise Refusal('no_ladder (x %d, y %d)' % (p['x'], p['y']))
+                        if jumped:
+                            raise Refusal('no_ladder (x %d, y %d)' % (p['x'], p['y']))
+                        # A ladder or rope whose bottom is above the floor (LPQ stage 1: 45 px) is reached with a
+                        # jump, Up still held, as a player does (b360 catch).
+                        jumped = True
+                        self.sender.key(JUMP_KEY, True)
+                        try:
+                            time.sleep(0.06)   # DirectInput polls state; an atomic tap can be missed
+                        finally:
+                            self.sender.key(JUMP_KEY, False)
+                        end = time.monotonic() + GRAB_JUMP_WAIT
                     time.sleep(WALK_POLL)
                     p = self._walk_read(start, deadline, track)
             moved_at, moved_from = time.monotonic(), p[axis]
@@ -1389,7 +1401,7 @@ class Driver:
 
     def climb(self, y, tolerance=6, timeout_ms=15000):
         """qa-walk-to (1.6.7): climbs the ladder or rope the character is on (or stands at the foot or top of: Up / Down
-        grabs it) until its y is within <tolerance> px of <y>. Climbing past the top or bottom steps onto the floor
+        grabs it; a bottom above the floor is reached with a jump, Up held) until its y is within <tolerance> px of <y>. Climbing past the top or bottom steps onto the floor
         there. Errors (with x, y): no_ladder, stopped_at_top / stopped_at_bottom, no_progress, fell, map_changed,
         timeout. Every key it pressed is released."""
         self.field_input()

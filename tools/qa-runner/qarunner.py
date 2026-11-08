@@ -912,6 +912,8 @@ class Run:
         r = self.worker.send(alias, self.prepared(step, alias)) or {}
         if r.get("result", "ok") != "ok":
             raise RunFailed("%s refused: %s" % (kind, r.get("detail", "")), "refused")
+        if kind in ("position", "walk_to", "climb") and r.get("detail"):
+            entry["detail"] = r["detail"]   # where the character is: QA reads it from the manifest, not the outbox
 
     def wait(self, i, step, alias, entry):
         sig = step["signal"]
