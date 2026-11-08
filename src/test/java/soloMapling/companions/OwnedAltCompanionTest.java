@@ -649,6 +649,8 @@ class OwnedAltCompanionTest {
         when(alt.getMp()).thenReturn(100);
         when(alt.getCurrentMaxMp()).thenReturn(500);
         when(alt.isAlive()).thenReturn(true);
+        // it drinks while it rests (owner, 8 Nov 2026): an empty USE tab, so nothing to drink here
+        when(alt.getInventory(InventoryType.USE)).thenReturn(new Inventory(alt, InventoryType.USE, (byte) 24));
         ExpeditionBotsFixture.Joined run = ExpeditionBotsFixture.join(field, OWNER, ALT);
         try {
             lying().put(ALT, 0L);
@@ -667,6 +669,34 @@ class OwnedAltCompanionTest {
             OwnedAltCompanion.tick(owner, alt, s, NOW + 10_400, 0);
             assertFalse(CompanionBossRevive.resting(alt, NOW + 10_400), "the rest is over: follow and fight again");
             assertFalse("resting after a revive".equals(s.doing));
+        } finally {
+            run.release();
+        }
+    }
+
+    /** Owner, 8 Nov 2026: while it rests after the revive the alt drinks its own potions up to the rest line (70%). */
+    @Test
+    void aRestingAltDrinksUpToTheRestLine() throws Exception {
+        Character owner = owner(NOW);
+        Character alt = alt(owner, 1302000);
+        scripting.event.EventInstanceManager eim = mock(scripting.event.EventInstanceManager.class);
+        when(alt.getEventInstance()).thenReturn(eim);
+        when(owner.getEventInstance()).thenReturn(eim);
+        when(alt.getClient()).thenReturn(mock(BotClient.class));
+        when(alt.getLevel()).thenReturn(120);
+        when(alt.getCurrentMaxHp()).thenReturn(1_400);
+        when(alt.getMp()).thenReturn(100);
+        when(alt.getCurrentMaxMp()).thenReturn(500);
+        when(alt.isAlive()).thenReturn(true);
+        ExpeditionBotsFixture.Joined run = ExpeditionBotsFixture.join(field, OWNER, ALT);
+        try (MockedStatic<BotVitals> vitals = Mockito.mockStatic(BotVitals.class)) {
+            lying().put(ALT, 0L);
+            OwnedAltCompanion.State s = new OwnedAltCompanion.State(ALT);
+            OwnedAltCompanion.tick(owner, alt, s, NOW, 0);
+            OwnedAltCompanion.tick(owner, alt, s, NOW + 10_000, 0); // up and resting
+            OwnedAltCompanion.tick(owner, alt, s, NOW + 10_200, 0);
+            assertEquals("resting after a revive", s.doing);
+            vitals.verify(() -> BotVitals.restTopUp(alt, 70), Mockito.atLeastOnce());
         } finally {
             run.release();
         }

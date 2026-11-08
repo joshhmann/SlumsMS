@@ -291,7 +291,7 @@ class CompanionBossReviveTest {
         assertTrue(CompanionBossRevive.resting(alt, NOW + 11_000), "hurt: no follow and no fight yet");
         when(alt.getHp()).thenReturn(700); // half
         when(alt.getMp()).thenReturn(250);
-        assertTrue(CompanionBossRevive.resting(alt, NOW + 12_000), "half is not REST_PERCENT");
+        assertTrue(CompanionBossRevive.resting(alt, NOW + 12_000), "half is under REST_PERCENT (70)");
         when(alt.getHp()).thenReturn(MAX_HP);
         when(alt.getMp()).thenReturn(MAX_MP);
         assertFalse(CompanionBossRevive.resting(alt, NOW + 13_000), "whole again: back to work");
@@ -303,6 +303,23 @@ class CompanionBossReviveTest {
         when(alt.getMp()).thenReturn(100);
         assertTrue(CompanionBossRevive.resting(alt, NOW + 41_000), "hurt again: the rest starts over with the revive");
         assertFalse(CompanionBossRevive.resting(alt, NOW + 160_000), "the rest runs out REST_MAX_MS after the revive");
+    }
+
+    /** Owner, 8 Nov 2026: the rest after a boss revive ends at 70% HP and MP (it was whole, 100%). */
+    @Test
+    void theRestEndsAtSeventyPercent() throws Exception {
+        Character owner = owner(0);
+        Character alt = alt(owner, ownerMap);
+        dies(alt);
+        CompanionBossRevive.gate(alt, NOW);
+        CompanionBossRevive.gate(alt, NOW + 10_000); // up, and resting from here
+
+        when(alt.getHp()).thenReturn(MAX_HP * 69 / 100);
+        when(alt.getMp()).thenReturn(MAX_MP * 70 / 100);
+        assertTrue(CompanionBossRevive.resting(alt, NOW + 11_000), "69% HP is still resting");
+        when(alt.getHp()).thenReturn(MAX_HP * 70 / 100);
+        assertFalse(CompanionBossRevive.resting(alt, NOW + 12_000), "70% HP and MP: back to work");
+        assertEquals(70, CompanionBossRevive.restPercent());
     }
 
     @Test

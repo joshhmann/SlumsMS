@@ -36,9 +36,11 @@ mesos (the owner's own, the player typing it). Deaths **outside** a boss run sta
    getCurrentMaxHp()`, MP unchanged, the standing stance broadcast), and comes out of the corpse state
    (`BotDeaths.revived`).
 4. **It then rests** (the rule ported from BotStory's `CompanionFieldBossRest`): no follow and no fight until its HP
-   *and* MP are back to `REST_PERCENT` (100) of their maximum, or `REST_MAX_MS` (120 s) has passed since the revive. It
-   drinks its own potions meanwhile through the existing `BotVitals` path (`regen` and `topUp`), so MP under 30% is
-   potted up and HP/MP regenerate as they do for any bot. The sit-out rule of the source is **not** ported: a companion
+   *and* MP are back to `REST_PERCENT` (**70**, owner 8 Nov 2026; it was 100) of their maximum, or `REST_MAX_MS`
+   (120 s) has passed since the revive. While it rests it drinks its own HP and MP potions up to that line
+   (`BotVitals.restTopUp`, a few per tick like `topUp`), and regenerates as any bot does. (Before this change it did
+   not drink while resting: `topUp` only runs on a hit or a cast, and a resting alt takes neither.) With no potions
+   it waits on regen and the 120 s limit. The sit-out rule of the source is **not** ported: a companion
    never refuses to go back into a fight.
 5. **The owner may buy an instant revive**: `@botme revive <name>` while that companion waits dead in a boss run, and
    only then (not outside a run, not for a companion that is not down). The price is 10,000 x its level / 10 mesos
@@ -74,8 +76,11 @@ the class did not exist; every other test below fails on the base branch and pas
   - `anInstantReviveCostsAThousandMesosALevelAndDoublesWithinTheRun`: Lv 120 charges 120,000 (told with the price) then
     240,000 in one run, and 120,000 again after the run is released.
   - `tooFewMesosChargesNothingAndItStaysDown`: no `gainMeso`, no `applyHpMpChange`, still dead and still waiting.
-  - `afterTheReviveItRestsUntilWholeOrTheLimit`: resting right after the revive, still resting at half HP/MP, done at
-    100%, and done when `REST_MAX_MS` has passed; the rest starts over with the next revive.
+  - `afterTheReviveItRestsUntilWholeOrTheLimit`: resting right after the revive, still resting at half HP/MP, done when
+    whole, and done when `REST_MAX_MS` has passed; the rest starts over with the next revive.
+  - `theRestEndsAtSeventyPercent` (owner, 8 Nov): 69% HP still rests, 70% HP and MP ends it. Fails at the old 100.
+  - `CompanionSuppliesTest.aRestingAltDrinksItsOwnPotionsUpToTheRestLine` / `aRestingAltWithoutPotionsJustWaits`, and
+    `OwnedAltCompanionTest.aRestingAltDrinksUpToTheRestLine` (the rest tick calls `restTopUp(alt, 70)`).
   - `aCompanionThatDiedOutsideARunKeepsItsOldPath`: on a map with a boss on it but with no instance, `gate` says no, no
     line, no revive, the caller's own path keeps the death.
   - `aRegularIsLeftAloneByDefaultAndWaitsUnderTheSwitch`: with the shipped switches a regular's `gate` is false and its

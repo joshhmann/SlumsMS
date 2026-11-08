@@ -277,6 +277,36 @@ class CompanionSuppliesTest {
         assertNotNull(CompanionSupplies.shortOf(regular), "and the recruiter check covers it too");
     }
 
+    // ── resting after a boss revive (owner, 8 Nov 2026: "70% plus drinking") ──
+
+    @Test
+    void aRestingAltDrinksItsOwnPotionsUpToTheRestLine() throws Exception {
+        Character alt = ownedAlt(400, 1000);
+        give(alt, RED, 10);
+        give(alt, BLUE, 10);
+        alt.updateHpMp(100, 200);                // 25% HP, 20% MP: just revived
+
+        BotVitals.restTopUp(alt, 70);
+
+        assertEquals(300, alt.getHp(), "four reds take it from 25% to 75%, the first step at or over 70%");
+        assertEquals(700, alt.getMp(), "five blues take it from 20% to 70%");
+        assertEquals(6, count(alt, RED));
+        assertEquals(5, count(alt, BLUE));
+
+        BotVitals.restTopUp(alt, 70);
+        assertEquals(6, count(alt, RED), "at the line it drinks nothing more");
+        assertEquals(5, count(alt, BLUE));
+    }
+
+    @Test
+    void aRestingAltWithoutPotionsJustWaits() throws Exception {
+        Character alt = ownedAlt(400, 1000);
+        alt.updateHpMp(100, 200);
+        BotVitals.restTopUp(alt, 70);
+        assertEquals(100, alt.getHp());
+        assertEquals(200, alt.getMp());
+    }
+
     // ── fixtures ────────────────────────────────────────────────────────────
 
     private static Character owner() {

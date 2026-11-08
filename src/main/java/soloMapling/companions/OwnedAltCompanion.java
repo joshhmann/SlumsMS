@@ -349,12 +349,14 @@ public final class OwnedAltCompanion {
             soloMapling.ArtificialPlayer.BotAttackSystem.BotPartySupport.tick(alt);
             if (CompanionBossRevive.resting(alt, now)) {
                 // 1.6.7 alt-revive-respawn: revived in a boss run, it rests (the BotStory rule, ported): no follow and
-                // no fight until HP and MP are whole again, or the rest runs out. It drinks and regens as usual above.
+                // no fight until HP and MP are back to the rest line (70%), or the rest runs out.
                 if (s.fighting) {
                     s.fighting = false;
                     s.lastMoveX = Integer.MIN_VALUE;
                 }
                 leaveFollow(alt);
+                // owner, 8 Nov 2026: it drinks its own potions up to the rest line while it rests
+                BotVitals.restTopUp(alt, CompanionBossRevive.restPercent());
                 s.doing = "resting after a revive";
                 return;
             }
