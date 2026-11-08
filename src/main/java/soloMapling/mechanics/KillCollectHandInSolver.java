@@ -15,7 +15,8 @@ import java.util.OptionalInt;
  *   <li>{@code HAND_IN} (leader): the NPC, the item and how many ({@code 10} passes);</li>
  *   <li>{@code GIVE_TO_LEADER}: the item the others drop for the leader.</li>
  * </ul>
- * A real leader gets the passes dropped at his feet and talks to the NPC himself; nobody steers him. Collectors only
+ * A collector walks its passes over in threes, and its last one or two once the map is clear or the party holds the
+ * hand-in count between them (a respawning map is never clear). A real leader gets the passes dropped at his feet and talks to the NPC himself; nobody steers him. Collectors only
  * pick up what the monsters dropped (never a pass already dropped for the leader), so passes never go round in a
  * circle.
  */
@@ -52,6 +53,24 @@ public final class KillCollectHandInSolver implements StageSolver {
             int npc = hand.npcId() > 0 ? hand.npcId() : stage.npcId();
             return new Plan(npc, give != null ? give.itemId() : hand.itemId(), need);
         }
+    }
+
+    /**
+     * lpq1-pass-shortfall (TEST, 8 Nov 2026): the leader's passes, the ones lying for him and every other member's
+     * together reach the stage's hand-in count. A stage whose monsters respawn (or sit out of reach) never empties, so
+     * without this the last one or two passes stayed in the collectors' bags below {@link #GIVE_AT} for good.
+     */
+    static boolean partyHoldsEnough(StageView view, Plan plan, int leaderId) {
+        if (plan.need() <= 0) {
+            return false;
+        }
+        long total = view.itemCount(leaderId, plan.itemId()) + (long) view.floorItems(plan.itemId(), leaderId);
+        for (RunMember m : view.members()) {
+            if (m.characterId() != leaderId) {
+                total += view.itemCount(m.characterId(), plan.itemId());
+            }
+        }
+        return total >= plan.need();
     }
 
     @Override
@@ -100,7 +119,7 @@ public final class KillCollectHandInSolver implements StageSolver {
         var leader = view.leader();
         if (have > 0 && leader.isPresent() && leader.get().characterId() != id
                 && view.mapOf(leader.get().characterId()) == view.stage().mapId()
-                && (mobs == 0 || have >= GIVE_AT)) {
+                && (mobs == 0 || have >= GIVE_AT || partyHoldsEnough(view, plan, leader.get().characterId()))) {
             return PassHandover.give(view, id, plan.itemId(), have, leader.get());
         }
         SolverStep back = PassHandover.takeBack(view, id, plan.itemId());
