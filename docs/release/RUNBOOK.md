@@ -61,6 +61,9 @@ problem with the next action. Client publishes (step 2) and the patch notes stay
    channel, which needs no go). Check: every Live URL still answers 401 without a key.
 7. **GO** Patch notes: build and deploy the site (`python3 tools/site/build.py`, rsync `dist/site/` to the site
    folder), then one Cody post linking it (see Discord below).
+8. **GO** After a server-only release (step 2 skipped): Site bumps the patch-feed version and news on the owner's go
+   (`/srv/slums-patch/manifest.json` `version` + a `news` entry; no layer change). Without it the launcher still
+   names the last client release: the feed said 1.6.4 through the 1.6.5 and 1.6.6 releases (fixed 8 Nov 2026).
 
 On failure: step 1 → `deploy.sh --phase restart-old`; step 2 → `tools/release/publish-client --restore-manifest
 /srv/slums-staging/manifest-before-<v>.json` + restart-old; step 3 → `rollback.sh` + restore the manifest. Tell the
