@@ -7,10 +7,13 @@
 #     and applies the migrations live has but the dump does not (e.g. a deploy after the dump was taken).
 #  3. Copies the live server folder (read only: jar, config, scripts, bot data, nav graph cache; wz is linked and
 #     the unit sees /opt/mapleroot read-only), unpacks the learned/stuck/heat archive into it, points config.yaml
-#     at the scratch schema and blanks the bot LLM URLs.
+#     at the scratch schema and blanks every URL in it.
 #  4. Boots the copy with live's own java flags on spare ports as a transient unit (CPUQuota=200% Nice=19
-#     MemoryMax=6G), waits for "is now online", checks the login handshake, the bot store/roster and the director,
-#     runs for --minutes, stops it gracefully (bots save, learned nav flushes).
+#     MemoryMax=6G), minus the flags that reach outside the drill folder (APIs, shadow model calls) and with live's
+#     dashboard, reports and market board folders pointed into it; sandboxed to write only under $DRILL_ROOT with
+#     live's secret and site folders hidden. Waits for "is now online", checks the login handshake, the bot
+#     store/roster and the director, kills it if it listens or talks anywhere but its own ports and loopback, runs for
+#     --minutes, stops it gracefully (bots save, learned nav flushes).
 #  5. Checks: player characters/items/skills/storages identical before and after the run; bot roster loaded with the
 #     DB's member count; learned nav books loaded (a book the server rewrote still has the restored edges); no
 #     ERROR/Exception lines. Writes a receipt to $DRILL_ROOT/receipts/<ts>/ (kept), then drops the schema and user
@@ -34,7 +37,9 @@ LIVE_DB_CONTAINER=${LIVE_DB_CONTAINER:-buns-clean-db-1}
 TEST_DB_CNF=${TEST_DB_CNF:-/opt/mapleroot-dev/solomapling-test/secrets/root.cnf}
 TEST_DB_PORT=${TEST_DB_PORT:-3307}
 DRILL_ROOT=${DRILL_ROOT:-/opt/mapleroot-dev/restore-drill}
-DRILL_UNIT=${DRILL_UNIT:-slumsms-restore-drill}
+# The boot's transient unit; not slumsms-restore-drill, which is the installed unit this script runs in (P0-8,
+# 7 Nov 12:30 UTC drill: "Unit slumsms-restore-drill.service was already loaded").
+DRILL_UNIT=${DRILL_UNIT:-slumsms-restore-drill-server}
 DRILL_LOGIN_PORT=${DRILL_LOGIN_PORT:-8539}
 DRILL_CHANNEL_BASE=${DRILL_CHANNEL_BASE:-8805}
 OFFBOX_KEY=${OFFBOX_KEY:-/root/.config/slumsms-backup/offbox.key}
@@ -196,6 +201,21 @@ argv=$(systemctl show "$LIVE_UNIT" -p ExecStart --value | sed -n 's/.*argv\[\]=\
 drill_argv=$(echo "$argv" | sed -E "s/-Dmapleroot\.login-port=[0-9]+/-Dmapleroot.login-port=$DRILL_LOGIN_PORT/; s/-Dmapleroot\.channel-base-port=[0-9]+/-Dmapleroot.channel-base-port=$DRILL_CHANNEL_BASE/")
 [[ "$drill_argv" == *"login-port=$DRILL_LOGIN_PORT"* && "$drill_argv" == *"channel-base-port=$DRILL_CHANNEL_BASE"* ]] \
     || die "live command line has no port flags to replace: $argv"
+# The copy runs live's jar with live's flags, so every flag that reaches outside the drill folder is taken off or
+# pointed into it (P0-8, 7 Nov 18:02 UTC drill: the copy tried live's API ports and wrote live's dashboard folder and
+# market board outbox).
+#   off:        -Dslums.auth.* (site login API port and secret; revoked.txt, and P0-7's banned.txt beside it),
+#               -Dslums.weblogin.* (banned.txt's other folder), -Dslums.inspect* (bot inspect API port and secret),
+#               -Dslums.decide.shadow* (shadow calls to the LAN model server)
+#   redirected: dashboard dir, player reports file, market board inbox and outbox -> $SRV/data/drill-out/
+OUT="$SRV/data/drill-out"
+drill_argv=$(echo "$drill_argv" | sed -E 's/ -D(slums\.(auth|weblogin|inspect|decide\.shadow)|solomapling\.(dashboard\.dir|reportsFile)|slums\.board\.(inbox|outbox))[^ ]*//g')
+drill_argv=$(echo "$drill_argv" | sed -E "s|^([^ ]+) |\1 -Dsolomapling.dashboard.dir=$OUT/dashboard -Dsolomapling.reportsFile=$OUT/reports.jsonl -Dslums.board.inbox=$OUT/board-inbox -Dslums.board.outbox=$OUT/board-outbox |")
+for f in slums.auth slums.weblogin slums.inspect slums.decide.shadow; do
+    [[ "$drill_argv" != *"-D$f"* ]] || die "could not take -D$f off the drill's command line"
+done
+outside=$(grep -oE -- '-D[^= ]+=(/|[a-z]+://)[^ ]*' <<<"$drill_argv" | grep -vF -- "=$RUN/" | cut -d= -f1 | tr '\n' ' ' || true)
+[ -z "$outside" ] || die "drill flags still name a path outside $RUN or a URL: $outside"
 for p in $DRILL_LOGIN_PORT $(seq "$DRILL_CHANNEL_BASE" $((DRILL_CHANNEL_BASE + 15))); do
     ! ss -ltnH "sport = :$p" | grep -q . || die "port $p is in use"
 done
@@ -206,6 +226,7 @@ rsync -a --exclude=/wz --exclude=/wz.tar.gz --exclude=/logs --exclude=/.git --ex
     "$LIVE_SERVER/" "$SRV/"
 ln -s "$LIVE_SERVER/wz" "$SRV/wz"
 tar -C "$SRV/cache/bot-nav" -xzf "$n"
+mkdir -p "$OUT/dashboard" "$OUT/board-inbox" "$OUT/board-outbox"
 ok "copied in $(( ($(date +%s%N) - t0) / 1000000 )) ms; jar sha256 $(sha256sum "$SRV/target/Cosmic.jar" | cut -c1-16) (live $(sha256sum "$LIVE_SERVER/target/Cosmic.jar" | cut -c1-16))"
 python3 -I - "$SRV/config.yaml" "$TEST_DB_PORT" "$SCHEMA" "$DBUSER" "$DBPASS" <<'EOF'
 import re, sys
@@ -222,11 +243,15 @@ for pat, rep in subs:
     s, k = re.subn(pat, rep, s)
     if k != 1:
         sys.exit("config.yaml: expected one match for " + pat + ", got " + str(k))
+# every other *_URL too (cloud LLM, decide tone, ...): the copy calls no service
+s = re.sub(r'(?m)^(\s*[A-Z0-9_]+_URL:\s*)".*"', r'\1""', s)
+if re.search(r'(?m)^\s*[A-Za-z0-9_]+:\s*"?[a-z]+://', s):
+    sys.exit("config.yaml still has a URL value")
 if ':3309' in s:
     sys.exit("config.yaml still mentions :3309")
 open(path, 'w').write(s)
 EOF
-ok "config.yaml -> 127.0.0.1:$TEST_DB_PORT/$SCHEMA as $DBUSER, bot LLM URLs blanked"
+ok "config.yaml -> 127.0.0.1:$TEST_DB_PORT/$SCHEMA as $DBUSER, every URL blanked; flags: outward ones off, files in $OUT"
 
 # learned nav as restored: book -> edge keys
 navkeys() {
@@ -250,6 +275,28 @@ cp -a "$SRV/cache/bot-nav/learned" "$RUN/learned-before"
 
 ro=(-p ReadOnlyPaths=/opt/mapleroot -p ReadOnlyPaths=/opt/mapleroot-deployments)
 limits=(-p CPUQuota=200% -p Nice=19 -p MemoryMax=6G)
+# The server copy writes only inside the drill folder and cannot see live's secret and site folders, whatever a flag
+# or default in the jar says. Network: 164 is an LXC container, where IPAddressDeny= is silently not enforced (no
+# cgroup BPF) and PrivateNetwork= would cut the copy off from the TEST DB on loopback; so the copy gets no URLs, no
+# outward flags and no environment (no keys, no webhook), and contained() kills it on any non-loopback peer.
+sandbox=(-p ProtectSystem=strict -p ProtectHome=read-only -p ReadWritePaths="$DRILL_ROOT" -p PrivateTmp=yes)
+for d in /etc/slums-auth /etc/slums-inspect /etc/slums-login /etc/slumsms /etc/slumsms-monitor /root/.config \
+    /var/lib/slums-login /var/lib/slums-market /var/lib/slums-feedback /srv \
+    /opt/mapleroot-dev/solomapling-test/secrets; do
+    sandbox+=(-p InaccessiblePaths=-$d)
+done
+step "server sandbox probe"
+probe=$(systemd-run --wait --pipe -q "${sandbox[@]}" /bin/bash -c '
+    r=""
+    for d in /root /usr /var /etc; do
+        touch $d/.drill-probe-'"$TS"' 2>/dev/null && { rm -f $d/.drill-probe-'"$TS"'; r+=" wrote $d"; }
+    done
+    [ -e /etc/slums-auth/secret ] && r+=" sees /etc/slums-auth/secret"
+    [ -e /var/lib/slums-market/outbox ] && r+=" sees the market outbox"
+    timeout 5 bash -c "exec 3<>/dev/tcp/127.0.0.1/'"$TEST_DB_PORT"'" 2>/dev/null || r+=" cannot reach the TEST DB"
+    echo "${r:-sealed}"' 2>&1 || true)
+[ "$probe" = sealed ] && ok "sandbox: no writes outside $DRILL_ROOT, live's secret and site folders hidden" \
+    || die "server sandbox does not hold: $probe"
 step "nav learning books read by the live jar's NavStuckReport"
 stuckday=$(ls "$SRV/cache/bot-nav/stuck" 2>/dev/null | sed -n 's/\.json$//p' | sort | tail -1)
 if systemd-run --wait --pipe -q "${ro[@]}" "${limits[@]}" -p WorkingDirectory="$SRV" -p MemoryMax=768M \
@@ -262,10 +309,15 @@ else
 fi
 
 step "learned nav books loaded through the live jar's own loader (NavEdgeLearning)"
+# live's -D properties (the nav switches pick the graph cache folder); only the properties, not the rest of the line
+live_props=$(grep -oE -- '-D[^ ]+' <<<"$drill_argv" | tr '\n' ' ')
 # The server loads a book lazily, the first time a bot plans on that graph, and rewrites it only when something new
 # was learned, so a short run may never touch the restored books. This check calls the jar's loader directly: for
-# each restored book it reads the v68 graph from the cache, asks NavEdgeLearning for an edge cost (which loads the
-# book from cache/bot-nav/learned exactly as the server does) and counts the edges in the loaded book.
+# each restored book it reads the graph from the jar's own cache folder (BotNavigationGraphProvider.cacheFolderName
+# under live's flags, v70 on 1.6.4), asks NavEdgeLearning for an edge cost (which loads the book from
+# cache/bot-nav/learned exactly as the server does) and counts the edges in the loaded book. Not checked, only
+# counted: a book whose graph is not in the cache (the server builds that graph from WZ when a bot first plans on the
+# map) and a swim book ("<map>-swim", a SwimNavGraph, not a cached BotNavigationGraph).
 mkdir -p "$RUN/harness/src"
 cat > "$RUN/harness/src/DrillLearnedCheck.java" <<'JAVA'
 package soloMapling.ArtificialPlayer.GCMoveSystem;
@@ -280,18 +332,31 @@ import java.util.stream.Stream;
 /** Restore drill (ticket 45): load every restored learned-nav book through NavEdgeLearning, as the server does. */
 public final class DrillLearnedCheck {
     public static void main(String[] args) throws Exception {
-        Path graphs = Path.of(args[0]);
-        Path learned = Path.of(args[1]);
+        Path learned = Path.of(args[0]);
+        Path graphs = learned.getParent().resolve(BotNavigationGraphProvider.cacheFolderName());
+        System.out.println("GRAPHS " + graphs.getFileName());
         List<Path> files;
         try (Stream<Path> s = Files.list(learned)) {
             files = s.filter(p -> p.toString().endsWith(".json")).sorted().toList();
         }
         for (Path f : files) {
             String key = f.getFileName().toString().replaceFirst("\\.json$", "");
+            if (key.endsWith("-swim")) {
+                System.out.println("BOOK " + key + " swim 0 0 0");
+                continue;
+            }
             String[] k = key.split("-");
-            int mapId = Integer.parseInt(k[0]);
-            int speed = Integer.parseInt(k[1].substring(1));
-            int jump = Integer.parseInt(k[2].substring(1));
+            int mapId;
+            int speed;
+            int jump;
+            try {
+                mapId = Integer.parseInt(k[0]);
+                speed = Integer.parseInt(k[1].substring(1));
+                jump = Integer.parseInt(k[2].substring(1));
+            } catch (RuntimeException e) {
+                System.out.println("BOOK " + key + " badname 0 0 0");
+                continue;
+            }
             boolean snow = k.length > 3 && k[3].equals("ss");
             Path bin = graphs.resolve(key + ".bin");
             if (!Files.isRegularFile(bin)) {
@@ -332,30 +397,51 @@ JAVA
 learned_check=0
 if javac -nowarn -d "$RUN/harness/classes" -cp "$SRV/target/Cosmic.jar" "$RUN/harness/src/DrillLearnedCheck.java" > "$RCPT/harness-javac.out" 2>&1 \
    && systemd-run --wait --pipe -q "${ro[@]}" "${limits[@]}" -p WorkingDirectory="$SRV" -p MemoryMax=1G \
-        /usr/bin/java -Xmx512m -Dbot.nav.cacheDir=cache/bot-nav -cp "target/Cosmic.jar:$RUN/harness/classes" \
-        soloMapling.ArtificialPlayer.GCMoveSystem.DrillLearnedCheck cache/bot-nav/v68 cache/bot-nav/learned \
+        /usr/bin/java -Xmx512m $live_props -Dbot.nav.cacheDir=cache/bot-nav -cp "target/Cosmic.jar:$RUN/harness/classes" \
+        soloMapling.ArtificialPlayer.GCMoveSystem.DrillLearnedCheck cache/bot-nav/learned \
         > "$RCPT/learned-load.out" 2>&1; then
-    python3 -I - "$RCPT/learned-before.json" "$RCPT/learned-load.out" <<'EOF' | tee "$RCPT/learned-load.txt"
-import json, sys
+    python3 -I - "$RCPT/learned-before.json" "$RCPT/learned-load.out" > "$RCPT/learned-load.txt" <<'EOF'
+import json, re, sys
 before = json.load(open(sys.argv[1]))
-rows = {l.split()[1]: l.split()[2:] for l in open(sys.argv[2]) if l.startswith("BOOK ")}
-ok = 0
+lines = open(sys.argv[2]).read().splitlines()
+rows = {l.split()[1]: l.split()[2:] for l in lines if l.startswith("BOOK ")}
+graphs = next((l.split()[1] for l in lines if l.startswith("GRAPHS ")), "?")
+# A book written on an older graph is carried onto the current one as it loads (NavEdgeLearning logs "Nav learning
+# for <key> carried from graph vA to vB: X of Y edges"): it loads complete when X edges load out of the file's Y.
+carried = {}
+for l in lines:
+    m = re.search(r"Nav learning for (\S+) carried from graph \S+ to \S+: (\d+) of (\d+) edges", l)
+    if m:
+        carried[m.group(1)] = (int(m.group(2)), int(m.group(3)))
+ok = checked = 0
+skipped = {"nograph": 0, "swim": 0}
 for f, keys in sorted(before.items()):
     key = f[:-5]
     r = rows.get(key)
     n = len(keys or [])
+    if r and r[0] in skipped:
+        skipped[r[0]] += 1
+        print(f"  book {key}: {r[0]}, not checked ({n} edges in the file)")
+        continue
+    checked += 1
     if not r or not r[0].startswith("v"):
-        print(f"  book {key}: {r[0] if r else 'not checked'} ({n} edges in the file)")
+        print(f"  book {key}: {r[0] if r else 'not checked'} ({n} edges in the file)  <-- MISMATCH")
         continue
     loaded, resolved, pen = map(int, r[1:4])
-    good = loaded == n and n > 0
+    want, note = n, ""
+    if key in carried and carried[key][1] == n:
+        want, note = carried[key][0], f", carried {carried[key][0]} of {n}"
+    good = loaded == want and keys is not None
     ok += good
-    print(f"  book {key} (graph {r[0]}): file {n} edges, loaded {loaded}, on v68 edges {resolved}, penalised {pen}{'' if good else '  <-- MISMATCH'}")
-print("RESULT", ok, len(before))
+    print(f"  book {key} (graph {r[0]}): file {n} edges, loaded {loaded}{note}, on graph edges {resolved}, penalised {pen}{'' if good else '  <-- MISMATCH'}")
+print("RESULT", ok, checked, skipped["nograph"], skipped["swim"], graphs)
 EOF
-    read -r good total < <(awk '/^RESULT/ { print $2, $3 }' "$RCPT/learned-load.txt")
-    [ "${total:-0}" -gt 0 ] && [ "$good" = "$total" ] && { ok "all $total restored books loaded with every edge"; learned_check=1; } \
-        || bad "learned nav: $good of ${total:-0} books loaded completely (learned-load.txt)"
+    read -r good total nograph swim graphs < <(awk '/^RESULT/ { print $2, $3, $4, $5, $6 }' "$RCPT/learned-load.txt")
+    grep -- '<-- MISMATCH' "$RCPT/learned-load.txt" | head -5 || true
+    [ "${total:-0}" -gt 0 ] && [ "$good" = "$total" ] \
+        && { ok "all $total restored books with a cached $graphs graph loaded with every edge"; learned_check=1; } \
+        || bad "learned nav: $good of ${total:-0} books with a cached ${graphs:-?} graph loaded completely (learned-load.txt)"
+    echo "  note learned nav: not checked, no cached $graphs graph ${nograph:-?}, swim books ${swim:-?}"
 else
     bad "learned nav load check did not run (harness-javac.out, learned-load.out)"
 fi
@@ -365,9 +451,25 @@ step "boot $DRILL_UNIT (login $DRILL_LOGIN_PORT, channels $DRILL_CHANNEL_BASE+)"
 echo "  $drill_argv"
 since=$(date +%s)
 # shellcheck disable=SC2086
-systemd-run --unit="$DRILL_UNIT" -q "${ro[@]}" "${limits[@]}" -p SuccessExitStatus=143 -p TimeoutStopSec=5min \
+systemd-run --unit="$DRILL_UNIT" -q "${ro[@]}" "${sandbox[@]}" "${limits[@]}" -p SuccessExitStatus=143 -p TimeoutStopSec=5min \
     -p WorkingDirectory="$SRV" $drill_argv
 journal() { journalctl -u "$DRILL_UNIT" --since "@$since" -o cat --no-pager 2>/dev/null; }
+# The copy may listen (TCP or UDP) only on its login port and channel range and talk only to loopback; anything else
+# kills it.
+contained() {
+    local mp p extra=""
+    mp=$(systemctl show "$DRILL_UNIT" -p MainPID --value)
+    for p in $(ss -ltunpH | grep -F "pid=$mp," | awk '{print $5}' | sed -E 's/.*://' | sort -un); do
+        [ "$p" = "$DRILL_LOGIN_PORT" ] || { [ "$p" -ge "$DRILL_CHANNEL_BASE" ] && [ "$p" -le $((DRILL_CHANNEL_BASE + 15)) ]; } \
+            || extra+=" listens :$p"
+    done
+    for p in $(ss -tunpH | grep -F "pid=$mp," | awk '{print $6}' | sed -E 's/:[0-9]+$//; s/^\[|\]$//g' | sort -u); do
+        case "$p" in 127.*|::1|::ffff:127.*) ;; *) extra+=" talks to $p" ;; esac
+    done
+    if [ -z "$extra" ]; then
+        [ "${2:-}" = quiet ] || ok "contained ($1): listens only on $DRILL_LOGIN_PORT and $DRILL_CHANNEL_BASE+, loopback peers only"
+    else bad "not contained ($1):$extra; killed"; systemctl kill -s KILL "$DRILL_UNIT"; return 1; fi
+}
 online=
 for _ in $(seq 1 150); do
     systemctl is-active -q "$DRILL_UNIT" || break
@@ -389,10 +491,17 @@ print(struct.unpack("<H", b[2:4])[0] if len(b) >= 4 else "none")
 EOF
     )
     [ "$hs" = 83 ] && ok "login server handshake: version $hs" || bad "login handshake: $hs"
-    echo "  running $MINUTES min (learned nav flushes every 5 min and at shutdown)"
-    end=$(( $(date +%s) + MINUTES * 60 ))
-    while [ "$(date +%s)" -lt "$end" ] && systemctl is-active -q "$DRILL_UNIT"; do sleep 10; done
-    systemctl is-active -q "$DRILL_UNIT" && ok "still running after $MINUTES min" || bad "server exited during the run"
+    sleep 15  # the site, market and API exporters start a few seconds after "is now online"
+    if contained "after boot"; then
+        echo "  running $MINUTES min (learned nav flushes every 5 min and at shutdown)"
+        end=$(( $(date +%s) + MINUTES * 60 ))
+        while [ "$(date +%s)" -lt "$end" ] && systemctl is-active -q "$DRILL_UNIT"; do
+            sleep 10
+            contained "during the run" quiet || break
+        done
+        systemctl is-active -q "$DRILL_UNIT" && ok "still running after $MINUTES min" || bad "server exited during the run"
+        systemctl is-active -q "$DRILL_UNIT" && { contained "end of run" || true; }
+    fi
     mem=$(systemctl show "$DRILL_UNIT" -p MemoryCurrent --value)
     echo "  memory $(numfmt --to=iec "${mem:-0}" 2>/dev/null || echo "$mem")"
 fi
