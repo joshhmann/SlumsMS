@@ -87,6 +87,16 @@ public class ItemAction extends AbstractQuestAction {
         items.sort((o1, o2) -> o1.map - o2.map);
     }
 
+    /** 1.6.7 quest mirror: true when finishing the quest makes the player pick one item (an entry with prop -1). */
+    public boolean hasRewardChoice() {
+        for (ItemData item : items) {
+            if (item.getProp() != null && item.getProp() == -1) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public void run(Character chr, Integer extSelection) {
         List<ItemData> takeItem = new LinkedList<>();

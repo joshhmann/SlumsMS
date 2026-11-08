@@ -8978,6 +8978,8 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void raiseQuestMobCount(int id) {
+        // 1.6.7 alt-qol-batch E: a companion beside the player shares the kill, through this same counting path
+        soloMapling.companions.CompanionQuestMirror.onLeaderKill(this, id);
         // It seems nexon uses monsters that don't exist in the WZ (except string) to merge multiple mobs together for these 3 monsters.
         // We also want to run mobKilled for both since there are some quest that don't use the updated ID...
         if (id == MobId.GREEN_MUSHROOM || id == MobId.DEJECTED_GREEN_MUSHROOM) {
