@@ -177,6 +177,8 @@ class BotMovementState {
     Point moveTarget = null;
     boolean moveTargetPrecise = false;
     String moveTargetSource = null;
+    /* b370: the class.method that last gave GCMovement.move a new target (for the COARSE_SNAP count). */
+    String moveTargetCaller = null;
     // No-progress give-up: closest manhattan distance reached toward moveTarget so far, and when that
     // best last improved. If the bot can't get closer for a while it abandons the move (unreachable /
     // blocked / bug) instead of trying forever. Reset whenever a new moveTarget is issued.
