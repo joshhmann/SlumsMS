@@ -213,7 +213,7 @@ def tabs(here, up=""):
         for h, t, k in ADMIN_TABS) + "</p>"
 
 
-def build(out, web=None, atlas_dir=None):
+def build(out, web=None, atlas_dir=None, atlas_data_out=None):
     """web: the staff dashboard's folder. atlas_dir: a built content atlas to put under admin/atlas/ (atlas.py);
     without one the page says so and the rest of the staff pages are unchanged."""
     web = web or DEFAULT_WEB
@@ -243,5 +243,5 @@ def build(out, web=None, atlas_dir=None):
                                                 "Every invite code on the server."))
     write(out, f"{ADMIN}/reports.html", layout("Reports", tabs("reports") + REPORTS, "../", "admin",
                                                 "Every bug report and idea, from the website and from in game."))
-    atlas = ATLAS.build(out, atlas_dir)
+    atlas = ATLAS.build(out, atlas_dir, atlas_data_out)
     return {"web": web, "scripts": len(SCRIPTS), "colours": len(vs), "atlas": atlas}

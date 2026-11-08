@@ -83,7 +83,8 @@ class AtlasTest(unittest.TestCase):
         self.dir = tempfile.mkdtemp()
         self.src = fixture(os.path.join(self.dir, "atlas"))
         self.out = os.path.join(self.dir, "out")
-        self.made = atlas.build(self.out, self.src)
+        self.data = os.path.join(self.dir, "atlas-data")
+        self.made = atlas.build(self.out, self.src, self.data)
 
     def tearDown(self):
         shutil.rmtree(self.dir)
@@ -100,20 +101,26 @@ class AtlasTest(unittest.TestCase):
         return sorted(found)
 
     def search(self):
-        return json.loads(self.read("admin/atlas/data/9.9.9-test/search.json"))
+        with open(os.path.join(self.data, "9.9.9-test", "search.json"), encoding="utf-8") as f:
+            return json.load(f)
 
     # ── what a build writes ───────────────────────────────────────────────────────────────────────
 
-    def test_every_file_is_under_admin_atlas(self):
-        for rel in self.files():
-            self.assertTrue(rel.startswith("admin/atlas/"), f"{rel} is outside admin/atlas/")
-        for rel in ("admin/atlas/index.html", "admin/atlas/atlas.js", "admin/atlas/atlas.css",
-                    "admin/atlas/data/9.9.9-test/search.json", "admin/atlas/data/9.9.9-test/meta.json",
-                    "admin/atlas/data/9.9.9-test/items.json", "admin/atlas/data/9.9.9-test/dangling.json"):
-            self.assertTrue(os.path.isfile(os.path.join(self.out, rel)), f"{rel} was not written")
+    def test_the_site_tree_holds_only_the_page_and_the_data_goes_outside_it(self):
+        self.assertEqual(["admin/atlas/atlas.css", "admin/atlas/atlas.js", "admin/atlas/index.html"], self.files(),
+                         "no atlas data in the site tree: check.py reads that folder")
+        for name in ("search.json", "meta.json", "items.json", "dangling.json"):
+            self.assertTrue(os.path.isfile(os.path.join(self.data, "9.9.9-test", name)), f"{name} was not written")
+        self.assertFalse(self.data.startswith(self.out + os.sep), "the data folder is not inside the site tree")
+
+    def test_an_atlas_without_a_data_folder_refuses_the_build(self):
+        with self.assertRaises(ValueError) as caught:
+            atlas.build(os.path.join(self.dir, "out-nodata"), self.src)
+        self.assertIn("--atlas-data-out", str(caught.exception))
+        self.assertFalse(os.path.exists(os.path.join(self.dir, "out-nodata")), "nothing is written")
 
     def test_the_data_is_a_copy_of_the_atlas_and_the_manifest_is_not(self):
-        data = os.path.join(self.out, "admin", "atlas", "data", "9.9.9-test")
+        data = os.path.join(self.data, "9.9.9-test")
         with open(os.path.join(self.src, "items.json"), "rb") as f, \
                 open(os.path.join(data, "items.json"), "rb") as g:
             self.assertEqual(f.read(), g.read(), "copied byte for byte")
@@ -230,7 +237,7 @@ class AtlasTest(unittest.TestCase):
         with open(os.path.join(self.src, "notes.txt"), "w", encoding="utf-8") as f:
             f.write("not data\n")
         with self.assertRaises(ValueError) as caught:
-            atlas.build(os.path.join(self.dir, "out2"), self.src)
+            atlas.build(os.path.join(self.dir, "out2"), self.src, self.data)
         self.assertIn("notes.txt", str(caught.exception))
         self.assertFalse(os.path.exists(os.path.join(self.dir, "out2", "admin", "atlas", "index.html")),
                          "nothing is written when the folder is not an atlas")
@@ -252,7 +259,7 @@ class AtlasTest(unittest.TestCase):
         empty = os.path.join(self.dir, "empty")
         os.makedirs(empty)
         out = os.path.join(self.dir, "out-empty")
-        self.assertEqual(0, atlas.build(out, empty)["rows"])
+        self.assertEqual(0, atlas.build(out, empty, self.data)["rows"])
         with open(os.path.join(out, "admin", "atlas", "index.html"), encoding="utf-8") as f:
             self.assertIn("No atlas built for this site build", f.read())
 
@@ -263,14 +270,14 @@ class AtlasTest(unittest.TestCase):
         with open(os.path.join(self.src, "meta.json"), "w", encoding="utf-8") as f:
             json.dump(meta, f)
         out = os.path.join(self.dir, "out-escape")
-        atlas.build(out, self.src)
+        data = os.path.join(self.dir, "data-escape")
+        atlas.build(out, self.src, data)
         for dirpath, _dirs, names in os.walk(out):
             for name in names:
                 rel = os.path.relpath(os.path.join(dirpath, name), out).replace(os.sep, "/")
                 self.assertTrue(rel.startswith("admin/atlas/"), f"{rel} left admin/atlas/")
-                self.assertNotIn("..", rel)
-        self.assertTrue(os.path.isdir(os.path.join(out, "admin", "atlas", "data", "escape")),
-                        "the release name is reduced to a plain folder name")
+        self.assertEqual(["escape"], os.listdir(data), "the release name is reduced to a plain folder name")
+        self.assertFalse(os.path.exists(os.path.join(self.dir, "escape")))
 
     # ── the section next to the other staff pages ────────────────────────────────────────────────
 
@@ -287,7 +294,7 @@ class AtlasTest(unittest.TestCase):
                 f.write(text)
         plain, with_atlas = os.path.join(self.dir, "admin-plain"), os.path.join(self.dir, "admin-atlas")
         admin.build(plain, web)                      # the two-argument call every existing script and test uses
-        admin.build(with_atlas, web, self.src)
+        admin.build(with_atlas, web, self.src, os.path.join(self.dir, "adm-data"))
         for rel in ("index.html", "bots.html", "invites.html", "reports.html", "app.html", "dashboard.css", "app.js"):
             with open(os.path.join(plain, "admin", rel), "rb") as f:
                 before = f.read()
@@ -303,6 +310,7 @@ class AtlasTest(unittest.TestCase):
         help_text = subprocess.run([sys.executable, os.path.join(root, "tools", "site", "build.py"), "--help"],
                                    capture_output=True, text=True, cwd=root, check=True).stdout
         self.assertIn("--atlas-dir", help_text)
+        self.assertIn("--atlas-data-out", help_text)
         self.assertIn("--dashboard-web", help_text, "the other options are still there")
 
 
@@ -314,7 +322,8 @@ class SearchTest(unittest.TestCase):
         self.dir = tempfile.mkdtemp()
         src = fixture(os.path.join(self.dir, "atlas"))
         self.out = os.path.join(self.dir, "out")
-        atlas.build(self.out, src)
+        self.data = os.path.join(self.dir, "atlas-data")
+        atlas.build(self.out, src, self.data)
 
     def tearDown(self):
         shutil.rmtree(self.dir)
@@ -328,7 +337,7 @@ class SearchTest(unittest.TestCase):
             "console.log(JSON.stringify(hits));"
         )
         done = subprocess.run(["node", "-e", code, script,
-                               os.path.join(self.out, "admin", "atlas", "data", "9.9.9-test", "search.json"),
+                               os.path.join(self.data, "9.9.9-test", "search.json"),
                                q, kind, reach], capture_output=True, text=True, check=True)
         return json.loads(done.stdout)
 

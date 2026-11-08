@@ -9,8 +9,9 @@ What build() writes into out/admin/atlas/:
   index.html   the page in the site's frame (common.layout), with the atlas's meta and counts in the header
   atlas.js     plain JavaScript, no libraries: search, one row's detail, references, the dangling list
   atlas.css    the page's own rules, in the site's tokens (light/dark and the accent follow the header)
-  data/<release>/  a copy of the atlas folder's known .json files (meta, the eight kinds, dangling) and search.json,
-               which this module makes: [kind, id, name, reach] for every row, sorted by kind and then id.
+  (the data is NOT here) data_out/<release>/ gets a copy of the atlas folder's known .json files (meta, the eight
+               kinds, dangling) and search.json, which this module makes: [kind, id, name, reach] for every row, sorted by
+               kind and then id. nginx serves data_out at /admin/atlas/data/, so the page's relative data/<release>/ works.
 
 The page fetches search.json as it opens, and one kind's file only when a row of that kind is opened: items.json is
 about 50 MB. The atlas folder itself stays out of git; a build only copies it, never reads the atlas builders.
@@ -602,9 +603,11 @@ def body(meta, counts, root):
 <script src="atlas.js" defer></script>"""
 
 
-def build(out, atlas_dir=None):
+def build(out, atlas_dir=None, data_out=None):
     """Write admin/atlas/. atlas_dir: a built atlas folder (meta.json + one file per kind); none builds the page's
-    empty state. Returns what went in, for the build's print."""
+    empty state. data_out: where the data goes, OUTSIDE the site tree (nginx serves it at /admin/atlas/data/ behind the
+    same staff gate): it is raw game data, not site copy, so it must not be in the folder check.py reads. Returns what
+    went in, for the build's print."""
     files = []
     if atlas_dir and os.path.isdir(atlas_dir):
         files = sorted(os.listdir(atlas_dir))
@@ -612,6 +615,8 @@ def build(out, atlas_dir=None):
         if unknown:
             raise ValueError(f"{atlas_dir}: not an atlas folder: unexpected {', '.join(unknown)} "
                              f"(known: {', '.join(sorted(KNOWN))})")
+    if files and not data_out:
+        raise ValueError("an atlas folder needs data_out (--atlas-data-out): the data is served from outside the site build")
     meta = read_meta(atlas_dir, files) if files else {}
     release = str(meta.get("release") or "").strip()
     kinds = [k for k in KINDS if KIND_FILES[k] in files]
@@ -625,7 +630,7 @@ def build(out, atlas_dir=None):
     counts = {k: 0 for k in KINDS}
     for row in rows:
         counts[KEY_KIND[row[0]]] += 1
-    target = os.path.join(out, ATLAS, "data", folder)
+    target = os.path.join(data_out, folder)
     os.makedirs(target, exist_ok=True)
     for name in [META, DANGLING] + [KIND_FILES[k] for k in KINDS]:
         if name in files:  # byte for byte: the page reads them as they were built, MANIFEST is not copied
