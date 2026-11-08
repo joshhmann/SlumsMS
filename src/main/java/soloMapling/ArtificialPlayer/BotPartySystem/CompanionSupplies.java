@@ -1,6 +1,7 @@
 package soloMapling.ArtificialPlayer.BotPartySystem;
 
 import client.Character;
+import client.inventory.Inventory;
 import client.inventory.InventoryType;
 import client.inventory.Item;
 import soloMapling.ArtificialPlayer.BotDecoratorSystem.BotWeapons;
@@ -97,7 +98,8 @@ public final class CompanionSupplies {
      * it). The recruiter shows {@link ShortOf#line} for each member that would still join. Joining is not blocked.
      */
     public static ShortOf shortOf(Character c) {
-        if (c == null || !PartyCompanionPolicy.on(PartyCompanionPolicy.Feature.SUPPLIES, c)) {
+        if (c == null || c.getInventory(InventoryType.USE) == null                // not loaded yet: nothing to judge
+                || !PartyCompanionPolicy.on(PartyCompanionPolicy.Feature.SUPPLIES, c)) {
             return null;
         }
         SupplyNeeds needs = BotSupplies.needs(c);
@@ -112,7 +114,8 @@ public final class CompanionSupplies {
      * here too.
      */
     private static boolean noWeapon(Character c) {
-        Item held = c.getInventory(InventoryType.EQUIPPED).getItem((short) -11);
+        Inventory equipped = c.getInventory(InventoryType.EQUIPPED);
+        Item held = equipped == null ? null : equipped.getItem((short) -11);
         return held == null || BotWeapons.UNDRAWABLE.contains(held.getItemId());
     }
 

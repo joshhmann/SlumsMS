@@ -272,7 +272,8 @@ public final class BotVitals {
 
     // ---------------------------------------------------------------- potions
 
-    /* Drinks what the bot needs: HP potions under half HP, MP potions under 30% MP, a few at most. */
+    /* Drinks what the bot needs at its own lines ({@link #hpPotAt}, {@link #mpPotAt}; half HP and 30% MP out in the
+     * world, 70% and 50% in a boss run), a few at most, then says what is left to the owner or leader. */
     public static void topUp(Character bot) {
         CompanionSupplies.warn(bot);   // SlumsMS: what is left, said to the owner before it is drunk
         synchronized (lock(bot)) {
