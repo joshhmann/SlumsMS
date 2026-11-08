@@ -301,6 +301,31 @@ class RealBuffsTest {
     }
 
     /*
+     * The other half of "self-only": a buff that never lands on a companion cannot be LACKING on one. Judged by the
+     * box alone, a Crusader's Combo would read as missing on every companion in reach and be recast on every maintain
+     * tick, each cast paid, forever. Nothing is lacking, so nothing is recast.
+     */
+    @Test
+    void aSelfOnlyBuffIsNeverLackingOnACompanion() {
+        StatEffect combo = buff(10);
+        when(combo.getBuffSourceId()).thenReturn(Crusader.COMBO);
+        Skill skill = mock(Skill.class);
+        when(skill.getMaxLevel()).thenReturn(20);
+        when(skill.getEffect(anyInt())).thenReturn(combo);
+        BotBuffEffects.useForTest(new BotBuffEffects.Rules() {
+            @Override public Skill skill(int skillId) { return skillId == Crusader.COMBO ? skill : null; }
+            @Override public boolean pay(Character bot, int skillId, int level) { return true; }
+        });
+        Character bot = caster();
+        Character alt = chr(ALT, true, true, 10);
+        when(map.getCharacters()).thenReturn(List.of(bot, alt));
+        when(alt.getBuffedValue(BuffStat.WATK)).thenReturn(null);
+
+        assertTrue(!BotBuffEffects.partyMemberLacks(bot, Crusader.COMBO),
+                "a self-only buff is never missing from a companion, so it is never recast for one");
+    }
+
+    /*
      * The damage side, in numbers: a caster that really registered its Rage must have it counted exactly once.
      * BotDamage adds a shown buff's WATK itself (the totals do not hold it) and adds a registered buff's damage%
      * only, because Character.recalcLocalStats already put that buff's WATK into getTotalWatk(). So the two routes

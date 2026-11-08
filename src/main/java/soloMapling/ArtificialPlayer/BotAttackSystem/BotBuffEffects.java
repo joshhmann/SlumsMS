@@ -420,7 +420,8 @@ public final class BotBuffEffects {
     public static boolean partyMemberLacks(Character bot, int skillId) {
         Skill skill = skill(skillId);
         StatEffect effect = skill == null ? null : skill.getEffect(skill.getMaxLevel());
-        if (effect == null || effect.getStatups().isEmpty() || !effect.isPartyBuff()) return false;
+        // a self-only buff never lands on a companion, so it can never be lacking on one (and must not churn a recast)
+        if (effect == null || effect.getStatups().isEmpty() || !isSharedBuff(skillId, effect)) return false;
         client.BuffStat stat = effect.getStatups().get(0).getLeft();
         for (Character member : nearbyPartyMembers(bot)) {
             if (receivesRealBuff(bot, member) && member.isAlive() && member.getBuffedValue(stat) == null) {
