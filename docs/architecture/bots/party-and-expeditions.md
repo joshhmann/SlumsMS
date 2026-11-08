@@ -108,7 +108,7 @@ Staged bots get `Math.max(content.minLevel(), 30)` and are spawned 0-5 levels ab
 
 **Pass hand-over.** `PassHandover` is the stage-1 rule bots follow with coupons/passes: walk within 60 px of the leader
 and drop, take back after 20 s if the leader stands more than 100 px from the drop (src/main/java/soloMapling/mechanics/PassHandover.java:21-26,
-:40-81). `KillCollectHandInSolver` waits by the NPC at 150 px once it holds `GIVE_AT` = 3 (src/main/java/soloMapling/mechanics/KillCollectHandInSolver.java:27-29).
+:40-81). `KillCollectHandInSolver` waits by the NPC at 150 px once it holds `GIVE_AT` = 3 (src/main/java/soloMapling/mechanics/KillCollectHandInSolver.java:27-29). A collector carries up to 3 before walking them over; its last 1-2 go over once the map is clear or the party holds the hand-in count between them (lpq1-pass-shortfall, 1.6.7: a respawning map is never clear).
 
 ### 5. OPQ bots (scripted, dev harness)
 
