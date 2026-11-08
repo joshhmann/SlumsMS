@@ -63,7 +63,14 @@ public final class BotCommandParser {
         // ── 1.6.3 s-lanes ──
         /** Lanes: each companion takes a spot of its own, spread out ({@link CompanionLanes}); arg is the reach
          * ("map" / "screen"), or null for the switch's default. */
-        LANES
+        LANES,
+        // ── 1.6.7 chat reports ──
+        /** How many pots it has ("pots", "how many pots"). */
+        POTS,
+        /** One line of its level, job, hp/mp and stats. */
+        STATS,
+        /** Used and free slots per bag ("slots", "inv"). */
+        SLOTS
     }
 
     /** The ticket 14 orders: what {@link #parse(String, List)} reads. */
@@ -78,6 +85,8 @@ public final class BotCommandParser {
     public static final Set<Verb> SUPPLY = EnumSet.of(Verb.NEED);
     /** 1.6.3 s-lanes (-Dslums.alts.lanes=true): spreading the companions over lanes of their own. */
     public static final Set<Verb> LANES = EnumSet.of(Verb.LANES);
+    /** 1.6.7 chat reports (PartyCompanionPolicy CHAT_REPORTS): what a companion has, told to the player who asked. */
+    public static final Set<Verb> REPORTS = EnumSet.of(Verb.POTS, Verb.STATS, Verb.SLOTS);
 
     /** One party bot that can be told: its id and name, at its slot (1-based position in the list). */
     public record Target(int id, String name) {
@@ -123,7 +132,11 @@ public final class BotCommandParser {
             Map.entry("defend", Verb.SENTRY), Map.entry("anchor", Verb.SENTRY),
             Map.entry("move", Verb.MOVE_HERE),
             // 1.6.3 s-lanes; "spread lanes" and "take lanes" are read in lanes(), not as a verb word
-            Map.entry("lanes", Verb.LANES));
+            Map.entry("lanes", Verb.LANES),
+            // 1.6.7 chat reports ("how many pots" is read in simple(), like "go here")
+            Map.entry("pots", Verb.POTS), Map.entry("potions", Verb.POTS),
+            Map.entry("stats", Verb.STATS),
+            Map.entry("slots", Verb.SLOTS), Map.entry("inv", Verb.SLOTS), Map.entry("inventory", Verb.SLOTS));
 
     /** Words that may ride along with the command word without making the line something else. */
     private static final Set<String> FILLER = Set.of("me", "here", "there", "with", "us", "back", "on", "up",
@@ -187,6 +200,11 @@ public final class BotCommandParser {
     private static final Set<String> SUPPLY_MP = Set.of("mp", "mana", "blue", "blues");
 
     private BotCommandParser() {
+    }
+
+    /** Every command word this parser knows ("grind", "follow", "slots" ...): the typo suggester's dictionary. */
+    static Set<String> verbWords() {
+        return VERBS.keySet();
     }
 
     /**
@@ -289,6 +307,11 @@ public final class BotCommandParser {
         if (verb == null && head.equals("go") && w.size() >= 2 && (w.get(1).equals("here") || w.get(1).equals("there"))) {
             verb = Verb.MOVE_HERE; // "go here" (a bare "go" is chat)
             from = 2;
+        }
+        if (verb == null && head.equals("how") && w.size() >= 3 && w.get(1).equals("many")
+                && w.get(2).equals("pots")) {
+            verb = Verb.POTS; // "how many pots" (the report; "how many lanes" stays chat)
+            from = 3;
         }
         if (verb == null || !allowed.contains(verb)) {
             return null;

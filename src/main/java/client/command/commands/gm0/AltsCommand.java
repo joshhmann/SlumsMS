@@ -21,8 +21,9 @@ public class AltsCommand extends Command {
             + "its own, on this screen first and across the map only when there are too many for one screen), "
             + "formation split/spread/stack/left/right/random"
             + " [px|tight|loose], tight, loose, snap; trade pots/hp pots/scrolls/use/etc/equips/ammo/rocks/100k/"
-            + "<item>/<slot>, show me your hat, drop <what>; any upgrades?, request?, trade upgrades; need pots/hp/mp/"
-            + "ammo/rocks.";
+            + "<item>/<slot>, show me your hat, drop <what> (it asks first, say yes); any upgrades?, request?, trade upgrades; "
+            + "need pots/hp/mp/ammo/rocks. Reports: pots, stats, slots. A mistyped order to a companion gets "
+            + "\"did you mean 'grind'?\".";
 
     @Override
     public void execute(Client c, String[] params) {
@@ -42,6 +43,9 @@ public class AltsCommand extends Command {
         String line = String.join(" ", params);
         var order = PartyBotOrders.read(player, line);
         if (order.isEmpty()) {
+            if (PartyBotOrders.typoHint(player, line, true)) {
+                return; // the companion said "did you mean 'grind'?" in party chat
+            }
             player.yellowMessage(PartyBotOrders.slots(player).isEmpty()
                     ? "You have no companions in your party." : "Your companions didn't get that. " + HELP);
             return;

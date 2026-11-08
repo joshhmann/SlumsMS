@@ -7,6 +7,7 @@ import soloMapling.ArtificialPlayer.BotPartySystem.BotCommandParser.Order;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotCommandParser.Target;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotCommandParser.Verb;
 import soloMapling.ArtificialPlayer.BotSM;
+import soloMapling.ArtificialPlayer.BotMessagingSystem.BotAddressee;
 import soloMapling.ArtificialPlayer.BotTypes.FollowerBot;
 import soloMapling.ArtificialPlayer.BotTypes.TrainingBot;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
@@ -14,10 +15,13 @@ import soloMapling.companions.OwnedAltOrders;
 import soloMapling.companions.OwnedAltService;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpeak;
 import static soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.checkIfInvisibleBot;
@@ -90,7 +94,66 @@ public final class PartyBotOrders {
     public static Optional<Order> read(Character player, String line) {
         Map<Integer, Character> alts = ownAlts(player);
         List<Target> slots = slots(player, alts);
-        return BotCommandParser.parse(line, slots, CompanionSwitches.allowed(!alts.isEmpty()));
+        Set<Verb> allowed = EnumSet.copyOf(CompanionSwitches.allowed(!alts.isEmpty()));
+        if (reportsReadable(alts)) {
+            allowed.addAll(BotCommandParser.REPORTS); // 1.6.7: "pots", "stats", "slots"
+        }
+        return BotCommandParser.parse(line, slots, allowed);
+    }
+
+    /**
+     * 1.6.7 reports: read only when a companion would answer - when the switch is on for one of the player's alts,
+     * or for party regulars (-Dslums.companion.reports.regulars=true). With the defaults and no alts, "pots" stays
+     * ordinary chat.
+     */
+    private static boolean reportsReadable(Map<Integer, Character> alts) {
+        for (Character alt : alts.values()) {
+            if (PartyCompanionPolicy.on(PartyCompanionPolicy.Feature.CHAT_REPORTS, alt)) {
+                return true;
+            }
+        }
+        return Boolean.getBoolean(PartyCompanionPolicy.Feature.CHAT_REPORTS.property(false));
+    }
+
+    /**
+     * 1.6.7 reports: "did you mean 'grind'?" for a near-miss of an order, only when the line is clearly addressed to
+     * a companion - {@code addressed} for an "@alts" line, else the line has to open with a companion's name (the
+     * same name rules chat routing uses). True when a companion said it, so ordinary party chat stays chat.
+     */
+    public static boolean typoHint(Character player, String line, boolean addressed) {
+        if (player == null || line == null || line.isBlank()) {
+            return false;
+        }
+        Map<Integer, Character> alts = ownAlts(player);
+        List<Target> slots = slots(player, alts);
+        if (slots.isEmpty()) {
+            return false;
+        }
+        Character speaker;
+        if (addressed) {
+            speaker = companion(slots.get(0).id(), alts);
+        } else {
+            List<BotAddressee.Candidate> names = new ArrayList<>();
+            for (Target t : slots) {
+                names.add(new BotAddressee.Candidate(t.id(), t.name()));
+            }
+            BotAddressee.Match match = CompanionReports.addressedTo(line, names);
+            speaker = match == null ? null : companion(match.id(), alts);
+        }
+        if (speaker == null
+                || !PartyCompanionPolicy.on(PartyCompanionPolicy.Feature.CHAT_REPORTS, speaker)) {
+            return false;
+        }
+        List<String> ignore = new ArrayList<>();
+        for (Target t : slots) {
+            ignore.add(t.name().toLowerCase(Locale.ROOT));
+        }
+        Optional<String> hint = CompanionReports.typoSuggestion(line, ignore);
+        if (hint.isEmpty()) {
+            return false;
+        }
+        say(speaker.getId(), alts, "did you mean '" + hint.get() + "'?");
+        return true;
     }
 
     /**
@@ -125,6 +188,22 @@ public final class PartyBotOrders {
             formation(player, order, alts);
             return;
         }
+        if (BotCommandParser.REPORTS.contains(verb)) {
+            // 1.6.7: an answer to the player who asked, from the companions that can answer it
+            List<Target> who = order.everyone() ? slots(player, alts) : order.targets();
+            for (Target t : who) {
+                Character c = companion(t.id(), alts);
+                if (c == null) {
+                    continue;
+                }
+                if (CompanionReports.answer(c, verb, line -> say(t.id(), alts, line))) {
+                    if (order.everyone()) {
+                        break; // an untargeted report: the first companion that can answer speaks
+                    }
+                }
+            }
+            return;
+        }
         if (BotCommandParser.ITEMS.contains(verb) || BotCommandParser.UPGRADE.contains(verb)
                 || BotCommandParser.SUPPLY.contains(verb)) {
             List<CompanionItems.Companion> companions = new ArrayList<>();
@@ -149,6 +228,17 @@ public final class PartyBotOrders {
                 follower.order(verb, player, order.everyone());
             } else if (bot instanceof TrainingBot trainer) {
                 trainer.order(verb, player, order.everyone());
+            } else {
+                continue;
+            }
+            // 1.6.7 reports: a regular says its own acknowledgement inside its bot class, so the low-pots note is a
+            // short line of its own here - off by default for regulars, so nobody hears a new line unless asked
+            if ((verb == Verb.GRIND || verb == Verb.FOLLOW) && bot.getChr() != null
+                    && PartyCompanionPolicy.on(PartyCompanionPolicy.Feature.CHAT_REPORTS, bot.getChr())) {
+                String note = CompanionReports.lowLine(bot.getChr());
+                if (!note.isEmpty()) {
+                    say(target.id(), alts, note);
+                }
             }
         }
     }
