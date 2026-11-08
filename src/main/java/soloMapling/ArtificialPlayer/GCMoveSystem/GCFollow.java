@@ -1,6 +1,9 @@
 package soloMapling.ArtificialPlayer.GCMoveSystem;
 
 import client.Character;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionLines;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionStance;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionStuck;
 import soloMapling.server.BotShutdown;
 
 import java.util.Map;
@@ -209,6 +212,12 @@ final class GCFollow {
             s.travelDest = -1;
             s.blockedDest = -1;
             s.toldWaiting = false;
+            // 1.6.7 follow-plus: together on one map is the only place a companion can be walked to its owner.
+            long now = System.currentTimeMillis();
+            boolean busy = GCMovement.fighting(bot) || GCMovement.isClimbing(bot) || GCMovement.isAirborne(bot)
+                    || CompanionStance.of(bot.getId(), bot.getMapId()).mode != CompanionStance.Mode.FOLLOW;
+            CompanionStuck.tick(bot, target, now, busy);
+            CompanionLines.tick(target, bot, now);
             GCMovement.armSameMapFollow(bot, target);
             return;
         }
