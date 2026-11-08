@@ -17,6 +17,7 @@ import soloMapling.ArtificialPlayer.BotGrindSystem.Approach;
 import soloMapling.ArtificialPlayer.BotDecoratorSystem.BotWeapons;
 import soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionBossRevive;
 import soloMapling.ArtificialPlayer.BotPartySystem.CompanionItems;
 import soloMapling.ArtificialPlayer.BotPartySystem.CompanionStance;
 import soloMapling.ArtificialPlayer.BotPartySystem.CompanionSwitches;
@@ -311,6 +312,11 @@ public final class OwnedAltCompanion {
             long elapsed = s.lastTickMs == 0 ? 0 : now - s.lastTickMs;
             s.lastTickMs = now;
             if (BotDeaths.isDead(alt.getId())) {
+                // 1.6.7 alt-revive-respawn: down inside a boss run it stays where it fell and gets itself up beside
+                // its owner; outside a run nothing answers here and the town-and-home path below runs as before.
+                if (CompanionBossRevive.gate(alt, now)) {
+                    return;
+                }
                 if (BotDeaths.readyToRespawn(alt.getId())) {
                     afterDeath(owner, alt, s);
                 }
@@ -324,6 +330,17 @@ public final class OwnedAltCompanion {
             }
             // 161: the shared party-support path (heal, buff pots) - the same call a population grinder makes
             soloMapling.ArtificialPlayer.BotAttackSystem.BotPartySupport.tick(alt);
+            if (CompanionBossRevive.resting(alt, now)) {
+                // 1.6.7 alt-revive-respawn: revived in a boss run, it rests (the BotStory rule, ported): no follow and
+                // no fight until HP and MP are whole again, or the rest runs out. It drinks and regens as usual above.
+                if (s.fighting) {
+                    s.fighting = false;
+                    s.lastMoveX = Integer.MIN_VALUE;
+                }
+                leaveFollow(alt);
+                s.doing = "resting after a revive";
+                return;
+            }
             if (soloMapling.mechanics.MechanicsHold.committed(alt)) {
                 // 1.6.1 KPQ automation: a party-quest run drives the alt (the same PQ logic as party bots)
                 if (s.fighting) {

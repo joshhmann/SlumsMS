@@ -15,6 +15,7 @@ import soloMapling.ArtificialPlayer.BotPartySystem.BotCommandParser;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotPartyCommands;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotPartyQueue;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotRecruitManager;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionBossRevive;
 import soloMapling.ArtificialPlayer.BotPartySystem.CompanionStance;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 import soloMapling.server.BotTickService;
@@ -111,6 +112,15 @@ public class FollowerBot extends BotSM {
             return;
         }
         pausedForTrade = false;
+        if (CompanionBossRevive.gate(chr, now())) {
+            // 1.6.7 alt-revive-respawn: down inside a boss run it waits where it fell and gets itself up beside its
+            // leader, then rests; the switch is off by default, so a party regular follows exactly as before.
+            if (fighting) {
+                fighting = false;
+                FollowerFight.standDown(chr);
+            }
+            return;
+        }
         if (followPhase != FollowPhase.FOLLOW && fighting) {
             fighting = false; // only a following bot fights (doFollow sets it each tick)
             FollowerFight.standDown(chr);

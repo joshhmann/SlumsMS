@@ -546,3 +546,25 @@ Changed in the port, all marked `// SlumsMS:` in
 `BotVitals` lines (habit / 0.50 HP, 0.30 MP out in the world) rather than per-bot settings; the potion choice stays
 ours (`BotVitals.drink` uses `SupplyData.Recovery` and `BotHoldings`); and none of the keymap/keybinding and
 client-autopot-key code was taken, because our bots drink through `BotVitals.drink`, not a client autopot key.
+
+## 1.6.7 wave 1: what a companion does when it dies in a boss run
+
+### Boss-run revive and the rest after it, 1.6.7 (branch `167-alt-death-rules`, card `alt-revive-respawn`), BotStory `81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364`
+
+BotStory's `src/main/java/server/living/roster/CompanionFieldBossRest.java` (AGPL-3.0, no header in their file) was
+read for one thing only: a companion that died beside a boss rests after it gets up.
+
+| From theirs | Our files |
+| --- | --- |
+| `CompanionFieldBossRest.resting(int, long)`: the rest ends when HP and MP are back to a percentage of max or a time limit passes, its `diedAtMs` map, `isAlive()` check, recovered test `hp*100 >= maxHp*percent && mp*100 >= maxMp*percent` | `soloMapling/ArtificialPlayer/BotPartySystem/CompanionBossRevive.java` (`resting`, `restingSince`, `restPercent`, `restMaxMs`) |
+| `LivingWorldConfig` defaults `COMPANION_FIELD_BOSS_REST_PERCENT = 100`, `COMPANION_FIELD_BOSS_REST_MAX_MS = 120000` | `-Dslums.companion.rest.percent` (100) and `-Dslums.companion.rest.maxMs` (120000), never `config.yaml` keys |
+
+Ours (the new file's header comment names the source and what changed; the file is a rewrite around the one ported
+rule, so it carries no per-line `// SlumsMS:` marks - corrected in the Bots audit): their runtime lookups became
+ours - "in a boss fight" is `ExpeditionHold.inRun` or `MechanicsHold.committed` at the death instead of
+`AgentBossField.near` plus a LivingWorld roster, the owner/leader is `Character.getOwnedAltOwner()` for an owned alt
+and `FollowerBot.leaderId()` for a regular instead of `AgentRuntimeRegistry`/`AgentPartyGatewayRuntime`, and the rest
+clock starts at the revive instead of at the death, because the wait before the revive is a separate rule of ours.
+Their sit-out rule (`SIT_OUT_DEATHS`, `SIT_OUT_MAX_MS`, `SIT_OUT_LINES` and its party-chat lines) is **not** ported:
+the owner declined it. The doubling revive wait, the mesos price for an instant revive and `@botme revive` are ours,
+not theirs.

@@ -23,6 +23,8 @@ public final class MechanicsHold {
 
     static void release(int botId) {
         held.remove(botId);
+        // 1.6.7 alt-revive-respawn: its run is over, so its death count and paid revives go with it
+        soloMapling.ArtificialPlayer.BotPartySystem.CompanionBossRevive.runEnded(botId);
     }
 
     /** True while a run is driving this bot. Cheap: an empty set when mechanics is off. */
