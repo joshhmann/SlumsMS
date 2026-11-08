@@ -11,7 +11,10 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths;
+import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
+import soloMapling.ArtificialPlayer.BotTypes.FollowerBot;
 import soloMapling.companions.OwnedAltService;
+import soloMapling.server.SoloMaplingUtilities;
 
 import java.lang.reflect.Field;
 import java.util.List;
@@ -83,6 +86,7 @@ class BotMeReviveCommandTest {
     void tearDown() {
         CompanionBossRevive.runEnded(ALT);
         BotDeaths.clearBot(ALT);
+        System.clearProperty("slums.companion.deathrules.regulars");
         services.close();
     }
 
@@ -114,6 +118,38 @@ class BotMeReviveCommandTest {
 
         verify(owner).yellowMessage("There is nobody called Nobody with you right now.");
         verify(owner, never()).gainMeso(anyInt(), anyBoolean(), anyBoolean(), anyBoolean());
+    }
+
+    // card f: for a party regular it is its leader who pays, because the leader is the player it follows
+    @Test
+    void aRegularsInstantReviveIsPaidByItsLeader() {
+        int regularId = 3;
+        Character regular = mock(Character.class);
+        when(regular.getId()).thenReturn(regularId);
+        when(regular.getName()).thenReturn("Clock4");
+        when(regular.getLevel()).thenReturn(70);
+        when(regular.getClient()).thenReturn(mock(BotClient.class));
+        when(regular.getCurrentMaxHp()).thenReturn(2_000);
+        FollowerBot follower = mock(FollowerBot.class);
+        when(follower.leaderId()).thenReturn(OWNER);
+        System.setProperty("slums.companion.deathrules.regulars", "true"); // the regulars' switch: off by default
+        CharacterStorage.addActiveBot(regularId, follower);
+        lying().put(regularId, 0L);
+        CompanionBossRevive.downForTest(regular, NOW + 10_000L);
+        try (MockedStatic<SoloMaplingUtilities> world = Mockito.mockStatic(SoloMaplingUtilities.class)) {
+            net.server.PlayerStorage storage = mock(net.server.PlayerStorage.class);
+            when(storage.getCharacterByName("Clock4")).thenReturn(regular);
+            net.server.world.World w = mock(net.server.world.World.class);
+            when(w.getPlayerStorage()).thenReturn(storage);
+            world.when(SoloMaplingUtilities::world).thenReturn(w);
+
+            new BotMeCommand().execute(client, new String[]{"revive", "Clock4"});
+        }
+        verify(owner).gainMeso(-70_000, true, false, true); // 10,000 x level 70 / 10, paid by its leader
+        verify(owner).yellowMessage("Clock4 is back up - 70,000 mesos.");
+        CompanionBossRevive.runEnded(regularId);
+        CharacterStorage.removeActiveBot(regularId);
+        BotDeaths.clearBot(regularId);
     }
 
     @SuppressWarnings("unchecked")
