@@ -44,6 +44,13 @@ import java.util.function.Function;
  */
 public final class SocialActions {
 
+    /**
+     * ACCEPT failure keys (SocialActs.Accept's FAIL_KEYS) that are a rule saying no, not something broken: the t-sa-1
+     * probe does not count them as refusals (1.6.6 accept-fail-reason step 2).
+     */
+    public static final java.util.List<String> POLICY_DECLINES = java.util.List.of("LFG rules said no");
+
+
     private static final Logger log = LoggerFactory.getLogger(SocialActions.class);
 
     public static final String SWITCH = "slums.socialacts";

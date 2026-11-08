@@ -169,21 +169,34 @@ public final class GameSocialFlows implements SocialFlows {
         }
         BotTalk.WorldSense sense = new BotTalk.WorldSense();
         Map<Ask, Offer> offers = sense.offers(a, b, false, now, SocialSim.random(actorId, "social-flow"));
-        Offer pick = offers.get(Ask.PARTY);
-        String what;
-        if (pick != null) {
-            what = pick.slots() != null && pick.slots().containsKey("pq") ? "a PQ party (" + pick.about() + ")" : "a duo party";
-        } else {
-            pick = offers.get(Ask.COME_ALONG);
-            what = pick == null ? null : "a trip to " + pick.about();
-        }
-        if (pick == null || sense.reserved != null && pick.ask() != Ask.PARTY) {
+        Offer pick = invitation(offers);
+        if (pick == null || pick.payload() != sense.reserved) {
             LfgParty.release(sense.reserved); // a PQ slot reserved for an offer that was not the one made
-            if (pick == null) {
-                return null;
-            }
         }
+        if (pick == null) {
+            return null;
+        }
+        String what = pick.ask() == Ask.COME_ALONG ? "a trip to " + pick.about()
+                : pick.slots() != null && pick.slots().containsKey("pq") ? "a PQ party (" + pick.about() + ")" : "a duo party";
         return new SocialActions.Invite(0, actorId, targetId, what, a.getMapId(), now, 0, pick);
+    }
+
+    /**
+     * Which of {@code offers} an INVITE makes, or null for none. 1.6.6 accept-fail-reason step 2: an offer already
+     * decided no (a PQ party the LFG rules declined, BotTalk.pqOffer) is never sent, since it could only fail at
+     * ACCEPT (TEST c42a85edf: all 28 failed ACCEPTs); the come-along stands in when there is one.
+     */
+    static Offer invitation(Map<Ask, Offer> offers) {
+        Offer party = offers.get(Ask.PARTY);
+        if (open(party)) {
+            return party;
+        }
+        Offer come = offers.get(Ask.COME_ALONG);
+        return open(come) ? come : null;
+    }
+
+    private static boolean open(Offer o) {
+        return o != null && (o.decided() == null || o.decided().ok());
     }
 
     @Override
