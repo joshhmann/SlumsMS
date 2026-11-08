@@ -181,6 +181,14 @@ class WorkerCallsTest(unittest.TestCase):
         self.assertEqual('ok', worker.send('me', {'do': 'position'})['result'])
         self.assertEqual([('position', {})], transport.calls)
 
+    def test_walk_to_and_climb_call_their_tools(self):
+        # qa-walk-to (1.6.7): QA's walk-1-* timed moves become walks that stop on the QA client's position.
+        worker, transport = self.make()
+        self.assertEqual('ok', worker.send('me', {'do': 'walk_to', 'x': -117})['result'])
+        self.assertEqual('ok', worker.send('me', {'do': 'climb', 'y': -180, 'tolerance': 4})['result'])
+        self.assertEqual([('walk_to', {'x': -117, 'tolerance': 6, 'timeout_ms': 12000}),
+                          ('climb', {'y': -180, 'tolerance': 4, 'timeout_ms': 15000})], transport.calls)
+
     def test_a_step_the_build_cannot_play_is_refused_not_skipped(self):
         worker, transport = self.make()
         for step, word in (({'do': 'jump', 'dir': 'right', 'double': True}, 'double'),
