@@ -119,6 +119,12 @@ public final class BotStore {
      */
     public static final int FIRST_ROSTER_SLOT = FIRST_PLANNED_SLOT + (MAX_WAVE + 1) * SLOTS_PER_WAVE;
 
+    /**
+     * 1.6.6 id-oid-overlap: the roster size this id layout is sized for (TEST holds about 9,100). Not enforced at enroll:
+     * it is the bound MapleMap.FIRST_OID is set above (IdOidOverlapTest fails if the two meet).
+     */
+    public static final int ROSTER_SLOT_CAP = 10_000_000;
+
     /*
      * First-creation policy. A new bot owns exactly the look and gear its decorator gave it: no
      * experience, no mesos, and inventory space limited by the row it is cloned from. Stated here,

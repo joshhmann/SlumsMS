@@ -96,7 +96,14 @@ public class MapleMap {
     private Pair<Integer, Integer> xLimits;  // caches the min and max x's with available footholds
     private final Rectangle mapArea = new Rectangle();
     private final int mapid;
-    private final AtomicInteger runningOid = new AtomicInteger(1000000001);
+    /**
+     * 1.6.6 id-oid-overlap: the first map object id. Above every character id (players < 1e9; bots are
+     * BotStore.BOT_ID_BASE + slot, under 1,014,268,132 with BotStore.ROSTER_SLOT_CAP), because mapobjects keys a
+     * character by its id and every other object by this counter. From 1,000,000,001 (the old start), a mob could carry
+     * an early roster regular's number: an invisible mob, or a lost regular when the mob died. docs/bots/id-oid-overlap.md
+     */
+    static final int FIRST_OID = 1_100_000_001;
+    private final AtomicInteger runningOid = new AtomicInteger(FIRST_OID - 1);
     private final int returnMapId;
     private final int channel;
     private final int world;
@@ -470,7 +477,7 @@ public class MapleMap {
             // clashes with playernpc on curOid >= 2147000000, developernpc uses >= 2147483000
             do {
                 if ((curOid = runningOid.incrementAndGet()) >= 2147000000) {
-                    runningOid.set(curOid = 1000000001);
+                    runningOid.set(curOid = FIRST_OID);
                 }
             } while (mapobjects.containsKey(curOid));
 
