@@ -35,10 +35,17 @@ public final class CompanionSupplies {
     public static final double BOSS_HP_POT_AT = 0.70;   // in a boss run, drink HP under 70% (open world: 50%)
     public static final double BOSS_MP_POT_AT = 0.50;   // and MP under 50% (open world: 30%)
 
-    public static final int WARN_AT = 10;        // "I'm down to 10 ..." (owner's number)
-    public static final int PRE_RUN_MIN = 50;    // the recruiter calls a member short under this
+    /*
+     * Owner, 8 Nov 2026: "25% is a warn from the original stack purchased". The warning comes under a quarter of the
+     * stack the companion last got (it replaces the fixed 10 of the first 1.6.7 build). The stack is the count right
+     * after it last went up - a purchase, a restock or a hand-over - and a falling count never moves it.
+     */
+    public static final int WARN_PERCENT = 25;
+    public static final int PRE_RUN_MIN = 50;    // under this is always short (owner: 50 confirmed, no upper cap)
 
     private static final Map<Integer, Run> runs = new ConcurrentHashMap<>();
+    /** Per companion: {HP stack, last HP count, MP stack, last MP count}. Process memory only, like the run flags. */
+    private static final Map<Integer, int[]> stacks = new ConcurrentHashMap<>();
 
     private CompanionSupplies() {
     }
@@ -56,22 +63,33 @@ public final class CompanionSupplies {
 
     /*
      * Tells the owner (an owned alt) or the leader (a party regular) that the potions are running out: once when the
-     * count first drops to {@link #WARN_AT}, once when it reaches nothing, per kind and per run. Called from
+     * count drops under {@link #WARN_PERCENT}% of the stack it last got, once when it reaches nothing, per kind and per
+     * stack (a restock arms both again). Called from
      * BotVitals.topUp, so it rides both the damage path and the attack path.
      */
     public static void warn(Character bot) {
         if (!inBossRun(bot)) {
             runs.remove(bot.getId());   // out of the run: the next one starts its warnings over
+            if (PartyCompanionPolicy.on(PartyCompanionPolicy.Feature.SUPPLIES, bot)) {
+                note(bot, true, BotVitals.potionCount(bot, true));   // the stack it is given in town counts too
+                if (BotSupplies.needs(bot).usesMp()) {
+                    note(bot, false, BotVitals.potionCount(bot, false));
+                }
+            }
             return;
         }
         Run run = runs.computeIfAbsent(bot.getId(), id -> new Run());
         int hp = BotVitals.potionCount(bot, true);
+        if (note(bot, true, hp)) {
+            run.hpTold = false;   // a new stack: its quarter is warned again
+            run.hpOut = false;
+        }
         if (hp <= 0) {
             if (!run.hpOut) {
                 run.hpOut = true;
                 tell(bot, "I'm out of HP potions");
             }
-        } else if (hp <= WARN_AT && !run.hpTold) {
+        } else if (low(hp, stack(bot, true)) && !run.hpTold) {
             run.hpTold = true;
             tell(bot, "I'm down to " + hp + " HP potions");
         }
@@ -82,12 +100,16 @@ public final class CompanionSupplies {
             return;   // no mana potions to run out of
         }
         int mp = BotVitals.potionCount(bot, false);
+        if (note(bot, false, mp)) {
+            run.mpTold = false;
+            run.mpOut = false;
+        }
         if (mp <= 0) {
             if (!run.mpOut) {
                 run.mpOut = true;
                 tell(bot, "I'm out of mana potions");
             }
-        } else if (mp <= WARN_AT && !run.mpTold) {
+        } else if (low(mp, stack(bot, false)) && !run.mpTold) {
             run.mpTold = true;
             tell(bot, "I'm down to " + mp + " mana potions");
         }
@@ -104,7 +126,7 @@ public final class CompanionSupplies {
         }
         SupplyNeeds needs = BotSupplies.needs(c);
         ShortOf shortOf = new ShortOf(BotVitals.potionCount(c, true), needs.mpPotions(), needs.usesMp(),
-                BotSupplies.outOfAmmo(c), noWeapon(c));
+                BotSupplies.outOfAmmo(c), noWeapon(c), stack(c, true), stack(c, false));
         return shortOf.any() ? shortOf : null;
     }
 
@@ -117,6 +139,40 @@ public final class CompanionSupplies {
         Inventory equipped = c.getInventory(InventoryType.EQUIPPED);
         Item held = equipped == null ? null : equipped.getItem((short) -11);
         return held == null || BotWeapons.UNDRAWABLE.contains(held.getItemId());
+    }
+
+    /**
+     * Notes a count for one kind and answers whether it went up (a new stack). The stack is the count right after the
+     * last rise; while the count falls it stays.
+     */
+    static boolean note(Character bot, boolean hp, int count) {
+        int[] s = stacks.computeIfAbsent(bot.getId(), id -> new int[]{-1, -1, -1, -1});
+        int at = hp ? 0 : 2;
+        synchronized (s) {
+            int before = s[at + 1];
+            s[at + 1] = count;
+            if (count > before) {
+                s[at] = count;
+                return before >= 0;   // a rise after a first sighting: a new stack
+            }
+            return false;
+        }
+    }
+
+    /** The stack this companion last got of one kind, or 0 when none has been seen yet. */
+    static int stack(Character bot, boolean hp) {
+        int[] s = stacks.get(bot.getId());
+        return s == null ? 0 : Math.max(0, s[hp ? 0 : 2]);
+    }
+
+    /** Under a quarter of the stack (no stack known: never "low" here; the 0 line still comes). */
+    static boolean low(int count, int stack) {
+        return stack > 0 && (long) count * 100 < (long) stack * WARN_PERCENT;
+    }
+
+    /** Tests only: forget every noted stack. */
+    public static void forgetStacks() {
+        stacks.clear();
     }
 
     private static void tell(Character bot, String line) {
@@ -137,10 +193,20 @@ public final class CompanionSupplies {
     }
 
     /* What one member is short of before a run: the potions of each kind it uses, its ammo and its weapon. */
-    public record ShortOf(int hpPotions, int mpPotions, boolean usesMp, boolean noAmmo, boolean noWeapon) {
+    public record ShortOf(int hpPotions, int mpPotions, boolean usesMp, boolean noAmmo, boolean noWeapon,
+                          int hpStack, int mpStack) {
+
+        public ShortOf(int hpPotions, int mpPotions, boolean usesMp, boolean noAmmo, boolean noWeapon) {
+            this(hpPotions, mpPotions, usesMp, noAmmo, noWeapon, 0, 0);
+        }
+
+        /* Short: under the fixed 50, or under a quarter of the stack it last got (owner, 8 Nov 2026). */
+        private static boolean short_(int count, int stack) {
+            return count < PRE_RUN_MIN || low(count, stack);
+        }
 
         public boolean any() {
-            return noWeapon || noAmmo || hpPotions < PRE_RUN_MIN || (usesMp && mpPotions < PRE_RUN_MIN);
+            return noWeapon || noAmmo || short_(hpPotions, hpStack) || (usesMp && short_(mpPotions, mpStack));
         }
 
         /* One casual line for the recruiter's list, e.g. "Second has no mana potions."; null when nothing is short. */
@@ -149,10 +215,10 @@ public final class CompanionSupplies {
             if (noWeapon) {
                 parts.add("has no weapon to fight with");
             }
-            if (hpPotions < PRE_RUN_MIN) {
+            if (short_(hpPotions, hpStack)) {
                 parts.add(hpPotions <= 0 ? "has no HP potions" : "is down to " + hpPotions + " HP potions");
             }
-            if (usesMp && mpPotions < PRE_RUN_MIN) {
+            if (usesMp && short_(mpPotions, mpStack)) {
                 parts.add(mpPotions <= 0 ? "has no mana potions" : "is down to " + mpPotions + " mana potions");
             }
             if (noAmmo) {
