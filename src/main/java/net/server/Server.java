@@ -59,6 +59,7 @@ import server.ThreadManager;
 import server.cashshop.CouponSchedule;
 import server.TimerManager;
 import server.expeditions.ExpeditionBossLog;
+import server.life.PlayerNPC;
 import server.life.PlayerNPCFactory;
 import server.quest.Quest;
 import service.NoteService;
@@ -999,6 +1000,13 @@ public class Server {
                 initWorld();
             }
             initWorldPlayerRanking();
+
+            // Cosmic #193: the statue rank counters need the worlds, so they load here, not in a static block
+            try (Connection con = DatabaseConnection.getConnection()) {
+                PlayerNPC.loadRunningRankData(con, getWorldIdBound());
+            } catch (SQLException e) {
+                log.error("Could not load the player NPC rank counters; new statues start their ranks at 1", e);
+            }
 
             loadPlayerNpcMapStepFromDb();
 

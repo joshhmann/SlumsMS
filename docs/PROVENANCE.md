@@ -568,3 +568,17 @@ clock starts at the revive instead of at the death, because the wait before the 
 Their sit-out rule (`SIT_OUT_DEATHS`, `SIT_OUT_MAX_MS`, `SIT_OUT_LINES` and its party-chat lines) is **not** ported:
 the owner declined it. The doubling revive wait, the mesos price for an instant revive and `@botme revive` are ours,
 not theirs.
+
+### Player NPC rank counters load after the worlds, 1.6.7 (branch `167-playernpc-ranks`, card cosmic-upstream-fixes #193), P0nk/Cosmic `0aee9d7c3` (AGPL-3.0)
+
+From https://github.com/P0nk/Cosmic/pull/193 ("Fix unable to create playernpc"): the static block in `PlayerNPC` that
+filled the rank counters is gone, and the counters load in a `loadRunningRankData(con, worlds)` that `Server` calls.
+
+Changed in the port:
+- `Server` calls it after the worlds are up, with `getWorldIdBound()` (our world ids can have gaps, ticket 41), and
+  not inside the startup DB block. Upstream calls it before the worlds, with the configured count.
+- A load failure is logged rather than ending the boot.
+- New `PlayerNPC.nextWorldRank` grows the counter list for a world id it hasn't seen, so a statue can never throw.
+- `getAndIncrementRunningWorldJobRanks` is synchronized.
+- Upstream's removal of `PlayerNPCFactory.loadFactoryMetadata` (the developer NPCs) is **not** taken: our developer
+  NPCs stay.

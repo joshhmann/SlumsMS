@@ -67,10 +67,6 @@ public class PlayerNPC extends AbstractMapObject {
     private int dir, FH, RX0, RX1, CY;
     private int worldRank, overallRank, worldJobRank, overallJobRank;
 
-    static {
-        getRunningMetadata();
-    }
-
     public PlayerNPC(String name, int scriptId, int face, int hair, int gender, byte skin, Map<Short, Integer> equips, int dir, int FH, int RX0, int RX1, int CX, int CY, int oid) {
         this.equips = equips;
         this.scriptId = scriptId;
@@ -213,14 +209,27 @@ public class PlayerNPC extends AbstractMapObject {
         client.sendPacket(PacketCreator.removePlayerNPC(this.getObjectId()));
     }
 
-    private static void getRunningMetadata() {
-        try (Connection con = DatabaseConnection.getConnection()) {
-            getRunningOverallRanks(con);
-            getRunningWorldRanks(con);
-            getRunningWorldJobRanks(con);
-        } catch (SQLException e) {
-            e.printStackTrace();
+    /**
+     * Cosmic #193 (0aee9d7c3): the rank counters were filled by a static block, which ran whenever this class first
+     * loaded. PlayerNPCFactory builds developer NPCs on the async startup pool before any world is up, so the block
+     * sized the world counters from {@code getWorldIdBound() == 0} and the first statue after a restart threw
+     * IndexOutOfBoundsException. Server now calls this once the worlds are up; {@link #nextWorldRank} also grows the
+     * list for a world id it hasn't seen, so a statue never fails on a missing counter.
+     */
+    public static synchronized void loadRunningRankData(Connection con, int worldIdBound) throws SQLException {
+        runningWorldRank.clear();
+        runningWorldJobRank.clear();
+        getRunningOverallRanks(con);
+        getRunningWorldRanks(con, worldIdBound);
+        getRunningWorldJobRanks(con);
+    }
+
+    /** The next world rank for a new statue in {@code worldId}; a world with no counter yet starts at 1. */
+    static synchronized int nextWorldRank(int worldId) {
+        while (runningWorldRank.size() <= worldId) {
+            runningWorldRank.add(new AtomicInteger(1));
         }
+        return runningWorldRank.get(worldId).getAndIncrement();
     }
 
     private static void getRunningOverallRanks(Connection con) throws SQLException {
@@ -235,8 +244,8 @@ public class PlayerNPC extends AbstractMapObject {
         }
     }
 
-    private static void getRunningWorldRanks(Connection con) throws SQLException {
-        int numWorlds = Server.getInstance().getWorldIdBound();    // runningWorldRank is indexed by world id
+    private static void getRunningWorldRanks(Connection con, int numWorlds) throws SQLException {
+        // runningWorldRank is indexed by world id; numWorlds is Server.getWorldIdBound() once the worlds are up
         for (int i = 0; i < numWorlds; i++) {
             runningWorldRank.add(new AtomicInteger(1));
         }
@@ -262,7 +271,7 @@ public class PlayerNPC extends AbstractMapObject {
         }
     }
 
-    private static int getAndIncrementRunningWorldJobRanks(int world, int job) {
+    private static synchronized int getAndIncrementRunningWorldJobRanks(int world, int job) {
         AtomicInteger wjr = runningWorldJobRank.get(new Pair<>(world, job));
         if (wjr == null) {
             wjr = new AtomicInteger(1);
@@ -439,7 +448,7 @@ public class PlayerNPC extends AbstractMapObject {
                     ps.setInt(12, map.getFootholds().findBelow(pos).getId());
                     ps.setInt(13, pos.x + 50);
                     ps.setInt(14, pos.x - 50);
-                    ps.setInt(15, runningWorldRank.get(worldId).getAndIncrement());
+                    ps.setInt(15, nextWorldRank(worldId));   // Cosmic #193: never IOOBE on a missing counter
                     ps.setInt(16, runningOverallRank.getAndIncrement());
                     ps.setInt(17, getAndIncrementRunningWorldJobRanks(worldId, jobId));
                     ps.setInt(18, jobId);
