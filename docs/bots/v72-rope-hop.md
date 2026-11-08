@@ -46,7 +46,10 @@ Reach: at least 109 px, under 117 px.
 9. **Diff:** across every map with WZ data, base profile, v72 against v71 only adds edges (count and list of maps),
    and removes none. nav-reach-cages.txt only loses lines.
 
-## Coordinator's scope and guards (2026-11-07 22:3x UTC), added before the guard code
+## Coordinator's scope and guards (2026-11-07 22:3x UTC)
+
+This section was written after the guard code: the guards were coded straight from the Coordinator's message, and
+their tests were written before they were run.
 
 Scope (a): every map that gains hops. The "16" in the approved shape was the size of a comparison set, not a target.
 1. **Fallback switch.** `-Dslums.nav.ropehop=false` (default on; `NavRopeHop.set` at runtime) makes the planner skip
