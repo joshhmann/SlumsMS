@@ -115,6 +115,21 @@ TYPED_CARDS = frozenset(c for c in (
     "slums", "bustin", "henesys", "kerning", "slime", "maple", "peace", "heart", "rebirth", "zzz", "summer",
     "hmm", "yay", "ghost", "love", "pout", "ggwp", "glasses", "stretch",
     "news", "idea", "book", "meso", "bug", "huh", "mail", "music", "gasp", "hugs", "hello"))
+# For the cards found by doing something, the third step and every later one is a method hint (never the exact
+# sequence, never the card's id): letters of a word nobody types would mean nothing.
+HINT_METHODS = {
+    "konami": "Think arrow keys and two letters at the end: an old classic from the cartridge days.",
+    "clicks": "Keep poking her until she has had enough: a lot more than a couple of times, fast.",
+    "sidekick": "Click the little one beside a heading, a handful of times in a row.",
+    "wake": "Find a page that doesn't exist and poke the sleeper there a few times.",
+    "owl": "No keys needed: just open any page in the middle of the night, your local time, and wait a moment.",
+    "colours": "Click each of the three dots in the top corner, all of them within a few seconds.",
+    "afk": "No clicking at all: leave a page open and don't touch it for a few minutes.",
+    "footer": "Scroll to the very bottom and click the tiny text a few times.",
+    "bubble": "Click her speech balloon itself, over and over, without stopping.",
+    "shh": "Go to My cards, find a face-down one and click it again and again.",
+    "sunday": "It depends on the day of the week, not on anything you do: be there and wait a moment.",
+}
 HINT_DONE = {"cap": "You've found every one of my secrets already. Show-off. (I mean it kindly.)",
              "pia": "You've found all of mine! Go tell Slums-chan how clever you are."}
 # Every card found by typing something or doing something (SECRET_CARDS: the 22 original secrets and the 19 stickers
@@ -691,7 +706,7 @@ class Store:
         elif card in TYPED_CARDS:
             line = f"Try typing this: {hidden(h['word'], step - 2)}"
         else:
-            line = f"It's spelled like this: {hidden(h['word'], step - 2)}"
+            line = HINT_METHODS[card]
         return {"card": card, "step": step, "line": line}
 
     def change(self, s, fn, *args):

@@ -113,6 +113,8 @@ secrets). These 24 are rewards by count, worked out from the secrets' found time
 - **One step further each time:** first a clue sentence, then where to try it ("Try it on the home page."), then the
   typed word with some letters hidden ("g h o _ _"). Each later hint shows one more letter, and the last letter is
   always hidden, so the whole word is never shown however often a player asks.
+  Cards found by doing something (the Konami code, poking, waiting), not by typing, get a short method hint at that
+  step instead of letters (HINT_METHODS in market_service.py), and it repeats on later asks.
 - **Which card:** the first of that character's cards the account hasn't found yet; if it already has a hint for one,
   it carries on with that one. When all of that character's cards are found it answers with a kind line instead.
 - **Limits:** one hint per account every 5 seconds, and 100 hints per account per day. Both counts live in the market
