@@ -12,6 +12,10 @@ checkout of the release branch on 187 (for 1.5.0: `/root/work/SlumsMS-150`). Hos
    (192.168.0.111, ssh alias `mapletest`, key `~/.ssh/id_slums_lxc`); the TEST tools read `SLUMS_TEST_HOST`
    (default 192.168.0.111) and 164 is live only. Tell the owner first if they may be playing or a run is going
    (`tools/ops/test-status`).
+   - TEST's journal keeps about 3-4 days (`/etc/systemd/journald.conf.d/50-slums-test-retention.conf` on mapletest:
+     SystemMaxUse=12G, SystemKeepFree=20G; set 8 Nov 2026). With the packet logger on, TEST writes about 3.1 GB a
+     day. Before that, the container default kept only about 190 MB (~1.5 h), and the 6 Nov Fredrick disconnect log
+     was lost. To read a QA run's server side, read it within those days, or copy the window into the run folder.
 5. QA:
    - `tools/ops/autoqa-run all` (or wait for 10:00 / 22:00 UTC), then read `tools/ops/test-status` and triage per
      `.claude/skills/qa-triage/SKILL.md`.
