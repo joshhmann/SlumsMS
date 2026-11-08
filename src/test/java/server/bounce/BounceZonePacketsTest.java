@@ -74,14 +74,23 @@ class BounceZonePacketsTest {
         assertEquals(0, in.available());
     }
 
+    /** 1.6.6.1 (owner: "just undo the nerf"): the shipped yaml gives every job the MapleRoot bounces, ninja -683/606/-688 and vertical -1/0/-1200. */
+    static final String IMPULSES_SHIPPED = "3737020455fdffff5e02000050fdffff55fdffff5e02000050fdffffffffffff0000000050fbffffffffffff0000000050fbffff";
+
     @Test
-    void shippedImpulsesAreTheDefaults() throws Exception {
+    void theDefaultsKeepTheirGoldenPacket() {
+        assertEquals(IMPULSES_DEFAULT, hex(BounceZonePackets.impulses(BounceImpulses.DEFAULT)));
+    }
+
+    @Test
+    void shippedImpulsesGiveEveryJobTheMapleRootBounces() throws Exception {
         List<String> problems = new ArrayList<>();
         BounceZones z = BounceZones.parse(new YamlReader(Files.newBufferedReader(Path.of(BounceZones.DATA_PATH))).read(),
                 problems);
         assertEquals(List.of(), problems);
-        assertEquals(BounceImpulses.DEFAULT, z.impulses());
-        assertEquals(IMPULSES_DEFAULT, hex(BounceZonePackets.impulses(z.impulses())));
+        assertEquals(new BounceImpulses(BounceImpulses.MAPLEROOT_NINJA, BounceImpulses.MAPLEROOT_NINJA,
+                BounceImpulses.MAPLEROOT_VERTICAL, BounceImpulses.MAPLEROOT_VERTICAL), z.impulses());
+        assertEquals(IMPULSES_SHIPPED, hex(BounceZonePackets.impulses(z.impulses())));
     }
 
     @Test
