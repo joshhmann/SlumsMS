@@ -1,0 +1,126 @@
+# ZPQ evaluation run (1.6.6, analyser evaluation, Coordinator 7 Nov): the human leader (AqClient, gm 0) and regulars only, staged through Bots' stage queue:
+# `tools/ops/mechanics-stage pq zakumpq for AqClient 5 ranged5` (QA runs it from the shell right after login; staging moves the leader to the recruit map and starts the run).
+# Derived from b344-zpq-stage-clear: the run advances stage by stage while the leader stays on the hub; the Fire Ore hand-in to Aura (2032002) and the prize claim are the leader's own actions.
+# Pass: RUN start, every stage line in order (55 stages), the ore drop for AqClient, RUN end zakumpq cleared, client alive. The diagnosis is written from the run folder alone and goes to the Coordinator only.
+id: zakumpq-full-run
+title: Zakum PQ full run with the gm-0 leader and regulars through the stage queue
+covers: [feature-zpq-eval]
+status: draft
+server: test
+needs: [mechanics, proposed_signals, proposed_anchors, proposed_steps]
+notes: "tarkov2 QA account, AqClient gm 0, level 120, skills trimmed (39 at login). TEST 1.6.6 c42a85edf with -Dslums.qa, -Dslums.mechanics and -Dslums.mechanics.zakumpq."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 5
+    gm: false
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 5}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
+  - {id: stage-party, do: sleep, ms: 10000, reason: "QA runs tools/ops/mechanics-stage pq zakumpq for AqClient 5 ranged5 from the shell right after login; TEST picks it up within 30 s"}
+  - id: run-start
+    do: wait
+    armed_at: stage-party
+    signal: {type: server_line, topic: MECHANICS, regex: "^RUN start zakumpq stage 1 ", char: me}
+    timeout_ms: 90000
+  - {id: on-hub, do: wait, signal: {type: client_signal, name: field.ready, map_id: 280010000}, timeout_ms: 60000}
+  - {id: stage-1, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 1 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-2, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 2 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-3, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 3 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-4, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 4 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-5, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 5 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-6, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 6 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-7, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 7 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-8, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 8 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-9, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 9 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-10, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 10 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-11, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 11 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-12, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 12 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-13, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 13 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-14, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 14 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-15, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 15 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-16, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 16 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-17, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 17 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-18, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 18 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-19, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 19 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-20, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 20 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-21, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 21 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-22, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 22 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-23, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 23 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-24, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 24 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-25, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 25 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-26, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 26 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-27, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 27 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-28, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 28 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-29, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 29 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-30, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 30 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-31, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 31 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-32, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 32 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-33, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 33 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-34, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 34 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-35, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 35 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-36, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 36 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-37, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 37 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-38, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 38 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-39, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 39 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-40, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 40 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-41, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 41 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-42, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 42 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-43, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 43 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-44, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 44 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-45, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 45 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-46, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 46 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-47, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 47 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-48, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 48 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-49, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 49 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-50, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 50 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-51, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 51 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-52, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 52 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-53, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 53 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: stage-54, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 54 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: ore-dropped, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^DROP \\S+ drops 1 x 4001018 for AqClient", char: me}, timeout_ms: 300000, note: "b344e: the regular drops the Fire Ore at the human leader's feet on the hub"}
+  - {do: sleep, ms: 2000, reason: "the drop is owner-only for a moment: pickup before that is ignored"}
+  - {id: pickup-ore, do: pickup_item, item: 4001018}
+  - {id: talk-aura, do: click_npc, npc: 2032002}
+  - {id: aura-menu, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000, optional: true}
+  - {id: brought-items, do: click, anchor: npc_dialog.option_2, note: "I brought items!"}
+  - {do: sleep, ms: 2000, reason: "the yes/no dialog opens"}
+  - {id: confirm-handin, do: click, anchor: npc_dialog.next, note: "Yes in the yes/no dialog is the same mode-1 reply as Next: no calibrated npc_dialog.yes point yet"}
+  - {do: sleep, ms: 3000, reason: "frame after the hand-in"}
+  - {id: stage-55, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 55 cleared in \\d+ s.*\\[zakumpq", char: me}, timeout_ms: 300000}
+  - {id: finished, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN end zakumpq in .*: cleared after \\d+ s", char: me}, timeout_ms: 300000}
+  - {id: claim-talk, do: click_npc, npc: 2032002}
+  - {do: sleep, ms: 2000, reason: "the prize dialog"}
+  - {id: claim-next, do: click, anchor: npc_dialog.next}
+  - {do: sleep, ms: 3000, reason: "frame after the prize claim (Piece of Fire Ore 4031061)"}
+captures:
+  - {id: by-adobis, burst: {fps: 2, ms: 3000, at: {step: stage-party}}}
+  - {id: entering, burst: {fps: 3, ms: 5000, at: {signal: run-start}}}
+  - {id: on-the-hub, burst: {fps: 2, ms: 5000, at: {signal: on-hub}}}
+  - {id: stage-1-clear, burst: {fps: 2, ms: 4000, at: {signal: stage-1}}}
+  - {id: stage-20-clear, burst: {fps: 2, ms: 4000, at: {signal: stage-20}}}
+  - {id: end, burst: {fps: 2, ms: 5000, at: {signal: finished}}}
+  - {id: chat, chat_log: {span: {from: stage-party, to: finished}}}
+expect:
+  reviewer:
+    - see: "The leader stands on the Zakum mine hub with the alt, the game window responds and there is no crash dialog"
+      in: [on-the-hub, stage-1-clear, stage-20-clear]
+    - see: "The leader is out of the mine after the final hand-in"
+      in: [end]
+  checks:
+    - {check: server_line, topic: MECHANICS, regex: "^RUN start zakumpq stage 1 ", char: me, min: 1}
+    - {check: server_line, topic: MECHANICS, regex: "^RUN stage 1 cleared in \\d+ s.*\\[zakumpq", char: me, min: 1}
+    - {check: server_line, topic: MECHANICS, regex: "^RUN not started", char: me, max: 0}
+    - {check: server_line, topic: MECHANICS, regex: "^DROP \\S+ drops 1 x 4001018 for AqClient", char: me, min: 1}
+    - {check: server_line, topic: MECHANICS, regex: "^RUN end zakumpq in .*: cleared after \\d+ s", char: me, min: 1}
+    - {check: client_alive}
+  judgment: "PASS = every line above and no warp-back loop; the loop and REACTOR_HIT checks come from the TEST hex logger (Server Dev decodes by the alt's cid). FAIL names the first stage that never clears."
