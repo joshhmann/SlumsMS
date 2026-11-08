@@ -120,10 +120,23 @@ class SiteBuildTest(unittest.TestCase):
         self.assertIn("The Power Elixir ticker reads PELIXIR on the exchange", flat)
         self.assertIn("Regulars in town no longer greet you with", flat)
 
-    def test_164_notes_are_the_newest_and_cover_the_exchange_items(self):
-        """1.6.4 is the newest release; its page names the item exchange, the 150M cap and the wedding fix, and no
-        game-company words."""
-        self.assertEqual(self.rels[0]["version"], "1.6.4")
+    def test_165_notes_are_the_newest_and_carry_the_hotfix_and_the_zakum_line(self):
+        """1.6.5 is the newest release; its page has the corrected Zakum line (no Haste advice), the hotfix section,
+        links to the guide's Zakum page, and no game-company words or bare ticket ids."""
+        self.assertEqual(self.rels[0]["version"], "1.6.5")
+        with open(os.path.join(self.out, "patch-notes", "1.6.5", "index.html"), encoding="utf-8") as f:
+            flat = " ".join(f.read().split())
+        self.assertIn("grab that one yourself", flat)
+        self.assertNotIn("Haste", flat)
+        self.assertIn("Horntail can no longer end before all its parts are down", flat)
+        self.assertIn('href="../../guide/bosses"', flat)
+        self.assertTrue(os.path.isfile(os.path.join(self.out, "guide", "bosses.html")))
+        for bad in ("MapleStory", "Nexon", "Wizet", "GMS", "v83", "MapleRoot"):
+            self.assertNotIn(bad, flat)
+        self.assertIsNone(re.search(r"\bbots?\b", flat, re.I))
+
+    def test_164_notes_cover_the_exchange_items(self):
+        """1.6.4's page names the item exchange, the 150M cap and the wedding fix, and no game-company words."""
         with open(os.path.join(self.out, "patch-notes", "1.6.4", "index.html"), encoding="utf-8") as f:
             flat = " ".join(f.read().split())
         self.assertIn("150,000,000 mesos per account per day", flat)
