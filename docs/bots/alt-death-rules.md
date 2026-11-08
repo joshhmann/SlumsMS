@@ -57,30 +57,44 @@ mesos (the owner's own, the player typing it). Deaths **outside** a boss run sta
 
 ## Proof
 
-New tests, each failing before the change:
+Tests as built, each failing before the change (the new class is new, so for `CompanionBossReviveTest` "before" means
+the class did not exist; every other test below fails on the base branch and passes after):
 
-- `CompanionBossReviveTest`
-  - `firstDeathInARunWaitsTenSeconds`: nothing at +9 999 ms, up (and `BotDeaths.revived`) at +10 000 ms.
-  - `theWaitDoublesEachDeathAndCapsAtTwoMinutes`: 20 s on the 2nd, 80 s on the 4th, 120 s on the 5th and the 6th.
-  - `aNewRunStartsAtTenSecondsAgain`: after `ExpeditionHold.release`, the next death waits 10 s.
-  - `itStaysInTheInstanceAndGetsUpBesideItsOwner`: while dead the event is never unregistered and the expedition still
-    has it; on revive on the owner's map it stays there, on another map of the instance it is moved to the owner's map
-    at the owner's position; HP is its maximum.
-  - `aBoughtReviveCostsTheOwnersMesosAndDoubles`: Lv 120 charges 120,000 then 240,000 in one run, 120,000 again in the
-    next.
-  - `aBoughtReviveWithoutTheMesosChangesNothing`: the owner keeps his mesos, the companion stays dead.
-  - `afterAReviveItRestsUntilWholeOrTheTimeIsUp`: not resting before the revive; resting right after; done once HP and
-    MP are at 100% (`REST_PERCENT`); done at once when `-Dslums.companion.rest.maxMs=0` has passed; still resting at
-    50% MP before the limit.
-  - `aBossRunIsAnInstanceOrAMechanicsRun`: a death on a map whose monsters include a boss is **not** a boss run (the
-    rule keys on the run, not the map), a death with no instance is the old path.
-- `OwnedAltCompanionTest` (existing file): `anAltThatDiesInABossRunStaysInTheRunAndGetsUpBesideItsOwner` (dead in an
-  expedition instance: no `respawn`, no `sendHomeAfterDeath`, up after the wait, the owner told both lines), plus the
-  two existing death tests unchanged (a death outside a run is still town then home, rule 1).
-- `FollowerBotDeathRulesTest`: with the defaults a party regular takes the same tick as before (no
-  `BotDeaths.readyToRespawn`, no revive, the fight path runs); with `-Dslums.companion.deathrules.regulars=true` it
-  waits 10 s and gets up, and the leader's `@botme revive` charges the leader and revives it at once.
-- `BotMeCommandReviveTest`: the command's three answers (revived with the price, cannot pay, not down/unknown).
+- `src/test/java/soloMapling/ArtificialPlayer/BotPartySystem/CompanionBossReviveTest.java` (9)
+  - `theFirstDeathWaitsTenSecondsAndTheSecondTwenty`: nothing at +9 999 ms, up (and `BotDeaths.revived`) at +10 000 ms,
+    20 s on the second death.
+  - `theWaitingDoublesWithEachDeathAndStopsAtTwoMinutes`: 10, 20, 40, 80, 120, 120 s.
+  - `aNewRunStartsTheWaitingOverAtTenSeconds`: after `ExpeditionBotsFixture.Joined.release()` (the expedition's dispose)
+    and a new instance, the next death waits 10 s again.
+  - `whileItWaitsItStaysInTheRunAndGetsUpOnItsOwnersMap`: while dead, never `respawn`, never `unregisterPlayer`/
+    `playerDisconnected`, the expedition still has it; on the revive it is `changeMap`ped to the owner's map (it fell on
+    the boss's map), gets `applyHpMpChange(0, maxHp, 0)`, broadcasts stance 4, and comes out of `BotDeaths.isDead`.
+  - `anInstantReviveCostsAThousandMesosALevelAndDoublesWithinTheRun`: Lv 120 charges 120,000 (told with the price) then
+    240,000 in one run, and 120,000 again after the run is released.
+  - `tooFewMesosChargesNothingAndItStaysDown`: no `gainMeso`, no `applyHpMpChange`, still dead and still waiting.
+  - `afterTheReviveItRestsUntilWholeOrTheLimit`: resting right after the revive, still resting at half HP/MP, done at
+    100%, and done when `REST_MAX_MS` has passed; the rest starts over with the next revive.
+  - `aCompanionThatDiedOutsideARunKeepsItsOldPath`: on a map with a boss on it but with no instance, `gate` says no, no
+    line, no revive, the caller's own path keeps the death.
+  - `aRegularIsLeftAloneByDefaultAndWaitsUnderTheSwitch`: with the shipped switches a regular's `gate` is false and its
+    leader is told nothing; with `-Dslums.companion.deathrules.regulars=true` it waits and its leader is told.
+- `src/test/java/soloMapling/companions/OwnedAltCompanionTest.java` (the three added to the existing 21)
+  - `anAltDownInABossRunWaitsInTheInstanceAndGetsUpBesideItsOwner`: through `OwnedAltCompanion.tick`, dead in an
+    expedition instance: no `respawn`, no `unregisterPlayer`, no `sendHomeAfterDeath`, the owner reads "Second is down,
+    back in 10s (or @botme revive Second for 120,000 mesos)", and at +10 000 ms "Second is back up".
+  - `aRevivedAltRestsBeforeItFollowsOrFightsAgain`: the tick holds the alt after the revive (`s.doing` "resting after a
+    revive", no follow, no attack) and lets it go once HP and MP are whole.
+  - `anAltDeadOnABossMapOutsideARunStillGoesToTown`: rule 1 with a boss on the map but no run: town, then home.
+- `src/test/java/soloMapling/ArtificialPlayer/BotTypes/FollowerBotDeathRulesTest.java` (2)
+  - `withTheSwitchesTheServerShipsItsTickIsTodaysTick`: a dead regular under the default switches still takes today's
+    follow tick (`GCMovement.follow` called, no revive, still dead).
+  - `withTheRegularsSwitchOnItWaitsInsteadOfFollowing`: with `-Dslums.companion.deathrules.regulars=true` it waits
+    (`CompanionBossRevive.waiting`), no follow, not fighting, still dead, and its leader is told.
+- `src/test/java/soloMapling/ArtificialPlayer/BotPartySystem/BotMeReviveCommandTest.java` (4): the command's answers -
+  revived and charged to the player typing it (120,000 at Lv 120) with the price in the line; too few mesos -> the price
+  line, no charge, still down; a name that is not one of your down companions -> "There is nobody called ..."; a
+  regular down in a run, with the regulars' switch on, is revived by `@botme revive <name>` and paid by its leader
+  (70,000 at Lv 70).
 
 Full suite: `mvn -q -o test -Dwz-path=/root/work/SlumsMS-152-maps/wz`, counts from
 `target/surefire-reports/TEST-*.xml`.
