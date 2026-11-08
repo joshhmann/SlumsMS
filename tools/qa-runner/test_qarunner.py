@@ -153,6 +153,16 @@ class OrchestratorTest(unittest.TestCase):
         self.assertEqual(2, worker.world_clicks)
         self.assertEqual(1, next(s for s in m["steps"] if s["id"] == "channels")["retries"])
 
+    def test_a_position_answer_is_kept_in_the_step_record(self):
+        # QA, lpq-stage1-walk-20261108T150439Z: the position readings were only in the worker outbox on tarkov2.
+        run, m, feed, worker = self.run_b140()
+        answer = '{"map_id": 922010100, "x": -120, "y": 130, "foothold": true, "rope": false, "ladder": false}'
+        worker.send = lambda alias, step: {"result": "ok", "detail": answer}
+        run.play(910, {"do": "position"})
+        self.assertEqual(answer, run.manifest["steps"][-1]["detail"])
+        run.play(911, {"do": "walk_to", "x": -117})
+        self.assertEqual(answer, run.manifest["steps"][-1]["detail"])
+
     def test_an_optional_pickup_that_is_refused_is_tolerated_and_a_required_one_fails(self):
         # 8 Nov lpq-stage1-handin-20261108T053234Z: the pickup lost the pass drop to a collector bot (taken_by_other)
         # and the whole run failed; a loop that picks up whatever has landed must go on.
