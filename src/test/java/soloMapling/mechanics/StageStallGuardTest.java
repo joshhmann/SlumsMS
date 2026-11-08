@@ -201,6 +201,79 @@ class StageStallGuardTest {
         assertTrue(s.run.endedBecause().contains("can't reach reactor 2112011"), s.run.endedBecause());
     }
 
+    /** zpq-stage6-offgraph: a miner on 280010130 whose rock is 2112011 at (1874, 140) (the mock row's id). */
+    private static Character mineBot(server.maps.MapleMap mine) {
+        Character bot = mock(Character.class);
+        when(bot.getId()).thenReturn(MINER);
+        when(bot.getName()).thenReturn("TacoOrbis");
+        when(bot.getMapId()).thenReturn(280_010_130);
+        when(bot.getMap()).thenReturn(mine);
+        return bot;
+    }
+
+    private static server.maps.MapleMap mineWithRock() {
+        server.maps.MapleMap map = mock(server.maps.MapleMap.class);
+        server.maps.Reactor rock = mock(server.maps.Reactor.class);
+        when(rock.getPosition()).thenReturn(new java.awt.Point(1874, 140));
+        when(rock.getId()).thenReturn(2_112_011);
+        when(map.getReactorById(2_112_011)).thenReturn(rock);
+        return map;
+    }
+
+    /**
+     * zpq-stage6-offgraph (TEST 8 Nov 04:25:52, run zakumpq-full-run-20261108T042242Z): a regular that just came
+     * through a portal on an observed map floats 60 px above the floor for 1.5-2.1 s, at (-262,78) on 280010130, and
+     * the planner finds no ground under it. A check taken in the air is no verdict.
+     */
+    @Test
+    void aRouteCheckTakenInThePortalFloatIsNoVerdict() {
+        Setup s = stage31();
+        StepExecutor.routeCheck = (bot, x, y) -> "the start (-262,78) is off the graph (no ground or rope)";
+        server.maps.MapleMap mine = mineWithRock();
+        Character bot = mineBot(mine);
+        StepExecutor exec = new StepExecutor();
+        List<String> lines = new ArrayList<>();
+        SolverStep hit = new SolverStep.HitReactor(2_112_011);
+        try (org.mockito.MockedStatic<soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement> move =
+                     org.mockito.Mockito.mockStatic(soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.class)) {
+            move.when(() -> soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isAirborneOrFloating(bot)).thenReturn(true);
+            when(bot.getPosition()).thenReturn(new java.awt.Point(-262, 78)); // in the float
+            exec.execute(s.run, s.orch, null, bot, hit, START + 1_000, lines::add);
+            move.when(() -> soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isAirborneOrFloating(bot)).thenReturn(false);
+            when(bot.getPosition()).thenReturn(new java.awt.Point(-262, 138)); // landed
+            exec.execute(s.run, s.orch, null, bot, hit, START + 11_000, lines::add);
+        }
+        assertFalse(s.run.ended(), "one grounded 'no route' is not two: " + s.run.endedBecause() + " " + lines);
+    }
+
+    /**
+     * zpq-stage6-offgraph: the "no route" count is about one target on one map. TacoOrbis carried one from the hub
+     * (103 s waiting for the door to the mine) and the first check on the mine made two: the run ended 0.25 s in.
+     */
+    @Test
+    void aNoRouteCountedOnAnotherMapDoesNotCarryOver() {
+        Setup s = stage31();
+        StepExecutor.routeCheck = (bot, x, y) -> "no route from r1 to r4 walking";
+        server.maps.MapleMap mine = mineWithRock();
+        Character bot = mineBot(mine);
+        StepExecutor exec = new StepExecutor();
+        List<String> lines = new ArrayList<>();
+        SolverStep hit = new SolverStep.HitReactor(2_112_011);
+        try (org.mockito.MockedStatic<soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement> move =
+                     org.mockito.Mockito.mockStatic(soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.class)) {
+            when(bot.getMapId()).thenReturn(HUB); // still on the hub
+            when(bot.getPosition()).thenReturn(new java.awt.Point(285, -582));
+            exec.execute(s.run, s.orch, null, bot, hit, START + 1_000, lines::add);
+            when(bot.getMapId()).thenReturn(280_010_130); // through the door
+            when(bot.getPosition()).thenReturn(new java.awt.Point(-262, 138));
+            exec.execute(s.run, s.orch, null, bot, hit, START + 11_000, lines::add);
+            assertFalse(s.run.ended(), "the hub's count is not the mine's: " + s.run.endedBecause() + " " + lines);
+            exec.execute(s.run, s.orch, null, bot, hit, START + 21_000, lines::add);
+        }
+        assertTrue(s.run.ended(), "two in a row on the mine still give up: lines " + lines);
+        assertTrue(s.run.endedBecause().contains("can't reach reactor 2112011"), s.run.endedBecause());
+    }
+
     /** The stage the run stands on, a miner in the big room with its rock untouched, the leader on the hub. */
     private static final class View implements StageView {
         private final Stage stage;
