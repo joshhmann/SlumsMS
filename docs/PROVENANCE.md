@@ -658,3 +658,21 @@ companion simply gets the same `raiseQuestMobCount` call a party member's own ki
 (`AgentQuestSyncGatewayRuntime`, `AgentPartyGatewayRuntime`, `AgentCharacterGatewayRuntime`) are replaced by the party
 and the bot registry we have: `Character.getOwnedAltOwner()` for an owned alt, `FollowerBot.leaderId()` for a regular,
 and `PartyCompanionPolicy` for the switches. The owner's per-alt command gate (`@botme quests on|off <name>`) is ours.
+
+## 1.6.7 wave 3: companion settings
+
+### Per-owner companion settings, 1.6.7 (branch `167-alt-settings`, card `alt-qol-batch` group B), BotStory `81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364` and nutnnut/Cosmic `b684bf7` (AGPL-3.0)
+
+| From theirs | Our files |
+| --- | --- |
+| BotStory `server/living/roster/CompanionSettings.java`: the switches and potion percentages, the 10..90 bounds, "not written at its default" | `soloMapling/companions/CompanionSettings.java` |
+| BotStory `server/living/roster/CompanionSettingsApplier.java` (`settings(ownerId, personaId)`: memory, else read once, else defaults) and nutnnut `server/bots/BotPrefsStore.java` (a small prefs table, upsert on change) | `soloMapling/companions/CompanionSettingsStore.java`, `database/migrations/069-companion-settings.sql` |
+| BotStory `server/living/roster/ui/CompanionCardScreens.java`: the card's switch lines and potion counts | `soloMapling/menus/CompanionCardMenu.java` (our `MenuWindow`, no packet code) |
+
+Changed:
+- our own migration 069 replaces their self-creating table;
+- one JSON blob per (owner, companion);
+- no formation or loot-policy types (the loot mode is a stored string);
+- 0 means "the bot's own potion line", so an untouched companion behaves exactly as before;
+- the gates are in our shared `BotPartySupport` / `BotBuffDriver` / `BotVitals`;
+- the load is lazy, and a bot's first read after a restart starts it (Bots).

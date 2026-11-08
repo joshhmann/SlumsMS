@@ -11,8 +11,11 @@ import soloMapling.ArtificialPlayer.BotMessagingSystem.BotAddressee;
 import soloMapling.ArtificialPlayer.BotTypes.FollowerBot;
 import soloMapling.ArtificialPlayer.BotTypes.TrainingBot;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
+import soloMapling.companions.CompanionSettings;
+import soloMapling.companions.CompanionSettingsStore;
 import soloMapling.companions.OwnedAltOrders;
 import soloMapling.companions.OwnedAltService;
+import soloMapling.menus.CompanionCardMenu;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -98,7 +101,24 @@ public final class PartyBotOrders {
         if (reportsReadable(alts)) {
             allowed.addAll(BotCommandParser.REPORTS); // 1.6.7: "pots", "stats", "slots"
         }
+        if (settingsReadable(alts)) {
+            allowed.addAll(BotCommandParser.SETTINGS); // 1.6.7 alt-settings: "heals off", "pots at 60", "card"
+        }
         return BotCommandParser.parse(line, slots, allowed);
+    }
+
+    /**
+     * 1.6.7 alt-settings: read only when a companion would take the switch - when the switch is on for one of the
+     * player's alts, or for party regulars (-Dslums.companion.settings.regulars=true). With the defaults and no alts,
+     * "heals off" and "pots at 60" stay ordinary chat.
+     */
+    private static boolean settingsReadable(Map<Integer, Character> alts) {
+        for (Character alt : alts.values()) {
+            if (PartyCompanionPolicy.on(PartyCompanionPolicy.Feature.SETTINGS, alt)) {
+                return true;
+            }
+        }
+        return Boolean.getBoolean(PartyCompanionPolicy.Feature.SETTINGS.property(false));
     }
 
     /**
@@ -204,6 +224,10 @@ public final class PartyBotOrders {
             }
             return;
         }
+        if (BotCommandParser.SETTINGS.contains(verb)) {
+            settings(player, order, alts); // 1.6.7 alt-settings
+            return;
+        }
         if (BotCommandParser.ITEMS.contains(verb) || BotCommandParser.UPGRADE.contains(verb)
                 || BotCommandParser.SUPPLY.contains(verb)) {
             List<CompanionItems.Companion> companions = new ArrayList<>();
@@ -241,6 +265,85 @@ public final class PartyBotOrders {
                 }
             }
         }
+    }
+
+    /**
+     * 1.6.7 alt-settings: "heals off", "support on", "buff pots off", "pots at 60", "mp pots at 40" save the switch
+     * for the companion (or companions) the line names and one of them answers with the state now in force; "card"
+     * opens that companion's card for the player. A companion the switch is off for takes nothing and says nothing.
+     */
+    private static void settings(Character player, Order order, Map<Integer, Character> alts) {
+        if (player == null) {
+            return;
+        }
+        List<Target> who = order.everyone() ? slots(player, alts) : order.targets();
+        if (order.verb() == Verb.CARD) {
+            for (Target t : who) {
+                Character c = companion(t.id(), alts);
+                if (c != null && PartyCompanionPolicy.on(PartyCompanionPolicy.Feature.SETTINGS, c)) {
+                    CompanionCardMenu.open(player, c);
+                    return; // one card at a time; the window is the player's
+                }
+            }
+            return;
+        }
+        int speaker = -1;
+        String said = null;
+        for (Target t : who) {
+            Character c = companion(t.id(), alts);
+            if (c == null || !PartyCompanionPolicy.on(PartyCompanionPolicy.Feature.SETTINGS, c)) {
+                continue;
+            }
+            String reply = apply(player, c, order.verb(), order.arg());
+            if (reply != null && speaker < 0) {
+                speaker = t.id();
+                said = reply;
+            }
+        }
+        if (speaker >= 0) {
+            say(speaker, alts, said);
+        }
+    }
+
+    /**
+     * Saves one switch or potion line for one companion and answers the line it says. The number is clamped by the
+     * store (10..90), and the answer carries what was stored, so "pots at 5" says what it became.
+     */
+    static String apply(Character owner, Character companion, Verb verb, String arg) {
+        CompanionSettings current = CompanionSettingsStore.get(owner.getId(), companion.getId());
+        CompanionSettings next;
+        switch (verb) {
+            case HEALS -> next = current.withHeals(!"off".equals(arg));
+            case SUPPORT -> next = current.withSupport(!"off".equals(arg));
+            case BUFF_POTS -> next = current.withBuffPots(!"off".equals(arg));
+            case HP_POTS -> next = current.withHpPercent(number(arg, current.hpPercent()));
+            case MP_POTS -> next = current.withMpPercent(number(arg, current.mpPercent()));
+            default -> {
+                return null;
+            }
+        }
+        CompanionSettings saved = CompanionSettingsStore.save(owner, companion, next);
+        return said(verb, saved);
+    }
+
+    private static int number(String arg, int fallback) {
+        try {
+            return arg == null ? fallback : Integer.parseInt(arg);
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
+
+    /** What a companion answers to a switch: the state now in force. */
+    private static String said(Verb verb, CompanionSettings s) {
+        return switch (verb) {
+            case HEALS -> s.heals() ? "heals on" : "heals off";
+            case SUPPORT -> s.support() ? "party buffs on" : "party buffs off";
+            case BUFF_POTS -> s.buffPots() ? "buff pots on" : "buff pots off";
+            case HP_POTS -> "k, i'll pot at " + s.hpPercent() + "%";
+            case MP_POTS -> "k, i'll drink mp at " + s.mpPercent() + "%";
+            default -> null;
+        };
     }
 
     /**

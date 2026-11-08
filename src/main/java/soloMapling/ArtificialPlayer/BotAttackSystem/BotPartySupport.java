@@ -177,7 +177,14 @@ public final class BotPartySupport {
         if (!BotSupportSwitches.partySupport() || bot == null || bot.getMap() == null || !effects.partiedWithPlayer(bot)) {
             return false;
         }
-        return heal(bot, now) || drinkPot(bot, now);
+        // 1.6.7 alt-settings: the companion's owner may switch each half off (the gate is here, the shared layer, so
+        // an owned alt and a party regular with the switch on both obey it).
+        boolean heals = soloMapling.companions.CompanionSettingsStore.heals(bot);
+        boolean pots = soloMapling.companions.CompanionSettingsStore.buffPots(bot);
+        if (!heals && !pots) {
+            return false;
+        }
+        return (heals && heal(bot, now)) || (pots && drinkPot(bot, now));
     }
 
     private static boolean heal(Character bot, long now) {
