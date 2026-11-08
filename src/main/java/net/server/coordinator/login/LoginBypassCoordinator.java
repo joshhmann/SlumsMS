@@ -75,8 +75,9 @@ public class LoginBypassCoordinator {
     }
 
     public void unregisterLoginBypassEntry(Hwid hwid, int accId) {
-        String hwidValue = hwid == null ? null : hwid.hwid();
-        Pair<String, Integer> entry = new Pair<>(hwidValue, accId);
+        // P2-6: the key must be the Pair<Hwid, Integer> register stored; Pair.equals compares the parts by their own
+        // equals, so a Pair<String, Integer> (the Hwid's text) never matched and !enableauth did nothing.
+        Pair<Hwid, Integer> entry = new Pair<>(hwid, accId);
         loginBypass.remove(entry);
     }
 
