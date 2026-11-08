@@ -20,6 +20,7 @@ import os
 import re
 
 from common import layout, write
+from sections import atlas as ATLAS
 
 ADMIN = "admin"
 HERE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -39,9 +40,9 @@ header.top [role=tab] { border-color: transparent; background: transparent; colo
 header.top [role=tab][aria-selected=true] { background: var(--surface); color: var(--ink); border-color: var(--edge); }
 h2, h3 { font-family: var(--f-display); }
 """
-# the staff pages: the dashboard, the bots, the invite codes and the bug reports
+# the staff pages: the dashboard, the bots, the invite codes, the bug reports and the content atlas (atlas.py)
 ADMIN_TABS = (("./", "Dashboard", "index"), ("bots", "Bots", "bots"), ("invites", "Invite codes", "invites"),
-              ("reports", "Reports", "reports"))
+              ("reports", "Reports", "reports"), ("atlas/", "Atlas", "atlas"))
 INVITES = """<h1>Invite codes</h1><p class="id">Every code on the server: made here, with <code>!invite</code> or by players with
 <code>@invite</code>.</p>
 <div class="inv" x-data="xinvites(true)" data-root="../">
@@ -205,12 +206,16 @@ def drop_followed(css):
     return re.sub(r"--d-(" + "|".join(map(re.escape, FOLLOW)) + r")\s*:[^;}]*;?", "", css)
 
 
-def tabs(here):
+def tabs(here, up=""):
+    """The tab row. up: the prefix back to admin/ for a tab that lives in a folder of its own (admin/atlas/)."""
     return '<p class="chips">' + "".join(
-        f'<a class="chip" href="{h}"{" aria-current=page" if k == here else ""}>{t}</a>' for h, t, k in ADMIN_TABS) + "</p>"
+        f'<a class="chip" href="{up}{h}"{" aria-current=page" if k == here else ""}>{t}</a>'
+        for h, t, k in ADMIN_TABS) + "</p>"
 
 
-def build(out, web=None):
+def build(out, web=None, atlas_dir=None, atlas_data_out=None):
+    """web: the staff dashboard's folder. atlas_dir: a built content atlas to put under admin/atlas/ (atlas.py);
+    without one the page says so and the rest of the staff pages are unchanged."""
     web = web or DEFAULT_WEB
     with open(os.path.join(web, "index.html"), encoding="utf-8") as f:
         page = f.read()
@@ -238,4 +243,5 @@ def build(out, web=None):
                                                 "Every invite code on the server."))
     write(out, f"{ADMIN}/reports.html", layout("Reports", tabs("reports") + REPORTS, "../", "admin",
                                                 "Every bug report and idea, from the website and from in game."))
-    return {"web": web, "scripts": len(SCRIPTS), "colours": len(vs)}
+    atlas = ATLAS.build(out, atlas_dir, atlas_data_out)
+    return {"web": web, "scripts": len(SCRIPTS), "colours": len(vs), "atlas": atlas}

@@ -1,0 +1,29 @@
+{
+ "built_at": "2026-11-07T15:33:35Z",
+ "counts": {
+  "bosses": 0,
+  "items": 60167,
+  "maps": 11338,
+  "mobs": 6773,
+  "npcs": 10217,
+  "pq": 0,
+  "quests": 2913,
+  "scripts": 2102
+ },
+ "db_snapshot": {
+  "date": "2026-11-07",
+  "name": "TEST mapleroot_persist SELECT-only export",
+  "tables": [
+   "drop_data",
+   "drop_data_global",
+   "plife",
+   "reactordrops",
+   "shopitems",
+   "shops"
+  ]
+ },
+ "release": "1.6.5",
+ "schema_version": "1.0.0",
+ "server_commit": "7709cc9ea61b9fdc9a7ff647466790bb4f31ce8e",
+ "wz_sha": "3a1d610ce54209e545decfa2fef989d5735a94452f53c59ac1eda86dee04e135"
+}

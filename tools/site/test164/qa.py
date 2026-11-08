@@ -108,10 +108,10 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def mint(account, character, characters=None):
+def mint(account, character, characters=None, gm=0):
     """A TEST session token, made on the TEST host with the TEST key; the key is read there and never sent anywhere."""
     payload = json.dumps({"account_id": account, "account": f"qa{account}", "character": character,
-                          "characters": characters or [character]})
+                          "characters": characters or [character], "gm": gm})
     out = ssh(f"python3 -c 'import sys,json; sys.path.insert(0,\"{BUILD}/tools/site\"); import login_service as l; "
               f"k=open(\"/etc/slums-login-test/key\",\"rb\").read().strip(); print(l.Sessions(k).issue(json.load(sys.stdin)))'",
               payload).strip()
@@ -152,6 +152,33 @@ def pages(http, quick):
     ok(st == 200, "the forgot-password page is public", str(st))
     st, _, _, _ = http("GET", "/no-such-page")
     ok(st == 404, "an unknown page is a 404", str(st))
+
+
+def atlas_gate(http):
+    """The staff Atlas page's data (nginx /admin/atlas/data/, served from outside the site tree): GM 3+ with a fresh
+    sign-in only. Signed out and a player without GM both get the 404 page; a fresh GM 3 gets the file."""
+    path = "/admin/atlas/data/"
+    gm = mint(FAKE["limits"] + 100, "QaStaff", gm=3)
+    if not ok(bool(gm), "a GM 3 test session was made"):
+        return
+    meta = None
+    for rel in ("1.6.5/meta.json", "9.9.9-test/meta.json"):
+        st, _, body, _ = http("GET", path + rel, token=gm)
+        if st == 200:
+            meta = rel
+            break
+    if meta is None:
+        print("SKIP  the Atlas data folder is not on TEST yet (/srv/slums-atlas-test): gate not checked", flush=True)
+        return
+    st, hd, body, _ = http("GET", path + meta, token=gm)
+    ok(st == 200 and "schema_version" in str(body), "Atlas data: a GM 3 with a fresh sign-in gets it", str(st))
+    ok("noindex" in (hd.get("X-Robots-Tag") or ""), "Atlas data is marked noindex", str(hd.get("X-Robots-Tag")))
+    st, _, _, _ = http("GET", path + meta)
+    ok(st == 404, "Atlas data: signed out gets the 404 page", str(st))
+    st, _, _, _ = http("GET", path + meta, token=TOKENS["limits"])
+    ok(st == 404, "Atlas data: a player who is not a GM gets the 404 page", str(st))
+    st, _, _, _ = http("GET", "/admin/atlas/data/../../../etc/passwd", token=gm)
+    ok(st in (400, 404), "Atlas data: a path out of the folder is refused", str(st))
 
 
 def gates(http):
@@ -501,6 +528,7 @@ def main():
     try:
         pages(http, args.quick)
         gates(http)
+        atlas_gate(http)
         exports(args.quick)
         undo += market_limits(http)
         if not args.quick:
