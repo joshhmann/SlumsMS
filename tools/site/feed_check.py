@@ -36,6 +36,7 @@ def problems(feed, site_version):
         out.append(f"feed version is {fv or 'missing'}, the site's newest release is {site_version}")
     news = feed.get("news") or []
     top = str(news[0].get("title", "")) if news and isinstance(news[0], dict) else ""
+    top = re.sub(r"(\d+\.\d+\.\d+)\s+hotfix\s*(\d+)", r"\1.\2", top, flags=re.I)   # "1.6.6 hotfix 1" is 1.6.6.1
     if site_version not in top:
         out.append(f"feed's newest news entry is '{top or 'none'}', expected one for {site_version}")
     return out
