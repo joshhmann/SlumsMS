@@ -25,28 +25,29 @@ function action(mode, type, selection) {
         }
 
         if (status == 0) {
-        if (!im.hasItem(4000660, 5)
-            || !im.hasItem(4000661,5)
-            || !im.hasItem(4000662,5)
-            || !im.hasItem(4000663,5))
-        {
-            im.playerMessage(5, "You need 5 of each stone in order to craft a Dream Key.");
-            im.dispose();
-            return;
-        }
-        if (!im.canHold(4032923)) {   // 1.6.8: a full ETC tab used to eat the 20 stones and give nothing
-            im.playerMessage(5, "Make room in your ETC tab first; your stones are still with you.");
-            im.dispose();
-            return;
-        }
-             im.gainItem(4000660,-5);
-             im.gainItem(4000661,-5);
-             im.gainItem(4000662,-5);
-             im.gainItem(4000663,-5);
-             im.gainItem(2430200,-1);
-             im.gainItem(4032923, 1);
-             im.playerMessage(5, "You have obtained the Dream Key.");
-                }
+            // 1.6.8 (owner, 9 Nov): the recipe is the reference one - 1 Dawn, 1 Blaze, 1 Wind, 1 Night and the
+            // Thunder Stone that runs this script. Every ingredient is checked before anything is taken, so a
+            // missing stone costs nothing and a stack of five loses only one.
+            if (!im.hasItem(4000660) || !im.hasItem(4000661) || !im.hasItem(4000662) || !im.hasItem(4000663)
+                || !im.hasItem(2430200))
+            {
+                im.playerMessage(5, "You need 1 of each stone - Dawn, Blaze, Wind and Night - and the Thunder Stone to make a Dream Key.");
+                im.dispose();
+                return;
             }
-            im.dispose();
+            if (!im.canHold(4032923)) {   // 1.6.8: a full ETC tab used to eat the stones and give nothing
+                im.playerMessage(5, "Make room in your ETC tab first; your stones are still with you.");
+                im.dispose();
+                return;
+            }
+            im.gainItem(4000660, -1);
+            im.gainItem(4000661, -1);
+            im.gainItem(4000662, -1);
+            im.gainItem(4000663, -1);
+            im.gainItem(2430200, -1);
+            im.gainItem(4032923, 1);
+            im.playerMessage(5, "You have obtained the Dream Key.");
+        }
+    }
+    im.dispose();
 }

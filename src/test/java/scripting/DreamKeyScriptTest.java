@@ -5,9 +5,9 @@ import org.junit.jupiter.api.Test;
 import javax.script.Invocable;
 import javax.script.ScriptEngine;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -15,10 +15,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 1.6.8 card cygnus-fight-unreachable: scripts/item/dreamkey.js (the Thunder Stone 2430200's spec script) took the
- * four stone stacks and the stone, then handed over Dream Key 4032923 - on a full ETC tab the key was dropped on the
- * floor of the inventory code and the stones were gone. It now asks whether the key can be held first and, if not,
- * says so and keeps everything.
+ * 1.6.8 card cygnus-fight-unreachable: scripts/item/dreamkey.js (the Thunder Stone 2430200's spec script) makes the
+ * Dream Key 4032923 from the reference recipe - 1 Dawn, 1 Blaze, 1 Wind, 1 Night and the Thunder Stone itself - and
+ * hands the key over. Everything is checked before anything is taken, so a missing stone or a full ETC tab keeps
+ * every item (the stones-entry version of this card took 5 each).
  *
  * <p>Reachability is checked too: only items whose spec names a script start one, so a WZ test proves 2430200 still
  * names dreamkey.
@@ -30,28 +30,26 @@ class DreamKeyScriptTest {
     private static final int[] STONES = {4000660, 4000661, 4000662, 4000663};
 
     public static final class FakeIm {
-        final Set<Integer> stones = new HashSet<>();
-        final List<Integer> gained = new ArrayList<>();
+        final Map<Integer, Integer> counts = new HashMap<>();
+        /** Every gainItem call as "item:qty", in call order. */
+        final List<String> gained = new ArrayList<>();
         final List<String> messages = new ArrayList<>();
         boolean roomForKey = true;
         boolean disposed;
 
-        FakeIm(boolean allStones) {
-            if (allStones) {
-                for (int stone : STONES) {
-                    stones.add(stone);
-                }
-            } else {
-                stones.addAll(List.of(STONES[0], STONES[1], STONES[2]));
+        /** id, count, id, count ... */
+        FakeIm(int... idsAndCounts) {
+            for (int i = 0; i < idsAndCounts.length; i += 2) {
+                counts.put(idsAndCounts[i], idsAndCounts[i + 1]);
             }
         }
 
         public boolean hasItem(int id) {
-            return stones.contains(id);
+            return counts.getOrDefault(id, 0) >= 1;
         }
 
         public boolean hasItem(int id, int qty) {
-            return stones.contains(id);
+            return counts.getOrDefault(id, 0) >= qty;
         }
 
         public boolean canHold(int id) {
@@ -59,7 +57,8 @@ class DreamKeyScriptTest {
         }
 
         public void gainItem(int id, int qty) {
-            gained.add(id * qty);
+            gained.add(id + ":" + qty);
+            counts.merge(id, qty, Integer::sum);
         }
 
         public void playerMessage(int type, String text) {
@@ -78,37 +77,92 @@ class DreamKeyScriptTest {
         ((Invocable) engine).invokeFunction("start");
     }
 
+    private static FakeIm oneOfEach() {
+        FakeIm im = new FakeIm();
+        for (int stone : STONES) {
+            im.counts.put(stone, 1);
+        }
+        im.counts.put(THUNDER_STONE, 1);
+        return im;
+    }
+
+    @Test
+    void oneOfEachStoneAndTheThunderStoneMakesTheKeyAndTakesExactlyThoseFive() throws Exception {
+        FakeIm im = oneOfEach();
+
+        start(im);
+
+        assertEquals(List.of(STONES[0] + ":-1", STONES[1] + ":-1", STONES[2] + ":-1", STONES[3] + ":-1",
+                THUNDER_STONE + ":-1", DREAM_KEY + ":1"), im.gained, "one each, then the key");
+        for (int stone : STONES) {
+            assertEquals(0, im.counts.get(stone), "stone " + stone + " is used up");
+        }
+        assertEquals(0, im.counts.get(THUNDER_STONE), "the Thunder Stone is used up");
+        assertEquals(1, im.counts.get(DREAM_KEY), "one key");
+        assertTrue(im.messages.contains("You have obtained the Dream Key."));
+        assertTrue(im.disposed);
+    }
+
+    @Test
+    void stacksOfFiveLoseOnlyOneEach() throws Exception {
+        FakeIm im = new FakeIm(STONES[0], 5, STONES[1], 5, STONES[2], 5, STONES[3], 5, THUNDER_STONE, 3);
+
+        start(im);
+
+        for (int stone : STONES) {
+            assertEquals(4, im.counts.get(stone), "only one " + stone + " is taken");
+        }
+        assertEquals(2, im.counts.get(THUNDER_STONE), "only one Thunder Stone is taken");
+        assertEquals(1, im.counts.get(DREAM_KEY));
+        assertEquals(List.of(STONES[0] + ":-1", STONES[1] + ":-1", STONES[2] + ":-1", STONES[3] + ":-1",
+                THUNDER_STONE + ":-1", DREAM_KEY + ":1"), im.gained, "five single items, never a whole stack");
+    }
+
     @Test
     void aFullEtcTabKeepsEveryStone() throws Exception {
-        FakeIm im = new FakeIm(true);
+        FakeIm im = oneOfEach();
         im.roomForKey = false;
 
         start(im);
 
         assertTrue(im.gained.isEmpty(), "nothing is taken when the key would not fit: " + im.gained);
+        assertEquals(1, im.counts.get(STONES[0]), "the Dawn stone stays");
+        assertEquals(1, im.counts.get(THUNDER_STONE), "the Thunder Stone stays");
+        assertEquals(0, im.counts.getOrDefault(DREAM_KEY, 0), "no key");
         assertTrue(im.disposed);
         assertEquals(1, im.messages.size());
         assertFalse(im.messages.get(0).contains(String.valueOf(DREAM_KEY)), "no item ids in player text");
     }
 
     @Test
-    void withRoomTheKeyIsMadeAndTheCraftingStonesAreUsedUp() throws Exception {
-        FakeIm im = new FakeIm(true);
+    void aMissingIngredientTakesNothing() throws Exception {
+        for (int missing : new int[]{STONES[0], STONES[1], STONES[2], STONES[3], THUNDER_STONE}) {
+            FakeIm im = oneOfEach();
+            im.counts.remove(missing);
+            Map<Integer, Integer> before = new HashMap<>(im.counts);
 
-        start(im);
+            start(im);
 
-        assertEquals(List.of(-STONES[0] * 5, -STONES[1] * 5, -STONES[2] * 5, -STONES[3] * 5,
-                -THUNDER_STONE, DREAM_KEY), im.gained);
-        assertTrue(im.messages.contains("You have obtained the Dream Key."));
+            assertTrue(im.gained.isEmpty(), "missing " + missing + " takes nothing: " + im.gained);
+            assertEquals(before, im.counts, "nothing moves when " + missing + " is missing");
+            assertTrue(im.disposed);
+            assertEquals(1, im.messages.size());
+            String said = im.messages.get(0);
+            assertTrue(said.contains("1 of each stone"), said);
+            for (String stone : List.of("Dawn", "Blaze", "Wind", "Night")) {
+                assertTrue(said.contains(stone), said + " names the " + stone + " stone");
+            }
+            assertFalse(said.contains(String.valueOf(DREAM_KEY)), "no item ids in player text");
+        }
     }
 
     @Test
     void withoutEveryStoneNothingIsTaken() throws Exception {
-        FakeIm im = new FakeIm(false);
+        FakeIm im = new FakeIm();
 
         start(im);
 
-        assertTrue(im.gained.isEmpty(), "a short stack takes nothing: " + im.gained);
+        assertTrue(im.gained.isEmpty(), "a player with none of the stones takes nothing: " + im.gained);
         assertTrue(im.disposed);
     }
 

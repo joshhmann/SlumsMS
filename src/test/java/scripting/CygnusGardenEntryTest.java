@@ -17,9 +17,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 1.6.8 card cygnus-fight-unreachable: the garden gate (scripts/portal/in_cygnusGarden.js, portal in00 of the Hall of
- * Honor 271030600) wanted Dream Key 4032923, whose only source is the Thunder Stone 2430200 - an item nothing drops,
- * sells or rewards - so no player could reach the Cygnus Garden. The key path is unchanged; a player who holds five
- * each of the four stones the key is made of may pay those 20 stones instead, and is told what was taken.
+ * Honor 271030600) wants Dream Key 4032923. The key is made in game now - the Thunder Stone 2430200 drops from the
+ * Thunder and its item script takes 1 of each stone - so the interim "five of each stone at the gate" entry is gone:
+ * a player without a key is refused with the old line and loses nothing.
  */
 class CygnusGardenEntryTest {
 
@@ -27,6 +27,7 @@ class CygnusGardenEntryTest {
     private static final int HALL_OF_HONOR = 271030600;
     private static final int DREAM_KEY = 4032923;
     private static final int[] STONES = {4000660, 4000661, 4000662, 4000663};
+    private static final String REFUSAL = "I need a Dream Key in order to enter.";
 
     public static final class FakePlayer {
         final Map<Integer, Integer> counts;
@@ -114,33 +115,35 @@ class CygnusGardenEntryTest {
     }
 
     @Test
-    void fiveOfEachStoneAlsoOpensTheGateAndTakesExactlyThoseTwenty() throws Exception {
+    void stonesAloneNoLongerOpenTheGateAndNoneAreTaken() throws Exception {
         FakePi pi = new FakePi(items(STONES[0], 5, STONES[1], 5, STONES[2], 5, STONES[3], 5));
 
-        assertEquals(Boolean.TRUE, enter(pi));
+        assertEquals(Boolean.FALSE, enter(pi));
 
-        assertEquals(GARDEN, pi.warpedTo);
-        assertEquals("out00", pi.portal);
-        assertEquals(List.of(-STONES[0] * 5, -STONES[1] * 5, -STONES[2] * 5, -STONES[3] * 5), pi.gained,
-                "five of each, nothing else");
-        assertEquals(1, pi.playerMessages.size(), "one message, and it says what was taken");
-        String said = pi.playerMessages.get(0);
-        for (String stone : List.of("Dawn", "Blaze", "Wind", "Night")) {
-            assertTrue(said.contains(stone), said + " names the " + stone + " stone");
-        }
-        assertTrue(said.contains("5"), said + " says how many");
-        assertFalse(said.contains(String.valueOf(DREAM_KEY)), "no item ids in player text");
+        assertNull(pi.warpedTo, "the gate stays shut");
+        assertTrue(pi.gained.isEmpty(), "not one stone is taken for a gate that stays shut: " + pi.gained);
+        assertEquals(List.of(REFUSAL), pi.playerMessages);
     }
 
     @Test
-    void fourOfOneStoneIsNotEnoughAndNothingIsTaken() throws Exception {
-        FakePi pi = new FakePi(items(STONES[0], 5, STONES[1], 5, STONES[2], 5, STONES[3], 4));
+    void oneOfEachStoneIsNotAKeyEitherAndNothingIsTaken() throws Exception {
+        FakePi pi = new FakePi(items(STONES[0], 1, STONES[1], 1, STONES[2], 1, STONES[3], 1));
 
         assertEquals(Boolean.FALSE, enter(pi));
 
         assertNull(pi.warpedTo);
-        assertTrue(pi.gained.isEmpty(), "not one stone is taken: " + pi.gained);
-        assertEquals(1, pi.playerMessages.size());
+        assertTrue(pi.gained.isEmpty(), "stones are only spent in the Thunder Stone's own script: " + pi.gained);
+        assertEquals(List.of(REFUSAL), pi.playerMessages);
+    }
+
+    @Test
+    void aKeyInTheInventoryIsEnoughEvenWithStonesBesideIt() throws Exception {
+        FakePi pi = new FakePi(items(DREAM_KEY, 1, STONES[0], 5, STONES[1], 5, STONES[2], 5, STONES[3], 5));
+
+        assertEquals(Boolean.TRUE, enter(pi));
+
+        assertEquals(GARDEN, pi.warpedTo);
+        assertEquals(List.of(-DREAM_KEY), pi.gained, "only the key is taken; the stones stay");
     }
 
     @Test
@@ -151,7 +154,16 @@ class CygnusGardenEntryTest {
 
         assertNull(pi.warpedTo);
         assertTrue(pi.gained.isEmpty());
-        assertTrue(pi.playerMessages.get(0).contains("Dream Key"), "the way in is still named");
+        assertEquals(List.of(REFUSAL), pi.playerMessages);
+    }
+
+    @Test
+    void theGateScriptNoLongerKnowsAboutTheStones() throws Exception {
+        String script = java.nio.file.Files.readString(java.nio.file.Path.of("scripts/portal/in_cygnusGarden.js"));
+        for (int stone : STONES) {
+            assertFalse(script.contains(String.valueOf(stone)), "the stones entry is gone (stone " + stone + ")");
+        }
+        assertTrue(script.contains(REFUSAL), "the old refusal line");
     }
 
     @Test
