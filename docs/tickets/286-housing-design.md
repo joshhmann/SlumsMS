@@ -98,6 +98,28 @@ not the client.
   depth ordering, overlay-art validation/soft-fail.
 - Do not take: Kuro's 68 MB WZ, their map 871100001 (not in our data), their protocol layout, or any bytes.
 
+
+## MushMS client inspection (2026-11-09)
+
+Checked the installed client at Silvia `Z:\MSv83\Client_Sources\Mush_Beta_V0.1` read-only. Findings:
+
+- **`MushMS.exe` is byte-identical to `Kuro.exe`** - sha256 `1198fa57ca5a7c489bae43ec13c69681d9cabe0f96762f3dc0357facf2e7d4df`,
+  8,503,296 B, PE timestamp 2010-02-17. Both are the stock v83 exe plus the same four-byte patch at
+  VA ~0x796F57. That patch is shared client infrastructure for these two servers, not a housing or job feature.
+  Our own stock exe stays unpatched; `slums.dll` does not need it.
+- The client mod is `mushcore.dll` (4,988,944 B, built 2026-06-13) and it is **Themida-protected**: sections
+  `.themida` and a ~4.76 MB `.boot` payload, an unreadable export table, effectively no readable feature strings,
+  and a bcrypt import that belongs to the protector. **Hard stop: do not attempt to read or defeat it** - their
+  layer is protected IP and our clean-room rule already says behaviour references only.
+- Their data is a **split-WZ v83 tree**: `Data/{Character,Map,...}`, 7,291 files under `Data/Map`, with Map8
+  holding 461 maps from `800000000` to `889100100`. There is **no `871100001`** (Kuro's house map) and no other
+  `87xxxxxxx` map. So MushMS housing is server/instance driven on existing assets - matching their public
+  description and ticket 180's model - not a Kuro-style WZ overlay.
+
+Consequence for this design: Kuro remains the only *readable* example of the client-side dynamic-object and
+physics mechanism, so the Phase 0 spike stays the gate. MushMS confirms the asset-reuse, no-per-house-WZ model;
+its own client trick, if any, is hidden behind Themida and is out of bounds.
+
 ## Questions for the owner (decisions)
 
 1. Rent/upkeep for personal rooms - yes/no, and rough amounts?
