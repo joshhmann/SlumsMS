@@ -211,6 +211,7 @@ public class MapFactory {
         for (Data portal : mapData.getChildByPath("portal")) {
             map.addPortal(portalFactory.makePortal(DataTool.getInt(portal.getChildByPath("pt")), map.getId(), portal));
         }
+        PortalFactory.assignClientIndexes(map.getPortals());   // b339: SET_FIELD's spawn byte is the client's index
         Data timeMob = infoData.getChildByPath("timeMob");
         if (timeMob != null) {
             map.setTimeMob(DataTool.getInt(timeMob.getChildByPath("id")), DataTool.getString(timeMob.getChildByPath("message")));

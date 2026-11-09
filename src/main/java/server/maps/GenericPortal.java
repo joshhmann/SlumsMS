@@ -60,6 +60,27 @@ public class GenericPortal implements Portal {
         this.id = id;
     }
 
+    private int wzIndex = -1;
+    private int clientIndex = -1;
+
+    /** The portal's WZ index (its image name), door points included; -1 when not loaded from WZ. */
+    public int getWzIndex() {
+        return wzIndex;
+    }
+
+    void setWzIndex(int wzIndex) {
+        this.wzIndex = wzIndex;
+    }
+
+    @Override
+    public int getClientIndex() {
+        return clientIndex >= 0 ? clientIndex : id;
+    }
+
+    void setClientIndex(int clientIndex) {
+        this.clientIndex = clientIndex;
+    }
+
     @Override
     public String getName() {
         return name;

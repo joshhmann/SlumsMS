@@ -53,6 +53,11 @@ public class PortalFactory {
         int y = DataTool.getInt(portal.getChildByPath("y"));
         myPortal.setPosition(new Point(x, y));
         String script = DataTool.getString("script", portal, null);
+        try {
+            myPortal.setWzIndex(Integer.parseInt(portal.getName()));
+        } catch (NumberFormatException notAnIndex) {
+            // a hand-made portal node: no WZ index, keeps getClientIndex() == getId()
+        }
         if (myPortal.getType() == Portal.DOOR_PORTAL) {
             myPortal.setId(nextDoorPortal);
             nextDoorPortal++;
@@ -77,5 +82,28 @@ public class PortalFactory {
         }
 
         myPortal.setScriptName(possibleScriptPath);
+    }
+
+    /**
+     * b339 (1.6.8): gives each loaded portal of one map its client index (see {@link Portal#getClientIndex}): its WZ
+     * index minus the door points (pt 6) before it in WZ order. Door points keep their 0x80+ id. Call once all of the
+     * map's portals are made.
+     */
+    public static void assignClientIndexes(java.util.Collection<Portal> portals) {
+        java.util.List<GenericPortal> loaded = new java.util.ArrayList<>();
+        for (Portal p : portals) {
+            if (p instanceof GenericPortal g && g.getWzIndex() >= 0) {
+                loaded.add(g);
+            }
+        }
+        loaded.sort(java.util.Comparator.comparingInt(GenericPortal::getWzIndex));
+        int doorsBefore = 0;
+        for (GenericPortal g : loaded) {
+            if (g.getType() == Portal.DOOR_PORTAL) {
+                doorsBefore++;
+            } else {
+                g.setClientIndex(g.getWzIndex() - doorsBefore);
+            }
+        }
     }
 }

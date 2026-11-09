@@ -179,8 +179,16 @@ public class PacketCreator {
         p.writeShort(chr.getFame()); // fame
         p.writeInt(chr.getGachaExp()); //Gacha Exp
         p.writeInt(chr.getMapId()); // current map id
-        p.writeByte(chr.getInitialSpawnpoint()); // spawnpoint
+        p.writeByte(clientSpawnIndex(chr)); // spawnpoint, as the client indexes it (b339)
         p.writeInt(0);
+    }
+
+    /** b339: the saved spawn point (a server portal id) as the client's portal index; unchanged when unknown. */
+    static int clientSpawnIndex(Character chr) {
+        int sp = chr.getInitialSpawnpoint();
+        MapleMap map = chr.getMap();
+        Portal portal = map == null ? null : map.getPortal(sp);
+        return portal == null ? sp : portal.getClientIndex();
     }
 
     protected static void addCharLook(final OutPacket p, Character chr, boolean mega) {

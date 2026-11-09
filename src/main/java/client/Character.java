@@ -1681,7 +1681,7 @@ public class Character extends AbstractCharacterObject {
                 if (pto == null) {
                     return; // a map with no portal at all: refuse the move instead of throwing
                 }
-                changeMapInternal(to, pto.getPosition(), PacketCreator.getWarpToMap(to, pto.getId(), this));
+                changeMapInternal(to, pto.getPosition(), PacketCreator.getWarpToMap(to, pto.getClientIndex(), this));
                 canWarpMap = false;
             } finally {
                 releaseWarpLatch();
@@ -1828,7 +1828,7 @@ public class Character extends AbstractCharacterObject {
             } else if (pto == null) {
                 pto = to.getPortal(0);
             }
-            changeMapInternal(to, pto.getPosition(), PacketCreator.getWarpToMap(to, pto.getId(), this));
+            changeMapInternal(to, pto.getPosition(), PacketCreator.getWarpToMap(to, pto.getClientIndex(), this));
             canWarpMap = false;
         } finally {
             releaseWarpLatch();

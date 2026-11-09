@@ -33,6 +33,16 @@ public interface Portal {
     boolean CLOSED = false;
     int getType();
     int getId();
+
+    /**
+     * b339 (1.6.8): the index the client knows this portal by, for SET_FIELD's spawn byte. The v83 client keeps the
+     * type-6 town-portal points (pt 6, "tp") out of its spawn portal list, so a portal's client index is its WZ index
+     * minus the tp entries before it; the server's own id is that WZ index (tp points get 0x80+). Equal to getId() on
+     * maps with no tp entry before the portal, and for the tp points themselves.
+     */
+    default int getClientIndex() {
+        return getId();
+    }
     Point getPosition();
     String getName();
     String getTarget();
