@@ -87,7 +87,9 @@ class PlunkBossRewardRoomsMigrationTest {
     void plunksRewardScriptServesBothRooms() throws Exception {
         String script = Files.readString(Path.of("scripts/npc/3004006.js"));
         assertTrue(script.contains("case " + VON_LEON_ROOM + ":"), "Von Leon's reward branch");
-        assertTrue(script.contains("gainItem(4001693, 1)"), "the Seal rebirth 2 needs");
+        // 1.6.7 bagrewards: the Seal is now one entry of a reward list rolled per player, so a source-text match on the
+        // old gainItem call is gone. That the Seal is in every Von Leon band is asserted where it belongs, by rolling
+        // the script: scripting.PlunkBossRewardBagTest.vonLeonsNineRandomBandsAreTheOnesTheScriptAlwaysGave.
         assertTrue(script.contains("case " + CYGNUS_ROOM + ":"), "Cygnus's reward branch");
     }
 
