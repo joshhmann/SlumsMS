@@ -137,6 +137,9 @@ cmp -s "$B/config.yaml" "$SRV/config.yaml" || die "restored config.yaml differs 
 if [ "${#UNIT_EDITS[@]}" -gt 0 ]; then
   cp "$B/slumsms.service" "$UNIT_FILE"; eval "$DAEMON_RELOAD_CMD"; grep -E "ExecStart|TimeoutStopSec" "$UNIT_FILE"
 fi
+# P2-8: the monitor's VERSION_FILE goes back to what the deploy saved (none saved before it = no file; a deploy from before this step left no marker, so leave it).
+if [ -f "$B/SLUMSMS_VERSION.old" ]; then cp -p "$B/SLUMSMS_VERSION.old" "$SRV/SLUMSMS_VERSION"; echo "version file restored: $(head -1 "$SRV/SLUMSMS_VERSION")"
+elif [ -e "$B/SLUMSMS_VERSION.absent" ]; then rm -f "$SRV/SLUMSMS_VERSION"; echo "version file removed (there was none before the deploy)"; fi
 WZT="$ST/wz-targets.txt"
 if [ -f "$WZT" ]; then   # the WZ files stop-backup saved go back; the ones that did not exist before are removed
   while IFS= read -r rel || [ -n "$rel" ]; do
