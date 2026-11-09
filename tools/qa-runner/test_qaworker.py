@@ -414,6 +414,7 @@ class WorkerCallsTest(unittest.TestCase):
         info = worker.login('me', {'account': {'vault': 'aq-gm-1'}})
         self.assertEqual(['status', 'start_client', 'qa_events', 'login_credentials', 'status', 'read_logs'],
                          transport.names())
+        self.assertEqual({'instance': worker.instance}, transport.calls[1][1])   # the run's TEST instance (owner 9 Nov)
         self.assertEqual({'vault': 'aq-gm-1'}, transport.calls[3][1])
         self.assertEqual('1.6.2-qa', info['release'])
 
