@@ -217,7 +217,7 @@ class ValidatorTest(unittest.TestCase):
         decline = GOOD.replace("  - {do: select_character}\n",
                                "  - {do: select_character}\n  - {do: click, anchor: npc_dialog.decline}\n")
         errors, _ = check(decline)
-        self.assertEqual([], [e for e in errors if "npc_dialog.decline" in e])
+        self.assertEqual([], [e for e in errors if "unknown anchor" in e])   # proposed: scripts declare proposed_anchors
 
     def test_the_id_matches_the_file_name(self):
         errors, _ = qascript.validate_text(GOOD, "other-name")

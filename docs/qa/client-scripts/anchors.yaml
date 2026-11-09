@@ -37,6 +37,7 @@ anchors:
   party_invite.decline:       {screen: field, status: proposed, what: "Decline on a party invite"}
   npc_dialog.next:            {screen: field, status: proposed, what: "Next in an NPC dialog"}
   npc_dialog.yes:             {screen: field, status: proposed, what: "Yes in an NPC yes/no dialog"}
+  npc_dialog.decline:         {screen: field, status: proposed, what: "No / Decline in a yes/no dialog, also a stock quest's Accept/Decline (QA client: dialog_decline, no mouse; QA build 23)"}
   npc_dialog.option_1:        {screen: field, status: proposed, what: "the first option of an NPC menu"}
   npc_dialog.option_2:        {screen: field, status: proposed, what: "menu row 2 of an NPC menu (QA client: click_option 2, no mouse)"}
   npc_dialog.option_3:        {screen: field, status: proposed, what: "menu row 3 of an NPC menu (QA client: click_option 3, no mouse)"}
