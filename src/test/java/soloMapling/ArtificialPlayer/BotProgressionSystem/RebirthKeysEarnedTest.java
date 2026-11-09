@@ -326,9 +326,12 @@ class RebirthKeysEarnedTest {
             if (b == Boss.PINKBEAN) {
                 assertTrue(pinkExit.contains("cm.gainItem(" + b.clearItem + ", 1)"));
             } else {
+                // 1.6.7 bagrewards: Plunk's rooms are a reward table (clearRewards) handed out after the bag check
                 int caseAt = plunk.indexOf("case " + b.roomMap + ":");
                 assertTrue(caseAt > 0, b + " room in Plunk");
-                assertTrue(plunk.indexOf("playerInteraction.gainItem(" + b.clearItem + ", 1)", caseAt) > caseAt, b.name());
+                int nextCase = plunk.indexOf("case ", caseAt + 1);
+                String room = plunk.substring(caseAt, nextCase > 0 ? nextCase : plunk.length());
+                assertTrue(room.contains("[" + b.clearItem + ", 1]"), b.name() + " room hands out its key item");
             }
             if (b.botsRunIt) {
                 String npc = Files.readString(Path.of("scripts/npc/" + b.summonNpc + ".js"));
@@ -351,8 +354,9 @@ class RebirthKeysEarnedTest {
     @Test
     void bossRewardLoopsSkipBotsInsteadOfThrowing() throws Exception {
         String plunk = Files.readString(Path.of("scripts/npc/3004006.js"));
-        int loops = plunk.split("players\\.forEach\\(\\(chr, index\\) => \\{", -1).length - 1;
-        int guarded = plunk.split("players\\.forEach\\(\\(chr, index\\) => \\{\\s*if \\(chr\\.isBot\\(\\)\\) return;", -1)
+        // 1.6.7 bagrewards: the hand-out loop is eim.getPlayers().forEach((chr) => ...); any players loop counts
+        int loops = plunk.split("[pP]layers\\(?\\)?\\.forEach\\(\\(chr(, index)?\\) => \\{", -1).length - 1;
+        int guarded = plunk.split("[pP]layers\\(?\\)?\\.forEach\\(\\(chr(, index)?\\) => \\{\\s*if \\(chr\\.isBot\\(\\)\\) return;", -1)
                 .length - 1;
         assertTrue(loops > 0);
         assertEquals(loops, guarded, "every Plunk hand-out skips a bot (it has no client: gainItem threw)");
