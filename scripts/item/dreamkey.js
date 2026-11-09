@@ -34,6 +34,11 @@ function action(mode, type, selection) {
             im.dispose();
             return;
         }
+        if (!im.canHold(4032923)) {   // 1.6.8: a full ETC tab used to eat the 20 stones and give nothing
+            im.playerMessage(5, "Make room in your ETC tab first; your stones are still with you.");
+            im.dispose();
+            return;
+        }
              im.gainItem(4000660,-5);
              im.gainItem(4000661,-5);
              im.gainItem(4000662,-5);

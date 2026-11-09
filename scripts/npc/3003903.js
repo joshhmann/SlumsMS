@@ -26,6 +26,11 @@
                             status--;
     
                     if(status == 0) {
+                        if (cm.getEventInstance() == null) {   // 1.6.8: this NPC now also stands in the base chamber
+                            cm.sendOk("This only answers during the expedition. Start the fight through the expedition leader.");
+                            cm.dispose();
+                            return;
+                        }
                         expedition = cm.getExpedition(exped);
                         if (!isLeader()) {   // 1.5.2: no expedition threw here, and a non-leader was left in an open talk
                             cm.sendOk("Only the leader of the expedition can do this.");
@@ -36,6 +41,10 @@
                             cm.sendYesNo("Dark energy emanates from her, are you sure you want to disturb her sleep?");
                         }
                     } else if (status == 1) {
+                        if (cm.getEventInstance() == null) {   // a forged "next" in the base map must not spawn her
+                            cm.dispose();
+                            return;
+                        }
                         if (!isLeader()) {   // a forged "next" from a non-leader must not spawn the boss
                             cm.dispose();
                             return;
