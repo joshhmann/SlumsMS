@@ -90,4 +90,26 @@ class BossFeedHooksTest {
 
         assertEquals(List.of("BOSS spawn pianus R map 230040420 source timer"), log);
     }
+
+    @Test
+    void thePianusCommandMarksItsSpawnAsGm() {
+        MapleMap map = mock(MapleMap.class);
+        when(map.getId()).thenReturn(BossFeed.PIANUS_MAP);
+        Monster pianus = boss(BossFeed.PIANUS_R, true, map);
+        Character gm = attacker(1, map);
+        when(gm.getPosition()).thenReturn(new java.awt.Point(0, 0));
+        Client client = mock(Client.class);
+        when(client.getPlayer()).thenReturn(gm);
+        org.mockito.Mockito.doAnswer(a -> {
+            BossFeed.spawned(map, pianus);    // what MapleMap.spawnMonster does on the real path
+            return null;
+        }).when(map).spawnMonsterOnGroundBelow(org.mockito.ArgumentMatchers.any(Monster.class), org.mockito.ArgumentMatchers.any());
+        try (var factory = org.mockito.Mockito.mockStatic(LifeFactory.class)) {
+            factory.when(() -> LifeFactory.getMonster(BossFeed.PIANUS_R)).thenReturn(pianus);
+
+            new client.command.commands.gm4.PianusCommand().execute(client, new String[0]);
+        }
+
+        assertEquals(List.of("BOSS spawn pianus R map 230040420 source gm"), log);
+    }
 }
