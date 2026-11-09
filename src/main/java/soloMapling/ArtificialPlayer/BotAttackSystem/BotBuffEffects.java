@@ -325,9 +325,10 @@ public final class BotBuffEffects {
             } else if (effect != null) {
                 effect.applyToTarget(bot, target);    // a real player or an allowed companion gets the working buff
                 showReceivedBuff(target, skillId);    // + the "received a party buff" particle
-            } else {
-                showBuff(target, skillId);            // unpaid: nothing working to hand anyone
+            } else if (BotHelpers.isBot(target)) {
+                showBuff(target, skillId);            // unpaid: an allowed companion keeps the cosmetic aura
             }
+            // unpaid and a real player: nothing, as before 1.6.7 (wave 4 audit R1: no aura without a working buff)
         }
     }
 

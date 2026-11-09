@@ -267,6 +267,23 @@ class RealBuffsTest {
         verify(atFive, never()).applyToTarget(any(), any());
     }
 
+    /**
+     * Wave 4 audit R1: an unpaid cast hands a real player nothing, and it must not draw a buff on them either - the
+     * aura would tell the party (and the player) they are buffed when they are not. Before 1.6.7 they were left alone.
+     */
+    @Test
+    void anUnpaidCastDrawsNoBuffOnARealPlayer() {
+        hasMp = false;
+        Character bot = caster();
+        Character player = chr(PLAYER, false, false, 10);
+        when(map.getCharacters()).thenReturn(List.of(bot, player));
+
+        BotBuffEffects.castBuff(bot, Fighter.RAGE);
+
+        verify(atFive, never()).applyToTarget(any(), any());
+        verify(map, never()).broadcastMessage(eq(player), any(), anyBoolean());
+    }
+
     @Test
     void anAltOnlyReachMakesTheCasterPay() {
         Character bot = chr(BOT, true, false, 0);   // a party regular: the policy does not let it be buffed itself

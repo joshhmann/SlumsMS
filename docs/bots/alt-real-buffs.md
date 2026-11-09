@@ -6,6 +6,14 @@ numbers re-read against that base and nothing else changed.
 Owner decision (8 Nov, about 08:0x UTC): "Really work." Alts' party buffs get real effects at our skill-data values,
 behind PartyCompanionPolicy (alts on, regulars off until 1.7.1).
 
+## The lines for the notes
+
+> Party buffs from a companion now really work on your alts: a priest companion's Holy Symbol really raises your
+> alts' EXP, and a priest companion casts Dispel on a party member a monster cursed, blinded, poisoned, sealed, slowed or
+> weakened.
+
+(Wave 4 audit R2: the Holy Symbol EXP effect is the one players will notice, so the notes say it plainly.)
+
 ## 1. What happens today (read from code)
 
 | Who casts | Who receives | Today |
@@ -138,6 +146,10 @@ the aura used to stay up until the next recast. That is what a real player has a
 
 Migration: none needed, because no table, column, row or item is touched. The switch defaults to on for owned alts
 only, which is the state this branch ships.
+
+- An unpaid cast (the caster has no MP) gives nobody a working buff. A real player is left alone, as before 1.6.7,
+  with no buff aura drawn on them; an allowed companion keeps the cosmetic aura it had (wave 4 audit R1,
+  `RealBuffsTest.anUnpaidCastDrawsNoBuffOnARealPlayer`).
 
 ## Out of scope
 
