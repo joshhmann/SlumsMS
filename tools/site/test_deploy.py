@@ -319,7 +319,7 @@ class TestNxDeskModeTest(DeployScriptTest):
 def newest_release():
     """The highest version in docs/site/releases (1.6.2 > 1.6.0 > 1.5.6)."""
     names = [n[:-3] for n in os.listdir(os.path.join(ROOT, "docs/site/releases")) if n.endswith(".md")]
-    return max(names, key=lambda n: tuple(int(p) for p in n.split(".")))
+    return max(names, key=lambda n: tuple(int(p) for p in re.findall(r"\d+", n)))
 
 
 class GuideTest(unittest.TestCase):
