@@ -204,7 +204,7 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
     }
 
     public void sendSimple(String text) {
-        getClient().sendPacket(PacketCreator.getNPCTalk(npc, (byte) 4, text, "", (byte) 0));
+        sendSimple(text, (byte) 0);
     }
 
     public void sendNext(String text, byte speaker) {
@@ -232,7 +232,20 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
     }
 
     public void sendSimple(String text, byte speaker) {
+        // cygnus-lv30-random-crash (1.6.7): Enter on a menu with no row reads a null row list and crashes the client
+        // (+005AC1CA, CUtilDlgEx), so a menu text with no #L row goes out as the OK dialog it reads as.
+        if (!hasMenuRow(text)) {
+            sendOk(text, speaker);
+            return;
+        }
         getClient().sendPacket(PacketCreator.getNPCTalk(npc, (byte) 4, text, "", speaker));
+    }
+
+    private static final java.util.regex.Pattern MENU_ROW = java.util.regex.Pattern.compile("#L\\d+#");
+
+    /** True when a menu text has at least one selectable row ({@code #L<n>#}). */
+    static boolean hasMenuRow(String text) {
+        return text != null && MENU_ROW.matcher(text).find();
     }
 
     public void sendStyle(String text, int[] styles) {
