@@ -113,6 +113,7 @@ TOOLS = {
                    'steps': {'type': 'integer', 'minimum': 1, 'maximum': 60}},
 }
 CHAT_SETTLE = 1.0   # 0.3 s still lost the "!" of the first command after login (2026-10-25)
+COMMAND_ECHO_WINDOW = 1.0   # a chat line's echo is one server round trip; 1 s leaves room on a busy map
 REQUIRED = {'qa_wait': ('signal',), 'qa_burst': ('fps', 'ms', 'label'), 'run_script': ('name',),
             'command': ('line',), 'press_key': ('name',), 'mouse_click': ('x', 'y'),
             'login_credentials': ('vault',), 'click_anchor': ('name',), 'select_world': ('world',),
@@ -979,9 +980,30 @@ class Driver:
         if self.qa:
             self.qa.drain()   # a qa_wait after this command sees only what the command causes
         self.sender.text(line)
+        start = self.qa.events_from(1 << 62)[1] if self.qa and line.startswith('!') else None
         self.sender.key(13)
         self.state = 'field'
+        if start is not None:
+            self.check_command_echo(line, start)
         return {'sent': True}
+
+    def check_command_echo(self, line, start):
+        # qa-line-damaged (1.6.7): a command whose "!" was lost on the way in goes out as plain chat and comes back
+        # as the client's own chat line, a tail of what was typed (cygnus-fight-player-20261109T193047Z: "4 8850011"
+        # and "mobdamage 14 8850011", each right after a "Welcome to Bera!" banner, every step "ok"). Reads the log by
+        # position, so a qa_wait after this still sees every event. The echo carries no speaker, so someone else's line
+        # of 4+ characters that happens to end the command would also refuse it. A lost character that keeps the "!"
+        # is not seen.
+        deadline = time.monotonic() + COMMAND_ECHO_WINDOW
+        while True:
+            events, start = self.qa.events_from(start)
+            for event in events:
+                text = event.get('text') if event.get('ev') == 'chat.received' else None
+                if event.get('kind') in (0, 1) and text and len(text) >= 4 and line.endswith(text):
+                    raise Refusal('line_damaged: the command went out as chat "' + text + '"; it did not run.')
+            if time.monotonic() >= deadline:
+                return
+            time.sleep(0.05)
 
     def go_to(self, map_id=None, channel=None):
         if (map_id is None) == (channel is None):
