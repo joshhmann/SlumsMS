@@ -585,7 +585,7 @@ public final class OwnedAltCompanion {
         Point at = alt.getPosition();
         Point mob = target.getPosition();
         int[] reach = Approach.reach(alt);
-        if (!Approach.inReach(at, mob, reach)) {
+        if (!Approach.inSwingReach(at, target, reach)) { // anchor, or a boss part's body (where fightSpot sends it)
             int[] spot = Approach.fightSpot(alt, target, reach, BotCombatTuning.human());
             s.lastMoveX = Approach.walkTo(alt, spot[0], spot[1], s.lastMoveX);
             s.doing = "walking to " + target.getName() + " (dx " + (mob.x - at.x) + ")";

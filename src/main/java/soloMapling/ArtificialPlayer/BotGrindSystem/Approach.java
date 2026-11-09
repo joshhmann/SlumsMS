@@ -47,6 +47,20 @@ public final class Approach {
         return m != null && (m.isBoss() || server.maps.MapleMap.hasBossMechanics(m.getId()));
     }
 
+    /**
+     * The swing test the owned-alt and follower fight paths use: within {@code reach} of the mob's anchor, as always,
+     * or, for a boss part, with the reach box meeting its Mob.wz body (BossBodyReach, 1.6.7 zakum reach). fightSpot
+     * sends a fighter to a part's body edge; without this the alt stood there without swinging (9 Nov 2026).
+     */
+    public static boolean inSwingReach(Point at, Monster mob, int[] reach) {
+        if (mob == null || at == null) {
+            return false;
+        }
+        return inReach(at, mob.getPosition(), reach)
+                || soloMapling.ArtificialPlayer.BotAttackSystem.BossBodyReach.bodyReaches(
+                soloMapling.ArtificialPlayer.BotAttackSystem.BossBodyReach.reachBox(at, reach[0], reach[1]), mob);
+    }
+
     /** {@code target} is within {@code reach} ({x, y}) of {@code at}. */
     public static boolean inReach(Point at, Point target, int[] reach) {
         return at != null && target != null && Math.abs(target.x - at.x) <= reach[0]
