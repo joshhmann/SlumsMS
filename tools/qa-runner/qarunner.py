@@ -489,6 +489,8 @@ class SilviaWorker:
                                        "run_ms": int(step.get("run_ms", 0)), "hold_ms": int(step.get("hold_ms", 800))}
         elif kind == "click_npc":
             name, arguments = "click_npc", {"npc": step["npc"]}
+        elif kind == "click_dialog_row":   # qa-dialog-row (1.6.7): also the client's own quest-npc menu
+            name, arguments = "click_dialog_row", {"row": int(step["row"]), "rows": int(step.get("rows", 0))}
         elif kind == "position":   # qa-position-signal (1.6.6): where the character is; the answer is the detail
             name, arguments = "position", {}
         elif kind == "walk_to":    # qa-walk-to (1.6.7): walk on the floor until the QA client's position arrives
