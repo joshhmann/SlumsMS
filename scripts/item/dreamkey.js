@@ -25,23 +25,29 @@ function action(mode, type, selection) {
         }
 
         if (status == 0) {
-        if (!im.hasItem(4000660, 5)
-            || !im.hasItem(4000661,5)
-            || !im.hasItem(4000662,5)
-            || !im.hasItem(4000663,5))
-        {
-            im.playerMessage(5, "You need 5 of each stone in order to craft a Dream Key.");
-            im.dispose();
-            return;
-        }
-             im.gainItem(4000660,-5);
-             im.gainItem(4000661,-5);
-             im.gainItem(4000662,-5);
-             im.gainItem(4000663,-5);
-             im.gainItem(2430200,-1);
-             im.gainItem(4032923, 1);
-             im.playerMessage(5, "You have obtained the Dream Key.");
-                }
+            // 1.6.8 (owner, 9 Nov 15:26 UTC): the recipe stays ours - 5 Dawn, 5 Blaze, 5 Wind, 5 Night and the Thunder
+            // Stone that runs this script - not the reference server's 1 of each. Every ingredient is checked before
+            // anything is taken, so a missing stone costs nothing.
+            if (!im.hasItem(4000660, 5) || !im.hasItem(4000661, 5) || !im.hasItem(4000662, 5) || !im.hasItem(4000663, 5)
+                || !im.hasItem(2430200))
+            {
+                im.playerMessage(5, "You need 5 of each stone - Dawn, Blaze, Wind and Night - and the Thunder Stone to make a Dream Key.");
+                im.dispose();
+                return;
             }
-            im.dispose();
+            if (!im.canHold(4032923)) {   // 1.6.8: a full ETC tab used to eat the stones and give nothing
+                im.playerMessage(5, "Make room in your ETC tab first; your stones are still with you.");
+                im.dispose();
+                return;
+            }
+            im.gainItem(4000660, -5);
+            im.gainItem(4000661, -5);
+            im.gainItem(4000662, -5);
+            im.gainItem(4000663, -5);
+            im.gainItem(2430200, -1);
+            im.gainItem(4032923, 1);
+            im.playerMessage(5, "You have obtained the Dream Key.");
+        }
+    }
+    im.dispose();
 }

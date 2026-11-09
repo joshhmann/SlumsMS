@@ -9,8 +9,7 @@ function enter(pi) {
        pi.warp(271040000, "out00");
        pi.gainItem(4032923, -1);
        return true;
-    } else {
-       pi.getPlayer().dropMessage(5, "I need a Dream Key in order to enter.");
-       return false;
     }
+    pi.getPlayer().dropMessage(5, "I need a Dream Key in order to enter.");
+    return false;
 }
