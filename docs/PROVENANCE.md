@@ -714,3 +714,25 @@ Changed:
 - our sale goes through the existing NPC counter path (`BotBagRoom`: the same candidate scan, the same
   `BotYieldCaps` meso credit and the same `EconomyCounters` record as the town stop), so no price, rate or shop
   protocol is added; their shop-visit request packet is not ported.
+
+### Boss parts reached by their body box, 1.6.7 (branch `167-bots-zakum-reach`, QA's Zakum run 9 Nov 2026), BotStory `fd953285`
+
+QA's Zakum sweep on TEST (zakum-sweep-c-20261109T041606Z) had melee regulars "give up on Zakum's Arm n at -9,-216":
+every Zakum part reports that one anchor while its Mob.wz body lies up to 400 px away. BotStory already judges reach
+by the body box and names the cause ("fixed multipart mobs can publish an origin in empty space between parts").
+
+| From theirs | Our files |
+| --- | --- |
+| `server.agents.capabilities.combat.AgentCombatHitboxIntersection.intersectsMonsterBounds` (a swing box meets the body; the anchor counts only when it sits on the body) | `soloMapling/ArtificialPlayer/BotAttackSystem/BossBodyReach.intersectsMonsterBounds` |
+| `server.agents.capabilities.combat.AgentCombatTargetPositionPolicy.isHorizontallyDetached` | `BossBodyReach.isHorizontallyDetached` |
+| `server.agents.capabilities.combat.AgentCombatAimPointPolicy.nearestPoint` (walk to the body's nearest point) | `BossBodyReach.nearestPoint` / `aimPoint` |
+| `server.agents.capabilities.combat.data.AgentMobHitboxProvider.getMobBounds(Monster)` mirror rule (a fixed-stance mob never flips) | `BossBodyReach.bodyOf`, on our existing `GCMoveSystem/BotMobHitboxProvider` (nutnnut GreenCatMS) |
+
+ADAPTED, not a straight port: ours applies it to boss parts only (`Monster.isBoss()` with a Mob.wz body), and the body
+is reach ADDED to today's anchor rule in `BotAttackDriver.canSwingFrom` and the swing's `mobsInReach`, not BotStory's
+strict "anchor only when on the body" (with it, melee on the ground could never reach Horntail's room-1 head, body
+179-450 px up, nor Zakum's arms 3/4/5/6/8 from the altar). The walk (`costTo`, `Approach.fightSpot`) goes to the
+body's nearest point only when a swing from there on the bot's own ground meets the body; else to the anchor as
+before. Every other mob is unchanged. Not ported:
+BotStory's Zakum ledge anchors (`AgentZakumScenario.platformAnchors`, unconfirmed in its own doc) and its melee/ranged
+arm split feed (planned with horntail-kill-order, 1.6.8). Test: `BossBodyReachTest` (real Mob.wz boxes).

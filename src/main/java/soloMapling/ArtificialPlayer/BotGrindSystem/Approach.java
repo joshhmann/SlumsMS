@@ -194,7 +194,11 @@ public final class Approach {
      * spot on the mob's ground within the band either side - as {x, groundY}.
      */
     public static int[] fightSpot(Character chr, Monster mob, int[] reach, boolean human) {
-        Point mp = mob.getPosition();
+        // 1.6.7 (QA's Zakum run): a boss part is approached at its body's nearest point, not the anchor its parts share
+        Point mp = soloMapling.ArtificialPlayer.BotAttackSystem.BossBodyReach.aimPoint(chr.getPosition(), mob, reach);
+        if (mp == null) {
+            mp = mob.getPosition();
+        }
         int ty = groundY(chr, mp);
         MovementStyle style = MovementStylePolicy.forBot(chr);
         int[] band = standBand(mob, reach[0], style, keepsDistance(chr, style), human);

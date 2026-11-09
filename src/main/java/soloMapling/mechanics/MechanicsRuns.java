@@ -798,6 +798,16 @@ public final class MechanicsRuns {
             a.reporter.accept("RUN " + why);
             tellRealPlayers(a.eim, Orchestrator.GAVE_UP_TO_PLAYERS);
         }
+        if (a.run.content().kind() == MechanicsModel.Kind.BOSS) {
+            // QA's Zakum run (9 Nov 2026): say what is left of the boss before the room closes, so a sweep shows
+            // whether the party hurt it at all (read before closeInstance: the room may be gone after it)
+            try {
+                server.maps.MapleMap room = a.eim.isEventDisposed() ? null : a.eim.getMapInstance(a.run.stageData().mapId());
+                a.reporter.accept("RUN " + LiveStageView.partsLeftLine(room, a.run.stageData().mobs()));
+            } catch (RuntimeException e) {
+                log("[Mechanics] could not read the boss parts of " + keyOf(a.eim) + ": " + e);
+            }
+        }
         try {
             closeInstance(a);
         } catch (RuntimeException e) {

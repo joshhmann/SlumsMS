@@ -182,6 +182,27 @@ final class LiveStageView implements StageView {
         return out;
     }
 
+    /**
+     * QA's Zakum run on TEST 1.6.7 (zakum-sweep-c-20261109T041606Z): nothing said whether any arm took a hit. The end
+     * of a boss run names each part the row lists that still stands, with the HP it has left, in map order; a part
+     * that cannot be hurt yet (the body while its arms stand) says so. "none" when every listed part is down.
+     */
+    static String partsLeftLine(MapleMap map, List<Integer> listed) {
+        if (map == null) {
+            return "boss parts left: (room gone)";
+        }
+        List<String> left = new ArrayList<>();
+        for (Monster m : map.getAllMonsters()) {
+            if (m == null || !m.isAlive() || !listed.contains(m.getId())) {
+                continue;
+            }
+            long max = Math.max(1, m.getMaxHp());
+            long percent = Math.max(0, Math.min(100, m.getHp() * 100 / max));
+            left.add(m.getName() + (m.isFake() ? " (shielded)" : "") + " " + percent + "%");
+        }
+        return "boss parts left: " + (left.isEmpty() ? "none" : String.join(", ", left));
+    }
+
     @Override
     public BossTargetRules.Member fighterOf(int characterId) {
         Character c = chars.get(characterId);
