@@ -118,13 +118,18 @@ class BotConversationHoldTest {
     }
 
     private BotSM whisperTo(String line) {
+        return whisperTo(line, said::add);
+    }
+
+    private BotSM whisperTo(String line, java.util.function.Consumer<String> deliver) {
         BotSM bot = mock(TownWandererBot.class);
         Character chr = character(BotStore.BOT_ID_BASE + 50_000 + nextPlayer, "Walkr");
         when(bot.getChr()).thenReturn(chr);
         Character player = character(nextPlayer++, "Josh");
-        assertTrue(BotConversation.say(bot, player, line, null, said::add));
+        assertTrue(BotConversation.say(bot, player, line, null, deliver));
         return bot;
     }
+
 
     private void waitFor(java.util.function.BooleanSupplier done) throws InterruptedException {
         for (int i = 0; i < 200 && !done.getAsBoolean(); i++) {
@@ -177,19 +182,32 @@ class BotConversationHoldTest {
     @Test
     void theHoldWearsOffAndTheBotIsFreeToGoAgain() throws Exception {
         BotConversation.holdMsForTest(60); // a short hold, cleared: this test's chat arms it afresh
-        BotSM bot = whisperTo("where are you going?");
+        // The reply's virtual thread hands the line over (said fills) and arms the hold a statement later. Under load
+        // that arm landed after the test had already seen the hold lapse, and held the bot again for its 60 ms (Server
+        // Dev's full suites, 1.6.7 wave 4: "after the hold the bot wanders again" failed twice with three mvn runs
+        // going, passed alone). Nothing here races the wall clock: the delivery waits until the hold clock is frozen
+        // past the 45 s, the test waits for the reply's own arm, then moves the frozen clock past it.
+        java.util.concurrent.CountDownLatch frozen = new java.util.concurrent.CountDownLatch(1);
+        BotSM bot = whisperTo("where are you going?", line -> {
+            said.add(line);
+            try {
+                frozen.await(30, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
         int id = bot.getChr().getId();
         assertTrue(BotConversation.isHoldingChat(bot.getChr()), "a short hold is still a hold");
         waitFor(() -> !said.isEmpty()); // the reply goes out ...
-        // the lapse is the hold clock's, not the test's: jump past it instead of sleeping 45 s
-        java.util.concurrent.atomic.AtomicLong ahead =
-                new java.util.concurrent.atomic.AtomicLong(BotConversation.HOLD_MS + 1_000);
-        BotConversation.clockForTest(() -> System.currentTimeMillis() + ahead.get());
-        // b354: the reply's virtual thread hands the line over (said fills) and arms the hold one statement later
-        // (BotConversation's delivery step), so that arm can land after the jump. Arming then holds for the short 60 ms
-        // from the jumped clock and no longer: wait for it to wear off instead of checking once. Before this, the one
-        // check sometimes caught that last arm (TEST suite 6 Nov, run-min-room: "expected false but was true").
-        waitFor(() -> !BotConversation.isHoldingChat(bot.getChr()));
+        assertEquals(1, said.size(), "one line, said once: " + said);
+        java.util.concurrent.atomic.AtomicLong now =
+                new java.util.concurrent.atomic.AtomicLong(System.currentTimeMillis() + BotConversation.HOLD_MS + 1_000);
+        BotConversation.clockForTest(now::get);
+        assertFalse(BotConversation.isHoldingChat(bot.getChr()), "45 s on, the player's line holds nothing");
+        frozen.countDown(); // ... and only now does the reply's thread go on to arm the hold
+        waitFor(() -> BotConversation.holdMs(id) > 0);
+        assertEquals(60, BotConversation.holdMs(id), "the delivered line holds for the short hold, from the clock");
+        now.addAndGet(61);
         assertFalse(BotConversation.isHoldingChat(bot.getChr()), "after the hold the bot wanders again");
         assertEquals(0, BotConversation.holdMs(id), "a lapsed hold reports nothing left");
     }

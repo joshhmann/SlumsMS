@@ -269,7 +269,9 @@ class BotGearSwitchTest {
     /*
      * Audit 163 #12/#13 (b119): one gear review on a heavy bag. BotMaker.junk asks upgradeValue for every carried
      * equip at a town stop; each used to be a full Pareto plan (bag size x plan cost). A review of 40 carried equips
-     * must stay bounded: < 50 ms on this box (generous; printed for the report).
+     * must stay bounded: every carried equip is answered from the one plan of what the bot owns, so a cold review
+     * computes ONE plan, not one per equip. Bounded by that count, not the clock: the old "< 50 ms" failed Server
+     * Dev's 1.6.6.1 release build at 51.6 ms with three suites on the box (load 27). The ms is printed for the report.
      */
     @Test
     void aHeavyBagReviewIsBounded() {
@@ -302,6 +304,7 @@ class BotGearSwitchTest {
             for (Equip e : carried) warm += BotGear.upgradeValue(bot, e, data::get, valuers);
         }
         int reviews = 5;
+        long plansBefore = BotGear.plansComputedForTest();
         long t0 = System.nanoTime();
         double sum = 0;
         for (int r = 0; r < reviews; r++) {
@@ -309,8 +312,10 @@ class BotGearSwitchTest {
             for (Equip e : carried) sum += BotGear.upgradeValue(bot, e, data::get, valuers);
         }
         double msPerReview = (System.nanoTime() - t0) / 1e6 / reviews;
-        System.out.printf("[gear-timing] heavy-bag review (40 carried equips, pareto): %.1f ms%n", msPerReview);
+        long plans = BotGear.plansComputedForTest() - plansBefore;
+        System.out.printf("[gear-timing] heavy-bag review (40 carried equips, pareto): %.1f ms, %d plan(s) per review%n",
+                msPerReview, plans / reviews);
         assertTrue(warm >= 0 && sum >= 0);
-        assertTrue(msPerReview < 50, "one review took " + msPerReview + " ms");
+        assertEquals(reviews, plans, "a cold review of " + carried.size() + " carried equips plans once, not per equip");
     }
 }

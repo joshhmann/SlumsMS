@@ -503,6 +503,13 @@ public final class BotGear {
         planCache.clear();
     }
 
+    /* How many plans planWith really computed (cache misses); a test bounds a review by this, not by the clock. */
+    private static final java.util.concurrent.atomic.AtomicLong plansComputed = new java.util.concurrent.atomic.AtomicLong();
+
+    static long plansComputedForTest() {
+        return plansComputed.get();
+    }
+
     // What the character's own planner would wear from its gear plus these extras; read only.
     private static Plan planWith(Character chr, java.util.Collection<Equip> extras, int level,
                                  IntFunction<Known> facts, Function<Map<Short, Piece>, Valuer> valuers) {
@@ -523,6 +530,7 @@ public final class BotGear {
             if (hit != null && now - hit.at() < PLAN_CACHE_MS) {
                 return hit.plan();
             }
+            plansComputed.incrementAndGet();
             Plan plan = planNow(chr, fresh, level, facts, valuers);
             planCache.put(key, new Cached(plan, now));
             return plan;
