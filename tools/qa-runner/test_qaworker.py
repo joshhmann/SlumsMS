@@ -101,6 +101,14 @@ class WorkerCallsTest(unittest.TestCase):
         self.assertEqual('ok', worker.send('me', {'do': 'click', 'anchor': 'npc_dialog.option_3'})['result'])
         self.assertEqual([('click_option', {'option': 3})], transport.calls)
 
+    def test_click_dialog_row_calls_the_tool_with_its_row_count(self):
+        # qa-dialog-row (1.6.7): the client's own quest-npc menu; rows 0 = any count.
+        worker, transport = self.make()
+        self.assertEqual('ok', worker.send('me', {'do': 'click_dialog_row', 'row': 2, 'rows': 2})['result'])
+        self.assertEqual('ok', worker.send('me', {'do': 'click_dialog_row', 'row': 1})['result'])
+        self.assertEqual([('click_dialog_row', {'row': 2, 'rows': 2}), ('click_dialog_row', {'row': 1, 'rows': 0})],
+                         transport.calls)
+
     def test_npc_dialog_close_goes_through_close_dialog_not_the_mouse(self):
         worker, transport = self.make()
         self.assertEqual('ok', worker.send('me', {'do': 'click', 'anchor': 'npc_dialog.close'})['result'])

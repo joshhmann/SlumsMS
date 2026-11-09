@@ -383,6 +383,42 @@ class ClickOptionTest(NewToolsTest):
         self.assertIn('not a calibrated point', str(caught.exception))
 
 
+class ClickDialogRowTest(NewToolsTest):
+    """qa-dialog-row (1.6.7): a row of the open npc dialog from the dialog's own list, so the client's local quest-npc
+    menu (Ifia 2161001, Wyatt 1300009, Rain 12101) can be answered too."""
+
+    def test_click_dialog_row_sends_the_row_and_count_and_reports_the_value(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'click_dialog_row', 'row': 2, 'ok': True, 'rows': 2, 'value': 1}])
+        self.assertEqual({'row': 2, 'rows': 2, 'value': 1}, self.d.click_dialog_row(2, 2))
+        self.assertEqual(['click_dialog_row 2 2'], self.d.qa.sent)
+
+    def test_without_a_count_only_the_row_is_sent(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'click_dialog_row', 'row': 1, 'ok': True, 'rows': 3, 'value': 0}])
+        self.assertEqual({'row': 1, 'rows': 3, 'value': 0}, self.d.click_dialog_row(1))
+        self.assertEqual(['click_dialog_row 1'], self.d.qa.sent)
+
+    def test_a_different_row_count_is_refused_with_the_real_count(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'click_dialog_row', 'row': 2, 'ok': False,
+                             'error': 'row_count', 'rows': 3}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.click_dialog_row(2, 2)
+        self.assertEqual('row_count: the dialog has 3 rows', str(caught.exception))
+
+    def test_no_answer_is_no_dialog(self):
+        self.d.qa = FakeQa([])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.click_dialog_row(1)
+        self.assertEqual('no_dialog', str(caught.exception))
+
+    def test_it_is_a_script_tool_with_checked_arguments(self):
+        self.assertIn('click_dialog_row', self.driver.SCRIPT_TOOLS)
+        self.d.validate('click_dialog_row', {'row': 16, 'rows': 16})
+        self.d.validate('click_dialog_row', {'row': 1, 'rows': 0})
+        for args in ({}, {'row': 0}, {'row': 17}, {'row': 1, 'rows': 17}):
+            with self.assertRaises(self.driver.Refusal):
+                self.d.validate('click_dialog_row', args)
+
+
 class DropAndPartyTest(NewToolsTest):
     """P1-Q2 (Zakum run): drop_item, party_create, party_invite ride the QA client's own senders."""
 
