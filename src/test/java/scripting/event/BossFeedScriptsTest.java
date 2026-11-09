@@ -81,6 +81,9 @@ class BossFeedScriptsTest {
         public String getName() {
             return bot ? "RegularA" : "Human";
         }
+
+        public void changeMap(int map, int portal) {
+        }
     }
 
     /** A list the script can call {@code size()} / {@code get(i)} on, as with the real eim.getPlayers(). */
@@ -183,23 +186,31 @@ class BossFeedScriptsTest {
     }
 
     public static class Em {
-        public Object getChannelServer() {
-            return new Object() {
-                public Object getMapFactory() {
-                    return new Object() {
-                        public Object getMap(int id) {
-                            return new Object() {
-                                public Object getReactorById(int r) {
-                                    return new Object() {
-                                        public void forceHitReactor(int s) {
-                                        }
-                                    };
-                                }
-                            };
-                        }
-                    };
-                }
-            };
+        public Channel getChannelServer() {
+            return new Channel();
+        }
+    }
+
+    public static class Channel {
+        public Factory getMapFactory() {
+            return new Factory();
+        }
+    }
+
+    public static class Factory {
+        public Gates getMap(int id) {
+            return new Gates();
+        }
+    }
+
+    public static class Gates {
+        public Gate getReactorById(int id) {
+            return new Gate();
+        }
+    }
+
+    public static class Gate {
+        public void forceHitReactor(int state) {
         }
     }
 
