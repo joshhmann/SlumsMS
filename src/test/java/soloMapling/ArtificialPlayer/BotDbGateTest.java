@@ -338,23 +338,28 @@ class BotDbGateTest {
         // b269 review: acquire's first try was Semaphore.tryAcquire(int), whose javadoc says it ignores the fair
         // ordering the semaphore was built with. A newcomer could take the room a waiting thread had been promised.
         // The first try now goes through the fair path with a zero timeout: room goes to the longest waiter.
+        // botdbgate-test-flake (Server Dev's release-1.6.7 suite, load ~24): the test freed six permits at once, so
+        // the newcomer got one of its own and the two bodies raced to record their order; and it took "queued" on a
+        // 200 ms sleep. Now exactly one permit is freed, owed to the thread the gate shows queued, so the newcomer
+        // must wait for it whatever the scheduler does (reproduced with the waiting body parked 50 ms).
         BotDbGate.useMaxWaitForTest(5_000);
         List<String> order = new CopyOnWriteArrayList<>();
         CountDownLatch fiveHeld = new CountDownLatch(1);
-        CountDownLatch sixHeld = new CountDownLatch(1);
+        CountDownLatch oneHeld = new CountDownLatch(1);
+        CountDownLatch fiveFree = new CountDownLatch(1);
         CountDownLatch oneFree = new CountDownLatch(1);
         try (ExecutorService threads = Executors.newFixedThreadPool(4)) {
             Future<?> five = threads.submit(() -> BotDbGate.hold(5, () -> {
                 fiveHeld.countDown();
-                await(oneFree);
+                await(fiveFree);
                 return null;
             }));
             Future<?> one = threads.submit(() -> BotDbGate.hold(1, () -> {
-                sixHeld.countDown();
+                oneHeld.countDown();
                 await(oneFree);
                 return null;
             }));
-            assertTrue(fiveHeld.await(5, TimeUnit.SECONDS) && sixHeld.await(5, TimeUnit.SECONDS),
+            assertTrue(fiveHeld.await(5, TimeUnit.SECONDS) && oneHeld.await(5, TimeUnit.SECONDS),
                     "the share is fully taken");
             assertEquals(0, BotDbGate.available(), "six permits, six held");
 
@@ -362,16 +367,21 @@ class BotDbGateTest {
                 order.add("waiting");
                 return null;
             }));
-            Thread.sleep(200);   // queued on the share by now, in front of whatever comes next
-            oneFree.countDown();
-            five.get(5, TimeUnit.SECONDS);
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (BotDbGate.queued() < 1 && System.nanoTime() < deadline) {
+                Thread.sleep(5);
+            }
+            assertEquals(1, BotDbGate.queued(), "the first thread is queued on the share");
+            oneFree.countDown();   // exactly one permit comes back: the fair queue owes it to the waiting thread
+            one.get(5, TimeUnit.SECONDS);
             Future<?> later = threads.submit(() -> BotDbGate.hold(1, () -> {
                 order.add("later");
                 return null;
             }));
             waiting.get(5, TimeUnit.SECONDS);
             later.get(5, TimeUnit.SECONDS);
-            one.get(5, TimeUnit.SECONDS);
+            fiveFree.countDown();
+            five.get(5, TimeUnit.SECONDS);
         } finally {
             BotDbGate.useMaxWaitForTest(0);
         }

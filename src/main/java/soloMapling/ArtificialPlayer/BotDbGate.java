@@ -206,6 +206,11 @@ public final class BotDbGate {
     }
 
     /** Permits free right now (tests and the GM read-out). */
+    /** Threads queued on the share right now (read-only, for tests: botdbgate-test-flake). */
+    static int queued() {
+        return permits.getQueueLength();
+    }
+
     static int available() {
         return permits.availablePermits();
     }
