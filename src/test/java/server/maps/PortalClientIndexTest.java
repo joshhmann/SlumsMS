@@ -67,6 +67,28 @@ class PortalClientIndexTest {
     }
 
     @Test
+    void ordinaryMapsSendTheSameByteAsBefore() {
+        // Coordinator (1.6.7 cherry-pick): only the 9 maps with a tp point before another portal change; a sample of
+        // ordinary towns must keep every portal's byte exactly as it was (client index == server id)
+        String wz = System.getProperty("wz-path");
+        assumeTrue(wz != null && Files.isDirectory(Path.of(wz, "Map.wz")), "needs -Dwz-path");
+        DataProvider source = DataProviderFactory.getDataProvider(WZFiles.MAP);
+        for (int mapId : new int[]{100000000, 200000000, 211000000}) {
+            Data map = source.getData("Map/Map" + (mapId / 100000000) + "/" + mapId + ".img");
+            PortalFactory factory = new PortalFactory();
+            List<Portal> all = new ArrayList<>();
+            for (Data node : map.getChildByPath("portal")) {
+                all.add(factory.makePortal(DataTool.getInt(node.getChildByPath("pt")), mapId, node));
+            }
+            PortalFactory.assignClientIndexes(all);
+            assertTrue(all.size() > 3, mapId + " has its portals");
+            for (Portal p : all) {
+                assertEquals(p.getId(), p.getClientIndex(), mapId + " portal " + p.getName() + " keeps its byte");
+            }
+        }
+    }
+
+    @Test
     void orbisTowerFromTheRealMapData() {
         String wz = System.getProperty("wz-path");
         assumeTrue(wz != null && Files.isDirectory(Path.of(wz, "Map.wz")), "needs -Dwz-path");
