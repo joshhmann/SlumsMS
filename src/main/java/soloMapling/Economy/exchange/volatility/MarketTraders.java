@@ -339,6 +339,9 @@ public final class MarketTraders {
         if (acts.isEmpty()) {
             acts = TraderBrain.decide(t.archetype(), v, h, now, rng);
         }
+        if (tk.item()) {
+            acts = withoutCappedItemSells(ex, w.account(), tk, acts, now);
+        }
         int done = 0;
         Deque<Pending> q = new ArrayDeque<>();
         boolean first = true;
@@ -360,6 +363,34 @@ public final class MarketTraders {
         }
         pending.put(t.id(), q);
         return done;
+    }
+
+    /**
+     * b375: drops the item sells this turn that would take the account past its daily item-sell ceiling.
+     * {@link Exchange#placeBot} refuses such an order with ITEMS_CAP (ticket 270), so a trader that proposes it loses
+     * its turn; asking first costs one read. Room is what the exchange says is still allowed today ({@link
+     * Exchange#itemSellRoomToday}); a second sell in the same turn sees what the first would use. Buys, cancels and
+     * everything when there is no cap (or the store cannot be read) are untouched.
+     */
+    static List<TraderBrain.Action> withoutCappedItemSells(Exchange ex, long account, Ticker tk,
+                                                           List<TraderBrain.Action> acts, long now) {
+        long room = ex.itemSellRoomToday(account, now);
+        if (room == Long.MAX_VALUE) {
+            return acts;
+        }
+        List<TraderBrain.Action> out = new ArrayList<>(acts.size());
+        long left = room;
+        for (TraderBrain.Action a : acts) {
+            if (a instanceof TraderBrain.Place p && p.side() == Side.SELL) {
+                long notional = tk.cost(p.qty(), p.price());
+                if (notional > left) {
+                    continue;
+                }
+                left -= notional;
+            }
+            out.add(a);
+        }
+        return out;
     }
 
     /**

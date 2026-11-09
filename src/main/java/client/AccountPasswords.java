@@ -73,17 +73,38 @@ public final class AccountPasswords {
     }
 
     private static boolean checkHash(String hash, String type, String password) {
-        return digest(type, password).equals(hash);
+        // legacy-sha-multibyte: values stored before this fix hashed only the first password.length() BYTES of a
+        // non-ASCII password (a character count used as a byte count), and those players log in with them today, so a
+        // legacy check takes either digest. For an ASCII password the two are the same value.
+        return digest(type, password).equals(hash) || legacyTruncatedDigest(type, password).equals(hash);
     }
 
-    // Hashes the first length() bytes of the UTF-8 form, as the original code did (identical for ASCII passwords).
+    // Hashes every byte of the UTF-8 form (legacy-sha-multibyte: it used to hash only the first length() bytes).
     private static String digest(String type, String password) {
         try {
             MessageDigest digester = MessageDigest.getInstance(type);
-            digester.update(password.getBytes(StandardCharsets.UTF_8), 0, password.length());
-            return HexTool.toHexString(digester.digest()).replace(" ", "").toLowerCase();
+            return hex(digester.digest(password.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("Encoding the string failed", e);
         }
+    }
+
+    /**
+     * The old computation exactly as it was, kept only so a stored value made with it still matches: the digester was
+     * fed the first {@code password.length()} bytes of the UTF-8 form. For a password with non-ASCII letters that is a
+     * prefix of the real password's bytes, i.e. part of the password.
+     */
+    private static String legacyTruncatedDigest(String type, String password) {
+        try {
+            MessageDigest digester = MessageDigest.getInstance(type);
+            digester.update(password.getBytes(StandardCharsets.UTF_8), 0, password.length());
+            return hex(digester.digest());
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Encoding the string failed", e);
+        }
+    }
+
+    private static String hex(byte[] digest) {
+        return HexTool.toHexString(digest).replace(" ", "").toLowerCase();
     }
 }
