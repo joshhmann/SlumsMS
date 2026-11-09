@@ -84,7 +84,7 @@ Every signal, its source, the default threshold and what actually happens when i
 | scheduled jobs | `systemctl show <t>.timer/.service` | inactive, failed, or >26 h since last run, 1 run | alert | `:979-1005` |
 | cloud spend | `<server>/data/convo/cloud-budget.json` | >80 % of the daily cap, once a day | alert / once-only recover | `:641-689` |
 | cloud balance | `GET <base>/user/balance` | <$5, or 3 failed calls in a row | alert | `:693-755` |
-| **server health sweep** | `<server>/data/autoqa/health-latest.json` | — | **no action; no monitor check reads it** (only `tools/ops/test-status:40`) | `HealthSweeper.java:118` |
+| **server health sweep** | `<server>/data/autoqa/health-latest.json` | — | **P2-8: opt-in `auto-QA health` check when the target sets `HEALTH_FILE`** (persistence-test only); also read by `tools/ops/test-status:40` | `HealthSweeper.java:118` |
 | **monitor's own liveness** | `status.json` age | 300 s | **no action** — amber strip only, no message | `app.js:105-108` |
 | **unit failed / timer masked** | systemd | any | **no action** — no `OnFailure=`, exit 0 always | `slumsms-monitor:1189` |
 
@@ -99,7 +99,7 @@ Every signal, its source, the default threshold and what actually happens when i
 | `/srv/slums-dashboard/data/live.json`, `calibration.json`, `series/`, `days.json` | `DashboardExporter` | every 60 s / hourly roll |
 | `/srv/slums-dashboard/data/nav/*`, `world.json` | `DashboardMapExport` / extras | hourly at `:40` |
 | `/srv/slums-dashboard[-test]/data/ops/{status,gm}.json` | `slums-dashboard-extras` | 1 min / 5 min |
-| `<server>/data/autoqa/health-latest.json` + `health/<day>.jsonl` | `HealthSweeper.java:118`, every `AUTOQA_SWEEP_MINUTES` (5, `src/main/java/config/ServerConfig.java:207`) | **not read by the monitor**; only `tools/ops/test-status:40` |
+| `<server>/data/autoqa/health-latest.json` + `health/<day>.jsonl` | `HealthSweeper.java:118`, every `AUTOQA_SWEEP_MINUTES` (5, `src/main/java/config/ServerConfig.java:207`) | read by the monitor's opt-in `HEALTH_FILE` check (P2-8) and `tools/ops/test-status:40` |
 
 ## Switches
 

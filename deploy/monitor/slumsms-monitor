@@ -73,6 +73,10 @@ DEFAULTS = {
     "LOG_SILENCE_MIN": "5",           # alert after the log has been quiet this long ...
     "LOG_MIN_BYTES": "1024",          # ... i.e. grew less than this per minute (a hang trickles ~50 B/min)
     "LOG_GRACE_MIN": "10",            # never judge a server that booted less than this ago (a restart resets)
+    # Auto-QA health sweep (P2-8): opt-in. HEALTH_FILE is data/autoqa/health-latest.json, which HealthSweeper rewrites
+    # every few minutes on TEST; live does not run the sweeper by default, so live.conf leaves it unset.
+    "HEALTH_FILE": "",
+    "HEALTH_MAX_AGE_MIN": "20",       # alert when the file is older than this (or missing, or its status is FAIL)
     "LLM_URL": "http://192.168.0.17:8095/health",
     "DECIDE_URL": "http://192.168.0.17:8900/health",
     "HTTP_TIMEOUT": "5",
@@ -108,7 +112,7 @@ DEFAULTS = {
     # consecutive failed runs before a check alerts (timer runs every minute)
     "FAIL_AFTER_unit": "1", "FAIL_AFTER_login": "2", "FAIL_AFTER_errors": "1", "FAIL_AFTER_memory": "5",
     "FAIL_AFTER_db": "2", "FAIL_AFTER_disk": "1", "FAIL_AFTER_bots": "10", "FAIL_AFTER_llm": "1",
-    "FAIL_AFTER_decide": "1", "FAIL_AFTER_timers": "1", "FAIL_AFTER_log": "2",
+    "FAIL_AFTER_decide": "1", "FAIL_AFTER_timers": "1", "FAIL_AFTER_log": "2", "FAIL_AFTER_health": "3",
 }
 
 SERVER_CONFIG_DEFAULTS = {  # src/main/java/config/ServerConfig.java
@@ -767,6 +771,32 @@ class Result:
         self.managed, self.event, self.rollback = managed, event, rollback
 
 
+def health_status(path, max_age_s, now=None):
+    """(ok, detail, stale) for the sweeper's health-latest.json. stale is None when the file is fine or only its own
+    status is bad (FAIL), True when the file is missing, unreadable or older than max_age_s (a restart can excuse
+    that, a FAIL never). Failing check names are listed, never the sweep's own summary text."""
+    now = time.time() if now is None else now
+    try:
+        st = os.stat(path)
+    except OSError:
+        return False, "health file missing (%s)" % path, True
+    age = max(0.0, now - st.st_mtime)
+    if age > max_age_s:
+        return False, "health file %s is %s old (limit %s)" % (path, human_duration(age), human_duration(max_age_s)), True
+    try:
+        with open(path) as f:
+            doc = json.load(f)
+        status = str(doc.get("status"))
+        checks = doc.get("checks") or {}
+    except (OSError, ValueError, AttributeError):
+        return False, "health file unreadable (%s)" % path, True
+    if status == "FAIL":
+        bad = sorted(str(k) for k, v in checks.items() if isinstance(v, dict) and v.get("status") == "FAIL")
+        return False, "sweep status FAIL%s (%s, %s old)" % (
+            (": " + ", ".join(bad)) if bad else "", path, human_duration(age)), None
+    return True, "sweep status %s, %s old" % (status, human_duration(age)), None
+
+
 def timer_status(t):
     """(ok, detail) for the timers in TIMERS. An entry is a unit name, or "name:hours" for its own age limit (a
     monthly drill cannot use the nightly backup's TIMER_MAX_AGE_H). A timer that is not active, a last run that
@@ -887,6 +917,20 @@ def run_checks(t, cloud=None, checks=None):
                         "game log silent since %s (%s) and login:%d also down — server/host down "
                         "(the login port check reports it)" % (fmt_hms(quiet_since), human_duration(quiet), port),
                         skipped=True)
+
+    # 3b. auto-QA health sweep (opt-in, P2-8): the sweeper's health-latest.json must be fresh and not FAIL
+    health_path = t.get("HEALTH_FILE")
+    if health_path:
+        max_age = (t.num("HEALTH_MAX_AGE_MIN") or 20) * 60
+        ok, detail, stale = health_status(health_path, max_age)
+        skipped = False
+        if stale and unit and not up:
+            ok, detail, skipped = True, "skipped (server down)", True
+        elif stale and up and (info["up_seconds"] or 0) < max_age:
+            ok, skipped = True, True
+            detail = "server restarted %s ago, first sweep not due yet (%s)" % (
+                human_duration(info["up_seconds"] or 0), detail)
+        add("health", "auto-QA health", ok, detail, skipped)
 
     # 4. journal error rate
     if unit:
