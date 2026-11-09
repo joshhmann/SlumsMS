@@ -7,12 +7,17 @@
 # SlumsMS tickets
 
 ## Kuro client RE and job routes (owner request, 2026-11-09)
-| [285](285-aran-finishing-kit.md) | Aran finishing kit (card c-a): combo critical formulas on the stock v83 client | Brief ready (sites verified against our stock exe); deferred to post-1.7.0, implementation pending |
-
 
 | # | Ticket | State |
 |---|---|---|
 | [284](284-kuro-client-re-job-routes.md) | Kuro v83 client RE: class finishing kit and the job-addition route | Owner approved Route A and the Dual Blade pilot route, both deferred to post-1.7.0 (2026-11-09); briefs ready, nothing implemented |
+| [285](285-aran-finishing-kit.md) | Aran finishing kit (card c-a): combo critical formulas on the stock v83 client | Brief ready (sites verified against our stock exe); deferred to post-1.7.0, implementation pending |
+
+## Housing design (owner request, 2026-11-09)
+
+| # | Ticket | State |
+|---|---|---|
+| [286](286-housing-design.md) | Housing v0 design: Kuro + MushMS blend, partner co-habitation, guild halls | Design only; phases 0-3, ownership/ACL model and packet/DB contract proposed; owner decisions requested |
 
 ## Server-code audit (owner direction, 2026-11-03)
 
