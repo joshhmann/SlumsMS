@@ -209,7 +209,54 @@ function playerLeft(eim, player) {
     }
 }
 
+//1.6.7 boss-feed-lines, stage 6 (map 922010600): the 15 rows of three hidden portals h000-h044. A portal leads up to the
+//next row's landing or drops the climber back to the start; the event script sees only the map change, so it keeps where
+//the climber stood when it began (changedMap) and compares it with where he stands once it is done (afterChangedMap).
+var puzzleMap = 922010600;
+var puzzleRowY = [-555, -723, -915, -1090, -1268, -1437, -1602, -1770, -1935, -2126, -2305, -2477, -2659, -2822, -2993];
+var fallFeedGapMs = 10000;
+
+function puzzleRow(y) {     //the row (1-15) whose portals sit at this height, 0 when none is near
+    for (var i = 0; i < puzzleRowY.length; i++) {
+        if (Math.abs(puzzleRowY[i] - y) <= 80) {
+            return i + 1;
+        }
+    }
+    return 0;
+}
+
+function afterChangedMap(eim, player, mapid) {
+    var key = "puzzleFrom" + player.getId();
+    var from = eim.getProperty(key);
+    if (from == null || from == "") {
+        return;
+    }
+    eim.setProperty(key, "");
+    var fromY = parseInt(from);
+    var row = puzzleRow(fromY);
+    if (mapid != puzzleMap || row == 0) {
+        return;
+    }
+    if (player.getPosition().y < fromY) {    //landed higher: the right portal, row solved
+        var highest = eim.getProperty("puzzleHighest");
+        if (highest == null || row > parseInt(highest)) {
+            eim.setProperty("puzzleHighest", String(row));
+            feed(eim, "lpq stage 6 puzzle row " + row + " of " + puzzleRowY.length);
+        }
+    } else {                                  //landed at the start: a wrong portal
+        var now = Date.now();
+        var last = eim.getProperty("puzzleFallFeedAt");
+        if (last == null || last == "" || now - parseInt(last) >= fallFeedGapMs) {
+            eim.setProperty("puzzleFallFeedAt", String(now));
+            feed(eim, "lpq stage 6 fall to start from row " + row);
+        }
+    }
+}
+
 function changedMap(eim, player, mapid) {
+    if (mapid == puzzleMap && player.getMapId() == puzzleMap) {
+        eim.setProperty("puzzleFrom" + player.getId(), String(player.getPosition().y));
+    }
     if (mapid < minMapId || mapid > maxMapId) {
         if (eim.isEventTeamLackingNow(true, minPlayers, player)) {
             eim.unregisterPlayer(player);
@@ -277,7 +324,13 @@ function giveRandomEventReward(eim, player) {
     eim.giveEventReward(player);
 }
 
+function feed(eim, text) {   //1.6.7 boss-feed-lines: one MECHANICS feed line plus a BossFeed log line; observe only
+    Java.type('soloMapling.mechanics.MechanicsRuns').feed(eim, "lpq", text);
+}
+
 function clearPQ(eim) {
+    feed(eim, "lpq cleared, " + eim.getPlayerCount() + " members to " + clearMap);
+    feed(eim, "lpq rewards exp " + eim.getClearStageBonus(9).get(0) + " to " + eim.getPlayerCount() + " members");
     eim.stopEventTimer();
     eim.setEventCleared();
 

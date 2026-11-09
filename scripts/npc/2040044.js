@@ -42,6 +42,10 @@ function start() {
     action(1, 0, 0);
 }
 
+function feed(eim, text) {   //1.6.7 boss-feed-lines: one MECHANICS feed line plus a BossFeed log line; observe only
+    Java.type('soloMapling.mechanics.MechanicsRuns').feed(eim, "lpq", text);
+}
+
 function action(mode, type, selection) {
     if (mode == -1) {
         cm.dispose();
@@ -68,6 +72,7 @@ function action(mode, type, selection) {
                 } else {                      // check stage completion
                     if (cm.haveItem(4001023, 1)) {
                         cm.gainItem(4001023, -1);
+                        feed(eim, "lpq stage " + stage + " hand-in 1 passes");
                         eim.setProperty("statusStg" + stage, 1);
 
                         var list = eim.getClearStageBonus(stage);     // will give bonus exp & mesos to everyone in the event
@@ -79,6 +84,7 @@ function action(mode, type, selection) {
 
                         eim.clearPQ();
                     } else {
+                        feed(eim, "lpq stage " + stage + " hand-in refused: has " + cm.getItemQuantity(4001023) + " of 1 passes");
                         cm.sendNext("Please defeat Alishar and bring me his #b#t4001023#.#k");
                     }
                 }

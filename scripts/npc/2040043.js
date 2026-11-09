@@ -77,6 +77,10 @@ function start() {
     action(1, 0, 0);
 }
 
+function feed(eim, text) {   //1.6.7 boss-feed-lines: one MECHANICS feed line plus a BossFeed log line; observe only
+    Java.type('soloMapling.mechanics.MechanicsRuns').feed(eim, "lpq", text);
+}
+
 function action(mode, type, selection) {
     if (mode == -1) {
         cm.dispose();
@@ -140,6 +144,17 @@ function action(mode, type, selection) {
                                 correctCombo = false;
                             }
                         }
+                        var triesSoFar = eim.getProperty("stage" + stage + "tries");   //1.6.7 feed: one line per try
+                        var tries = (triesSoFar == null ? 0 : parseInt(triesSoFar)) + 1;
+                        eim.setProperty("stage" + stage + "tries", String(tries));
+                        var right = 0;
+                        for (var j = 0; j < objset.length; j++) {
+                            if (objset[j] == 1 && parseInt(combo[j]) == 1) {
+                                right++;
+                            }
+                        }
+                        feed(eim, "lpq stage " + stage + " combination try " + tries + ", " + right + " right");
+
                         if (correctCombo || cm.getPlayer().gmLevel() > 1) {
                             eim.setProperty("statusStg" + stage, 1);
                             clearStage(stage, eim, curMap);

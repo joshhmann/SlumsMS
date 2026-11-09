@@ -48,6 +48,10 @@ function clearStage(stage, eim, curMap) {
     eim.linkToNextStage(stage, "lpq", curMap);  //opens the portal to the next map
 }
 
+function feed(eim, text) {   //1.6.7 boss-feed-lines: one MECHANICS feed line plus a BossFeed log line; observe only
+    Java.type('soloMapling.mechanics.MechanicsRuns').feed(eim, "lpq", text);
+}
+
 function action(mode, type, selection) {
     if (mode == -1) {
         cm.dispose();
@@ -75,10 +79,12 @@ function action(mode, type, selection) {
                     if (cm.haveItem(4001022, 25)) {
                         cm.sendOk("Good job! You have collected all 25 #b#t4001022#'s.#k");
                         cm.gainItem(4001022, -25);
+                        feed(eim, "lpq stage " + stage + " hand-in 25 passes");
 
                         eim.setProperty("statusStg" + stage, 1);
                         clearStage(stage, eim, curMap);
                     } else {
+                        feed(eim, "lpq stage " + stage + " hand-in refused: has " + cm.getItemQuantity(4001022) + " of 25 passes");
                         cm.sendNext("Sorry you don't have all 25 #b#t4001022#'s.#k");
                     }
                 }

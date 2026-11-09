@@ -356,6 +356,31 @@ public final class MechanicsRuns {
         return line + " [" + contentId + (leaderName == null ? "" : ", leader " + leaderName) + "]";
     }
 
+    private static final org.slf4j.Logger BOSS_FEED = org.slf4j.LoggerFactory.getLogger("BossFeed");
+
+    /**
+     * 1.6.7 boss-feed-lines: an event script's own fact ("lpq stage 1 hand-in 25 passes") as one MECHANICS feed line,
+     * {@code RUN <text> [<contentId>, leader X]}, plus the same line in the server log at INFO (logger {@code BossFeed}).
+     * Observe only: it reads the instance and changes nothing. Not tied to an armed run, so a party of humans is covered
+     * too. The leader's name is the only name in a line; the feed is told the real players' ids.
+     */
+    public static void feed(EventInstanceManager eim, String contentId, String text) {
+        if (eim == null || text == null) {
+            return;
+        }
+        try {
+            Character leader = eim.getLeader();
+            String line = "RUN " + text + " [" + contentId + (leader == null ? "" : ", leader " + leader.getName()) + "]";
+            BOSS_FEED.info("[Mechanics] {} {}", keyOf(eim), line);
+            if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.MECHANICS)) {
+                int[] humans = eim.getPlayers().stream().filter(c -> !drivable(c)).mapToInt(Character::getId).toArray();
+                soloMapling.qa.QaLog.chars(soloMapling.qa.QaLog.Topic.MECHANICS, 0, humans, line);
+            }
+        } catch (RuntimeException e) {
+            // a feed line never breaks the script that wrote it
+        }
+    }
+
     /** "Zakum (expedition)" -> "Zakum": a row's name without its qualifier, for a line a player reads. */
     static String shortName(String name) {
         int cut = name == null ? -1 : name.indexOf(" (");
