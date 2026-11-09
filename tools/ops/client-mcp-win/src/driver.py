@@ -833,8 +833,19 @@ class Driver:
         self.sender.key(9)
         self.sender.text(password)
         self.sender.key(13)
+        # qa-login-cred (1.6.7): a new account's first login shows the Terms of Use and then the gender prompt before
+        # the world list; get past them the way login does (9 Nov, Silvia DSH dry check).
+        first = []
+        screen = self.wait_choice(('terms', 'gender', 'world'))
+        if screen == 'terms':
+            first.append('terms')
+            self.accept_terms()
+            screen = self.wait_choice(('gender', 'world'))
+        if screen == 'gender':
+            first.append('gender')
+            self.click('gender_confirm')
         # No qa.drain() here: the orchestrator reads the pipe's log by position (qa_events) and must see everything.
-        return {'vault': vault, 'entered': True}
+        return {'vault': vault, 'entered': True, 'first_login': first}
 
     # ui.json points only client scripts click (`do: click, anchor: ...`); the driver itself never does. The Daily
     # Check-in window opens over the field at every login and hides the scene a script films (b008, 2026-11-01).

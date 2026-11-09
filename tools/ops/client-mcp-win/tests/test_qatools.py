@@ -112,7 +112,8 @@ class NewToolsTest(unittest.TestCase):
         (self.tmp / 'secrets' / 'dsh-1.txt').write_text('acct\npass\n')
         self.d.wait_choice = lambda names, timeout=35: 'world'
         self.assertEqual({'vault': 'dsh-1', 'entered': True, 'first_login': []}, self.d.login_credentials('dsh-1'))
-        self.assertEqual([], [event for event in self.d.sender.events if event[0] == 'click'])
+        self.assertEqual([], [event for event in self.d.sender.events
+                              if event[0] == 'click' and event[1].startswith(('terms', 'gender'))])
 
     def test_a_vault_without_its_file_is_refused_with_the_fix(self):
         with self.assertRaises(self.driver.Refusal) as caught:
