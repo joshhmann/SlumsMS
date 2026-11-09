@@ -45,6 +45,19 @@ class ChaosZakumBattleTest {
             props.put(key, String.valueOf(value));
         }
 
+        // 1.6.7 boss-feed-lines: the scripts read the start time and write their feed lines through these
+        public String getProperty(String key) {
+            return props.get(key);
+        }
+
+        public void feed(String text) {
+            calls.add("feed:" + text);
+        }
+
+        public Object getLeader() {
+            return null;
+        }
+
         public void setIntProperty(String key, int value) {
             ints.put(key, value);
         }

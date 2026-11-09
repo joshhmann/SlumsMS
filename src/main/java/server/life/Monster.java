@@ -914,6 +914,9 @@ public class Monster extends AbstractLoadedLife {
     }
 
     public Character killBy(final Character killer) {
+        if (isBoss()) {
+            soloMapling.qa.BossFeed.killed(this, takenDamage.size());   // 1.6.7 boss-feed-lines: observe only
+        }
         distributeExperience(killer != null ? killer.getId() : 0);
 
         final Pair<Character, Boolean> lastController = aggroRemoveController();

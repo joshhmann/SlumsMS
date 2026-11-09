@@ -37,6 +37,7 @@ public class PianusCommand extends Command {
     @Override
     public void execute(Client c, String[] params) {
         Character player = c.getPlayer();
-        player.getMap().spawnMonsterOnGroundBelow(LifeFactory.getMonster(MobId.PIANUS_R), player.getPosition());
+        soloMapling.qa.BossFeed.asGm(() ->
+                player.getMap().spawnMonsterOnGroundBelow(LifeFactory.getMonster(MobId.PIANUS_R), player.getPosition()));
     }
 }

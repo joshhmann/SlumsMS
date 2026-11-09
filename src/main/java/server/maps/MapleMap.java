@@ -2370,6 +2370,9 @@ public class MapleMap {
         }
         monster.aggroUpdateController();
         updateBossSpawn(monster);
+        if (monster.isBoss()) {
+            soloMapling.qa.BossFeed.spawned(this, monster);   // 1.6.7 boss-feed-lines: observe only
+        }
 
         if ((monster.getTeam() == 1 || monster.getTeam() == 0) && (isCPQMap() || isCPQMap2())) {
             List<MCSkill> teamS = null;

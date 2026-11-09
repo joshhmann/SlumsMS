@@ -151,6 +151,11 @@ public class EventInstanceManager {
         this.writeLock = readWriteLock.writeLock();
     }
 
+    /** 1.6.7 boss-feed-lines: lets an event script write one observe-only boss line (QA feed and server log). */
+    public void feed(String text) {
+        soloMapling.qa.BossFeed.line(this, text);
+    }
+
     public void setName(String name) {
         this.name = name;
     }
