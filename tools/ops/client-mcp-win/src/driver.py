@@ -439,8 +439,7 @@ class Driver:
             return None
         return state
 
-    def matches(self, name, image=None):
-        image = self.image() if image is None else image
+    def screen_refs(self, name):
         check = self.ui['screens'][name]
         if not check.get('templates'):
             raise Refusal('Screen templates for ' + name + ' have not been calibrated.')
@@ -449,6 +448,37 @@ class Driver:
             file = inside(self.root / template['file'], self.root)
             with Image.open(file) as reference:
                 refs.append((template, reference.convert('RGB')))
+        return refs
+
+    def chat_pixels_match(self):
+        """The chat_open template alone (no client-state fallback): which half of matches('chat_open') saw it open."""
+        refs = self.screen_refs('chat_open')
+        if self.matches_at(refs, self.image(), 0):
+            return True
+        return bool(self.field_dy) and self.matches_native(refs, self.field_dy)
+
+    def chat_gate_refusal(self, what):
+        # qa-chatgate-evidence (1.6.7): keep what the gate saw (horntail-stand-short-20261109T180625Z refused with
+        # nothing kept): the screenshot, the pixel half of the check, and the client's own state with its age.
+        shot = self.save_shot('chat-gate-refused', include_image=False)
+        kept = {'utc': datetime.now(timezone.utc).isoformat(), 'shot': shot['path']}
+        try:
+            kept['pixel_match'] = self.chat_pixels_match()
+        except Exception as error:  # evidence only: never hide the refusal behind it
+            kept['pixel_match'] = 'error: ' + type(error).__name__
+        path = inside(self.root / 'client' / 'slums-ui-state.json', self.root)
+        try:
+            kept['ui_state_age_s'] = round(time.time() - path.stat().st_mtime, 2)
+            kept['ui_state'] = json.loads(path.read_text(encoding='ascii'))
+        except (OSError, ValueError) as error:
+            kept['ui_state_error'] = type(error).__name__
+        out = inside(Path(shot['path']).with_suffix('.json'), self.root)
+        out.write_text(json.dumps(kept, indent=1), encoding='utf-8')
+        return Refusal('Chat entry is open and did not close; ' + what + ' not sent. Evidence: ' + str(out))
+
+    def matches(self, name, image=None):
+        image = self.image() if image is None else image
+        refs = self.screen_refs(name)
         if name in ('field', 'chat_open') and not self.matches_at(refs, image, 0):
             # A moved, resized or reskinned status bar: ask the client instead of the pixels when it reports.
             state = self.ui_state()
@@ -934,7 +964,7 @@ class Driver:
             deadline = time.monotonic() + 3
             while self.matches('chat_open'):
                 if time.monotonic() >= deadline:
-                    raise Refusal('Chat entry is open and did not close; line not sent.')
+                    raise self.chat_gate_refusal('line')
                 time.sleep(0.1)
         if not self.matches('chat_open'):
             self.sender.key(13)
@@ -1011,7 +1041,7 @@ class Driver:
             deadline = time.monotonic() + 3
             while self.matches('chat_open'):
                 if time.monotonic() >= deadline:
-                    raise Refusal('Chat entry is open and did not close; key not sent.')
+                    raise self.chat_gate_refusal('key')
                 time.sleep(0.1)
         if hold_ms:
             # Hold the key up to 3 s: arrows to walk, Ctrl to keep attacking, a skill key to charge or repeat (b024).
