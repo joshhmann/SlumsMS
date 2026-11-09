@@ -67,12 +67,24 @@ function handleInventoryStartSelectionStatus(selection) {
     inventoryType = InventoryType.getByType(selection);
     inventory = cm.getPlayer().getInventory(inventoryType);
     let selectionString = createInventoryItemsString(inventory, 0, lastItemSlot, "Which slot in your inventory do you want to start selling from?\r\n");
+    // cygnus-lv30-random-crash (1.6.7): an empty tab gave a menu with no row, and Enter on it crashed the client
+    if (!selectionString.includes("#L")) {
+        cm.sendOk("There is nothing in that tab to sell.");
+        cm.dispose();
+        return;
+    }
     cm.sendSimple(selectionString);
 }
 
 function handleInventoryEndSelectionStatus(selection) {
     firstItemSlot = selection;
     let selectionString = createInventoryItemsString(inventory, firstItemSlot + 1, lastItemSlot, "Which slot in your inventory do you want to stop selling at?\r\n");
+    // cygnus-lv30-random-crash (1.6.7): starting at the last item left no slot to stop at, a menu with no row
+    if (!selectionString.includes("#L")) {
+        cm.sendOk("There is no item after that slot to stop at. Pick an earlier slot to start from.");
+        cm.dispose();
+        return;
+    }
     cm.sendSimple(selectionString);
 }
 
