@@ -104,6 +104,14 @@ class DeployTestInstance(unittest.TestCase):
         self.assert_names(out, C_NAMES, (A_NAMES, B_NAMES))
         self.assert_names(calls, (), (A_NAMES, B_NAMES))
 
+    def test_c_refuses_a_parent_that_differs_in_more_than_the_pin_file(self):
+        parent = subprocess.run(["git", "rev-parse", "HEAD~1"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+        changed = subprocess.run(["git", "diff", "--name-only", "HEAD~1", "HEAD"], cwd=ROOT, capture_output=True,
+                                 text=True).stdout.split()
+        if [c for c in changed if c != "deploy/test/test-c.pin"]:
+            r, out, _ = self.run_deploy("--instance", "C", pin=parent)
+            self.assertEqual(1, r.returncode, out)
+
     def test_c_force_overrides_the_pin(self):
         r, out, _ = self.run_deploy("--instance", "C", "--force", pin="0" * 40)
         self.assertEqual(0, r.returncode, out)

@@ -79,7 +79,13 @@ if [ "$INSTANCE" = C ] && [ $FORCE = 0 ]; then
   esac
   case "$HEAD_FULL" in
     "$pin"*) ;;
-    *) echo "refusing: TEST-C is pinned to $pin (deploy/test/test-c.pin), this checkout is $HEAD. Check out the pinned commit, change the pin on the Coordinator's word, or pass --force" >&2; exit 1 ;;
+    # the pin file lives in the checkout, so committing a new pin moves HEAD past the pinned commit: a HEAD whose tree
+    # equals the pinned commit's except for the pin file itself still counts as the pinned build
+    *) if git rev-parse -q --verify "$pin^{commit}" >/dev/null && git diff --quiet "$pin" HEAD -- . ":(exclude)deploy/test/test-c.pin"; then
+         echo "  TEST-C pin $pin: this checkout differs from it only in deploy/test/test-c.pin"
+       else
+         echo "refusing: TEST-C is pinned to $pin (deploy/test/test-c.pin), this checkout is $HEAD. Check out the pinned commit, change the pin on the Coordinator's word, or pass --force" >&2; exit 1
+       fi ;;
   esac
 fi
 [ "$INSTANCE" = C ] && [ $FORCE = 1 ] && echo "  WARN --force: TEST-C pin ignored"
