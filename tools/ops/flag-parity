@@ -1,0 +1,159 @@
+#!/usr/bin/env python3
+"""TEST vs live -D flag parity (1.6.6, Coordinator 2026-11-08): TEST must run live's flags, so it cannot hide live's
+behaviour (b371: bossfight.reach on TEST only). Every difference must be declared:
+
+  - in docs/release/flag-parity.allow (QA plumbing on TEST, live-only debug APIs, per-DB ids and paths), or
+  - as a live change of the release being prepared: a -D flag in the release conf's UNIT_EDITS (live gets it on the
+    night, TEST runs it already) or in UNIT_FLAGS_ABSENT (live loses it on the night).
+
+  tools/ops/flag-parity [--conf docs/release/<version>.conf] [--running] [--live-flags FILE] [--test-flags FILE] [--quiet]
+
+TEST's flags come from deploy/test/start-test.sh (what TEST is meant to run), or with --running from the running unit
+on TEST. Live's come from the slumsms unit on 164 (read only). --live-flags/--test-flags read a file instead (one
+command line or one flag per line; tests use these). Exit 0 = every difference declared, 1 = undeclared differences
+(listed), 2 = could not read a side. Never prints anything but flag names and values (paths, ports, ids; no secrets:
+secret files are named by path only).
+"""
+import argparse
+import os
+import re
+import shlex
+import subprocess
+import sys
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+ALLOW = os.path.join(ROOT, "docs", "release", "flag-parity.allow")
+START_SCRIPT = os.path.join(ROOT, "deploy", "test", "start-test.sh")
+FLAG = re.compile(r"-D([A-Za-z0-9_.\-]+)(?:=(\S*))?")
+
+
+def flags_of(text):
+    """{name: value} for every -D in a command line or script (later wins, as on the JVM)."""
+    out = {}
+    for name, value in FLAG.findall(text):
+        out[name] = value
+    return out
+
+
+def read_cmd(argv):
+    try:
+        p = subprocess.run(argv, capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return None, str(e)
+    return (p.stdout if p.returncode == 0 else None), p.stderr.strip()
+
+
+def live_flags(path):
+    if path:
+        return flags_of(open(path).read())
+    out, err = read_cmd(["ssh", "-o", "BatchMode=yes", os.environ.get("RELEASE_HOST", "root@192.168.0.164"),
+                         "systemctl show slumsms -p ExecStart --value"])
+    if out is None:
+        sys.exit("flag-parity: cannot read live's unit: " + err)
+    return flags_of(out)
+
+
+def test_flags(path, running):
+    if path:
+        return flags_of(open(path).read())
+    if running:
+        host = os.environ.get("SLUMS_TEST_HOST", "192.168.0.111")
+        key = os.path.expanduser("~/.ssh/id_slums_lxc")
+        argv = ["ssh", "-o", "BatchMode=yes"] + (["-o", "IdentitiesOnly=yes", "-i", key] if os.path.exists(key) else [])
+        out, err = read_cmd(argv + ["root@" + host, "systemctl show slums-persistence-test -p ExecStart --value"])
+        if out is None:
+            sys.exit("flag-parity: cannot read TEST's unit: " + err)
+        return flags_of(out)
+    return flags_of(open(START_SCRIPT).read())
+
+
+def read_allow(path):
+    """kind -> set of names. Lines: '<test-only|live-only|value> <flag name>  # why'."""
+    allow = {"test-only": set(), "live-only": set(), "value": set()}
+    for n, line in enumerate(open(path), 1):
+        line = line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        parts = line.split()
+        if len(parts) != 2 or parts[0] not in allow:
+            sys.exit("flag-parity: %s:%d: expected '<test-only|live-only|value> <flag>'" % (path, n))
+        allow[parts[0]].add(parts[1])
+    return allow
+
+
+def conf_changes(conf):
+    """(flags live gains, flags live loses) on the release night, from the conf's UNIT_EDITS / UNIT_FLAGS_ABSENT."""
+    if not conf:
+        return {}, set()
+    script = ('set -e; . %s; printf "%%s\\n" "${UNIT_EDITS[@]}"; echo "--absent--"; '
+              'printf "%%s\\n" "${UNIT_FLAGS_ABSENT[@]}"') % shlex.quote(conf)
+    out, err = read_cmd(["bash", "-c", script])
+    if out is None:
+        sys.exit("flag-parity: cannot read %s: %s" % (conf, err))
+    edits, _, absent = out.partition("--absent--")
+    gains = {}
+    for expr in edits.splitlines():
+        # a sed s<d>old<d>new<d>: the -D flags in "new" that are not in "old" are what live gains
+        m = re.match(r"^s(.)(.*?)\1(.*?)\1", expr)
+        if m:
+            old, new = flags_of(m.group(2)), flags_of(m.group(3))
+            gains.update({k: v for k, v in new.items() if k not in old or old[k] != v})
+    loses = {n for n, _ in FLAG.findall(absent)}
+    return gains, loses
+
+
+def compare(live, test, allow, gains=None, loses=None):
+    """Undeclared differences, as (kind, flag, live value, TEST value)."""
+    gains, loses = gains or {}, loses or set()
+    bad = []
+    for name in sorted(set(live) | set(test)):
+        lv, tv = live.get(name), test.get(name)
+        if lv == tv:
+            continue
+        if name in gains and tv == gains[name]:
+            continue  # live gets TEST's value on the night
+        if name in loses and tv is None:
+            continue  # live loses it on the night; TEST already runs without it
+        if lv is None:
+            kind = "test-only"
+        elif tv is None:
+            kind = "live-only"
+        else:
+            kind = "value"
+        if name in allow[kind] or (kind != "value" and name in allow["value"]):
+            continue
+        bad.append((kind, name, lv, tv))
+    return bad
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--conf")
+    ap.add_argument("--running", action="store_true")
+    ap.add_argument("--live-flags")
+    ap.add_argument("--test-flags")
+    ap.add_argument("--allow", default=ALLOW)
+    ap.add_argument("--quiet", action="store_true")
+    a = ap.parse_args()
+    live, test = live_flags(a.live_flags), test_flags(a.test_flags, a.running)
+    if not live or not test:
+        print("flag-parity: no -D flags read for %s" % ("live" if not live else "TEST"), file=sys.stderr)
+        return 2
+    gains, loses = conf_changes(a.conf)
+    bad = compare(live, test, read_allow(a.allow), gains, loses)
+    src = "running unit" if a.running else (a.test_flags or "deploy/test/start-test.sh")
+    if not bad:
+        if not a.quiet:
+            print("flag-parity OK: live %d flags, TEST (%s) %d; every difference declared%s" % (
+                len(live), src, len(test), " (+ %s)" % os.path.basename(a.conf) if a.conf else ""))
+        return 0
+    print("flag-parity: %d undeclared difference(s), live vs TEST (%s):" % (len(bad), src))
+    for kind, name, lv, tv in bad:
+        print("  %-9s -D%s  live=%s  TEST=%s" % (kind, name, "-" if lv is None else lv, "-" if tv is None else tv))
+    print("Match TEST to live (deploy/test/start-test.sh), declare it in docs/release/flag-parity.allow, or put the live "
+          "change in the release conf's UNIT_EDITS / UNIT_FLAGS_ABSENT.")
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
