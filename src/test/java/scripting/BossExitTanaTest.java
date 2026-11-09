@@ -30,6 +30,37 @@ class BossExitTanaTest {
         public FakeMap getMap() {
             return new FakeMap();
         }
+
+        public int getId() {
+            return 3004006;
+        }
+
+        public boolean isBot() {
+            return false;
+        }
+
+        /** Room in every tab: this test is about the way out, not about bag space. */
+        public Object getInventory(Object type) {
+            return new Object() {
+                public int getNumFreeSlot() {
+                    return 24;
+                }
+            };
+        }
+
+        public Object getClient() {
+            return new Object() {
+                public Object getWorldServer() {
+                    return new Object() {
+                        public void removeUnclaimed(Object log, int cid) {
+                        }
+                    };
+                }
+            };
+        }
+
+        public void dropMessage(String message) {
+        }
     }
 
     public static final class ExitCm extends MapleRootBrokenNpcScriptTest.FakeCm {
