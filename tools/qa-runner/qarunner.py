@@ -45,9 +45,8 @@ RUNS_ROOT = Path("/root/work/qa-runs")
 # TEST moved to its own box in 1.6.3 (mapletest, ssh alias `mapletest`); live, release staging and the patch site stay
 # on 192.168.0.164. The box comes from SLUMS_TEST_HOST through testhost.py, the one guard (allowlisted to TEST's two
 # boxes, port 8489); 164 is the one host that keeps ssh's default key. Nothing here reads the setting directly.
-FEED_URL = "http://127.0.0.1:8198/qa/events"
-FEED_SECRET_FILE = "/etc/slums-inspect-test/secret"
-DEPLOYED_COMMIT = "/opt/mapleroot-dev/persistence-test/Server/DEPLOYED_COMMIT"
+# Since 9 Nov the box runs two game servers: A (the owner's) and B (the lanes'). Each has its own feed, secret and
+# deployed commit (testhost.INSTANCES); SLUMS_TEST_INSTANCE picks one per run, b unless a run says a.
 PLACEHOLDER = qascript.PLACEHOLDER
 # The client logs this once at login: the only place on the box that says which capabilities the client has.
 BUILD_STAMP_CAPS = re.compile(r"Build stamp: caps (0x[0-9A-Fa-f]{8})")
@@ -62,6 +61,14 @@ def test_host(host=None):
     """The TEST box's name or address, validated by testhost.py: SLUMS_TEST_HOST, default 164 until the cutover."""
     try:
         return testhost.host(host)
+    except testhost.Refused as error:
+        raise TestHostRefused(str(error)) from None
+
+
+def test_instance(name=None):
+    """The TEST instance the run talks to (a or b), validated by testhost.py: SLUMS_TEST_INSTANCE, b unless set."""
+    try:
+        return testhost.instance(name)
     except testhost.Refused as error:
         raise TestHostRefused(str(error)) from None
 
@@ -106,13 +113,15 @@ def iso(t):
 class SshFeed:
     """GET /qa/events on TEST, run on the TEST box over ssh; the secret header is built there from the file."""
 
-    def __init__(self, host=None, runner=subprocess.run):
+    def __init__(self, host=None, runner=subprocess.run, instance=None):
         self.host = test_host(host)
+        self.instance = test_instance(instance)
         self.runner = runner
 
     def remote_command(self, query):
-        url = FEED_URL + "?" + query
-        return ("printf 'X-Slums-Inspect: %s\\n' \"$(cat " + FEED_SECRET_FILE + ")\" | "
+        where = testhost.INSTANCES[self.instance]
+        url = where["feed"] + "?" + query
+        return ("printf 'X-Slums-Inspect: %s\\n' \"$(cat " + where["secret"] + ")\" | "
                 "curl -sS --max-time 30 -H @- " + shlex.quote(url))
 
     def poll(self, since, chars, topics, match=None, wait=20):
@@ -132,8 +141,9 @@ class SshFeed:
         return answer
 
 
-def read_deployed_commit(host=None, runner=subprocess.run):
-    r = runner(test_ssh("cat " + DEPLOYED_COMMIT, host), capture_output=True, text=True, timeout=30)
+def read_deployed_commit(host=None, runner=subprocess.run, instance=None):
+    path = testhost.INSTANCES[test_instance(instance)]["commit"]
+    r = runner(test_ssh("cat " + path, host), capture_output=True, text=True, timeout=30)
     commit = (r.stdout or "").strip()
     return commit if re.fullmatch(r"[0-9a-f]{7,40}", commit) else "unknown"
 
@@ -357,8 +367,9 @@ class SilviaWorker:
     NO_PAYLOAD = {"field.ready"}
     KEY_STEPS = {"key": ("key", "hold_ms"), "move": ("dir", "ms")}
 
-    def __init__(self, transport=None, sleep=time.sleep, clock=time.time, target="vm"):
+    def __init__(self, transport=None, sleep=time.sleep, clock=time.time, target="vm", instance=None):
         self.transport = transport or WorkerTransport(target)
+        self.instance = test_instance(instance)   # qa-test-b: the TEST instance the client logs in to (a or b)
         self.sleep, self.clock = sleep, clock
         self.cursor = {}     # alias -> position in the pipe's event log
         self.seen = {}       # alias -> every event this run read, in order (the run folder's pipe.log)
@@ -431,7 +442,7 @@ class SilviaWorker:
         status = self.json_tool("status")
         if status.get("client_running"):
             self.json_tool("stop_client")
-        self.json_tool("start_client")
+        self.json_tool("start_client", {"instance": self.instance})
         self.pending[alias] = []   # whatever the old client sent belongs to the old client
         self.events(alias)   # the log up to now: the login's own signals start here
         vault = (client.get("account") or {}).get("vault")
@@ -745,7 +756,8 @@ class Run:
             "script": {"id": self.doc["id"], "sha256": hashlib.sha256(self.text.encode("utf-8")).hexdigest(),
                        "status": self.doc.get("status", "draft"), "covers": self.doc["covers"]},
             "server": {"host": "TEST", "commit": commit if re.fullmatch(r"[0-9a-f]{7,40}", commit) else "0000000",
-                       "commit_source": "Server/DEPLOYED_COMMIT"},
+                       "commit_source": "Server/DEPLOYED_COMMIT",
+                       "instance": getattr(worker, "instance", None) or test_instance()},   # qa-test-b: a or b
             "clients": {}, "runner": {"orchestrator": "tools/qa-runner 1", "host": "187",
                                       "worker": "client-mcp " + self.worker_target()},
             "trigger": trigger, "started_utc": iso(self.started), "finished_utc": None, "result": "RUNNING",

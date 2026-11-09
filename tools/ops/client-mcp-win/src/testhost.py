@@ -1,4 +1,5 @@
-"""The one guard on where the QA tools point: SLUMS_TEST_HOST, allowlisted to TEST's two boxes, port 8489.
+"""The one guard on where the QA tools point: SLUMS_TEST_HOST, allowlisted to TEST's two boxes, port 8489 (TEST-A) or
+8589 (TEST-B, the lanes' instance since 9 Nov; SLUMS_TEST_INSTANCE picks one per run).
 
 TEST left 164 in 1.6.3: mapletest (192.168.0.111) is TEST's own box, with the same paths and ports. The played TEST
 stays on 164 until the cutover (o03 step 3), so DEFAULT_HOST is 164 today and flips to 192.168.0.111 then. Live runs
@@ -24,8 +25,19 @@ TEST_HOSTS = ("192.168.0.164", "192.168.0.111")
 DEFAULT_HOST = "192.168.0.111"  # mapletest since the 1.6.3 TEST cutover (o03, 2026-11-01 09:35 UTC)
 DEFAULT_KEY_HOST = "192.168.0.164"  # the one box that keeps ssh's default key (it is live's box too)
 TEST_KEY = "~/.ssh/id_slums_lxc"
-PORT = "8489"  # TEST's login port; 8485 on 164 is live's
+PORT = "8489"  # TEST-A's login port; 8485 on 164 is live's
 LIVE_PORT = "8485"
+# TEST-B (owner 9 Nov): one box, two game servers. A (8489) is the owner's own QA server, B (8589) the lanes'. A run
+# picks one with SLUMS_TEST_INSTANCE (a or b; unset means b). Each has its own feed, secret and deployed commit.
+INSTANCE_ENV = "SLUMS_TEST_INSTANCE"
+DEFAULT_INSTANCE = "b"
+INSTANCES = {
+    "a": {"port": "8489", "feed": "http://127.0.0.1:8198/qa/events", "secret": "/etc/slums-inspect-test/secret",
+          "commit": "/opt/mapleroot-dev/persistence-test/Server/DEPLOYED_COMMIT"},
+    "b": {"port": "8589", "feed": "http://127.0.0.1:8298/qa/events", "secret": "/etc/slums-test-b/inspect",
+          "commit": "/opt/mapleroot-dev/test-b/Server/DEPLOYED_COMMIT"},
+}
+PORTS = tuple(INSTANCES[name]["port"] for name in sorted(INSTANCES))
 
 
 class Refused(RuntimeError):
@@ -59,12 +71,29 @@ def host(value=None, source=None):
 
 
 def port(value, source="port"):
-    """TEST's login port, validated: 8485 is live's."""
+    """A TEST login port (A's or B's), validated: 8485 is live's."""
     text = value.strip() if isinstance(value, str) else ""
-    if text == PORT:
+    if text in PORTS and text != LIVE_PORT:
         return text
     raise Refused("%s=%r is refused: the QA tools talk to TEST on port %s only (%s is live's login port)."
-                  % (source, value, PORT, LIVE_PORT))
+                  % (source, value, " or ".join(PORTS), LIVE_PORT))
+
+
+def instance(value=None, source=None):
+    """The TEST instance a run talks to, validated: `None` reads SLUMS_TEST_INSTANCE, unset means b (the lanes')."""
+    if value is None:
+        if INSTANCE_ENV not in os.environ:
+            return DEFAULT_INSTANCE
+        value, source = os.environ[INSTANCE_ENV], INSTANCE_ENV
+    if value in INSTANCES:
+        return value
+    raise Refused("%s=%r is not a TEST instance: use %s (A is the owner's QA server, B the lanes')."
+                  % (source or "instance", value, " or ".join(sorted(INSTANCES))))
+
+
+def instance_port(name=None):
+    """The login port of the run's instance (or of `name`)."""
+    return INSTANCES[instance(name)]["port"]
 
 
 def uses_test_key(name=None):
