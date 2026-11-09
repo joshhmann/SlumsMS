@@ -144,4 +144,21 @@ class StallTargetLabelTest {
             return 11;
         }
     }
+
+    /**
+     * lpq1-pass-shortfall (QA, TEST 8 Nov 2026): a stalled stage didn't say which monsters were still alive, so
+     * "21 of 25" could not be told apart from "passes lost". The STALL reason now ends with the stage's alive monsters.
+     */
+    @Test
+    void theStallReasonNamesTheMonstersStillAlive() {
+        assertEquals(", alive: 2 at (117,-2288) (-99,-2820)",
+                StepExecutor.aliveTail(java.util.List.of(new java.awt.Point(117, -2288), new java.awt.Point(-99, -2820))));
+        assertEquals(", alive: 0", StepExecutor.aliveTail(java.util.List.of()));
+        java.util.List<java.awt.Point> many = new java.util.ArrayList<>();
+        for (int i = 0; i < 9; i++) {
+            many.add(new java.awt.Point(i, -i));
+        }
+        assertEquals(", alive: 9 at (0,0) (1,-1) (2,-2) (3,-3) (4,-4) (5,-5) +3 more", StepExecutor.aliveTail(many),
+                "at most six positions, then how many more");
+    }
 }

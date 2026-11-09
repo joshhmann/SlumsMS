@@ -285,6 +285,18 @@ public final class CompanionSettingsStore {
     }
 
     /**
+     * The stored settings for exactly this pair, without ever waiting: a path that must not block (a quest turn-in on
+     * the player's thread) gets what is in memory, and the first such read after a restart starts the load.
+     */
+    public static CompanionSettings peek(int ownerId, int companionId) {
+        if (!loaded) {
+            requestLoad();
+        }
+        Entry entry = byCompanion.get(companionId);
+        return entry != null && entry.ownerId() == ownerId ? entry.settings() : CompanionSettings.DEFAULT;
+    }
+
+    /**
      * Saves one companion's settings and answers the settings now in force. A change back to the defaults deletes the
      * row ("default not written"), so an untouched companion has none.
      */

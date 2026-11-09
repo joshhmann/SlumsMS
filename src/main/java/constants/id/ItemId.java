@@ -353,6 +353,11 @@ public class ItemId {
         return itemId == NX_CARD_100 || itemId == NX_CARD_250;
     }
 
+    /** A Cash Shop package (910xxxx) is a container from CashPackage.img, not a real item; the client crashes on one. */
+    public static boolean isCashPackage(int itemId) { // Cosmic #244
+        return itemId / 10000 == 910;
+    }
+
     /**
      * NX credited for picking up a stack of NX cards. Mob drops scale the card quantity with
      * the mob's HP, so a stack is paid per card; a non-positive quantity still counts as one.

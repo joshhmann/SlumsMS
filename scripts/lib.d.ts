@@ -2864,7 +2864,6 @@ interface Character extends AbstractCharacterObject {
 	debugListAllBuffsCount(): void;
 	cannotEnterCashShop(): boolean;
 	updateActiveEffects(): void;
-	changeRebirthJobCerezeth(tap: Job): void;
 	decreaseBattleshipHp(cooldown: number): void;
 	setDisconnectedFromChannelWorld(): void;
 	toggleRecvPartySearchInvite(): boolean;
@@ -4252,7 +4251,6 @@ interface NPCConversationManager extends AbstractPlayerInteraction {
 	getText(): string;
 	dispose(): void;
 	canBeUsedAllianceName(name: string): boolean;
-	changeRebirthJobCerezeth(jobid: number): void;
 	improveSuperiorEquips(nEquip: Equip, fail: boolean): void;
 	getStarForceEquipCraftingBonus(equip: Equip): StarBoost;
 	getStarForceEquipCraftingBonus(slot: number): StarBoost;

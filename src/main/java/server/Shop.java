@@ -175,6 +175,11 @@ public class Shop {
                 }
             }
 
+        } else if (ItemConstants.isRechargeable(itemId)) {
+            // 1.6.7 shop-ammo-tiers: a recharge-only entry (every star and bullet a shop does not sell, listed at 0 so
+            // the client can recharge it) is never for sale. Say so instead of leaving the window waiting, and keep it
+            // away from the token branch below, where a price of 0 would cost nothing.
+            c.sendPacket(PacketCreator.shopTransaction((byte) 6));
         } else if (c.getPlayer().getInventory(InventoryType.CASH).countById(token) != 0) {
             int amount = c.getPlayer().getInventory(InventoryType.CASH).countById(token);
             long value = (long) amount * tokenvalue;
@@ -201,6 +206,8 @@ public class Shop {
             } else {
                 c.sendPacket(PacketCreator.shopTransaction((byte) 2));
             }
+        } else {
+            c.sendPacket(PacketCreator.shopTransaction((byte) 6));   // 1.6.7: nothing to pay with; the trade did not happen
         }
     }
 

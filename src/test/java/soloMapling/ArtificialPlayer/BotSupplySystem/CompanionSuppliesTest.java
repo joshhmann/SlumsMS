@@ -41,8 +41,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
@@ -151,6 +154,7 @@ class CompanionSuppliesTest {
         runs.forEach(ExpeditionBotsAccess::release);
         runs.clear();
         said.close();
+        CompanionSupplies.forgetStacks();
         System.clearProperty(PartyCompanionPolicy.Feature.SUPPLIES.property(false));
         System.clearProperty(PartyCompanionPolicy.Feature.SUPPLIES.property(true));
     }
@@ -191,17 +195,20 @@ class CompanionSuppliesTest {
     }
 
     @Test
-    void theOwnerIsToldOnceAtTenPotionsAndOnceWhenTheyAreGone() throws Exception {
+    void theOwnerIsToldOnceUnderAQuarterAndOnceWhenTheyAreGone() throws Exception {
         Character alt = ownedAlt(400, 1000);
         hold(alt, Magician.MAGIC_CLAW, 20);
-        give(alt, RED, 10);
-        give(alt, BLUE, 10);
+        give(alt, RED, 40);
+        give(alt, BLUE, 40);
         bossRun(alt);
+        BotVitals.topUp(alt);                    // its stacks: 40 and 40
 
+        use(alt, RED, 31);
+        use(alt, BLUE, 31);                      // 9 of 40: under a quarter
         BotVitals.topUp(alt);
         BotVitals.topUp(alt);
-        said.verify(() -> OwnedAltOrders.say(alt, "I'm down to 10 HP potions"), times(1));
-        said.verify(() -> OwnedAltOrders.say(alt, "I'm down to 10 mana potions"), times(1));
+        said.verify(() -> OwnedAltOrders.say(alt, "I'm down to 9 HP potions"), times(1));
+        said.verify(() -> OwnedAltOrders.say(alt, "I'm down to 9 mana potions"), times(1));
 
         take(alt, RED);
         BotVitals.topUp(alt);
@@ -222,6 +229,69 @@ class CompanionSuppliesTest {
         BotVitals.topUp(alt);
         said.verifyNoInteractions();
     }
+
+    // ── the warning is a quarter of the stack it got (owner, 8 Nov 2026) ──
+
+    @Test
+    void theWarningComesAtAQuarterOfTheStackItGot() throws Exception {
+        Character alt = ownedAlt(400, 1000);
+        equipSword(alt);
+        give(alt, RED, 1000);
+        bossRun(alt);
+        BotVitals.topUp(alt);                    // seen at 1000: its stack
+
+        use(alt, RED, 750);                      // 250 left: exactly a quarter, not under it
+        BotVitals.topUp(alt);
+        said.verify(() -> OwnedAltOrders.say(eq(alt), startsWith("I'm down to")), never());
+
+        use(alt, RED, 1);                        // 249
+        BotVitals.topUp(alt);
+        BotVitals.topUp(alt);
+        said.verify(() -> OwnedAltOrders.say(alt, "I'm down to 249 HP potions"), times(1));
+    }
+
+    @Test
+    void aRestockSetsANewStackAndTheWarningComesAgain() throws Exception {
+        Character alt = ownedAlt(400, 1000);
+        equipSword(alt);
+        give(alt, RED, 1000);
+        bossRun(alt);
+        BotVitals.topUp(alt);
+        use(alt, RED, 800);                      // 200: warned once
+        BotVitals.topUp(alt);
+        said.verify(() -> OwnedAltOrders.say(alt, "I'm down to 200 HP potions"), times(1));
+
+        give(alt, RED, 400);                     // 600: a hand-over or a restock - the new stack
+        BotVitals.topUp(alt);
+        use(alt, RED, 450);                      // 150 = a quarter of 600: quiet
+        BotVitals.topUp(alt);
+        said.verify(() -> OwnedAltOrders.say(alt, "I'm down to 150 HP potions"), never());
+        use(alt, RED, 1);                        // 149
+        BotVitals.topUp(alt);
+        said.verify(() -> OwnedAltOrders.say(alt, "I'm down to 149 HP potions"), times(1));
+    }
+
+    @Test
+    void theRecruiterCallsAMemberShortUnderAQuarterOfItsStackOrUnderFifty() throws Exception {
+        Character alt = ownedAlt(400, 1000);
+        equipSword(alt);
+        hold(alt, Magician.MAGIC_CLAW, 20);
+        give(alt, RED, 1000);
+        give(alt, BLUE, 1000);
+        BotVitals.topUp(alt);                    // out of a run: the stack is still noted
+        use(alt, RED, 700);                      // 300 of 1000: not short
+        assertNull(CompanionSupplies.shortOf(alt));
+        use(alt, RED, 60);                       // 240: under a quarter
+        CompanionSupplies.ShortOf shortOf = CompanionSupplies.shortOf(alt);
+        assertNotNull(shortOf, "240 of a 1000 stack is short");
+        assertEquals("Second is down to 240 HP potions.", shortOf.line("Second"));
+
+        Character fresh = ownedAlt(400, 1000);   // never seen with a stack: the fixed 50 decides
+        equipSword(fresh);
+        give(fresh, RED, 49);
+        assertNotNull(CompanionSupplies.shortOf(fresh));
+    }
+
 
     // ── the pre-run check at the recruiter ───────────────────────────────────
 
@@ -255,8 +325,8 @@ class CompanionSuppliesTest {
     void aRegularKeepsTheOldLinesUntilTheRegularSwitchIsOn() throws Exception {
         Character regular = bot(400, 1000);      // not an owned alt: a party regular
         hold(regular, Magician.MAGIC_CLAW, 20);
-        give(regular, RED, 10);
-        give(regular, BLUE, 10);
+        give(regular, RED, 9);
+        give(regular, BLUE, 9);
         bossRun(regular);
         regular.updateHp(260);
 
@@ -268,11 +338,16 @@ class CompanionSuppliesTest {
         }
 
         System.setProperty(PartyCompanionPolicy.Feature.SUPPLIES.property(false), "true");
+        give(regular, RED, 31);
+        give(regular, BLUE, 31);                 // a stack of 40 each, seen with the switch on
         try (MockedStatic<BotPartyChat> said = mockStatic(BotPartyChat.class)) {
             BotVitals.topUp(regular);
             assertEquals(310, regular.getHp(), "with the switch on it drinks at the boss line");
-            said.verify(() -> BotPartyChat.sayInParty(regular, "I'm down to 10 HP potions"), times(1));
-            said.verify(() -> BotPartyChat.sayInParty(regular, "I'm down to 10 mana potions"), times(1));
+            use(regular, RED, 30);               // 9 of the 39 left after that drink: under a quarter
+            use(regular, BLUE, 31);
+            BotVitals.topUp(regular);
+            said.verify(() -> BotPartyChat.sayInParty(regular, "I'm down to 9 HP potions"), times(1));
+            said.verify(() -> BotPartyChat.sayInParty(regular, "I'm down to 9 mana potions"), times(1));
         }
         assertNotNull(CompanionSupplies.shortOf(regular), "and the recruiter check covers it too");
     }
@@ -423,6 +498,18 @@ class CompanionSuppliesTest {
     private static void take(Character bot, int itemId) {
         for (Item stack : bot.getInventory(InventoryType.USE).listById(itemId).toArray(new Item[0])) {
             BotHoldings.consumeHeld(bot, stack, stack.getQuantity());
+        }
+    }
+
+    /** Drinks (takes away) n of an item, as the fight would. */
+    private static void use(Character bot, int itemId, int n) {
+        for (Item stack : bot.getInventory(InventoryType.USE).listById(itemId).toArray(new Item[0])) {
+            int take = Math.min(n, stack.getQuantity());
+            BotHoldings.consumeHeld(bot, stack, take);
+            n -= take;
+            if (n <= 0) {
+                return;
+            }
         }
     }
 

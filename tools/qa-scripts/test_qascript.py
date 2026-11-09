@@ -190,6 +190,13 @@ class ValidatorTest(unittest.TestCase):
                            "do: gm")
         self.assertRefused(GOOD.replace("line: \"!hurt", "line: \"hurt"), "does not match")
 
+    def test_click_npc_takes_a_low_npc_id(self):
+        # GP3 (1.6.7): Rain, NPC 12101 on Maple Island, was refused by a 1000000 minimum the driver and client never had.
+        rain = GOOD.replace("  - {do: select_character}\n", "  - {do: select_character}\n  - {do: click_npc, npc: 12101}\n")
+        errors, _ = check(rain)
+        self.assertEqual([], errors)
+        self.assertRefused(rain.replace("npc: 12101", "npc: 0"), "npc")
+
     def test_the_id_matches_the_file_name(self):
         errors, _ = qascript.validate_text(GOOD, "other-name")
         self.assertTrue(any("must match the file name" in e for e in errors))

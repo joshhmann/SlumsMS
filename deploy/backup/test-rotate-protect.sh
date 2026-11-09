@@ -45,4 +45,18 @@ PROTECT_PATHS="PreviousServer $dep/*/staging" run --dry-run >/dev/null 2>&1
 grep -q "$old/staging" "$plan" && fail "path-glob protection ignored"
 PROTECT_PATHS="" run --dry-run >/dev/null 2>&1
 grep -q "$old/PreviousServer" "$plan" || fail "empty PROTECT_PATHS should allow PreviousServer"
-echo "PASS: PreviousServer protected in dry run and apply; other bulk still rotates"
+# The default list also pins the original-server backup, even when it falls out of the newest $KEEP_DEPLOYS pre-*.
+pre=$t/pre
+for s in 20261019T070109Z 20261101T000000Z 20261102T000000Z 20261103T000000Z; do
+    n=pre-v$s; [ $s = 20261019T070109Z ] && n=pre-live-baseline-$s
+    mkdir -p "$pre/$n"; echo x > "$pre/$n/installation.tar.gz"
+done
+mkdir -p "$pre/pre-solomapling-20261018T225200Z"; echo x > "$pre/pre-solomapling-20261018T225200Z/installation.tar.gz"
+run --dry-run >/dev/null 2>&1
+grep -q "pre-solomapling-20261018T225200Z" "$plan" || fail "an old pre-* backup should still be a candidate"
+grep -q "pre-live-baseline-20261019T070109Z" "$plan" && fail "pre-live-baseline listed as a candidate"
+sleep 1
+run --apply --grace-hours 0 >/dev/null 2>&1
+[ -f "$pre/pre-live-baseline-20261019T070109Z/installation.tar.gz" ] || fail "apply deleted pre-live-baseline"
+[ ! -e "$pre/pre-solomapling-20261018T225200Z" ] || fail "apply did not delete the old pre-* backup"
+echo "PASS: PreviousServer and pre-live-baseline protected in dry run and apply; other bulk still rotates"

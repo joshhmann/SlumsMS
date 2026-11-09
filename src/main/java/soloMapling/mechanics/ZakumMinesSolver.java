@@ -189,7 +189,7 @@ public final class ZakumMinesSolver implements StageSolver {
             return null;
         }
         return "RUN zakumpq big chest " + BIG_CHEST + " opened on " + view.stage().mapId() + " by " + by + " after "
-                + afterS + " s" + tag;
+                + afterS + " s into the run" + tag; // seconds since the run started, not the stage (work-62)
     }
 
     /** Who placed the keys on the big chest this stage (the latest placer), or 0. */

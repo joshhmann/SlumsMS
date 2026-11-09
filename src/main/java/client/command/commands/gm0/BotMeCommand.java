@@ -35,8 +35,8 @@ public class BotMeCommand extends Command {
             return;
         }
         if (params.length == 3 && params[0].equalsIgnoreCase("quests")) {
-            // 1.6.7 alt-qol-batch E: the quest mirror is off for every alt until its owner turns it on. The state is
-            // in memory only, so a restart turns mirroring off again - the safe direction - and nothing is saved.
+            // 1.6.7 alt-qol-batch E: the quest mirror is off for every alt until its owner turns it on. The choice is
+            // kept with the alt's settings, so it survives a restart (owner, 8 Nov 2026).
             boolean on;
             if (params[1].equalsIgnoreCase("on")) {
                 on = true;
@@ -55,7 +55,7 @@ public class BotMeCommand extends Command {
                 owner.yellowMessage(target.getName() + " is not one of your alts, so it follows the server's party-companion switch.");
                 return;
             }
-            CompanionQuestMirror.setOptIn(target.getId(), on);
+            CompanionQuestMirror.setOptIn(owner, target, on);   // kept with the alt's settings (owner, 8 Nov 2026)
             owner.yellowMessage(on
                     ? target.getName() + " will take on the quests you start and the ones you turn in, and your kills count for it."
                     : target.getName() + " will leave your quests alone from now on.");
