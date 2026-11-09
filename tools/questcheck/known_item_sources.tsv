@@ -1,4 +1,3 @@
 # itemid<TAB>reason. A source this scan cannot see. Every line needs a reason (checked by the tool).
-2430200	Thunder Stone is the item that scripts/item/dreamkey.js is attached to: the script consumes the item being used, so it is its own source (a Dream Key craft item, not a requirement)
 4260003	Intermediate Monster Crystal 1 is the Maker test crystal: client/inventory/MakerService.java MAKER_2_TEST_CRYSTAL (:110, :431) makes it
 4031713	Subway ticket to Kerning City (Regular): bought from NPC 9201057, which computes the id as 4031711 + mapid/300000000 (scripts/npc/9201057.js:15)
