@@ -2,7 +2,14 @@
 # Deploy this checkout to the TEST server (never live). Builds the jar, copies it plus every runtime data file that
 # changed since the last test deploy, applies pending migrations, restarts the test unit and checks the boot.
 #
-#   tools/ops/deploy-test [--feature] [--skip-build] [--dry-run] [--since <commit>] [--no-migrations] [--start-script]
+#   tools/ops/deploy-test [--instance A|B|C] [--commit <sha>] [--force] [--feature] [--skip-build] [--dry-run]
+#                         [--since <commit>] [--no-migrations] [--start-script]
+# --instance picks the TEST server (default A = today's slums-persistence-test, so existing calls behave as before).
+#   B (slums-test-b) and C (slums-test-c) run beside A with their own folder, ports, DB container and start script
+#   (docs/ops/test-instances.md, values from tools/ops/test-instances.py). One call, one target: only that instance's
+#   unit is restarted, only its DB gets migrations, only its boot is checked. An unknown instance is refused.
+#   C only takes the commit in deploy/test/test-c.pin (the frozen release candidate) unless --force.
+# --commit <sha> asserts the checkout is at that commit (the build is always this checkout's HEAD).
 # --feature targets only /opt/mapleroot-dev/bot-life-160 (slums-life160 / mapleroot_life160); never shared TEST/live.
 # --start-script installs deploy/test/start-test.sh as TEST's start script (old one kept beside it). Without it the
 #   deploy only warns when they differ. 1.6.6 flag parity: TEST's -D flags are kept in the repo and checked against
@@ -27,10 +34,13 @@ UNIT=slums-persistence-test
 DBC=mapleroot-integration-db
 DBN=mapleroot_persist
 
-SKIP_BUILD=0; DRY=0; SINCE=""; MIGRATE=1; START_SCRIPT=0
+SKIP_BUILD=0; DRY=0; SINCE=""; MIGRATE=1; START_SCRIPT=0; INSTANCE=A; FEATURE=0; FORCE=0; WANT_COMMIT=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --feature) BASE=/opt/mapleroot-dev/bot-life-160; SRV=$BASE/Server; UNIT=slums-life160; DBN=mapleroot_life160 ;;
+    --feature) FEATURE=1; BASE=/opt/mapleroot-dev/bot-life-160; SRV=$BASE/Server; UNIT=slums-life160; DBN=mapleroot_life160 ;;
+    --instance) [ $# -ge 2 ] || { echo "--instance needs A, B or C" >&2; exit 2; }; INSTANCE="$2"; shift ;;
+    --commit) [ $# -ge 2 ] || { echo "--commit needs a sha" >&2; exit 2; }; WANT_COMMIT="$2"; shift ;;
+    --force) FORCE=1 ;;
     --skip-build) SKIP_BUILD=1 ;;
     --dry-run) DRY=1 ;;
     --since) SINCE="$2"; shift ;;
@@ -43,10 +53,37 @@ while [ $# -gt 0 ]; do
 done
 
 cd "$(git rev-parse --show-toplevel)"
+# the instance table lives in tools/ops/test-instances.py (one source for this script, the tests and test-instance)
+case "$INSTANCE" in A|B|C) ;; *) echo "unknown instance '$INSTANCE': use A, B or C" >&2; exit 2 ;; esac
+if [ $FEATURE = 1 ] && [ "$INSTANCE" != A ]; then echo "--feature cannot be combined with --instance $INSTANCE" >&2; exit 2; fi
+inst() { python3 tools/ops/test-instances.py get "$INSTANCE" "$1"; }
+START_SRC=deploy/test/start-test.sh
+if [ $FEATURE = 0 ]; then
+  BASE=$(inst folder); SRV=$BASE/Server; UNIT=$(inst unit); DBC=$(inst db_container); DBN=$(inst db_name)
+  START_SRC=$(inst start_script)
+fi
 case "$SRV" in *"/opt/mapleroot/"*|*"Full Repack"*) echo "refusing: that is the live server" >&2; exit 1 ;; esac
 HEAD=$(git rev-parse --short=9 HEAD)
 VERSION=$(sed -n 's/.*SLUMSMS_VERSION = "\(.*\)".*/\1/p' src/main/java/constants/net/ServerConstants.java)
-echo "== deploy-test: $VERSION at $HEAD to root@$TEST_HOST =="
+HEAD_FULL=$(git rev-parse HEAD)
+if [ -n "$WANT_COMMIT" ]; then
+  want_full=$(git rev-parse --verify -q "$WANT_COMMIT^{commit}" || true)
+  [ -n "$want_full" ] && [ "$want_full" = "$HEAD_FULL" ] || { echo "--commit $WANT_COMMIT is not the checked-out HEAD $HEAD: check it out first" >&2; exit 1; }
+fi
+if [ "$INSTANCE" = C ] && [ $FORCE = 0 ]; then
+  PIN_FILE=${DEPLOY_TEST_PIN_FILE:-deploy/test/test-c.pin}
+  pin=$(sed 's/#.*//' "$PIN_FILE" 2>/dev/null | tr -d '[:space:]' || true)
+  case "$pin" in
+    [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*) ;;   # at least 7 hex digits: no empty or tiny wildcard
+    *) echo "refusing: $PIN_FILE has no usable pinned commit (TEST-C only takes the pinned release candidate; --force overrides)" >&2; exit 1 ;;
+  esac
+  case "$HEAD_FULL" in
+    "$pin"*) ;;
+    *) echo "refusing: TEST-C is pinned to $pin (deploy/test/test-c.pin), this checkout is $HEAD. Check out the pinned commit, change the pin on the Coordinator's word, or pass --force" >&2; exit 1 ;;
+  esac
+fi
+[ "$INSTANCE" = C ] && [ $FORCE = 1 ] && echo "  WARN --force: TEST-C pin ignored"
+echo "== deploy-test: $VERSION at $HEAD to root@$TEST_HOST (instance $INSTANCE: unit $UNIT, $BASE, db $DBC/$DBN) =="
 
 if [ -z "$SINCE" ]; then
   SINCE=$(test_ssh "cat $SRV/DEPLOYED_COMMIT 2>/dev/null || true")
@@ -66,8 +103,8 @@ printf '  data: %s\n' "${#DATA[@]} changed, ${#GONE[@]} deleted"; for f in "${DA
 printf '  migrations: %s\n' "${#MIGS[@]}"; for f in "${MIGS[@]}"; do echo "    $f"; done
 # 1.6.6 flag parity: the start script TEST runs is the repo's, and its flags match live's apart from what is declared
 SS_INSTALL=0
-if [ "$BASE" = /opt/mapleroot-dev/persistence-test ]; then
-  repo_ss=deploy/test/start-test.sh
+if [ $FEATURE = 0 ]; then
+  repo_ss=$START_SRC
   host_sha=$(test_ssh "sha256sum $BASE/start-test.sh 2>/dev/null | cut -c1-16" || true)
   repo_sha=$(sha256sum "$repo_ss" | cut -c1-16)
   if [ "$host_sha" = "$repo_sha" ]; then
@@ -78,13 +115,16 @@ if [ "$BASE" = /opt/mapleroot-dev/persistence-test ]; then
     echo "  WARN start-test.sh on TEST (${host_sha:-none}) differs from $repo_ss ($repo_sha): --start-script installs the repo's"
   fi
   pconf=docs/release/$VERSION.conf; pargs=(); [ -f "$pconf" ] && pargs=(--conf "$pconf")
-  tools/ops/flag-parity "${pargs[@]}" || echo "  WARN flag parity (above): the deploy goes on; tools/release/stage refuses it"
+  iargs=(); [ "$INSTANCE" != A ] && iargs=(--instance "$INSTANCE")
+  tools/ops/flag-parity "${iargs[@]}" "${pargs[@]}" || echo "  WARN flag parity (above): the deploy goes on; tools/release/stage refuses it"
 fi
+REMOTE_TAIL=("$MIGRATE" "$BASE" "$UNIT" "$DBN" "$DBC")
+echo "remote command: bash -s -- <deploy dir> $HEAD ${REMOTE_TAIL[*]}"
 [ $DRY = 1 ] && { echo "dry run: nothing changed"; exit 0; }
 if [ $SS_INSTALL = 1 ]; then
   stamp=$(date -u +%Y%m%dT%H%M%SZ)
   test_ssh "cp -p $BASE/start-test.sh $BASE/start-test.sh.pre-$stamp 2>/dev/null || true"
-  test_scp deploy/test/start-test.sh "root@$TEST_HOST:$BASE/start-test.sh"
+  test_scp "$repo_ss" "root@$TEST_HOST:$BASE/start-test.sh"
   test_ssh "chmod 755 $BASE/start-test.sh && bash -n $BASE/start-test.sh" || { echo "start-test.sh install failed" >&2; exit 1; }
 fi
 
@@ -106,7 +146,7 @@ for m in "${MIGS[@]}"; do test_scp -q "$m" "root@$TEST_HOST:$D/files/"; done
 printf '%s\n' "${GONE[@]}" | test_ssh "cat > $D/deleted.txt"
 echo "$HEAD $VERSION $SHA" | test_ssh "cat > $D/DEPLOY.txt"
 
-test_ssh bash -s -- "$D" "$HEAD" "$MIGRATE" "$BASE" "$UNIT" "$DBN" < "$(dirname "$0")/deploy-test-remote.sh"
+test_ssh bash -s -- "$D" "$HEAD" "${REMOTE_TAIL[@]}" < "$(dirname "$0")/deploy-test-remote.sh"
 # P2-8: the monitor's VERSION_FILE (line 1 version, line 2 commit). Reached only when the remote boot check passed
 # (set -e: deploy-test-remote.sh exits 1 on a failed boot, like DEPLOYED_COMMIT it names the last proven version).
 printf '%s\n%s\n' "$VERSION" "$HEAD" | test_ssh "cat > $SRV/SLUMSMS_VERSION.tmp && mv -f $SRV/SLUMSMS_VERSION.tmp $SRV/SLUMSMS_VERSION"

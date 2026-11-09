@@ -1,13 +1,16 @@
 #!/bin/bash
-# The TEST-host half of tools/ops/deploy-test, run there as `bash -s -- D HEAD MIGRATE BASE UNIT DBN` (P0-3: moved out
+# The TEST-host half of tools/ops/deploy-test, run there as `bash -s -- D HEAD MIGRATE BASE UNIT DBN [DBC]` (P0-3: moved out
 # of a heredoc so tools/ops/test_deploy_test_remote.sh can run it against a fixture). Never run by hand.
 set -euo pipefail
 D=$1; HEAD=$2; MIGRATE=$3
 BASE=$4; SRV=$BASE/Server; UNIT=$5
-DBC=mapleroot-integration-db; DBN=$6
-case "${DEPLOY_TEST_FIXTURE:+fixture}$BASE:$UNIT:$DBN" in
+DBN=$6
+DBC=${7:-mapleroot-integration-db}   # absent = TEST-A's container (old callers)
+# one target per call: folder, unit, schema and DB container must all belong to the same instance
+case "${DEPLOY_TEST_FIXTURE:+fixture}$BASE:$UNIT:$DBN:$DBC" in
  fixture*) ;;  # tools/ops/test_deploy_test_remote.sh only: a temp dir, fake systemctl/journalctl/docker
- /opt/mapleroot-dev/persistence-test:slums-persistence-test:mapleroot_persist|/opt/mapleroot-dev/bot-life-160:slums-life160:mapleroot_life160) ;;
+ /opt/mapleroot-dev/persistence-test:slums-persistence-test:mapleroot_persist:mapleroot-integration-db|/opt/mapleroot-dev/bot-life-160:slums-life160:mapleroot_life160:mapleroot-integration-db) ;;
+ /opt/mapleroot-dev/test-b:slums-test-b:mapleroot_persist:slums-test-b-db|/opt/mapleroot-dev/test-c:slums-test-c:mapleroot_persist:slums-test-c-db) ;;
  *) echo "refusing unknown test target" >&2; exit 1 ;;
 esac
 db() { docker exec -i $DBC sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -B '"$DBN" 2>/dev/null; }
