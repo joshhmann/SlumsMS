@@ -529,3 +529,188 @@ Where our server's scripts disagree, the scripts win and the row follows them:
   in `Date().getDay()` order), the reactor id `2008006` and the three platform rectangles are read from our own
   `Map.wz/Map/Map9/920010400.img.xml`, `Reactor.wz/2008006.img.xml` and `Map.wz/Map/Map9/920010500.img.xml`; they appear
   only in the two tests above.
+
+### Boss-fight potion lines and the out-of-pots warning, 1.6.7 (branch `167-alt-supplies-in-boss-fights`, ticket 167), nutnnut/Cosmic `b684bf78588d50512bcd62db9bb7cb85e4f73829` (AGPL-3.0)
+
+Taken from `/root/work/research/Cosmic` (`https://github.com/nutnnut/Cosmic.git`), the bot autopot idea only:
+
+- `src/main/java/server/bots/BotManager.java` - `AUTOPOT_HP_THRESH = 0.7f` and `AUTOPOT_MP_THRESH = 0.5f`, the boss
+  lines our `CompanionSupplies.BOSS_HP_POT_AT` / `BOSS_MP_POT_AT` now use, and `POT_LOW_WARN = 100` / `POT_STOP = 10`
+  as the shape of "tell someone that the potions are running out" (our `WARN_AT = 10`).
+- `src/main/java/server/bots/BotPotionManager.java` - `setupAutopotForBot`, `computeAutopotChoice`, `PotionTier` and
+  `PotionRanking`, read for how their code ranks a bag's HP and MP potions before it sets a threshold.
+
+Changed in the port, all marked `// SlumsMS:` in
+`src/main/java/soloMapling/ArtificialPlayer/BotPartySystem/CompanionSupplies.java` and
+`src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/BotVitals.java`: the ratios are a boss-run override of our
+`BotVitals` lines (habit / 0.50 HP, 0.30 MP out in the world) rather than per-bot settings; the potion choice stays
+ours (`BotVitals.drink` uses `SupplyData.Recovery` and `BotHoldings`); and none of the keymap/keybinding and
+client-autopot-key code was taken, because our bots drink through `BotVitals.drink`, not a client autopot key.
+
+## 1.6.7 wave 1: what a companion does when it dies in a boss run
+
+### Boss-run revive and the rest after it, 1.6.7 (branch `167-alt-death-rules`, card `alt-revive-respawn`), BotStory `81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364`
+
+BotStory's `src/main/java/server/living/roster/CompanionFieldBossRest.java` (AGPL-3.0, no header in their file) was
+read for one thing only: a companion that died beside a boss rests after it gets up.
+
+| From theirs | Our files |
+| --- | --- |
+| `CompanionFieldBossRest.resting(int, long)`: the rest ends when HP and MP are back to a percentage of max or a time limit passes, its `diedAtMs` map, `isAlive()` check, recovered test `hp*100 >= maxHp*percent && mp*100 >= maxMp*percent` | `soloMapling/ArtificialPlayer/BotPartySystem/CompanionBossRevive.java` (`resting`, `restingSince`, `restPercent`, `restMaxMs`) |
+| `LivingWorldConfig` defaults `COMPANION_FIELD_BOSS_REST_PERCENT = 100`, `COMPANION_FIELD_BOSS_REST_MAX_MS = 120000` | `-Dslums.companion.rest.percent` (100) and `-Dslums.companion.rest.maxMs` (120000), never `config.yaml` keys |
+
+Ours (the new file's header comment names the source and what changed; the file is a rewrite around the one ported
+rule, so it carries no per-line `// SlumsMS:` marks - corrected in the Bots audit): their runtime lookups became
+ours - "in a boss fight" is `ExpeditionHold.inRun` or `MechanicsHold.committed` at the death instead of
+`AgentBossField.near` plus a LivingWorld roster, the owner/leader is `Character.getOwnedAltOwner()` for an owned alt
+and `FollowerBot.leaderId()` for a regular instead of `AgentRuntimeRegistry`/`AgentPartyGatewayRuntime`, and the rest
+clock starts at the revive instead of at the death, because the wait before the revive is a separate rule of ours.
+Their sit-out rule (`SIT_OUT_DEATHS`, `SIT_OUT_MAX_MS`, `SIT_OUT_LINES` and its party-chat lines) is **not** ported:
+the owner declined it. The doubling revive wait, the mesos price for an instant revive and `@botme revive` are ours,
+not theirs.
+
+### Player NPC rank counters load after the worlds, 1.6.7 (branch `167-playernpc-ranks`, card cosmic-upstream-fixes #193), P0nk/Cosmic `0aee9d7c3` (AGPL-3.0)
+
+From https://github.com/P0nk/Cosmic/pull/193 ("Fix unable to create playernpc"): the static block in `PlayerNPC` that
+filled the rank counters is gone, and the counters load in a `loadRunningRankData(con, worlds)` that `Server` calls.
+
+Changed in the port:
+- `Server` calls it after the worlds are up, with `getWorldIdBound()` (our world ids can have gaps, ticket 41), and
+  not inside the startup DB block. Upstream calls it before the worlds, with the configured count.
+- A load failure is logged rather than ending the boot.
+- New `PlayerNPC.nextWorldRank` grows the counter list for a world id it hasn't seen, so a statue can never throw.
+- `getAndIncrementRunningWorldJobRanks` is synchronized.
+- Upstream's removal of `PlayerNPCFactory.loadFactoryMetadata` (the developer NPCs) is **not** taken: our developer
+  NPCs stay.
+
+## 1.6.7 wave 2: following that looks like a player
+
+### Anti-stuck, reserved spots, climb following and the arrival / welcome-back lines, 1.6.7 (branch `167-alt-follow-plus`, card `alt-follow-plus`, ticket 167), cosmic_agents `3c7e09435` and BotStory `81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364` (AGPL-3.0)
+
+Read for shapes and thresholds only; no code copied. Files: `/root/work/research/cosmic_agents`
+(`https://github.com/Kiwiism/cosmic_agents.git`), `/root/work/research/BotStory`
+(`https://github.com/Incluwin/BotStory.git`).
+
+| From theirs | Our files |
+| --- | --- |
+| cosmic_agents `src/main/java/server/agents/capabilities/movement/AgentStuckDetectionService.java`: the drift radius, the "grounded" versus "suspended" (in the air or on a rope) split, the per-bot stuck clock that resets whenever the bot is doing something, and the post-recovery cooldown | `BotPartySystem/CompanionStuck.java` (`DRIFT_PX = 8`, `STUCK_MS = 8_000`, the `busy` verdict, `COOLDOWN_MS = 30_000`) |
+| cosmic_agents `src/main/java/server/agents/capabilities/recovery/AgentRecoveryTeleportService.java`: the recovery being a snap of the agent to the thing it follows | `GCMovement.setDownBeside` (same primitives as our `teleportTo`, but it snaps even while a player watches and counts it: the owner asked for the follow) |
+| BotStory `src/main/java/server/living/roster/CompanionFollowGuard.java` `waitsAt`: companions keep clear of a PQ-entrance spot, each at its own ordered place beside the anchor | `BotPartySystem/CompanionSpots.java` (`NEAR_PX = 150`, `STILL_MS = 2_000`, `SLOT_PX = 40`, `CLEAR_PX = 40`; the order is the companion's index among its owner's loaded alts by character id, not a LivingWorld roster) |
+| cosmic_agents `capabilities/navigation/AgentNavigationGraph.java` CLIMB edges and the `Climb*ExecutionService` files; BotStory `capabilities/navigation/AgentNavigationTargetService.java` `recentExitNudgeTarget` (the rope-top exit waypoint) | `BotPartySystem/CompanionClimb.java` (`CLIMB_DY = 60`, `ROPE_EXIT_PX = 24`, `CLIMB_TIMEOUT_MS = 12_000`); the climb itself is our existing `BotNavigationManager` CLIMB planning, so nothing new was added there |
+| BotStory `server/agents/capabilities/dialogue/AgentTownLifeDialogueReactionService.java` (arrival intent per town) and `AgentChatWelcomeBackFlow.java` (`AFK_THRESHOLD_MS = 5 min`, didn't-move-then-moved) | `BotPartySystem/CompanionLines.java` (`OWNER_AFK_MS = 300_000`, one arrival per map with `MAP_COOLDOWN_MS = 600_000`, `GAP_MS = 30_000`) |
+
+Changed in the port, marked `// SlumsMS:` where a line is theirs in shape: their agent runtimes, navigation graph
+regions and dialogue-intent bus became our per-companion static helpers keyed by character id; the lines go through
+our party chat / direct chat (`BotPartyChat.sayInParty`, `PacketCreator.multiChat`) and are silenced by our
+`@quiet bots` (`BotNoiseFilter`); and the "welcome back" is driven by our own still-clock on the owner's position
+rather than an NPC conversation state.
+
+## 1.6.7: the chat side of companions (branch `167-alt-chat-reports`, card `alt-chat-reports`)
+
+### Reports, the typo hint and the confirm before a drop, 1.6.7, BotStory `81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364` and cosmic_agents `3c7e094357329932734a860e5a831d57add27a00` (both AGPL-3.0)
+
+Read from `/root/work/research/BotStory` and `/root/work/research/cosmic_agents`. Both projects' source files carry
+no licence header of their own; the licence is the repository's AGPL-3.0, quoted at the top of
+`src/main/java/soloMapling/ArtificialPlayer/BotPartySystem/CompanionReports.java` together with the paths and the
+"changed:" notes.
+
+| From theirs | Our files |
+| --- | --- |
+| BotStory `src/main/java/server/agents/capabilities/dialogue/AgentDialogueReportFormatter.java`: `potionCount` (count the HP and MP stacks in the bag), `stats` (one line of level, job, hp/mp, the four stats, free AP) | `CompanionReports.pots`, `CompanionReports.stats` |
+| BotStory `src/main/java/server/agents/capabilities/dialogue/AgentInventoryDialogueReporter.java`: `slotsReport` (used/total per tab, tab order equip, use, etc, setup) | `CompanionReports.slots` |
+| BotStory `src/main/java/server/agents/capabilities/dialogue/AgentSupplyDialogueReporter.java`: `grindStartMessage` (the acknowledgement carries a low-supply aside) | `CompanionReports.lowNote` / `lowLine`, `OwnedAltOrders.ack`, `PartyBotOrders.carryOut` |
+| BotStory `src/main/java/server/agents/commands/AgentCommandTypoSuggester.java`: `suggest`, `MIN_DISTANCE`-style bounded Levenshtein with an early exit, the 1-edit-under-6 / 2-edit rule and `CHAT_DENYLIST` | `CompanionReports.typoSuggestion`, `CompanionReports.distance`, `PartyBotOrders.typoHint`, `AltsCommand` |
+| cosmic_agents `src/main/java/server/agents/dialogue/AgentDialogueCatalog.java`: the "just to confirm ... say yes" prompt shape | `CompanionReports.confirmFirst` |
+| cosmic_agents `src/main/java/server/agents/dialogue/AgentPendingChatActionFlow.java`: one pending action per player; anything that is not the confirmation cancels it | `CompanionReports.confirmDrop` (one `Pending` per asker, `PENDING.remove` first) |
+| cosmic_agents `src/main/java/server/agents/chat/AgentChatCommandClassifier.java`: the yes words | `CompanionReports.YES` |
+| cosmic_agents `src/main/java/server/agents/inventory/AgentInventoryDropService.java`: refuse a drop on a map whose `FieldLimit` forbids it | `CompanionReports.dropBlocked` / `dropBlockedLine`, `CompanionItems.drop` |
+| cosmic_agents `src/main/java/server/agents/capabilities/loot/AgentPassiveLootService.java`: a time window on the bag-full warning | `OwnedAltLoot.maySayFull` (per alt and tab, `CompanionReports.FULL_SAY_MS`) |
+
+Changed in the port, all marked `// SlumsMS:` or stated in the file header: everything sits behind
+`PartyCompanionPolicy.Feature.CHAT_REPORTS` (owned alts on, regulars off) and one class serves both kinds of companion;
+the pot and slot counts come from our own code (`BotVitals.potionCount`, `Inventory.getSlotLimit/getNumFreeSlot`) and
+the typo dictionary is our parser's `Verb` words, not BotStory's separate command list; the typo hint fires only on a
+line addressed to a companion; the confirmation is one pending drop per player keyed by character id, 30 s, with no
+item-choice, trade or skill-tree flows; and the bag-full window is a suppression inside `OwnedAltLoot.pick` because the
+line is said by `OwnedAltCompanion.loot`.
+
+## 1.6.7 wave 2: the quest mirror
+
+### Party quests mirrored to companions, 1.6.7 (branch `167-alt-quest-mirror`, card `alt-qol-batch` group E), cosmic_agents `3c7e094357329932734a860e5a831d57add27a00` (AGPL-3.0)
+
+From `/root/work/research/cosmic_agents` (`https://github.com/Kiwiism/cosmic_agents.git`),
+`src/main/java/server/agents/capabilities/quest/AgentPartyQuestSyncService.java`:
+
+| From theirs | Our files |
+| --- | --- |
+| `partyAgents(Character)`: the party-members loop that skips the source itself and keeps the headless-controlled members, `onlineMembers`, and the early return when the source has no party | `soloMapling/companions/CompanionQuestMirror.java` (`companions`, `isWith`) |
+| `syncPartyAgentsQuestStart` / `syncPartyAgentsQuestComplete` and their hooks in their `server/quest/Quest.java` `start`, `complete`, `forceStart` and `forceComplete`: the shape of "after the source's own start or turn-in, walk the party", plus passing the source's NPC id on (`resolveQuestNpc`) | `server/quest/Quest.java` (`start`, `complete` only), called through `CompanionQuestMirror.onQuestStarted` / `onQuestCompleted` |
+| `syncPartyAgentsQuestProgress` / `syncKingPepeYetiPartyProgress`: read, then **not** ported (see below) | `Character.raiseQuestMobCount` calls `CompanionQuestMirror.onLeaderKill`, which uses our own counting call |
+
+Changed in the port, all marked `// SlumsMS:` where the code is a rewrite of theirs (the class carries the source line
+in its header comment): they force every party agent's quest (`forceStartWithActions` / `forceCompleteWithActions`);
+ours only mirrors when the companion passes our own `Quest.canStart` / `Quest.canComplete`, so a companion that is too
+low a level or holds no item is skipped instead of being forced. A quest whose turn-in carries the player's reward
+selection (`Quest.complete(chr, npc, selection)` with a non-null selection) is skipped for companions instead of being
+forced with the leader's pick. Their progress mirroring is not used: our server has no party kill sharing to plug into
+(their `syncKingPepeYetiPartyProgress` exists because their parties credit quest kills to the highest damager), so the
+companion simply gets the same `raiseQuestMobCount` call a party member's own kill makes. Their gateway runtimes
+(`AgentQuestSyncGatewayRuntime`, `AgentPartyGatewayRuntime`, `AgentCharacterGatewayRuntime`) are replaced by the party
+and the bot registry we have: `Character.getOwnedAltOwner()` for an owned alt, `FollowerBot.leaderId()` for a regular,
+and `PartyCompanionPolicy` for the switches. The owner's per-alt command gate (`@botme quests on|off <name>`) is ours.
+
+## P0nk/Cosmic upstream fixes (1.6.7)
+
+Four fixes ported from P0nk/Cosmic, https://github.com/P0nk/Cosmic (AGPL-3.0, the same upstream our tree descends
+from), each merged by hand onto our code and not copied file by file; changed lines carry a `// Cosmic #<n>:`
+comment. The fifth item is a removal of MapleRoot-only code, not a port, and carries no Ported-From line.
+
+| Upstream | Commit | What was taken | What we changed |
+| --- | --- | --- | --- |
+| #244 Cash Shop Surprise | `1791365e0` | `ItemId.isCashPackage` (`itemId / 10000 == 910`) and skipping package items when a Surprise picks its reward, so a 910xxxx container is never handed out (it crashes the client) | Only the package filter: our `getRandomCashItem` keeps its `CashItem` return and the Surprise flow keeps `randomitemsns`; upstream's switch to `Optional<CashItem>` and its removal of the serial list were not taken |
+| #228 NPC mesos | `0d684c140` | `gainMeso(Double)` so a JS `Number` such as `price * 1.5` binds instead of failing the call; rounding is upstream's `intValue()` (toward zero) | The overload routes through our `gainMeso(int)` so the script meso counters (`recordScriptMeso`, 1.6.0 Track D) still see the move; upstream calls `getPlayer().gainMeso` directly |
+| #261 Chaos scroll rounding | `ec90df9c5` (test `215dc4229`) | `Randomizer.rand` adds `lbound` after the `(int)` cast, so `rand(-range, range)` is uniform: 0 no longer gets double mass and the bound is reachable | Our `config.example.yaml` already had `CHSCROLL_STAT_RANGE: 5` (upstream's commit also changed 6 to 5), so no config change; added a 200,000-roll distribution test, a positive-bound regression test, and a chaos-scroll clamp guard test on top of upstream's range test |
+| Cat's Eye drop | `bfcadc069` | Drop row for Cat's Eye 4031568 from Meerkat 2100108, quest 3911, chance 80000 (`src/main/resources/db/data/152-drop-data.sql:21102`) | Shipped as an idempotent migration `database/migrations/068-cat-eye-meerkat-drop.sql` with a rollback, inserting only when the (dropperid, itemid) row is absent; the Scorpion 2110301 row is kept |
+| Rebirth class swap (removal) | — | Removed our `jobChangeChecker === 1` branch in `scripts/npc/rebirth.js` (dead: the flag is always 0), `NPCConversationManager.changeRebirthJobCerezeth(int)`, `Character.changeRebirthJobCerezeth(Job)` and their two `scripts/lib.d.ts` declarations | Owner decision 2026-11-08: the method swapped only the job id at the character's current level, so a level-10 rebirth could jump back to a 4th job |
+
+
+## 1.6.7 wave 3: companion settings
+
+### Per-owner companion settings, 1.6.7 (branch `167-alt-settings`, card `alt-qol-batch` group B), BotStory `81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364` and nutnnut/Cosmic `b684bf7` (AGPL-3.0)
+
+| From theirs | Our files |
+| --- | --- |
+| BotStory `server/living/roster/CompanionSettings.java`: the switches and potion percentages, the 10..90 bounds, "not written at its default" | `soloMapling/companions/CompanionSettings.java` |
+| BotStory `server/living/roster/CompanionSettingsApplier.java` (`settings(ownerId, personaId)`: memory, else read once, else defaults) and nutnnut `server/bots/BotPrefsStore.java` (a small prefs table, upsert on change) | `soloMapling/companions/CompanionSettingsStore.java`, `database/migrations/069-companion-settings.sql` |
+| BotStory `server/living/roster/ui/CompanionCardScreens.java`: the card's switch lines and potion counts | `soloMapling/menus/CompanionCardMenu.java` (our `MenuWindow`, no packet code) |
+
+Changed:
+- our own migration 069 replaces their self-creating table;
+- one JSON blob per (owner, companion);
+- no formation or loot-policy types (the loot mode is a stored string);
+- 0 means "the bot's own potion line", so an untouched companion behaves exactly as before;
+- the gates are in our shared `BotPartySupport` / `BotBuffDriver` / `BotVitals`;
+- the load is lazy, and a bot's first read after a restart starts it (Bots).
+
+## 1.6.7 group D: alt loot
+
+### Companion loot mode, sell junk and the upgrade offer, 1.6.7 (branch `167-alt-loot`, card `alt-qol-batch` group D), BotStory `81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364` and Kiwiism/cosmic_agents `3c7e094357329932734a860e5a831d57add27a00` (AGPL-3.0)
+
+| From theirs | Our files |
+| --- | --- |
+| BotStory `server/agents/capabilities/looting/AgentLootPolicy.java`: one mode that only narrows what the loot rules already allow (everything / own kills / quest only / none / like the owner), meso taken in every mode but none | `soloMapling/companions/CompanionLootMode.java` |
+| cosmic_agents `server/agents/capabilities/trade/AgentOfferService.java`: after a looted piece that beats what the owner wears, ask once, at most one ask per window, and only when the owner wants to be asked | `soloMapling/companions/CompanionUpgradeOffer.java` |
+| cosmic_agents `server/agents/capabilities/inventory/AgentInventorySellTrashPolicy.java` and `AgentShopService.requestSellTrashVisit`: the kept-item list (scrolled gear, upgrades over what is worn) and "find a shop on this map, walk to it, else say there is none" | `soloMapling/companions/CompanionSellJunk.java`, `BotBagRoom.sellAll` |
+
+Changed:
+- their mode enum is read through our per-companion settings store, not a host-installed rule, and our quest needs come
+  from `Character.needQuestItem` on the drop's own quest id, not a host callback;
+- "like the owner" reads our `GrindLoot.isJunk` (this codebase stores no per-owner loot habits), and "none" takes
+  nothing at all, which is what the owner asked for in the card;
+- an owned alt with no saved choice defaults to "my kills" (owner decision, 8 Nov 2026); a party regular defaults to
+  today's behaviour and only changes with `-Dslums.companion.loot.regulars=true`;
+- the offer's handover is a normal `BotGiveTrade` window and the yes/no is plain party chat, not their pending-action
+  flow; the rate limit and the on/off switch live in `CompanionSettings.offers`;
+- our sale goes through the existing NPC counter path (`BotBagRoom`: the same candidate scan, the same
+  `BotYieldCaps` meso credit and the same `EconomyCounters` record as the town stop), so no price, rate or shop
+  protocol is added; their shop-visit request packet is not ported.

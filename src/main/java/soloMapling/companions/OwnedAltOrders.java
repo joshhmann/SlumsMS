@@ -3,7 +3,9 @@ package soloMapling.companions;
 import client.Character;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotCommandParser.Verb;
 import soloMapling.ArtificialPlayer.BotPartySystem.CompanionItems;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionReports;
 import soloMapling.ArtificialPlayer.BotPartySystem.CompanionStance;
+import soloMapling.ArtificialPlayer.BotPartySystem.PartyCompanionPolicy;
 import soloMapling.server.BotTiming;
 
 import java.util.List;
@@ -72,15 +74,28 @@ public final class OwnedAltOrders {
         if (everyone && before.mode == mode && mode == CompanionStance.Mode.FOLLOW) {
             return false; // already following: no need for every alt to say so
         }
-        say(alt, pick(switch (mode) {
+        say(alt, ack(verb, mode, alt));
+        return true;
+    }
+
+    /**
+     * 1.6.7 reports: the acknowledgement, with the low-pots note on the grind and follow lines ("k, holding this spot
+     * (only 4 HP pots)") when the reports switch is on for this alt and it is nearly out.
+     */
+    static String ack(Verb verb, CompanionStance.Mode mode, Character alt) {
+        String line = pick(switch (mode) {
             case FOLLOW -> FOLLOW_LINES;
             case STAY -> STAY_LINES;
             case MOVE_HERE -> MOVE_LINES;
             case SENTRY -> SENTRY_LINES;
             case PATROL -> PATROL_LINES;
             case LANES -> LANES_LINES;
-        }));
-        return true;
+        });
+        if ((verb == Verb.GRIND || verb == Verb.FOLLOW)
+                && PartyCompanionPolicy.on(PartyCompanionPolicy.Feature.CHAT_REPORTS, alt)) {
+            line += CompanionReports.lowNote(alt);
+        }
+        return line;
     }
 
     private static String pick(List<String> lines) {

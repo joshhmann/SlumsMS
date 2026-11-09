@@ -2878,6 +2878,25 @@ public final class Exchange {
         return null;
     }
 
+    /**
+     * b375: how many mesos of item sells the account may still place today: {@link #sellCap}'s ceiling minus what its
+     * filled and resting item sells come to, never negative. {@link Long#MAX_VALUE} when there is no cap or the store
+     * cannot be read (the placement itself reports a store error, so a pre-check must not stop trading). A trader asks
+     * this before proposing a sell ({@code MarketTraders.act}), so a capped trader does not spend its turn on an order
+     * the exchange would refuse with ITEMS_CAP.
+     */
+    public synchronized long itemSellRoomToday(long account, long now) {
+        long cap = ExchangeLimits.sellCapMesosPerDay();
+        if (cap <= 0) {
+            return Long.MAX_VALUE;
+        }
+        try {
+            return Math.max(0, cap - store.itemExposure(account, ExchangeLimits.dayStart(now)));
+        } catch (StoreException e) {
+            return Long.MAX_VALUE;
+        }
+    }
+
     // ---------------------------------------------------------------- reads
 
     /** The NX official rate (mesos per 1,000 NX). */

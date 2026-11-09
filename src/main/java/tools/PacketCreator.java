@@ -2442,9 +2442,11 @@ public class PacketCreator {
             p.writeInt(item.getItemId());
             if (ItemConstants.isRechargeable(item.getItemId())) {
                 // 1.6.4 b289: the shop hands over a whole slotMax stack and charges the WZ price/unitPrice
-                // expression for that stack (Shop.buy), so the counter shows the price actually paid.
-                int stackPrice = ii.getPrice(item.getItemId(), ii.getSlotMax(c.getPlayer(), item.getItemId()));
-                p.writeInt(stackPrice < 0 ? item.getPrice() : stackPrice);
+                // expression for that stack (Shop.buy), so the counter shows the price actually paid. 1.6.7
+                // shop-ammo-tiers: only for a rechargeable the shop sells; a recharge-only entry shows 0 again.
+                int stackPrice = item.getPrice() > 0
+                        ? ii.getPrice(item.getItemId(), ii.getSlotMax(c.getPlayer(), item.getItemId())) : -1;
+                p.writeInt(server.ShopPacketPrice.forEntry(item.getItemId(), item.getPrice(), stackPrice));
             } else {
                 p.writeInt(item.getPrice());
             }

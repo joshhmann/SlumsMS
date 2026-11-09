@@ -153,6 +153,53 @@ class OrchestratorTest(unittest.TestCase):
         self.assertEqual(2, worker.world_clicks)
         self.assertEqual(1, next(s for s in m["steps"] if s["id"] == "channels")["retries"])
 
+    def test_a_position_answer_is_kept_in_the_step_record(self):
+        # QA, lpq-stage1-walk-20261108T150439Z: the position readings were only in the worker outbox on tarkov2.
+        run, m, feed, worker = self.run_b140()
+        answer = '{"map_id": 922010100, "x": -120, "y": 130, "foothold": true, "rope": false, "ladder": false}'
+        worker.send = lambda alias, step: {"result": "ok", "detail": answer}
+        run.play(910, {"do": "position"})
+        self.assertEqual(answer, run.manifest["steps"][-1]["detail"])
+        run.play(911, {"do": "walk_to", "x": -117})
+        self.assertEqual(answer, run.manifest["steps"][-1]["detail"])
+
+    def test_a_counted_pickup_keeps_every_pick_and_a_short_count_follows_optional(self):
+        # LPQ Part 2: pickup_item count N; the evidence per pick stays in the step record.
+        run, m, feed, worker = self.run_b140()
+        picks = ", ".join('{"oid": %d, "x": %d, "y": 130, "distance": %d, "ok": true}' % (500 + k, k, k)
+                          for k in range(6))
+        answer = '{"picked": 6, "item": 4001022, "picks": [%s]}' % picks
+        worker.send = lambda alias, step: {"result": "ok", "detail": answer}
+        run.play(920, {"do": "pickup_item", "item": 4001022, "count": 6})
+        self.assertEqual(answer, run.manifest["steps"][-1]["detail"], "all six picks, not cut at 200 characters")
+        worker.send = lambda alias, step: {"result": "refused", "detail": "picked 2 of 3, then no_drop | picks [...]"}
+        run.play(921, {"do": "pickup_item", "item": 4001022, "count": 3, "optional": True})
+        self.assertEqual("tolerated", run.manifest["steps"][-1]["result"])
+        self.assertIn("picked 2 of 3, then no_drop", run.manifest["steps"][-1]["detail"])
+        with self.assertRaises(qarunner.RunFailed):
+            run.play(922, {"do": "pickup_item", "item": 4001022, "count": 3})
+        self.assertEqual("refused", run.manifest["steps"][-1]["result"])
+
+    def test_an_optional_pickup_that_is_refused_is_tolerated_and_a_required_one_fails(self):
+        # 8 Nov lpq-stage1-handin-20261108T053234Z: the pickup lost the pass drop to a collector bot (taken_by_other)
+        # and the whole run failed; a loop that picks up whatever has landed must go on.
+        run, m, feed, worker = self.run_b140()
+
+        def refuse(i, step, alias, entry):
+            raise qarunner.RunFailed("pickup_item refused: taken_by_other (picker 1000000102)", "refused")
+        run.do = refuse
+        run.play(900, {"do": "pickup_item", "item": 4001022, "optional": True})
+        self.assertEqual("tolerated", run.manifest["steps"][-1]["result"])
+        self.assertIn("taken_by_other", run.manifest["steps"][-1]["detail"])
+        before = run.manifest.get("failed_at")
+        with self.assertRaises(qarunner.RunFailed):
+            run.play(901, {"do": "pickup_item", "item": 4001022})
+        self.assertEqual("refused", run.manifest["steps"][-1]["result"])
+        self.assertEqual(901, run.manifest["failed_at"])
+        self.assertNotEqual(before, 901)
+        with self.assertRaises(qarunner.RunFailed):   # optional is for pickups only
+            run.play(902, {"do": "gm", "line": "!heal", "optional": True})
+
     def test_a_retry_may_resend_a_list_of_steps_in_order(self):
         text = SCRIPT.read_text().replace("retry: {step: pick-world, every_ms: 4000, times: 4}",
                                           "retry: {steps: [pick-world, pick-world], every_ms: 4000, times: 4}")

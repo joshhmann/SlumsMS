@@ -137,6 +137,8 @@ final class StepExecutor {
         double routeCheckDist = -1;
         /** b357: the reactor position {@link #routeCheckDist} was measured to; a new target starts a new best. */
         Point routeCheckTo;
+        /** zpq-stage6-offgraph: the map {@link #routeCheckTo} was checked on; another map starts the count again. */
+        int routeCheckMap = -1;
         /** b365: the run this bot's current step belongs to (for the item-reactor hit guard), or null. */
         RunState run;
         /** b365: when the guard last told the feed it refused a hit, so a refusal is one line, not one per tick. */
@@ -162,6 +164,32 @@ final class StepExecutor {
     /** b344d/b357: how much closer to the reactor (px) than its best so far a bot must be to count as getting there. */
     static final int ROUTE_CLOSER_PX = 20;
 
+    /**
+     * Observe-only feed line, in the wording of Server Dev's boss-feed-lines plan: a run bot picked up the big chest's
+     * Fire Ore. Null for anything else, or when nothing was picked up. Said once (the caller keeps the flag).
+     */
+    static String fireOreLine(String name, int itemId, int before, int after, String tag) {
+        if (itemId != ZakumMinesSolver.FIRE_ORE || after <= before) {
+            return null;
+        }
+        return "RUN zakumpq fire ore " + itemId + " looted by " + name + tag;
+    }
+
+    /** The run tag every RUN stage line carries: " [zakumpq, leader X]" (MechanicsRuns.tagged). */
+    static String runTag(RunState run, LiveStageView view) {
+        if (run == null) {
+            return "";
+        }
+        String leaderName = null;
+        for (RunMember m : run.members()) {
+            if (m.leader() && view != null) {
+                Character c = view.character(m.characterId());
+                leaderName = c == null ? null : c.getName();
+            }
+        }
+        return " [" + run.content().id() + (leaderName == null ? "" : ", leader " + leaderName) + "]";
+    }
+
     void forget(int botId) {
         beats.remove(botId);
     }
@@ -170,10 +198,21 @@ final class StepExecutor {
                  Consumer<String> log) {
         Beat beat = beats.computeIfAbsent(bot.getId(), id -> new Beat());
         beat.run = run; // b365: the hit guard reads the stage's written exception and who is in the run
+        if (view != null && view.stage() != null
+                && view.stage().hitReactors().contains(ZakumMinesSolver.BIG_CHEST)) { // observe-only feed line
+            int placer = ZakumMinesSolver.placerId(view);
+            Character by = placer > 0 ? view.character(placer) : null;
+            String opened = ZakumMinesSolver.chestOpenedLine(view, by == null ? "?" : by.getName(),
+                    run == null || run.startedMs() <= 0 ? 0 : Math.max(0, (now - run.startedMs()) / 1000),
+                    runTag(run, view));
+            if (opened != null) {
+                log.accept(opened);
+            }
+        }
         switch (step) {
             case SolverStep.MoveTo m -> moveNear(bot, beat, m.x(), m.y(), 30, now);
             case SolverStep.Fight f -> fight(view, bot, beat, f, now, log);
-            case SolverStep.Loot l -> loot(view, bot, beat, l.itemId(), now);
+            case SolverStep.Loot l -> loot(run, view, bot, beat, l.itemId(), now, log);
             case SolverStep.TakeBack t -> takeBack(view, bot, beat, t, now, log);
             case SolverStep.TalkNpc t -> talk(run, orchestrator, view, bot, beat, t, now, log);
             case SolverStep.TalkNpcAt t -> talkAt(run, orchestrator, view, bot, beat, t, now, log);
@@ -442,10 +481,44 @@ final class StepExecutor {
             Point at = bot.getPosition();
             return "etc " + free + " free of " + etc.getSlotLimit() + (fits ? "" : ", CANNOT HOLD " + itemId) + ", "
                     + onFloor + " on the floor within " + LOOT_SEARCH_PX + " px (" + takeable + " it may take), at "
-                    + (at == null ? "?" : at.x + "," + at.y) + ", level " + bot.getLevel();
+                    + (at == null ? "?" : at.x + "," + at.y) + ", level " + bot.getLevel()
+                    + aliveTail(alivePositions(view, map));
         } catch (RuntimeException e) {
             return "(could not look: " + e + ")";
         }
+    }
+
+    /** The stage's monsters still alive on this map (all of them when the row names none), where they stand. */
+    static List<Point> alivePositions(LiveStageView view, MapleMap map) {
+        List<Point> out = new java.util.ArrayList<>();
+        if (map == null) {
+            return out;
+        }
+        List<Integer> wanted = view == null || view.stage() == null ? List.of() : view.stage().mobs();
+        for (Monster m : map.getAllMonsters()) {
+            if (m != null && m.isAlive() && (wanted.isEmpty() || wanted.contains(m.getId())) && m.getPosition() != null) {
+                out.add(m.getPosition());
+            }
+        }
+        return out;
+    }
+
+    /**
+     * lpq1-pass-shortfall (QA, TEST 8 Nov 2026): the end of a STALL reason, the monsters still alive and where, so a
+     * stalled stage shows its survivors. At most six positions, then how many more.
+     */
+    static String aliveTail(List<Point> alive) {
+        StringBuilder out = new StringBuilder(", alive: ").append(alive.size());
+        if (!alive.isEmpty()) {
+            out.append(" at");
+            for (int i = 0; i < Math.min(6, alive.size()); i++) {
+                out.append(" (").append(alive.get(i).x).append(',').append(alive.get(i).y).append(')');
+            }
+            if (alive.size() > 6) {
+                out.append(" +").append(alive.size() - 6).append(" more");
+            }
+        }
+        return out.toString();
     }
 
     private void fight(LiveStageView view, Character bot, Beat beat, SolverStep.Fight f, long now,
@@ -638,7 +711,8 @@ final class StepExecutor {
         return best;
     }
 
-    private void loot(LiveStageView view, Character bot, Beat beat, int itemId, long now) {
+    private void loot(RunState run, LiveStageView view, Character bot, Beat beat, int itemId, long now,
+                      Consumer<String> log) {
         MapleMap map = bot.getMap();
         if (map == null) {
             return;
@@ -661,7 +735,14 @@ final class StepExecutor {
             }
         }
         if (best != null) {
+            boolean ore = best.getMeso() <= 0 && best.getItemId() == ZakumMinesSolver.FIRE_ORE;
+            int before = ore ? bot.getItemQuantity(ZakumMinesSolver.FIRE_ORE, false) : 0;
             pickUp(bot, beat, best, now);
+            String line = ore ? fireOreLine(bot.getName(), ZakumMinesSolver.FIRE_ORE, before,
+                    bot.getItemQuantity(ZakumMinesSolver.FIRE_ORE, false), runTag(run, view)) : null;
+            if (line != null && view.stageMemory().putIfAbsent("fireOreSaid", Boolean.TRUE) == null) {
+                log.accept(line);
+            }
         }
     }
 
@@ -1219,6 +1300,12 @@ final class StepExecutor {
         if (now - beat.routeCheckedMs < ROUTE_CHECK_MS) {
             return;
         }
+        if (soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isAirborneOrFloating(bot)) {
+            // zpq-stage6-offgraph (TEST 8 Nov 04:25:52): in the air or in the portal float there is no ground under
+            // the bot, so the planner says "off the graph". No verdict, and the slot is not used: the next tick after
+            // it lands asks again
+            return;
+        }
         beat.routeCheckedMs = now;
         String reason;
         try {
@@ -1232,9 +1319,13 @@ final class StepExecutor {
         // stall is still caught by the no-progress window.
         Point at = bot.getPosition();
         double dist = at == null ? -1 : at.distance(rp);
-        if (!rp.equals(beat.routeCheckTo)) {
+        if (!rp.equals(beat.routeCheckTo) || bot.getMapId() != beat.routeCheckMap) {
             beat.routeCheckTo = new Point(rp);
+            beat.routeCheckMap = bot.getMapId();
             beat.routeCheckDist = -1;
+            // zpq-stage6-offgraph: the "no route" count is about this target on this map. One carried from the hub
+            // (or an earlier stage's rock) made the first check on the mine the second in a row
+            beat.noRouteTimes = 0;
         }
         boolean closer = dist >= 0 && beat.routeCheckDist >= 0 && dist < beat.routeCheckDist - ROUTE_CLOSER_PX;
         if (dist >= 0 && (beat.routeCheckDist < 0 || dist < beat.routeCheckDist)) {

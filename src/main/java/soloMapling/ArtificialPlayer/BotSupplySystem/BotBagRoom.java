@@ -165,6 +165,50 @@ public final class BotBagRoom {
                 || soloMapling.Economy.SaleRules.whyNot(item) != null;
     }
 
+    /**
+     * 1.6.7 alt-qol-batch group D: an owner-ordered sale ({@code sell junk}) - every item {@code keep} allows out of
+     * these tabs, not "down to half" like a town stop. Same candidate scan, same cheapest-first order and the same
+     * meso credit ({@link #creditSale}) as the town stop, so a sale pays exactly what it pays today.
+     */
+    public static Sale sellAll(Character chr, List<InventoryType> tabs, Prices prices, Keep keep) {
+        if (chr == null || tabs == null) {
+            return Sale.NONE;
+        }
+        int sold = 0;
+        long offered = 0;
+        long credited = 0;
+        for (InventoryType type : tabs) {
+            Inventory inv = chr.getInventory(type);
+            List<Item> candidates = new ArrayList<>();
+            inv.lockInventory();
+            try {
+                for (Item item : inv.list()) {
+                    if (item.getPosition() > 0 && !keep.keep(item)
+                            && !(item instanceof Equip equip && equip.getRingId() > 0)) {
+                        candidates.add(item);
+                    }
+                }
+            } finally {
+                inv.unlockInventory();
+            }
+            candidates.sort(Comparator.comparingLong((Item item) -> Math.max(0, prices.priceOf(item)))
+                    .thenComparingInt(Item::getPosition));
+            for (Item item : candidates) {
+                long price = Math.max(0, prices.priceOf(item));
+                if (!BotHoldings.destroyHeldItem(chr, item)) {
+                    continue; // moved or gone since the scan
+                }
+                sold++;
+                offered += price;
+                credited += creditSale(chr, price);
+            }
+        }
+        if (credited > 0) {
+            soloMapling.Economy.stats.EconomyCounters.recordNpcSell(credited);
+        }
+        return sold == 0 ? Sale.NONE : new Sale(sold, offered, credited);
+    }
+
     /** The sale with its price list and keep rule passed in (headless tests have no WZ item data). */
     public static Sale sellJunk(Character chr, Prices prices, Keep keep) {
         int sold = 0;

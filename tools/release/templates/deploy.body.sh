@@ -50,6 +50,13 @@ MONITOR=${MONITOR-/usr/local/bin/slumsms-monitor}
 MONITOR_TARGET=${MONITOR_TARGET:-live}
 MAINT_MINUTES=${MAINT_MINUTES:-5}
 MAINT_REASON=${MAINT_REASON:-}
+# b377: the in-game "restarting in 1 minute" notice through the server's ops endpoint (OpsNoticeApi), posted before the
+# stop and independent of MONITOR. Port and secret file come from the unit's own -Dslums.ops.* flags; the secret goes to
+# curl on stdin, never on a command line. Soft: no endpoint or a refused post never stops the deploy. The rehearsals set
+# NOTICE_SECONDS=0 (their copy of the unit names live's port). NOTICE_SECONDS=0 skips the notices and the wait.
+NOTICE_SECONDS=${NOTICE_SECONDS:-60}
+NOTICE_TEXT=${NOTICE_TEXT:-"The server restarts in 1 minute for an update. You'll be back in about a minute."}
+NOTICE_LAST=${NOTICE_LAST:-"Restarting now, see you in a minute."}
 
 exec > >(tee -a "$LOG") 2>&1
 t0=$(date +%s); step() { echo "[$(date -u +%H:%M:%S) +$(( $(date +%s) - t0 ))s] $*"; }
@@ -66,6 +73,18 @@ maint() {   # maint start|end [--dry-run]: never fails the script
   local extra=()
   if [ "$1" = start ]; then extra=(--minutes "$MAINT_MINUTES"); if [ -n "$MAINT_REASON" ]; then extra+=(--reason "$MAINT_REASON"); fi; fi
   timeout 60 "$MONITOR" maintenance "$MONITOR_TARGET" "$@" "${extra[@]}" || echo "WARN: slumsms-monitor maintenance $1 failed (carrying on)"
+}
+ops_flag() { { grep -o -- "-Dslums\.ops\.$1=[^ \"]*" "$UNIT_FILE" 2>/dev/null || true; } | head -1 | cut -d= -f2-; }
+notice() {   # notice "<text>": one in-game notice; true only when the server answered ok. Never fails the script.
+  [ "$NOTICE_SECONDS" -gt 0 ] || return 1
+  local port file out
+  port=$(ops_flag port); file=$(ops_flag secretFile)
+  if [ -z "$port" ] || [ -z "$file" ] || [ ! -r "$file" ]; then echo "(no ops notice endpoint on the unit: in-game notice skipped)"; return 1; fi
+  out=$(printf 'X-Slums-Ops: %s\n' "$(tr -d '\r\n' < "$file")" \
+        | timeout 10 curl -sS -H @- --data-binary "$1" "http://127.0.0.1:$port/notice" 2>&1) \
+    || { echo "WARN: in-game notice not sent (carrying on): $out"; return 1; }
+  echo "in-game notice: $out"
+  case $out in *'"ok":true'*) return 0;; *) return 1;; esac
 }
 now() { date +%s.%N; }
 dur() { awk -v a="$1" -v b="$2" 'BEGIN{printf "%.1f", b-a}'; }
@@ -200,6 +219,11 @@ if [ "$DRY_RUN" = 1 ]; then
   [ -n "$NAV_CACHE_SRC" ] && echo "  nav cache from $NAV_CACHE_SRC"
   [ -n "$CASHSHOP_CATALOG" ] && echo "  cashshop/catalog.tsv from staging ($(sha256sum "$ST/$CASHSHOP_CATALOG" | cut -c1-16); now $( [ -f "$SRV/cashshop/catalog.tsv" ] && sha256sum "$SRV/cashshop/catalog.tsv" | cut -c1-16 || echo none))"
   echo "  start ($START_CMD), wait for 'is now online', smoke test ${SMOKE_SECONDS}s, receipt $RECEIPT"
+  if [ "$NOTICE_SECONDS" -gt 0 ] && [ -n "$(ops_flag port)" ]; then
+    echo "  in game, ${NOTICE_SECONDS}s before the stop: '$NOTICE_TEXT'; 10s before: '$NOTICE_LAST'"
+  else
+    echo "  no in-game notice (NOTICE_SECONDS=$NOTICE_SECONDS, ops port on the unit: $(ops_flag port))"
+  fi
   echo "  maintenance mode on before the stop and off once online, with these public posts:"
   maint start --dry-run
   exit 0
@@ -208,6 +232,12 @@ fi
 fi   # pre-checks
 
 if [ "$PHASE" = all ] || [ "$PHASE" = stop-backup ]; then
+step "in-game notice: restart in ${NOTICE_SECONDS}s"
+if notice "$NOTICE_TEXT"; then
+  [ "$NOTICE_SECONDS" -gt 10 ] && sleep $((NOTICE_SECONDS - 10))
+  notice "$NOTICE_LAST" || true
+  sleep $(( NOTICE_SECONDS < 10 ? NOTICE_SECONDS : 10 ))
+fi
 step "maintenance mode on + public notice (back in about $MAINT_MINUTES min)"
 maint start
 step "stop"

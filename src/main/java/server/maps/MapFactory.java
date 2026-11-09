@@ -76,30 +76,41 @@ public class MapFactory {
 
     private static void loadLifeFromWz(MapleMap map, Data mapData) {
         for (Data life : mapData.getChildByPath("life")) {
-            life.getName();
-            String id = DataTool.getString(life.getChildByPath("id"));
-            String type = DataTool.getString(life.getChildByPath("type"));
-            int team = DataTool.getInt("team", life, -1);
-            if (map.isCPQMap2() && type.equals("m")) {
-                if ((Integer.parseInt(life.getName()) % 2) == 0) {
-                    team = 0;
-                } else {
-                    team = 1;
+            String entry = life.getName();
+            String id = DataTool.getString("id", life, null);
+            String type = DataTool.getString("type", life, null);
+            try {
+                int team = DataTool.getInt("team", life, -1);
+                if (map.isCPQMap2() && "m".equals(type)) {
+                    if ((Integer.parseInt(entry) % 2) == 0) {
+                        team = 0;
+                    } else {
+                        team = 1;
+                    }
                 }
-            }
-            int cy = DataTool.getInt(life.getChildByPath("cy"));
-            Data dF = life.getChildByPath("f");
-            int f = (dF != null) ? DataTool.getInt(dF) : 0;
-            int fh = DataTool.getInt(life.getChildByPath("fh"));
-            int rx0 = DataTool.getInt(life.getChildByPath("rx0"));
-            int rx1 = DataTool.getInt(life.getChildByPath("rx1"));
-            int x = DataTool.getInt(life.getChildByPath("x"));
-            int y = DataTool.getInt(life.getChildByPath("y"));
-            int hide = DataTool.getInt("hide", life, 0);
-            int mobTime = DataTool.getInt("mobTime", life, 0);
+                int cy = DataTool.getInt(life.getChildByPath("cy"));
+                Data dF = life.getChildByPath("f");
+                int f = (dF != null) ? DataTool.getInt(dF) : 0;
+                int fh = DataTool.getInt(life.getChildByPath("fh"));
+                int rx0 = DataTool.getInt(life.getChildByPath("rx0"));
+                int rx1 = DataTool.getInt(life.getChildByPath("rx1"));
+                int x = DataTool.getInt(life.getChildByPath("x"));
+                int y = DataTool.getInt(life.getChildByPath("y"));
+                int hide = DataTool.getInt("hide", life, 0);
+                int mobTime = DataTool.getInt("mobTime", life, 0);
 
-            loadLifeRaw(map, Integer.parseInt(id), type, cy, f, fh, rx0, rx1, x, y, hide, mobTime, team);
+                loadLifeRaw(map, Integer.parseInt(id), type, cy, f, fh, rx0, rx1, x, y, hide, mobTime, team);
+            } catch (RuntimeException e) {
+                // one bad spawn must not take the rest of the map with it (P1-E1)
+                warnSkippedLife(map, entry, id, type, e);
+            }
         }
+    }
+
+    /** P1-E1: the one line a skipped life entry leaves behind - the map, the entry, and why it was skipped. */
+    private static void warnSkippedLife(MapleMap map, String entry, String id, String type, RuntimeException e) {
+        String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+        log.warn("MapFactory: skipping life entry {} of map {} (id {}, type {}): {}", entry, map.getId(), id, type, reason);
     }
 
     private static void loadLifeFromDb(MapleMap map) {
@@ -123,7 +134,12 @@ public class MapFactory {
                     int mobTime = rs.getInt("mobtime");
                     int team = rs.getInt("team");
 
-                    loadLifeRaw(map, id, type, cy, f, fh, rx0, rx1, x, y, hide, mobTime, team);
+                    try {
+                        loadLifeRaw(map, id, type, cy, f, fh, rx0, rx1, x, y, hide, mobTime, team);
+                    } catch (RuntimeException e) {
+                        // P1-E1: the same isolation for a hand-placed spawn row
+                        warnSkippedLife(map, "row", String.valueOf(id), type, e);
+                    }
                 }
             }
         } catch (SQLException sqle) {
@@ -390,6 +406,10 @@ public class MapFactory {
 
     private static AbstractLoadedLife loadLife(int id, String type, int cy, int f, int fh, int rx0, int rx1, int x, int y, int hide) {
         AbstractLoadedLife myLife = LifeFactory.getLife(id, type);
+        if (myLife == null) {
+            // P1-E1: name the reason instead of letting the caller NPE on it
+            throw new IllegalStateException("no game data for life id " + id + " (type " + type + ")");
+        }
         myLife.setCy(cy);
         myLife.setF(f);
         myLife.setFh(fh);

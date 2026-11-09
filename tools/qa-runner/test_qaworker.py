@@ -101,6 +101,14 @@ class WorkerCallsTest(unittest.TestCase):
         self.assertEqual('ok', worker.send('me', {'do': 'click', 'anchor': 'npc_dialog.option_3'})['result'])
         self.assertEqual([('click_option', {'option': 3})], transport.calls)
 
+    def test_click_dialog_row_calls_the_tool_with_its_row_count(self):
+        # qa-dialog-row (1.6.7): the client's own quest-npc menu; rows 0 = any count.
+        worker, transport = self.make()
+        self.assertEqual('ok', worker.send('me', {'do': 'click_dialog_row', 'row': 2, 'rows': 2})['result'])
+        self.assertEqual('ok', worker.send('me', {'do': 'click_dialog_row', 'row': 1})['result'])
+        self.assertEqual([('click_dialog_row', {'row': 2, 'rows': 2}), ('click_dialog_row', {'row': 1, 'rows': 0})],
+                         transport.calls)
+
     def test_npc_dialog_close_goes_through_close_dialog_not_the_mouse(self):
         worker, transport = self.make()
         self.assertEqual('ok', worker.send('me', {'do': 'click', 'anchor': 'npc_dialog.close'})['result'])
@@ -167,9 +175,39 @@ class WorkerCallsTest(unittest.TestCase):
         self.assertEqual({'result': 'refused', 'detail': 'not_in_inventory'},
                          worker.send('me', {'do': 'drop_item', 'item': 4001017}))
 
+    def test_jump_calls_the_jump_tool(self):
+        # b360 (1.6.6): a running jump holding Up grabs a rope; a plain jump taps the jump key.
+        worker, transport = self.make()
+        self.assertEqual('ok', worker.send('me', {'do': 'jump', 'dir': 'right', 'catch': True, 'run_ms': 300})['result'])
+        self.assertEqual('ok', worker.send('me', {'do': 'jump'})['result'])
+        self.assertEqual([('jump', {'dir': 'right', 'catch': 1, 'run_ms': 300, 'hold_ms': 800}),
+                          ('jump', {'dir': 'none', 'catch': 0, 'run_ms': 0, 'hold_ms': 800})], transport.calls)
+
+    def test_position_calls_the_position_tool(self):
+        # qa-position-signal (1.6.6): gm-0 scripts learn where the character is from the QA client, not from !pos.
+        worker, transport = self.make()
+        self.assertEqual('ok', worker.send('me', {'do': 'position'})['result'])
+        self.assertEqual([('position', {})], transport.calls)
+
+    def test_pickup_item_passes_a_count(self):
+        # LPQ Part 2: count picks that many drops one after another; without it the call is as before.
+        worker, transport = self.make()
+        worker.send('me', {'do': 'pickup_item', 'item': 4001022})
+        worker.send('me', {'do': 'pickup_item', 'item': 4001022, 'count': 3})
+        self.assertEqual([('pickup_item', {'item': 4001022}), ('pickup_item', {'item': 4001022, 'count': 3})],
+                         transport.calls)
+
+    def test_walk_to_and_climb_call_their_tools(self):
+        # qa-walk-to (1.6.7): QA's walk-1-* timed moves become walks that stop on the QA client's position.
+        worker, transport = self.make()
+        self.assertEqual('ok', worker.send('me', {'do': 'walk_to', 'x': -117})['result'])
+        self.assertEqual('ok', worker.send('me', {'do': 'climb', 'y': -180, 'tolerance': 4})['result'])
+        self.assertEqual([('walk_to', {'x': -117, 'tolerance': 6, 'timeout_ms': 12000}),
+                          ('climb', {'y': -180, 'tolerance': 4, 'timeout_ms': 15000})], transport.calls)
+
     def test_a_step_the_build_cannot_play_is_refused_not_skipped(self):
         worker, transport = self.make()
-        for step, word in (({'do': 'jump', 'dir': 'right'}, 'jump'),
+        for step, word in (({'do': 'jump', 'dir': 'right', 'double': True}, 'double'),
                            ({'do': 'type', 'text': 'x'}, 'type'),
                            ({'do': 'wheel', 'anchor': 'inventory.cash_tab'}, 'wheel')):
             result = worker.send('me', step)

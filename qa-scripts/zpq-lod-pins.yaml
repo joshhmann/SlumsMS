@@ -1,0 +1,48 @@
+# ZPQ stage-6 re-proof staging (Coordinator 8 Nov): 280010130 replaces 280010110 (stage 2, cleared in 67 s in zakumpq-full-run-20261108T042242Z; cap is 5).
+# ZPQ v72 proof staging: AqClient (gm 4, set by Server Dev while logged out) types the five TEST-only debug pins, then lists them.
+# The pins last until a TEST restart. Server Dev sets AqClient back to gm 0 after this run, while it is logged out.
+id: zpq-lod-pins
+title: "Pin the five Zakum mine maps (!env lod pin) and list them"
+covers: [feature-zpq-eval]
+status: draft
+server: test
+needs: [gm]
+notes: "Coordinator 8 Nov: maps 280010130, 280010091, 280010140, 280010041, 280011005 (cap 5). The chat log of the list is the lod-pins.txt evidence."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 5
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 5}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window swallows typed GM lines"}
+  - {id: pin-1, do: gm, line: "!env lod pin 280010130"}
+  - {do: sleep, ms: 1500, reason: "one command at a time"}
+  - {id: pin-2, do: gm, line: "!env lod pin 280010091"}
+  - {do: sleep, ms: 1500, reason: "one command at a time"}
+  - {id: pin-3, do: gm, line: "!env lod pin 280010140"}
+  - {do: sleep, ms: 1500, reason: "one command at a time"}
+  - {id: pin-4, do: gm, line: "!env lod pin 280010041"}
+  - {do: sleep, ms: 1500, reason: "one command at a time"}
+  - {id: pin-5, do: gm, line: "!env lod pin 280011005"}
+  - {do: sleep, ms: 1500, reason: "one command at a time"}
+  - {id: list, do: gm, line: "!env lod list"}
+  - {do: sleep, ms: 3000, reason: "the list reply reaches the chat log"}
+captures:
+  - {id: chat, chat_log: {span: {from: pin-1, to: list}}}
+expect:
+  reviewer:
+    - see: "The chat shows the five pin lines and the lod list with all five maps"
+      in: [chat]
+  checks:
+    - {check: client_alive}
+  judgment: "PASS = the chat log shows the five pins and the list with all five maps. FAIL if a pin is refused or the cap is hit. Save the pin and list lines as lod-pins.txt."

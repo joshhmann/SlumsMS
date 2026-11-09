@@ -161,6 +161,51 @@ class MarketQaTest {
         assertTrue(r.get(0).startsWith("SKIP"), String.join("\n", r));
     }
 
+    /**
+     * b375: a holder whose account is at the daily item-sell ceiling cannot list anything today. That is the holder's
+     * state, not a fault in the sell the check tests: pass it over for the next holder, exactly like the cooldown,
+     * instead of failing on the exchange's ITEMS_CAP refusal.
+     */
+    @Test
+    void aHolderAtTheDailyItemSellCapIsPassedOverForOneThatIsReady() {
+        FakeBotWallet capped = trader(A, 5_000_000).with(Asset.CHAOS, 5);
+        FakeBotWallet ready = trader(B, 5_000_000).with(Asset.CHAOS, 5);
+        List<String> r = MarketQa.scrollCheck(cappedFor(A), roster, now.get());
+        assertTrue(r.get(0).startsWith("PASS"), String.join("\n", r));
+        assertTrue(r.stream().anyMatch(l -> l.contains("trader " + A + " is at the daily item-sell cap")),
+                String.join("\n", r));
+        assertEquals(5, ready.items.get(Asset.CHAOS), "the ready holder's scroll went back");
+        assertEquals(5, capped.items.get(Asset.CHAOS));
+    }
+
+    @Test
+    void whenEveryHolderIsAtTheDailyItemSellCapTheCheckSkipsInsteadOfFailing() {
+        trader(A, 5_000_000).with(Asset.CHAOS, 5);
+        trader(B, 5_000_000).with(Asset.CHAOS, 5);
+        List<String> r = MarketQa.scrollCheck(cappedFor(A, B), roster, now.get());
+        assertTrue(r.get(0).startsWith("SKIP"), String.join("\n", r));
+        assertTrue(r.get(0).contains("daily item-sell cap"), r.get(0));
+    }
+
+    /** A spy of the test's exchange that answers ITEMS_CAP for the placements of {@code accounts}, as the cap does. */
+    Exchange cappedFor(long... accounts) {
+        java.util.Set<Long> capped = new java.util.HashSet<>();
+        for (long a : accounts) {
+            capped.add(a);
+        }
+        Exchange spy = org.mockito.Mockito.spy(ex);
+        org.mockito.Mockito.doAnswer(inv -> {
+            Exchange.Place p = inv.getArgument(0);
+            if (capped.contains(p.account())) {
+                return new Exchange.Response(p.requestId(), false, "ITEMS_CAP",
+                        "item sells are capped at 1,000,000 mesos a day per account: you have 1,000,000 filled or "
+                                + "resting today", Map.of());
+            }
+            return inv.callRealMethod();
+        }).when(spy).placeBot(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        return spy;
+    }
+
     @Test
     void whenNoHolderIsOnlineTheCheckStagesAScrollInASellerAndTakesItBack() {
         FakeBotWallet w = trader(A, 5_000_000);

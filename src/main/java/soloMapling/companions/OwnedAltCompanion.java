@@ -17,7 +17,10 @@ import soloMapling.ArtificialPlayer.BotGrindSystem.Approach;
 import soloMapling.ArtificialPlayer.BotDecoratorSystem.BotWeapons;
 import soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionBossRevive;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionClimb;
 import soloMapling.ArtificialPlayer.BotPartySystem.CompanionItems;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionSpots;
 import soloMapling.ArtificialPlayer.BotPartySystem.CompanionStance;
 import soloMapling.ArtificialPlayer.BotPartySystem.CompanionSwitches;
 import soloMapling.ArtificialPlayer.BotSupplySystem.SupplyShare;
@@ -96,6 +99,8 @@ public final class OwnedAltCompanion {
         long lastTickMs;
         long nextLootMs;
         int lastMoveX = Integer.MIN_VALUE;
+        /** 1.6.7 follow-plus: this alt's slot among its owner's loaded alts (by alt id), 1-based. */
+        volatile int slot = 1;
         int targetOid = -1;
         long targetSince;
         long lastLandedMs;
@@ -274,6 +279,19 @@ public final class OwnedAltCompanion {
             }
         }
         order.addAll(waiting);
+        // 1.6.7 follow-plus: each alt's slot among its owner's loaded alts, by alt id - the order of the reserved
+        // spots beside a portal or NPC (slot 1 left, slot 2 right, ...). Stable between ticks, so two alts never
+        // pick the same spot.
+        Map<Integer, List<OwnedAltService.Active>> byOwner = new HashMap<>();
+        for (OwnedAltService.Active a : active) {
+            byOwner.computeIfAbsent(a.owner().getId(), k -> new java.util.ArrayList<>()).add(a);
+        }
+        for (List<OwnedAltService.Active> mine : byOwner.values()) {
+            mine.sort(java.util.Comparator.comparingInt(x -> x.alt().getId()));
+            for (int i = 0; i < mine.size(); i++) {
+                states.computeIfAbsent(mine.get(i).alt().getId(), State::new).slot = i + 1;
+            }
+        }
         for (OwnedAltService.Active a : order) {
             Character alt = a.alt();
             State s = states.computeIfAbsent(alt.getId(), State::new);
@@ -311,6 +329,11 @@ public final class OwnedAltCompanion {
             long elapsed = s.lastTickMs == 0 ? 0 : now - s.lastTickMs;
             s.lastTickMs = now;
             if (BotDeaths.isDead(alt.getId())) {
+                // 1.6.7 alt-revive-respawn: down inside a boss run it stays where it fell and gets itself up beside
+                // its owner; outside a run nothing answers here and the town-and-home path below runs as before.
+                if (CompanionBossRevive.gate(alt, now)) {
+                    return;
+                }
                 if (BotDeaths.readyToRespawn(alt.getId())) {
                     afterDeath(owner, alt, s);
                 }
@@ -324,6 +347,19 @@ public final class OwnedAltCompanion {
             }
             // 161: the shared party-support path (heal, buff pots) - the same call a population grinder makes
             soloMapling.ArtificialPlayer.BotAttackSystem.BotPartySupport.tick(alt);
+            if (CompanionBossRevive.resting(alt, now)) {
+                // 1.6.7 alt-revive-respawn: revived in a boss run, it rests (the BotStory rule, ported): no follow and
+                // no fight until HP and MP are back to the rest line (70%), or the rest runs out.
+                if (s.fighting) {
+                    s.fighting = false;
+                    s.lastMoveX = Integer.MIN_VALUE;
+                }
+                leaveFollow(alt);
+                // owner, 8 Nov 2026: it drinks its own potions up to the rest line while it rests
+                BotVitals.restTopUp(alt, CompanionBossRevive.restPercent());
+                s.doing = "resting after a revive";
+                return;
+            }
             if (soloMapling.mechanics.MechanicsHold.committed(alt)) {
                 // 1.6.1 KPQ automation: a party-quest run drives the alt (the same PQ logic as party bots)
                 if (s.fighting) {
@@ -348,7 +384,7 @@ public final class OwnedAltCompanion {
                     tell(owner, whyLine);
                 }
                 s.told = whyLine != null ? why : s.told;
-                keepFollowing(owner, alt);
+                keepFollowing(owner, alt, now);
                 s.doing = "following (gate " + why + ")";
                 return;
             }
@@ -395,13 +431,24 @@ public final class OwnedAltCompanion {
                 s.nextShareMs = now + SHARE_CHECK_MS;
                 askSiblings(owner, alt);
             }
-            keepFollowing(owner, alt);
+            keepFollowing(owner, alt, now);
             s.doing = "following";
         }
     }
 
-    private static void keepFollowing(Character owner, Character alt) {
+    private static void keepFollowing(Character owner, Character alt, long now) {
         if (holdStance(alt)) {
+            return;
+        }
+        // 1.6.7 follow-plus: a climb is followed by climbing (the nav layer's CLIMB edges), not by standing at the
+        // bottom, and it falls back to the catch-up when the climb makes no progress.
+        if (CompanionClimb.tick(alt, owner, now)) {
+            return;
+        }
+        // 1.6.7 follow-plus: an owner waiting by a portal or an NPC gets its companions in ordered slots beside it,
+        // off the owner and off the portal, instead of all three on one pixel.
+        State st = states.get(alt.getId());
+        if (CompanionSpots.tick(owner, alt, st == null ? 1 : st.slot, now)) {
             return;
         }
         if (!GCMovement.isFollowing(alt) && !GCMovement.isTraveling(alt)) {

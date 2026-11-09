@@ -14,6 +14,7 @@ import constants.skills.Magician;
 import constants.skills.NightWalker;
 import constants.skills.Warrior;
 import soloMapling.ArtificialPlayer.BotHoldings;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionSupplies;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -151,6 +152,14 @@ public final class BotVitals {
      * the shared 50% (the simple path).
      */
     static double hpPotAt(Character bot) {
+        // 1.6.7 alt-settings: the one read of the owner's HP line; 0 (unset) leaves today's line, boss run included.
+        int ownerAt = soloMapling.companions.CompanionSettingsStore.hpPercent(bot);
+        if (ownerAt > 0) {
+            return ownerAt / 100.0;
+        }
+        if (CompanionSupplies.inBossRun(bot)) {
+            return CompanionSupplies.BOSS_HP_POT_AT;   // SlumsMS: in a boss run the whole line moves up
+        }
         if (!soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning.human()
                 || !soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMapObserved(bot)) {
             return HP_POT_AT;
@@ -159,6 +168,18 @@ public final class BotVitals {
                 soloMapling.ArtificialPlayer.BotCombatSystem.BotHabits.of(bot.getId());
         boolean late = java.util.concurrent.ThreadLocalRandom.current().nextDouble() < h.latePotChance();
         return late ? h.hpPotAt() - 0.15 : h.hpPotAt();
+    }
+
+    /*
+     * The MP share under which this bot drinks: 30% out in the world, and 50% in a boss run (nutnnut's autopot line),
+     * where a skill-heavy job (Brandish) must drink before it falls back to the plain attack.
+     */
+    static double mpPotAt(Character bot) {
+        int ownerAt = soloMapling.companions.CompanionSettingsStore.mpPercent(bot); // 1.6.7 alt-settings
+        if (ownerAt > 0) {
+            return ownerAt / 100.0;
+        }
+        return CompanionSupplies.inBossRun(bot) ? CompanionSupplies.BOSS_MP_POT_AT : MP_POT_AT;
     }
 
     /* Whether the item is a recovery potion (not a buff pot). */
@@ -260,8 +281,10 @@ public final class BotVitals {
 
     // ---------------------------------------------------------------- potions
 
-    /* Drinks what the bot needs: HP potions under half HP, MP potions under 30% MP, a few at most. */
+    /* Drinks what the bot needs at its own lines ({@link #hpPotAt}, {@link #mpPotAt}; half HP and 30% MP out in the
+     * world, 70% and 50% in a boss run), a few at most, then says what is left to the owner or leader. */
     public static void topUp(Character bot) {
+        CompanionSupplies.warn(bot);   // SlumsMS: what is left, said to the owner before it is drunk
         synchronized (lock(bot)) {
             double hpAt = bot.getHp() < bot.getCurrentMaxHp() * 0.75 ? hpPotAt(bot) : HP_POT_AT; // roll only when low
             int before = bot.getHp();
@@ -277,7 +300,29 @@ public final class BotVitals {
                         + " drinks " + drank + " at " + Math.round(100.0 * before / Math.max(1, bot.getCurrentMaxHp()))
                         + "% HP (its line " + Math.round(hpAt * 100) + "%), " + potionCount(bot, true) + " HP pots left");
             }
-            for (int i = 0; i < MAX_DRINKS && bot.getMp() < bot.getCurrentMaxMp() * MP_POT_AT; i++) {
+            for (int i = 0; i < MAX_DRINKS && bot.getMp() < bot.getCurrentMaxMp() * mpPotAt(bot); i++) {
+                if (!drink(bot, false)) {
+                    break;
+                }
+            }
+        }
+    }
+
+    /*
+     * 1.6.7 (owner, 8 Nov 2026): an alt resting after a boss revive drinks its own potions up to the rest line, HP and
+     * MP alike, a few at most per tick like topUp. With no potions it waits on its regen and the rest's time limit.
+     */
+    public static void restTopUp(Character bot, int percent) {
+        if (bot == null || percent <= 0) {
+            return;
+        }
+        synchronized (lock(bot)) {
+            for (int i = 0; i < MAX_DRINKS && (long) bot.getHp() * 100 < (long) bot.getCurrentMaxHp() * percent; i++) {
+                if (!drink(bot, true)) {
+                    break;
+                }
+            }
+            for (int i = 0; i < MAX_DRINKS && (long) bot.getMp() * 100 < (long) bot.getCurrentMaxMp() * percent; i++) {
                 if (!drink(bot, false)) {
                     break;
                 }

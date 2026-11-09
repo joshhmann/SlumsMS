@@ -298,6 +298,9 @@ def rule_errors(doc, raw_text, file_stem, anchors, windows):
             sig = s.get("signal", {})
             if "timeout_ms" not in s:
                 errors.append("%s: a wait needs timeout_ms" % where)
+            elif s["timeout_ms"] > doc.get("card_cap_ms", 300000):
+                errors.append("%s: timeout_ms %s is above this script's cap %s (set card_cap_ms from its card, at most 900000)"
+                              % (where, s["timeout_ms"], doc.get("card_cap_ms", 300000)))
             if s.get("optional"):
                 optional_ids.add(sid)
                 if t_kind(s) != "client_signal":

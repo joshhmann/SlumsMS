@@ -133,6 +133,7 @@ M
     printf 'STOP_CMD=%q\nSTART_CMD=%q\nIS_ACTIVE_CMD=%q\n' "systemctl stop $UNIT || true" "bash $R/start.sh" "systemctl is-active --quiet $UNIT"
     printf 'DAEMON_RELOAD_CMD=true\nLOGIN_PORT=%s\nCHANNEL_BASE=%s\n' "$LOGIN_PORT" "$CHANNEL_BASE"
     printf 'MONITOR=%q\nMONITOR_TARGET=rehearsal\n' "$R/bin/slumsms-monitor"
+    printf 'NOTICE_SECONDS=0\n'   # b377: never an in-game notice from a rehearsal
   } > "$R/env.sh"
   cat "$R/env.sh"
   step "setup done";;

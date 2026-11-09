@@ -85,6 +85,30 @@ class LpqSolversTest {
         assertEquals(25, talk.count());
     }
 
+    /**
+     * lpq1-pass-shortfall (QA, TEST 8 Nov 2026): the stage's monsters respawn and some can't be reached, so the map is
+     * never empty. Collectors used to hand over only in threes or with no monster left, and kept their last one or two
+     * passes for good: the leader stood at 21 of 25. Once the party holds the 25 between them, every pass goes over.
+     */
+    @Test
+    void theLastPassesGoToTheLeaderOnceThePartyHoldsEnough() {
+        LpqFarmSolver solver = new LpqFarmSolver();
+        View view = rooms(stageAt(922010100), five());
+        view.mobs = 4;                                  // respawned, out of reach
+        view.items.put(1 + ":" + PASS, 21);             // the leader after seven threes
+        view.items.put(2 + ":" + PASS, 1);
+        view.items.put(3 + ":" + PASS, 1);
+        view.items.put(4 + ":" + PASS, 2);
+        RunMember collector = new RunMember(2, false, true, MechanicsPersona.PERFECT);
+        SolverStep.DropFor drop = assertInstanceOf(SolverStep.DropFor.class, solver.next(view, collector),
+                "21 + 1 + 1 + 2 = 25: the one pass it holds is the one the leader is missing");
+        assertEquals(1, drop.count());
+
+        view.items.put(4 + ":" + PASS, 1);              // 24 between them: keep farming, nothing to hand yet
+        assertFalse(solver.next(view, collector) instanceof SolverStep.DropFor,
+                "under the hand-in count a remainder still waits for a full three");
+    }
+
     @Test
     void aStageWithNoMonstersIsClearedByItsBoxes() {
         // 922010200 has no monster at all: eleven boxes (2202003) and a trap hold the fifteen passes

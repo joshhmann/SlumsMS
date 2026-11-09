@@ -83,6 +83,17 @@ class ValidatorTest(unittest.TestCase):
         self.assertRefused(GOOD.replace(", timeout_ms: 60000}", "}"), "missing timeout_ms")
         self.assertRefused(GOOD.replace("timeout_ms: 60000", "timeout_ms: 900000"), "above")
 
+    def test_a_wait_may_exceed_300_s_only_up_to_the_script_card_cap(self):
+        # boss-pq-sweep: the card names the cap (stage 33 of the Zakum PQ needs 900 s); no card, no more than 300 s.
+        long_wait = GOOD.replace("timeout_ms: 60000", "timeout_ms: 600000")
+        self.assertRefused(long_wait, "above this script's cap 300000")
+        capped = long_wait.replace("needs: [gm]", "needs: [gm]\ncard_cap_ms: 900000")
+        errors, _ = check(capped)
+        self.assertEqual([], errors)
+        self.assertRefused(capped.replace("card_cap_ms: 900000", "card_cap_ms: 450000"), "above this script's cap 450000")
+        self.assertRefused(capped.replace("timeout_ms: 600000", "timeout_ms: 900001"), "timeout_ms")
+        self.assertRefused(capped.replace("card_cap_ms: 900000", "card_cap_ms: 1200000"), "card_cap_ms")
+
     def test_unknown_anchors_and_windows_are_refused(self):
         self.assertRefused(GOOD.replace("  - {do: select_character}\n",
                                         "  - {do: select_character}\n  - {do: click, anchor: login.nowhere}\n"),
@@ -178,6 +189,28 @@ class ValidatorTest(unittest.TestCase):
         self.assertRefused(GOOD.replace("!bot remove ${healer}\"}", "!bot remove ${healer}\"}\n  - {do: chat, text: \"!warp 1\"}"),
                            "do: gm")
         self.assertRefused(GOOD.replace("line: \"!hurt", "line: \"hurt"), "does not match")
+
+    def test_click_npc_takes_a_low_npc_id(self):
+        # GP3 (1.6.7): Rain, NPC 12101 on Maple Island, was refused by a 1000000 minimum the driver and client never had.
+        rain = GOOD.replace("  - {do: select_character}\n", "  - {do: select_character}\n  - {do: click_npc, npc: 12101}\n")
+        errors, _ = check(rain)
+        self.assertEqual([], errors)
+        self.assertRefused(rain.replace("npc: 12101", "npc: 0"), "npc")
+
+    def test_click_dialog_row_takes_a_row_and_an_optional_row_count(self):
+        # qa-dialog-row (1.6.7): Ifia 2161001's own quest menu, row 2 of 2 is "Please send me to the Audience Room
+        # Corridor" (QA run rebirth2-ifia-20261109T032557Z); no NPC_TALK brought it, so click_option cannot answer it.
+        ifia = GOOD.replace("  - {do: select_character}\n",
+                            "  - {do: select_character}\n  - {do: click_npc, npc: 2161001}\n"
+                            "  - {do: click_dialog_row, row: 2, rows: 2}\n")
+        errors, _ = check(ifia)
+        self.assertEqual([], errors)
+        errors, _ = check(ifia.replace(", rows: 2}", "}"))
+        self.assertEqual([], errors)
+        self.assertRefused(ifia.replace("row: 2,", "row: 0,"), "row")
+        self.assertRefused(ifia.replace("row: 2,", "row: 17,"), "row")
+        self.assertRefused(ifia.replace("rows: 2}", "rows: 17}"), "rows")
+        self.assertRefused(ifia.replace("{do: click_dialog_row, row: 2, rows: 2}", "{do: click_dialog_row}"), "row")
 
     def test_the_id_matches_the_file_name(self):
         errors, _ = qascript.validate_text(GOOD, "other-name")

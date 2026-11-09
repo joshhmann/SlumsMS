@@ -482,11 +482,23 @@ class SilviaWorker:
             name = "press_key"
             arguments = {"name": str(value).upper(), "hold_ms": int(step.get("hold_ms" if kind == "key" else "ms")
                                                                      or 0)}
-        elif kind == "jump":
-            return {"result": "refused", "detail": "a jump step needs the client's jump key and timing: not "
-                                                   "available in this client build"}
+        elif kind == "jump":   # b360 (1.6.6): the worker's jump tool (the game's jump key; Up held to catch a rope)
+            if step.get("double") or step.get("down"):
+                return {"result": "refused", "detail": "a double or down jump is not available in this worker"}
+            name, arguments = "jump", {"dir": step.get("dir", "none"), "catch": 1 if step.get("catch") else 0,
+                                       "run_ms": int(step.get("run_ms", 0)), "hold_ms": int(step.get("hold_ms", 800))}
         elif kind == "click_npc":
             name, arguments = "click_npc", {"npc": step["npc"]}
+        elif kind == "click_dialog_row":   # qa-dialog-row (1.6.7): also the client's own quest-npc menu
+            name, arguments = "click_dialog_row", {"row": int(step["row"]), "rows": int(step.get("rows", 0))}
+        elif kind == "position":   # qa-position-signal (1.6.6): where the character is; the answer is the detail
+            name, arguments = "position", {}
+        elif kind == "walk_to":    # qa-walk-to (1.6.7): walk on the floor until the QA client's position arrives
+            name, arguments = "walk_to", {"x": int(step["x"]), "tolerance": int(step.get("tolerance", 6)),
+                                          "timeout_ms": int(step.get("timeout_ms", 12000))}
+        elif kind == "climb":      # qa-walk-to (1.6.7): climb a ladder or rope to a height
+            name, arguments = "climb", {"y": int(step["y"]), "tolerance": int(step.get("tolerance", 6)),
+                                        "timeout_ms": int(step.get("timeout_ms", 15000))}
         elif kind == "drop_item":   # P1-Q2: the QA client calls the item window's own sender (QA build 3)
             name, arguments = "drop_item", {"item": step["item"], "count": step.get("count", 1)}
         elif kind == "party_create":
@@ -502,6 +514,8 @@ class SilviaWorker:
             name, arguments = "fredrick_retrieve", {}
         elif kind == "pickup_item":   # b344: the newest drop of that item, picked up by the client's own sender
             name, arguments = "pickup_item", {"item": step["item"]}
+            if int(step.get("count", 1)) > 1:   # qa-pickup-count (1.6.7): that many drops, one after another
+                arguments["count"] = int(step["count"])
         elif kind in ("shop_buy", "shop_sell"):   # 1.6.5 GP4: the open NPC shop (shop_sell without quantity: all)
             name, arguments = kind, {"item": step["item"], "quantity": step.get("quantity", 0)}
         elif kind == "shop_close":
@@ -526,7 +540,7 @@ class SilviaWorker:
         text = "\n".join(answer.get("text") or []).strip()
         if answer.get("isError"):
             return {"result": "refused", "detail": text}
-        return {"result": "ok", "detail": text[:200]}
+        return {"result": "ok", "detail": text[:2000] if kind == "pickup_item" else text[:200]}   # every pick's answer
 
     def wait_signal(self, alias, name, timeout_s, extra):
         """The next event named `name` within timeout_s, or None; the pipe closing fails the wait at once."""
@@ -851,10 +865,15 @@ class Run:
                 self.spans("to", sid)
             entry["result"] = "ok"
         except RunFailed as e:
-            entry["result"] = e.result
-            entry["detail"] = str(e)
-            self.manifest["failed_at"] = i
-            raise
+            if step.get("optional") and step.get("do") == "pickup_item" and e.result == "refused":
+                # a pickup that found nothing, or lost the drop to another picker, is a recorded event, not a failure
+                entry["result"] = "tolerated"
+                entry["detail"] = str(e)
+            else:
+                entry["result"] = e.result
+                entry["detail"] = str(e)
+                self.manifest["failed_at"] = i
+                raise
         finally:
             entry["done_utc"] = iso(self.clock())
             entry["ms"] = int((time.monotonic() - t0) * 1000)
@@ -897,6 +916,8 @@ class Run:
         r = self.worker.send(alias, self.prepared(step, alias)) or {}
         if r.get("result", "ok") != "ok":
             raise RunFailed("%s refused: %s" % (kind, r.get("detail", "")), "refused")
+        if kind in ("position", "walk_to", "climb", "pickup_item") and r.get("detail"):
+            entry["detail"] = r["detail"]   # where the character is: QA reads it from the manifest, not the outbox
 
     def wait(self, i, step, alias, entry):
         sig = step["signal"]

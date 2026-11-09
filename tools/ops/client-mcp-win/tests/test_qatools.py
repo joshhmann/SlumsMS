@@ -312,6 +312,33 @@ if __name__ == '__main__':
     unittest.main()
 
 
+class PositionTest(NewToolsTest):
+    # qa-position-signal (1.6.6): gm-0 scripts cannot use !pos; the QA client says where the character is.
+    def test_position_is_the_clients_answer(self):
+        self.d.qa = FakeQa([{'ev': 'player.pos', 'ok': True, 'map_id': 103000800, 'x': -110, 'y': -846,
+                             'foothold': True, 'rope': False, 'ladder': False}])
+        self.assertEqual({'map_id': 103000800, 'x': -110, 'y': -846, 'foothold': True, 'rope': False, 'ladder': False},
+                         self.d.position())
+        self.assertEqual(['pos'], self.d.qa.sent)
+        self.assertEqual([], self.d.sender.events, 'position presses nothing')
+
+    def test_position_passes_the_client_error_on(self):
+        self.d.qa = FakeQa([{'ev': 'player.pos', 'ok': False, 'error': 'site_mismatch'}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.position()
+        self.assertEqual('site_mismatch', str(caught.exception))
+
+    def test_position_without_an_answer_is_field_not_ready(self):
+        self.d.qa = FakeQa([])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.position()
+        self.assertEqual('field_not_ready', str(caught.exception))
+
+    def test_position_is_a_script_tool_without_arguments(self):
+        self.assertIn('position', self.driver.SCRIPT_TOOLS)
+        self.assertEqual({}, self.driver.TOOLS['position'])
+
+
 class ClickNpcTest(NewToolsTest):
     def test_click_npc_clicks_where_the_client_says(self):
         self.d.qa = FakeQa([{'ev': 'npc.pos', 'npc': 9999, 'ok': True, 'x': 1, 'y': 1},
@@ -356,13 +383,69 @@ class ClickOptionTest(NewToolsTest):
         self.assertIn('not a calibrated point', str(caught.exception))
 
 
+class ClickDialogRowTest(NewToolsTest):
+    """qa-dialog-row (1.6.7): a row of the open npc dialog from the dialog's own list, so the client's local quest-npc
+    menu (Ifia 2161001, Wyatt 1300009, Rain 12101) can be answered too."""
+
+    def test_click_dialog_row_sends_the_row_and_count_and_reports_the_value(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'click_dialog_row', 'row': 2, 'ok': True, 'rows': 2, 'value': 1}])
+        self.assertEqual({'row': 2, 'rows': 2, 'value': 1}, self.d.click_dialog_row(2, 2))
+        self.assertEqual(['click_dialog_row 2 2'], self.d.qa.sent)
+
+    def test_without_a_count_only_the_row_is_sent(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'click_dialog_row', 'row': 1, 'ok': True, 'rows': 3, 'value': 0}])
+        self.assertEqual({'row': 1, 'rows': 3, 'value': 0}, self.d.click_dialog_row(1))
+        self.assertEqual(['click_dialog_row 1'], self.d.qa.sent)
+
+    def test_a_different_row_count_is_refused_with_the_real_count(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'click_dialog_row', 'row': 2, 'ok': False,
+                             'error': 'row_count', 'rows': 3}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.click_dialog_row(2, 2)
+        self.assertEqual('row_count: the dialog has 3 rows', str(caught.exception))
+
+    def test_no_answer_is_no_dialog(self):
+        self.d.qa = FakeQa([])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.click_dialog_row(1)
+        self.assertEqual('no_dialog', str(caught.exception))
+
+    def test_it_is_a_script_tool_with_checked_arguments(self):
+        self.assertIn('click_dialog_row', self.driver.SCRIPT_TOOLS)
+        self.d.validate('click_dialog_row', {'row': 16, 'rows': 16})
+        self.d.validate('click_dialog_row', {'row': 1, 'rows': 0})
+        for args in ({}, {'row': 0}, {'row': 17}, {'row': 1, 'rows': 17}):
+            with self.assertRaises(self.driver.Refusal):
+                self.d.validate('click_dialog_row', args)
+
+
 class DropAndPartyTest(NewToolsTest):
     """P1-Q2 (Zakum run): drop_item, party_create, party_invite ride the QA client's own senders."""
 
     def test_drop_item_sends_the_item_and_count(self):
-        self.d.qa = FakeQa([{'ev': 'item.drop', 'item': 4001017, 'count': 1, 'type': 4, 'slot': 3, 'ok': True}])
-        self.assertEqual({'item': 4001017, 'count': 1, 'slot': 3}, self.d.drop_item(4001017))
+        self.d.qa = FakeQa([{'ev': 'item.drop', 'item': 4001017, 'count': 1, 'type': 4, 'slot': 3, 'left': 4,
+                             'ok': True}])
+        self.assertEqual({'item': 4001017, 'count': 1, 'slot': 3, 'left': 4}, self.d.drop_item(4001017))
         self.assertEqual(['drop_item 4001017 1'], self.d.qa.sent)
+
+    def test_a_refused_drop_is_not_dropped(self):
+        # qa-drop-honest: build 18b slot 2026-11-08 14:15, the server refused a gm 3 character's drops ("GM
+        # characters cannot drop items.") and drop_item said ok. The client now answers only once the stack shrank.
+        self.d.qa = FakeQa([{'ev': 'item.drop', 'item': 4001022, 'count': 1, 'slot': 33, 'left': 3, 'ok': False,
+                             'error': 'not_dropped'}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.drop_item(4001022)
+        self.assertEqual('not_dropped', str(caught.exception))
+
+    def test_drop_item_waits_past_the_clients_own_wait(self):
+        # The client answers not_dropped after 3 s; a 3 s driver wait would call that no_character instead.
+        waits = []
+        qa = FakeQa([{'ev': 'item.drop', 'item': 4001017, 'count': 1, 'slot': 3, 'left': 0, 'ok': True}])
+        real_wait = qa.wait
+        qa.wait = lambda name, timeout: (waits.append(timeout), real_wait(name, timeout))[1]
+        self.d.qa = qa
+        self.d.drop_item(4001017)
+        self.assertGreater(waits[0], 4.0)
 
     def test_drop_item_passes_the_client_error_on(self):
         self.d.qa = FakeQa([{'ev': 'item.drop', 'item': 4001017, 'count': 1, 'ok': False, 'error': 'not_in_inventory'}])
@@ -676,6 +759,54 @@ class PickupTest(NewToolsTest):
         with self.assertRaises(self.driver.Refusal) as caught:
             self.d.pickup_item(4001018)
         self.assertEqual('taken_by_other (picker 99)', str(caught.exception))
+
+    def test_pickup_says_which_drop_it_took(self):
+        # qa-pickup-nearest (1.6.6): the client takes the nearest matching drop and says where it was.
+        self.d.qa = FakeQa([{'ev': 'item.picked', 'item': 4001022, 'oid': 501, 'ok': True, 'type': 4, 'slot': 2,
+                             'x': 10, 'y': 130, 'distance': 10}])
+        self.assertEqual({'picked': True, 'item': 4001022, 'oid': 501, 'type': 4, 'slot': 2, 'x': 10, 'y': 130,
+                          'distance': 10}, self.d.pickup_item(4001022))
+
+    def test_a_drop_out_of_the_servers_range_is_named(self):
+        # LPQ run lpq-stage1-handin-20261108T053234Z: the only drop was a monster's 1600 px up; the server ignores it.
+        self.d.qa = FakeQa([{'ev': 'item.picked', 'item': 4001022, 'ok': False, 'error': 'out_of_range',
+                             'x': 212, 'y': -1499, 'distance': 1642}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.pickup_item(4001022)
+        self.assertEqual('out_of_range (nearest drop at 212,-1499, 1642 px away)', str(caught.exception))
+
+    def picked(self, oid, x, distance):
+        return {'ev': 'item.picked', 'item': 4001022, 'oid': oid, 'ok': True, 'type': 4, 'slot': 2, 'x': x, 'y': 130,
+                'distance': distance}
+
+    def test_count_picks_one_drop_after_another(self):
+        # LPQ Part 2: one pass is one drop object; a DROP line of 3 passes is one step with count 3, not three steps.
+        self.d.qa = FakeQa([self.picked(501, 10, 10), self.picked(502, -30, 30), self.picked(503, 0, 0)])
+        answer = self.d.pickup_item(4001022, count=3)
+        self.assertEqual(['pickup_item 4001022'] * 3, self.d.qa.sent)
+        self.assertEqual(3, answer['picked'])
+        self.assertEqual([{'oid': 501, 'x': 10, 'y': 130, 'distance': 10, 'ok': True},
+                          {'oid': 502, 'x': -30, 'y': 130, 'distance': 30, 'ok': True},
+                          {'oid': 503, 'x': 0, 'y': 130, 'distance': 0, 'ok': True}], answer['picks'])
+
+    def test_a_short_count_says_how_many_and_why_it_stopped(self):
+        self.d.qa = FakeQa([self.picked(501, 10, 10), self.picked(502, -30, 30),
+                            {'ev': 'item.picked', 'item': 4001022, 'ok': False, 'error': 'no_drop'}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.pickup_item(4001022, count=3)
+        message = str(caught.exception)
+        self.assertTrue(message.startswith('picked 2 of 3, then no_drop'), message)
+        self.assertIn('"oid": 502', message)
+        self.assertEqual(3, len(self.d.qa.sent), 'it stops at the first refusal')
+
+    def test_count_one_answers_as_before(self):
+        self.d.qa = FakeQa([self.picked(501, 10, 10)])
+        self.assertEqual({'picked': True, 'item': 4001022, 'oid': 501, 'type': 4, 'slot': 2, 'x': 10, 'y': 130,
+                          'distance': 10}, self.d.pickup_item(4001022, count=1))
+
+    def test_count_is_checked(self):
+        self.assertEqual(1, self.driver.TOOLS['pickup_item']['count']['minimum'])
+        self.assertEqual(10, self.driver.TOOLS['pickup_item']['count']['maximum'])
 
     def test_no_answer_is_a_timeout(self):
         self.d.qa = FakeQa([])

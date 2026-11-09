@@ -48,6 +48,7 @@ class BotPartySupportTest {
             @Override public int mpCost(Character bot, int skillId, int level) { return 40; }
             @Override public boolean pay(Character bot, int mp) { if (hasMp) paid.add(mp); return hasMp; }
             @Override public void heal(Character bot, Character target, int skillId, int level) { healed.add(target.getId()); }
+            @Override public void dispel(Character bot, Character target, int skillId, int level) { }
             @Override public List<Pot> pots(Character bot) { return pots; }
             @Override public Set<BuffStat> active(Character bot) { return active; }
             @Override public boolean drink(Character bot, Pot pot) { drunk.add(pot.itemId()); return true; }
@@ -75,6 +76,17 @@ class BotPartySupportTest {
         when(bot.getMap()).thenReturn(mock(MapleMap.class));
         when(bot.getSkillLevel(Cleric.HEAL)).thenReturn(healLevel);
         when(bot.getJob()).thenReturn(Job.CLERIC);
+        return bot;
+    }
+
+    private static Character ownedAlt(int id, int healLevel) {
+        Character bot = mock(Character.class);
+        when(bot.getId()).thenReturn(id);
+        when(bot.getMap()).thenReturn(mock(MapleMap.class));
+        when(bot.getSkillLevel(Cleric.HEAL)).thenReturn(healLevel);
+        when(bot.getJob()).thenReturn(Job.CLERIC);
+        when(bot.getClient()).thenReturn(mock(client.BotClient.class));
+        when(bot.isOwnedAlt()).thenReturn(true);
         return bot;
     }
 
@@ -140,6 +152,45 @@ class BotPartySupportTest {
                 List.of(watk, new Pot(2022009, BuffStat.WATK, 20)), Set.of(), false), "the stronger of two");
         assertNull(BotPartySupport.pickPot(List.of(new Pot(1, BuffStat.SPEED, 20)), Set.of(), false), "speed pots are not drunk");
         assertNull(BotPartySupport.pickPot(List.of(matk), Set.of(), false), "a swordsman does not drink a magic pot");
+    }
+
+    @Test
+    void healsOffStopsTheHealForThatCompanionOnly() {
+        party = List.of(member(8, 250, 1000));
+        pots = List.of(new Pot(2022001, BuffStat.WATK, 10));
+        Character off = ownedAlt(1_000_000_011, 10);
+        Character on = ownedAlt(1_000_000_012, 10);
+        Character owner = mock(Character.class);
+        when(owner.getId()).thenReturn(4_000_011);
+        soloMapling.companions.CompanionSettingsStore.useForTest(
+                new soloMapling.companions.CompanionSettingsStore.Memory(), Runnable::run);
+        try {
+            soloMapling.companions.CompanionSettingsStore.save(owner, off,
+                    soloMapling.companions.CompanionSettings.DEFAULT.withHeals(false).withBuffPots(false));
+
+            assertFalse(BotPartySupport.tick(off, T0), "heals off and buff pots off: the companion does nothing");
+            assertTrue(healed.isEmpty());
+            assertTrue(drunk.isEmpty(), "buff pots off: it does not drink one");
+
+            assertTrue(BotPartySupport.tick(on, T0), "the other companion still heals");
+            assertEquals(List.of(8), healed);
+        } finally {
+            soloMapling.companions.CompanionSettingsStore.useForTest(null, null);
+        }
+    }
+
+    @Test
+    void aRegularKeepsHealingWithTheDefaults() {
+        party = List.of(member(8, 250, 1000));
+        Character regular = mock(Character.class);
+        when(regular.getId()).thenReturn(1_000_000_013);
+        when(regular.getMap()).thenReturn(mock(MapleMap.class));
+        when(regular.getSkillLevel(Cleric.HEAL)).thenReturn(10);
+        when(regular.getJob()).thenReturn(Job.CLERIC);
+        when(regular.getClient()).thenReturn(mock(client.BotClient.class));
+        when(regular.isOwnedAlt()).thenReturn(false);
+
+        assertTrue(BotPartySupport.tick(regular, T0), "the settings switch is off for party regulars");
     }
 
     @Test

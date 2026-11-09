@@ -40,6 +40,7 @@ class OwnedAltLootTest {
     @BeforeEach
     void roomy() {
         OwnedAltLoot.room = (alt, drop) -> true; // item data needs WZ
+        OwnedAltLoot.forgetFullSays(); // the once-per-window memory is process wide
     }
 
     @AfterEach
@@ -88,6 +89,30 @@ class OwnedAltLootTest {
         assertFalse(OwnedAltLoot.ours(alt, prop, PARTY, NOW));
     }
 
+    /**
+     * 1.6.7 alt-loot: the owner's decision - an alt with no saved choice picks up only its own kills, so its owner's
+     * drop stays on the floor; one stored "everything" and it takes them again.
+     */
+    @Test
+    void theDefaultModeLeavesTheOwnersDropsOnTheFloorAndEverythingTakesThemAgain() {
+        CompanionSettingsStore.useForTest(new CompanionSettingsStore.Memory(), Runnable::run);
+        try {
+            Character alt = alt(mock(MapleMap.class), 0);
+            when(alt.getClient()).thenReturn(mock(client.BotClient.class)); // a bot, so the switch can be on for it
+            long settled = NOW - OwnedAltLoot.SETTLE_MS - 1;
+            assertFalse(OwnedAltLoot.ours(alt, drop(OWNER, 0, 4000000, settled), PARTY, NOW),
+                    "no saved choice: only its own kills");
+
+            CompanionSettingsStore.save(mock(Character.class), alt,
+                    CompanionSettings.DEFAULT.withLootMode("everything"));
+            assertTrue(OwnedAltLoot.ours(alt, drop(OWNER, 0, 4000000, settled), PARTY, NOW),
+                    "with \"everything\" stored the owner's drops are its again");
+        } finally {
+            CompanionSettingsStore.forgetForTest();
+            CompanionSettingsStore.useForTest(null, null);
+        }
+    }
+
     @Test
     void theNearestDropItHasRoomFor() {
         long settled = NOW - 5_000;
@@ -118,5 +143,46 @@ class OwnedAltLootTest {
         assertEquals(EnumSet.of(InventoryType.ETC), full);
         assertEquals("My Etc inventory is full, I'm leaving those drops on the ground.",
                 OwnedAltLoot.fullLine(InventoryType.ETC));
+    }
+
+    /** 1.6.7 reports: a full tab is named once per 5 min, not every loot tick. */
+    @Test
+    void aFullTabIsReportedOncePerWindow() {
+        MapleMap f = mock(MapleMap.class);
+        MapItem etc = drop(ALT, 40, 4000000, NOW - 5_000);
+        when(f.getMapObjectsInRange(any(Point.class), anyDouble(), anyList())).thenReturn(new ArrayList<>(List.of(etc)));
+        OwnedAltLoot.room = (alt, drop) -> false;
+        Character a = alt(f, 0);
+        when(a.getClient()).thenReturn(mock(client.BotClient.class));
+
+        Set<InventoryType> first = EnumSet.noneOf(InventoryType.class);
+        OwnedAltLoot.pick(a, a, PARTY, NOW, first, new boolean[1]);
+        assertEquals(EnumSet.of(InventoryType.ETC), first, "the first tick says it");
+
+        Set<InventoryType> soon = EnumSet.noneOf(InventoryType.class);
+        OwnedAltLoot.pick(a, a, PARTY, NOW + 60_000, soon, new boolean[1]);
+        assertEquals(EnumSet.noneOf(InventoryType.class), soon, "not again inside the window");
+
+        Set<InventoryType> later = EnumSet.noneOf(InventoryType.class);
+        OwnedAltLoot.pick(a, a, PARTY, NOW + 300_001, later, new boolean[1]);
+        assertEquals(EnumSet.of(InventoryType.ETC), later, "said again after the window");
+    }
+
+    /** A regular companion (default switches) keeps today's behaviour: it says it every tick. */
+    @Test
+    void aRegularWithTheSwitchOffStillSaysItEveryTick() {
+        MapleMap f = mock(MapleMap.class);
+        MapItem etc = drop(ALT, 40, 4000000, NOW - 5_000);
+        when(f.getMapObjectsInRange(any(Point.class), anyDouble(), anyList())).thenReturn(new ArrayList<>(List.of(etc)));
+        OwnedAltLoot.room = (alt, drop) -> false;
+        Character a = alt(f, 0);
+        when(a.isOwnedAlt()).thenReturn(false);
+        when(a.getClient()).thenReturn(mock(client.BotClient.class));
+
+        Set<InventoryType> first = EnumSet.noneOf(InventoryType.class);
+        OwnedAltLoot.pick(a, a, PARTY, NOW, first, new boolean[1]);
+        Set<InventoryType> soon = EnumSet.noneOf(InventoryType.class);
+        OwnedAltLoot.pick(a, a, PARTY, NOW + 1_000, soon, new boolean[1]);
+        assertEquals(EnumSet.of(InventoryType.ETC), soon, "regulars are unchanged with the defaults");
     }
 }

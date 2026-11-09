@@ -16,6 +16,8 @@ import server.maps.MapItem;
 import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
 import soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionBossRevive;
+import soloMapling.ArtificialPlayer.BotPartySystem.ExpeditionBotsFixture;
 import soloMapling.ArtificialPlayer.BotDecoratorSystem.BotWeapons;
 import soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
@@ -90,6 +92,7 @@ class OwnedAltCompanionTest {
         OwnedAltCombat.forget(OWNER);
         OwnedAltCombat.forget(ALT);
         lying().remove(ALT);
+        CompanionBossRevive.runEnded(ALT);
     }
 
     @SuppressWarnings("unchecked")
@@ -583,5 +586,134 @@ class OwnedAltCompanionTest {
                     never());
         }
         verify(owner).sendPacket(any());
+    }
+
+    /**
+     * 1.6.7 alt-revive-respawn (card alt-death-rules): inside a boss run the alt does not go to town and home - it
+     * stays in the run where it fell, and gets up beside its owner after ten seconds, as a player's Resurrection
+     * would.
+     */
+    @Test
+    void anAltDownInABossRunWaitsInTheInstanceAndGetsUpBesideItsOwner() throws Exception {
+        Character owner = owner(NOW);
+        Character alt = alt(owner, 1302000);
+        MapleMap bossMap = mock(MapleMap.class); // it fell on the boss's map; its owner stands on the shared one
+        when(alt.getMap()).thenReturn(bossMap);
+        scripting.event.EventInstanceManager eim = mock(scripting.event.EventInstanceManager.class);
+        when(alt.getEventInstance()).thenReturn(eim);
+        when(owner.getEventInstance()).thenReturn(eim); // its owner is in the run with it
+        when(alt.getClient()).thenReturn(mock(BotClient.class)); // a bot, so the companion switches apply to it
+        when(alt.getLevel()).thenReturn(120);
+        when(alt.getCurrentMaxHp()).thenReturn(1_400);
+        when(alt.getMp()).thenReturn(100);
+        when(alt.getCurrentMaxMp()).thenReturn(500);
+        when(alt.isAlive()).thenReturn(true);
+        ExpeditionBotsFixture.Joined run = ExpeditionBotsFixture.join(field, OWNER, ALT);
+        try {
+            lying().put(ALT, 0L); // dead
+            OwnedAltCompanion.State s = new OwnedAltCompanion.State(ALT);
+            OwnedAltCompanion.tick(owner, alt, s, NOW, 0);
+
+            assertFalse(s.gone, "down in a run, it is not sent home");
+            verify(alt, never()).respawn(anyInt());
+            verify(eim, never()).unregisterPlayer(any());
+            verify(service, never()).sendHomeAfterDeath(any(), anyString());
+            verify(owner).yellowMessage(contains("Second is down, back in 10s (or @botme revive Second for 120,000 mesos)"));
+
+            OwnedAltCompanion.tick(owner, alt, s, NOW + 9_999, 0);
+            verify(alt, never()).applyHpMpChange(anyInt(), anyInt(), anyInt());
+
+            OwnedAltCompanion.tick(owner, alt, s, NOW + 10_000, 0);
+            verify(alt).changeMap(eq(field), any(Point.class)); // up beside its owner, in the same instance
+            verify(alt).applyHpMpChange(0, 1_400, 0);
+            verify(owner).yellowMessage("Second is back up");
+            verify(alt, never()).respawn(anyInt());
+            assertFalse(BotDeaths.isDead(ALT));
+            assertFalse(s.gone);
+        } finally {
+            run.release();
+        }
+    }
+
+    /** 1.6.7: up from a revive in a boss run, the alt rests - no follow and no fight - until it is whole again. */
+    @Test
+    void aRevivedAltRestsBeforeItFollowsOrFightsAgain() throws Exception {
+        Character owner = owner(NOW);
+        Character alt = alt(owner, 1302000);
+        scripting.event.EventInstanceManager eim = mock(scripting.event.EventInstanceManager.class);
+        when(alt.getEventInstance()).thenReturn(eim);
+        when(owner.getEventInstance()).thenReturn(eim); // its owner is in the run with it
+        when(alt.getClient()).thenReturn(mock(BotClient.class));
+        when(alt.getLevel()).thenReturn(120);
+        when(alt.getCurrentMaxHp()).thenReturn(1_400);
+        when(alt.getMp()).thenReturn(100);
+        when(alt.getCurrentMaxMp()).thenReturn(500);
+        when(alt.isAlive()).thenReturn(true);
+        // it drinks while it rests (owner, 8 Nov 2026): an empty USE tab, so nothing to drink here
+        when(alt.getInventory(InventoryType.USE)).thenReturn(new Inventory(alt, InventoryType.USE, (byte) 24));
+        ExpeditionBotsFixture.Joined run = ExpeditionBotsFixture.join(field, OWNER, ALT);
+        try {
+            lying().put(ALT, 0L);
+            OwnedAltCompanion.State s = new OwnedAltCompanion.State(ALT);
+            OwnedAltCompanion.tick(owner, alt, s, NOW, 0);
+            OwnedAltCompanion.tick(owner, alt, s, NOW + 10_000, 0); // up and resting
+            OwnedAltCompanion.tick(owner, alt, s, NOW + 10_200, 0);
+
+            assertEquals("resting after a revive", s.doing);
+            assertFalse(s.fighting);
+            movement.verify(() -> GCMovement.follow(alt, owner), never());
+            attacks.verify(() -> BotAttackDriver.botAttack(alt), never());
+
+            when(alt.getHp()).thenReturn(1_400); // whole again (its potions and regen did the work)
+            when(alt.getMp()).thenReturn(500);
+            OwnedAltCompanion.tick(owner, alt, s, NOW + 10_400, 0);
+            assertFalse(CompanionBossRevive.resting(alt, NOW + 10_400), "the rest is over: follow and fight again");
+            assertFalse("resting after a revive".equals(s.doing));
+        } finally {
+            run.release();
+        }
+    }
+
+    /** Owner, 8 Nov 2026: while it rests after the revive the alt drinks its own potions up to the rest line (70%). */
+    @Test
+    void aRestingAltDrinksUpToTheRestLine() throws Exception {
+        Character owner = owner(NOW);
+        Character alt = alt(owner, 1302000);
+        scripting.event.EventInstanceManager eim = mock(scripting.event.EventInstanceManager.class);
+        when(alt.getEventInstance()).thenReturn(eim);
+        when(owner.getEventInstance()).thenReturn(eim);
+        when(alt.getClient()).thenReturn(mock(BotClient.class));
+        when(alt.getLevel()).thenReturn(120);
+        when(alt.getCurrentMaxHp()).thenReturn(1_400);
+        when(alt.getMp()).thenReturn(100);
+        when(alt.getCurrentMaxMp()).thenReturn(500);
+        when(alt.isAlive()).thenReturn(true);
+        ExpeditionBotsFixture.Joined run = ExpeditionBotsFixture.join(field, OWNER, ALT);
+        try (MockedStatic<BotVitals> vitals = Mockito.mockStatic(BotVitals.class)) {
+            lying().put(ALT, 0L);
+            OwnedAltCompanion.State s = new OwnedAltCompanion.State(ALT);
+            OwnedAltCompanion.tick(owner, alt, s, NOW, 0);
+            OwnedAltCompanion.tick(owner, alt, s, NOW + 10_000, 0); // up and resting
+            OwnedAltCompanion.tick(owner, alt, s, NOW + 10_200, 0);
+            assertEquals("resting after a revive", s.doing);
+            vitals.verify(() -> BotVitals.restTopUp(alt, 70), Mockito.atLeastOnce());
+        } finally {
+            run.release();
+        }
+    }
+
+    /** A boss on the map is not a run: outside an expedition death is still town, then home (unchanged). */
+    @Test
+    void anAltDeadOnABossMapOutsideARunStillGoesToTown() throws Exception {
+        Character owner = owner(NOW);
+        Character alt = alt(owner, 1302000);
+        Monster boss = mob(50, 0);
+        when(boss.isBoss()).thenReturn(true);
+        lying().put(ALT, 0L);
+        OwnedAltCompanion.State s = new OwnedAltCompanion.State(ALT);
+        OwnedAltCompanion.tick(owner, alt, s, NOW, 0);
+        verify(alt).respawn(100_000_000);
+        verify(service).sendHomeAfterDeath(eq(alt), contains("died and lost EXP"));
+        assertTrue(s.gone);
     }
 }

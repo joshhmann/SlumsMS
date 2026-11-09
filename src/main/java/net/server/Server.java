@@ -59,6 +59,7 @@ import server.ThreadManager;
 import server.cashshop.CouponSchedule;
 import server.TimerManager;
 import server.expeditions.ExpeditionBossLog;
+import server.life.PlayerNPC;
 import server.life.PlayerNPCFactory;
 import server.quest.Quest;
 import service.NoteService;
@@ -1000,6 +1001,13 @@ public class Server {
             }
             initWorldPlayerRanking();
 
+            // Cosmic #193: the statue rank counters need the worlds, so they load here, not in a static block
+            try (Connection con = DatabaseConnection.getConnection()) {
+                PlayerNPC.loadRunningRankData(con, getWorldIdBound());
+            } catch (SQLException e) {
+                log.error("Could not load the player NPC rank counters; new statues start their ranks at 1", e);
+            }
+
             loadPlayerNpcMapStepFromDb();
 
             // Ticket 53: stock Cosmic loads the families here; without it a restart forgot every family (players kept
@@ -1057,6 +1065,7 @@ public class Server {
         soloMapling.site.TradeRatings.start(); // 1.6.0 Track D: trade ratings, batched to traderatings every minute
         soloMapling.site.auth.SiteAuthApi.startIfEnabled(); // ticket 105: sign-up/sign-in API on 127.0.0.1, off unless -Dslums.auth.port
         soloMapling.inspect.BotInspectApi.startIfEnabled(); // ticket 157: read-only bot inspect on 127.0.0.1, off unless -Dslums.inspect.port; 1.6.2 ships it on for live
+        soloMapling.ops.OpsNoticeApi.startIfEnabled(); // b377: deploy.sh's "restarting in 1 minute" notice on 127.0.0.1, off unless -Dslums.ops.port and its own secret file
         soloMapling.Economy.exchange.ExchangeService.startIfEnabled(); // 1.6.1 NX exchange (ticket 113), off unless -Dslums.exchange=true
         soloMapling.Economy.exchange.volatility.MarketVolatility.startIfEnabled(); // 1.6.1 volatility: traders/events/rumours, off unless their -D flags
         soloMapling.Economy.board.SiteBoard.startIfEnabled(); // 1.6.0 site board + price alerts (file channel), off unless -Dslums.board=true

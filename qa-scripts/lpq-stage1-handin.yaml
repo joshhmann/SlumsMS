@@ -1,0 +1,79 @@
+# LPQ PART 1a (leader duties; the 8 Nov full-run FAIL was the missing pickup and hand-in). Stage 1 only: the leader's walk to next00 needs a position tool (see the Coordinator note). Original header follows.
+# LPQ (1.6.6, b359/b363, row lpq): the real-client run. The human leader (AqClient, gm 0 after the staging) starts the Ludibrium PQ with a party of 5-6 (at least two ranged or magic) through the Red Sign NPC 2040034 on 221024500, then stays with the run: the party walks the nine stages, and the leader hands the key 4001023 to NPC 2040044 on 922010900 (the bonus map is the clearPQ warp).
+# Pass (card): `RUN start lpq`, stage 1..9 cleared lines in order tagged [lpq, leader AqClient], stage 7's three "has been summoned" lines, stage 9's Alishar line, the final `RUN end lpq in ...: cleared after N s`, the client in the bonus map 922011000, and the feed never shows `hit reactor 2201002` or `hit reactor 2201003`.
+# STAGING: AqClient stays gm 0 and may log in anywhere (staging moves it to 221024500; it must be level 35+, in no party and no event, 4-5 regulars). QA (or Server Dev) runs `tools/ops/mechanics-stage pq lpq for AqClient 4 ranged2` from the shell right after login (Bots, 166-bots-pq-staging-for @ 8317b1da6); TEST picks it up within 30 s. TEST needs -Dslums.qa, -Dslums.mechanics and -Dslums.mechanics.lpq on the 1.6.6 build.
+id: lpq-stage1-handin
+title: "LPQ part 1a: the leader collects the passes the regulars drop and hands 25 to NPC 2040036 (stage 1 clears)"
+covers: [feature-lpq]
+status: draft
+server: test
+needs: [mechanics, proposed_signals, proposed_anchors, proposed_steps]
+notes: "tarkov2 QA account, TEST on release-1.6.6 with b359/b363 merged and -Dslums.mechanics.lpq. Server Dev stages the party at 221024500."
+clients:
+  me:
+    account: {vault: account}
+    character: {slot: 0}
+    world: Bera
+    channel: 5
+    gm: false
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 5}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login and swallows typed GM lines"}
+  - {id: stage-party, do: sleep, ms: 10000, reason: "QA runs tools/ops/mechanics-stage pq lpq for AqClient 4 ranged2 from the shell right after login; TEST picks it up within 30 s"}
+  - {id: at-recruit, do: wait, signal: {type: client_signal, name: field.ready, map_id: 221024500}, timeout_ms: 60000, note: "staging itself moves the leader to the recruit map (KpqStaging.stage changeMap), so AqClient may log in anywhere"}
+  - id: run-start
+    do: wait
+    armed_at: stage-party
+    signal: {type: server_line, topic: MECHANICS, regex: "^RUN start lpq stage 1 ", char: me}
+    timeout_ms: 60000
+  - {id: drop-1, do: wait, armed_at: stage-party, signal: {type: server_line, topic: MECHANICS, regex: "^DROP \\S+ drops 3 x 4001022 for AqClient", char: me}, timeout_ms: 120000}
+  - {do: sleep, ms: 1200, reason: "the drop is owner-only for a moment: pickup before that is ignored"}
+  - {id: pickup-1, do: pickup_item, item: 4001022}
+  - {id: drop-2, do: wait, armed_at: pickup-1, signal: {type: server_line, topic: MECHANICS, regex: "^DROP \\S+ drops 3 x 4001022 for AqClient", char: me}, timeout_ms: 120000}
+  - {do: sleep, ms: 1200, reason: "the drop is owner-only for a moment: pickup before that is ignored"}
+  - {id: pickup-2, do: pickup_item, item: 4001022}
+  - {id: drop-3, do: wait, armed_at: pickup-2, signal: {type: server_line, topic: MECHANICS, regex: "^DROP \\S+ drops 3 x 4001022 for AqClient", char: me}, timeout_ms: 120000}
+  - {do: sleep, ms: 1200, reason: "the drop is owner-only for a moment: pickup before that is ignored"}
+  - {id: pickup-3, do: pickup_item, item: 4001022}
+  - {id: drop-4, do: wait, armed_at: pickup-3, signal: {type: server_line, topic: MECHANICS, regex: "^DROP \\S+ drops 3 x 4001022 for AqClient", char: me}, timeout_ms: 120000}
+  - {do: sleep, ms: 1200, reason: "the drop is owner-only for a moment: pickup before that is ignored"}
+  - {id: pickup-4, do: pickup_item, item: 4001022}
+  - {id: drop-5, do: wait, armed_at: pickup-4, signal: {type: server_line, topic: MECHANICS, regex: "^DROP \\S+ drops 3 x 4001022 for AqClient", char: me}, timeout_ms: 120000}
+  - {do: sleep, ms: 1200, reason: "the drop is owner-only for a moment: pickup before that is ignored"}
+  - {id: pickup-5, do: pickup_item, item: 4001022}
+  - {id: drop-6, do: wait, armed_at: pickup-5, signal: {type: server_line, topic: MECHANICS, regex: "^DROP \\S+ drops 3 x 4001022 for AqClient", char: me}, timeout_ms: 120000}
+  - {do: sleep, ms: 1200, reason: "the drop is owner-only for a moment: pickup before that is ignored"}
+  - {id: pickup-6, do: pickup_item, item: 4001022}
+  - {id: drop-7, do: wait, armed_at: pickup-6, signal: {type: server_line, topic: MECHANICS, regex: "^DROP \\S+ drops 3 x 4001022 for AqClient", char: me}, timeout_ms: 120000}
+  - {do: sleep, ms: 1200, reason: "the drop is owner-only for a moment: pickup before that is ignored"}
+  - {id: pickup-7, do: pickup_item, item: 4001022}
+  - {id: drop-8, do: wait, armed_at: pickup-7, signal: {type: server_line, topic: MECHANICS, regex: "^DROP \\S+ drops 3 x 4001022 for AqClient", char: me}, timeout_ms: 120000}
+  - {do: sleep, ms: 1200, reason: "the drop is owner-only for a moment: pickup before that is ignored"}
+  - {id: pickup-8, do: pickup_item, item: 4001022}
+  - {id: drop-9, do: wait, armed_at: pickup-8, signal: {type: server_line, topic: MECHANICS, regex: "^DROP \\S+ drops 3 x 4001022 for AqClient", char: me}, timeout_ms: 120000}
+  - {do: sleep, ms: 1200, reason: "the drop is owner-only for a moment: pickup before that is ignored"}
+  - {id: pickup-9, do: pickup_item, item: 4001022}
+  - {id: hand-in, do: click_npc, npc: 2040036, note: "Yellow Balloon takes 25 passes and sets 1stageclear (lpq.yaml stage 1)"}
+  - {do: sleep, ms: 3000, reason: "the NPC dialog opens"}
+  - {id: hand-in-next, do: click, anchor: npc_dialog.next}
+  - {id: stage-1, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 1 cleared in \\d+ s.*\\[lpq", char: me}, timeout_ms: 100000}
+  - {do: sleep, ms: 3000, reason: "frame after the stage 1 clear"}
+captures:
+  - {id: start, burst: {fps: 2, ms: 3000, at: {step: stage-party}}}
+  - {id: cleared, burst: {fps: 2, ms: 3000, at: {step: stage-1}}}
+  - {id: chat, chat_log: {span: {from: stage-party, to: stage-1}}}
+expect:
+  reviewer:
+    - see: "The leader on the stage 1 map 922010100 after the hand-in"
+      in: [cleared]
+  checks:
+    - {check: client_alive}
+    - {check: server_line, topic: MECHANICS, regex: "^RUN stage 1 cleared in \\d+ s.*\\[lpq", char: me, min: 1}
+  judgment: "PASS = the stage 1 clear line tagged [lpq, leader AqClient] after the leader's hand-in. FAIL names whether the leader had fewer than 25 passes (the NPC says so) or the NPC never opened."

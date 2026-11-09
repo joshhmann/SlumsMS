@@ -47,7 +47,13 @@ TOOLS = {
     'qa_events': {'since': {'type': 'integer', 'minimum': 0, 'maximum': 1000000}},
     # P1-Q2: click an npc like a player. The QA client says where the npc is on screen (npc_pos); the worker clicks.
     'click_npc': {'npc': {'type': 'integer', 'minimum': 1, 'maximum': 99999999}},
+    # qa-position-signal (1.6.6): where the character is (the server's !pos coordinates), for gm-0 scripts.
+    'position': {},
     'click_option': {'option': {'type': 'integer', 'minimum': 1, 'maximum': 8}},
+    # qa-dialog-row (1.6.7): row <row> of the open npc dialog from its own row list, also the client's local quest-npc
+    # menu, which no NPC_TALK brings. rows: the count the script expects (0 = any); another count is refused.
+    'click_dialog_row': {'row': {'type': 'integer', 'minimum': 1, 'maximum': 16},
+                         'rows': {'type': 'integer', 'minimum': 0, 'maximum': 16}},
     # P1-Q2 (Zakum run): the QA client calls the item and party windows' own senders; no mouse, no window anchors.
     'drop_item': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 5999999},
                   'count': {'type': 'integer', 'minimum': 1, 'maximum': 32767}},
@@ -62,7 +68,8 @@ TOOLS = {
     'merchant_close': {},
     'fredrick_retrieve': {},
     # b344: picks up the newest drop of <item> on the field with the client's own pickup sender (QA build 15).
-    'pickup_item': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 5999999}},
+    'pickup_item': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 5999999},
+                    'count': {'type': 'integer', 'minimum': 1, 'maximum': 10}},
     # 1.6.5 GP4: the open NPC shop's own buy / sell / close packets (QA build 16). A sell without a quantity (0) sells
     # every stack of the item.
     'shop_buy': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 5999999},
@@ -81,6 +88,19 @@ TOOLS = {
     'trade_add_meso': {'meso': {'type': 'integer', 'minimum': 1, 'maximum': 2147483647}},
     'trade_confirm': {'timeout_s': {'type': 'integer', 'minimum': 1, 'maximum': 300}},
     'trade_cancel': {},
+    # b360 (1.6.6): a jump with the game's jump key (Alt, keymap 56): optionally running left/right for run_ms first
+    # and holding Up through it (catch 1) to grab a rope or ladder; everything is released after hold_ms.
+    # qa-walk-to (1.6.7): walk on the current floor / climb a ladder or rope until the QA client's position says so.
+    'walk_to': {'x': {'type': 'integer', 'minimum': -5000, 'maximum': 5000},
+                'tolerance': {'type': 'integer', 'minimum': 2, 'maximum': 50},
+                'timeout_ms': {'type': 'integer', 'minimum': 500, 'maximum': 30000}},
+    'climb': {'y': {'type': 'integer', 'minimum': -5000, 'maximum': 5000},
+              'tolerance': {'type': 'integer', 'minimum': 2, 'maximum': 50},
+              'timeout_ms': {'type': 'integer', 'minimum': 500, 'maximum': 30000}},
+    'jump': {'dir': {'type': 'string', 'maxLength': 5, 'enum': ['none', 'left', 'right']},
+             'catch': {'type': 'integer', 'minimum': 0, 'maximum': 1},
+             'run_ms': {'type': 'integer', 'minimum': 0, 'maximum': 2000},
+             'hold_ms': {'type': 'integer', 'minimum': 100, 'maximum': 2000}},
     # P0-6: the Incubator on a target (the egg's item id, or inv:slot for an empty slot); only 5060002 is taken.
     'use_cash_item': {'item': {'type': 'integer', 'minimum': 5000000, 'maximum': 5999999},
                       'target': {'type': 'string', 'maxLength': 12}},
@@ -97,6 +117,7 @@ REQUIRED = {'qa_wait': ('signal',), 'qa_burst': ('fps', 'ms', 'label'), 'run_scr
             'login_credentials': ('vault',), 'click_anchor': ('name',), 'select_world': ('world',),
             'select_channel': ('channel',), 'select_character': ('slot',),
             'mouse_drag': ('x1', 'y1', 'x2', 'y2'), 'click_npc': ('npc',), 'click_option': ('option',),
+            'click_dialog_row': ('row',),
             'drop_item': ('item',), 'party_invite': ('name',), 'pickup_item': ('item',),
             'shop_buy': ('item', 'quantity'), 'shop_sell': ('item',), 'use_item': ('item',),
             'trade_invite': ('name',), 'trade_add_item': ('item',), 'trade_add_meso': ('meso',),
@@ -119,6 +140,9 @@ COMBOS = {'CTRL+F10': (0x11, 0x79),   # the in-game settings window (slums.dll D
 # A held key repeats its key-down the way a keyboard's auto-repeat does: the game acts once per key-down, so one down
 # held for 3 s attacked once (qa-attack-step, Server Dev's packet read 2026-11-07). Windows' defaults: 250 ms, ~30/s.
 KEY_REPEAT_DELAY = 0.25
+# The game's jump key (keymap 56 = type 5 action 53, the stock binding). Alt is never sent with anything but arrows
+# and Up, so it makes no window shortcut (no F4, Enter, Tab).
+JUMP_KEY = 0x12
 KEY_REPEAT_EVERY = 0.033
 # The first chat line after a client start loses its first key, so command() sends this line first to absorb it.
 # Never a toggle: !unhide casts GM Hide, which toggles, and priming with it before login's own !unhide hid the GM
@@ -228,12 +252,13 @@ def log_tail(path, lines):
 SCRIPT_NAME = re.compile(r'^[a-z0-9][a-z0-9_-]{0,47}$')
 SCRIPT_TOOLS = {'start_client', 'login', 'login_credentials', 'click_anchor', 'select_world', 'select_channel',
                 'select_character', 'qa_events', 'command', 'press_key', 'mouse_click', 'mouse_drag', 'screenshot',
-                'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to', 'click_npc', 'click_option',
+                'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to', 'click_npc', 'click_option', 'click_dialog_row', 'position',
+                'walk_to', 'climb',
                 'drop_item', 'party_create', 'party_invite', 'close_dialog',
                 'dialog_next', 'use_cash_item',
                 'merchant_open', 'merchant_close', 'fredrick_retrieve', 'pickup_item',
                 'shop_buy', 'shop_sell', 'shop_close', 'use_item', 'trade_invite', 'trade_accept',
-                'trade_add_item', 'trade_add_meso', 'trade_confirm', 'trade_cancel'}
+                'trade_add_item', 'trade_add_meso', 'trade_confirm', 'trade_cancel', 'jump'}
 NAME = re.compile(r'^[A-Za-z0-9]{4,12}$')   # a v83 character name (trade_invite)
 # A QA vault alias (secrets/<vault>.txt) is a script name: secrets/aq-gm-1.txt. Never a path.
 VAULT = re.compile(r'^[a-z0-9][a-z0-9-]{1,31}$')
@@ -241,6 +266,17 @@ VAULT = re.compile(r'^[a-z0-9][a-z0-9-]{1,31}$')
 BUILD_STAMP_CAPS = re.compile(r'Build stamp: caps (0x[0-9A-Fa-f]{8})')
 QA_EVENTS_MAX = 200
 NPC_POS_TIMEOUT = 3.0   # the client answers npc_pos / click_option on its next frame
+DROP_TIMEOUT = 6.0      # qa-drop-honest: the client waits up to 3 s for the server to take the items
+# qa-walk-to (1.6.7): position polling while an arrow is held.
+WALK_POLL = 0.04        # s between position reads
+WALK_STALL = 0.6        # s without 2 px of progress = no_progress
+WALK_AIR = 0.3          # s off every foothold, rope and ladder = fell
+WALK_DROP_PX = 12       # standing this far below the start floor = fell
+WALK_TAP = 0.03         # s a correction tap holds the arrow (halved after a tap crosses the target) ...
+WALK_TAP_MIN = 0.015    # ... down to this; shorter taps can fall between DirectInput's polls
+WALK_TAPS = 6           # correction taps before overshoot
+GRAB_WAIT = 0.5         # s for Up / Down to grab the ladder or rope
+GRAB_JUMP_WAIT = 0.8    # s after the jump (Up held) for the grab, before no_ladder
 NPC_OPTION_ANCHOR = re.compile(r'^npc_dialog\.option_([1-8])$')
 CHAR_NAME = re.compile(r'^[A-Za-z0-9]{4,12}$')
 CASH_TARGET = re.compile(r'^([1-5]:[0-9]{1,3}|[1-5][0-9]{6})$')   # inv:slot, or an inventory item id   # v83 character names; the QA client checks the same
@@ -988,6 +1024,19 @@ class Driver:
         self.sender.click(x, y, right=False, double=False)
         return {'npc': npc, 'clicked': [x, y]}
 
+    def position(self):
+        """qa-position-signal (1.6.6): the character's map position from the QA client: map_id, x, y (the server's !pos
+        coordinates) and whether it stands on a foothold, a rope or a ladder (all false: in the air). Presses nothing.
+        Errors are the client's codes (field_not_ready, site_mismatch)."""
+        pipe = self.need_qa()
+        pipe.send('pos')
+        event = pipe.wait('player.pos', NPC_POS_TIMEOUT)
+        if event is None:
+            raise Refusal('field_not_ready')   # the client did not answer: no field to look in
+        if not event.get('ok'):
+            raise Refusal(str(event.get('error') or 'field_not_ready'))
+        return {key: event[key] for key in ('map_id', 'x', 'y', 'foothold', 'rope', 'ladder')}
+
     def click_option(self, option):
         """P1-Q2: picks row <option> (1-8) of the open npc menu. The QA client ends the dialog through its own reply
         path, so the server gets the same packet a click sends; no mouse. Errors: not_a_menu, no_such_option."""
@@ -1005,11 +1054,34 @@ class Driver:
             raise Refusal(str(event.get('error') or 'not_a_menu'))
         return {'option': option, 'value': event.get('value')}
 
-    def qa_request(self, command, ev, matches, timeout_error):
-        """Sends one QA client command and returns its answer event; the client's error code is the refusal."""
+    def click_dialog_row(self, row, rows=0):
+        """qa-dialog-row (1.6.7): picks row <row> of the open npc dialog from the dialog's own row list and ends it with
+        OK, as a click on the row and NEXT do. That also answers the menu the client builds itself for a quest npc
+        (Ifia 2161001, Wyatt 1300009, Rain 12101): a row past its quests sends NPC_TALK. rows > 0 refuses a dialog with
+        another count. Errors: no_dialog, not_a_menu, row_count, no_such_row, site_mismatch."""
+        command = 'click_dialog_row %d' % row + (' %d' % rows if rows else '')
         pipe = self.need_qa()
         pipe.send(command)
         deadline = time.monotonic() + NPC_POS_TIMEOUT
+        while True:
+            left = deadline - time.monotonic()
+            event = pipe.wait('click.done', left) if left > 0 else None
+            if event is None:
+                raise Refusal('no_dialog')   # no answer: no npc dialog open
+            if event.get('op') == 'click_dialog_row' and event.get('row') == row:
+                break
+        if not event.get('ok'):
+            error = str(event.get('error') or 'no_dialog')
+            if error == 'row_count':
+                error += ': the dialog has %s rows' % event.get('rows')
+            raise Refusal(error)
+        return {'row': row, 'rows': event.get('rows'), 'value': event.get('value')}
+
+    def qa_request(self, command, ev, matches, timeout_error, timeout=NPC_POS_TIMEOUT):
+        """Sends one QA client command and returns its answer event; the client's error code is the refusal."""
+        pipe = self.need_qa()
+        pipe.send(command)
+        deadline = time.monotonic() + timeout
         while True:
             left = deadline - time.monotonic()
             event = pipe.wait(ev, left) if left > 0 else None
@@ -1079,11 +1151,28 @@ class Driver:
             raise Refusal('%s (code %s)' % (event.get('error') or 'refused', event.get('code')))
         return {'retrieved': True, 'code': event.get('code')}
 
-    def pickup_item(self, item):
-        """b344: picks up the newest drop of <item> on the field through the client's own pickup sender (0x00A09118),
-        the way a player's pickup key does. Passes only when the server's REMOVE_ITEM_FROM_MAP names this character as
-        the picker. Errors: no_drop, taken_by_other (with the picker), drop_gone, field_changed, site_mismatch,
-        field_not_ready, timeout."""
+    def pickup_item(self, item, count=1):
+        """b344: picks up the drop of <item> nearest the character (qa-pickup-nearest, QA build 18b) through the client's
+        own pickup sender (0x00A09118), the way a player's pickup key does. Passes only when the server's
+        REMOVE_ITEM_FROM_MAP names this character as the picker; the answer says where the drop was. Errors: no_drop,
+        out_of_range (the nearest drop is outside the server's 800 x 600 pickup box; it names that drop), taken_by_other
+        (with the picker), drop_gone, field_changed, site_mismatch, field_not_ready, timeout.
+        qa-pickup-count (1.6.7): count N picks N drops one after another (the nearest each time) and answers
+        {picked: N, item, picks: [{oid, x, y, distance, ok}]}; a refusal at pick k stops there with
+        'picked k of N, then <error> | picks [...]'. count 1 answers as before."""
+        if count == 1:
+            return self.pickup_one(item)
+        picks = []
+        for _ in range(count):
+            try:
+                one = self.pickup_one(item)
+            except Refusal as error:
+                raise Refusal('picked %d of %d, then %s | picks %s' % (len(picks), count, error, json.dumps(picks)))
+            picks.append({'oid': one.get('oid'), 'x': one.get('x'), 'y': one.get('y'),
+                          'distance': one.get('distance'), 'ok': True})
+        return {'picked': count, 'item': item, 'picks': picks}
+
+    def pickup_one(self, item):
         pipe = self.need_qa()
         pipe.send('pickup_item %d' % item)
         event = pipe.wait('item.picked', 12)
@@ -1091,9 +1180,14 @@ class Driver:
             raise Refusal('timeout')
         if not event.get('ok'):
             error = str(event.get('error') or 'refused')
+            if error == 'out_of_range':
+                raise Refusal('out_of_range (nearest drop at %s,%s, %s px away)'
+                              % (event.get('x'), event.get('y'), event.get('distance')))
             raise Refusal('%s (picker %s)' % (error, event.get('picker')) if event.get('picker') else error)
-        return {'picked': True, 'item': event.get('item'), 'oid': event.get('oid'), 'type': event.get('type'),
-                'slot': event.get('slot')}
+        picked = {'picked': True, 'item': event.get('item'), 'oid': event.get('oid'), 'type': event.get('type'),
+                  'slot': event.get('slot')}
+        picked.update({key: event[key] for key in ('x', 'y', 'distance') if key in event})
+        return picked
 
     def shop_wait(self, command, timeout):
         pipe = self.need_qa()
@@ -1193,6 +1287,194 @@ class Driver:
         self.trade_request('trade_cancel')
         return {'op': 'cancel'}
 
+    def jump(self, dir='none', catch=0, run_ms=0, hold_ms=800):
+        """b360: jumps with the game's jump key. dir left/right holds that arrow for run_ms first (a running jump);
+        catch holds Up through the jump, as a player grabs a rope or ladder. Every key is released after hold_ms, also
+        when the owner takes over. Where the character ended up is the server's !pos (or its movement lines)."""
+        arrows = {'none': None, 'left': KEYS['LEFT'], 'right': KEYS['RIGHT']}
+        if dir not in arrows:
+            raise Refusal('dir must be none, left or right')
+        self.field_input()
+        pressed = []
+        try:
+            if arrows[dir]:
+                self.sender.key(arrows[dir][0], True, extended=True)
+                pressed.append(arrows[dir][0])
+                end = time.monotonic() + run_ms / 1000
+                while time.monotonic() < end:
+                    self.guard()
+                    time.sleep(min(0.05, max(0.0, end - time.monotonic())))
+            if catch:
+                self.sender.key(KEYS['UP'][0], True, extended=True)
+                pressed.append(KEYS['UP'][0])
+            self.guard()
+            self.sender.key(JUMP_KEY, True)
+            try:
+                time.sleep(0.06)  # DirectInput polls state; an atomic tap can be missed (as WindowsSender.key)
+            finally:
+                self.sender.key(JUMP_KEY, False)
+            end = time.monotonic() + hold_ms / 1000
+            while time.monotonic() < end:
+                self.guard()
+                time.sleep(min(0.05, max(0.0, end - time.monotonic())))
+        finally:
+            for vk in reversed(pressed):
+                self.sender.key(vk, False, extended=True)
+        return {'jumped': True, 'dir': dir, 'catch': bool(catch)}
+
+    def _walk_read(self, start, deadline, track):
+        """One position read for walk_to / climb, with the checks every read gets: timeout, map change, a fall."""
+        self.guard()
+        p = self.position()
+        where = '(x %d, y %d)' % (p['x'], p['y'])
+        if p['map_id'] != start['map_id']:
+            raise Refusal('map_changed (map %d, x %d, y %d)' % (p['map_id'], p['x'], p['y']))
+        now = time.monotonic()
+        if p['foothold'] or p['rope'] or p['ladder']:
+            track['air'] = None
+        elif track.get('air') is None:
+            track['air'] = now
+        elif now - track['air'] > WALK_AIR:
+            raise Refusal('fell ' + where)
+        if track.get('floor') and p['foothold'] and p['y'] > start['y'] + WALK_DROP_PX:
+            raise Refusal('fell ' + where)
+        if now > deadline:
+            raise Refusal('timeout ' + where)
+        return p
+
+    def _walk_settle(self, start, deadline, track, axis):
+        """After a release: reads until the character stops (two equal reads, at most 0.5 s)."""
+        last = self._walk_read(start, deadline, track)
+        end = time.monotonic() + 0.5
+        while time.monotonic() < end:
+            time.sleep(WALK_POLL)
+            p = self._walk_read(start, deadline, track)
+            if p[axis] == last[axis]:
+                return p
+            last = p
+        return last
+
+    def _walk_hold(self, vk, start, deadline, track, axis, reached, grab=False):
+        """Holds <vk> until reached(position) or the character stops making progress; releases it on every exit."""
+        self.sender.key(vk, True, extended=True)
+        try:
+            p = self._walk_read(start, deadline, track)
+            if grab:
+                end = time.monotonic() + GRAB_WAIT
+                jumped = vk != KEYS['UP'][0]   # only Up gets the jump
+                while not (p['ladder'] or p['rope']):
+                    if time.monotonic() > end:
+                        if jumped:
+                            raise Refusal('no_ladder (x %d, y %d)' % (p['x'], p['y']))
+                        # A ladder or rope whose bottom is above the floor (LPQ stage 1: 45 px) is reached with a
+                        # jump, Up still held, as a player does (b360 catch).
+                        jumped = True
+                        self.sender.key(JUMP_KEY, True)
+                        try:
+                            time.sleep(0.06)   # DirectInput polls state; an atomic tap can be missed
+                        finally:
+                            self.sender.key(JUMP_KEY, False)
+                        end = time.monotonic() + GRAB_JUMP_WAIT
+                    time.sleep(WALK_POLL)
+                    p = self._walk_read(start, deadline, track)
+            moved_at, moved_from = time.monotonic(), p[axis]
+            while not reached(p):
+                time.sleep(WALK_POLL)
+                p = self._walk_read(start, deadline, track)
+                now = time.monotonic()
+                if abs(p[axis] - moved_from) >= 2:
+                    moved_at, moved_from = now, p[axis]
+                elif now - moved_at > WALK_STALL:
+                    raise Refusal('no_progress (x %d, y %d)' % (p['x'], p['y']))
+            return p
+        finally:
+            self.sender.key(vk, False, extended=True)
+
+    def _walk_tap(self, vk, hold):
+        self.guard()
+        self.sender.key(vk, True, extended=True)
+        try:
+            time.sleep(hold)
+        finally:
+            self.sender.key(vk, False, extended=True)
+
+    def _walk_correct(self, p, axis, target, tolerance, more, less, start, deadline, track):
+        """Short taps toward <target> until within <tolerance>; a tap that crosses the target halves the next one."""
+        hold = WALK_TAP
+        for _ in range(WALK_TAPS):
+            if abs(target - p[axis]) <= tolerance:
+                return
+            side = target > p[axis]
+            self._walk_tap(KEYS[more if side else less][0], hold)
+            p = self._walk_settle(start, deadline, track, axis)
+            if (target > p[axis]) != side and abs(target - p[axis]) > tolerance:
+                hold = max(WALK_TAP_MIN, hold / 2)
+        if abs(target - p[axis]) > tolerance:
+            raise Refusal('overshoot (x %d, y %d)' % (p['x'], p['y']))
+
+    def walk_to(self, x, tolerance=6, timeout_ms=12000):
+        """qa-walk-to (1.6.7): walks on the current floor until the QA client's position is within <tolerance> px of
+        <x>, holding the arrow a player holds; a slide past the target is corrected with short taps. Errors (with the
+        final x, y): not_on_ground, no_progress (a wall, the map edge, a window), fell, map_changed, overshoot,
+        timeout. Every key it pressed is released."""
+        self.field_input()
+        began = time.monotonic()
+        deadline = began + timeout_ms / 1000
+        start = self.position()
+        if not start['foothold']:
+            raise Refusal('not_on_ground (x %d, y %d)' % (start['x'], start['y']))
+        track = {'floor': True}
+        p = start
+        if abs(x - p['x']) > tolerance:
+            right = x > p['x']
+            vk = KEYS['RIGHT'][0] if right else KEYS['LEFT'][0]
+            speed = {'v': 0.0, 'at': time.monotonic(), 'x': p['x']}
+
+            def reached(q):
+                now = time.monotonic()
+                if now > speed['at']:
+                    speed['v'] = abs(q['x'] - speed['x']) / (now - speed['at'])
+                speed['at'], speed['x'] = now, q['x']
+                left = (x - q['x']) if right else (q['x'] - x)
+                return left <= speed['v'] * WALK_POLL + 2   # release a poll early: the slide does the rest
+            self._walk_hold(vk, start, deadline, track, 'x', reached)
+            p = self._walk_settle(start, deadline, track, 'x')
+            self._walk_correct(p, 'x', x, tolerance, 'RIGHT', 'LEFT', start, deadline, track)
+            p = self._walk_settle(start, deadline, track, 'x')
+        return {'map_id': p['map_id'], 'x': p['x'], 'y': p['y'], 'from_x': start['x'], 'moved': p['x'] - start['x'],
+                'ms': int((time.monotonic() - began) * 1000)}
+
+    def climb(self, y, tolerance=6, timeout_ms=15000):
+        """qa-walk-to (1.6.7): climbs the ladder or rope the character is on (or stands at the foot or top of: Up / Down
+        grabs it; a bottom above the floor is reached with a jump, Up held) until its y is within <tolerance> px of <y>. Climbing past the top or bottom steps onto the floor
+        there. Errors (with x, y): no_ladder, stopped_at_top / stopped_at_bottom, no_progress, fell, map_changed,
+        timeout. Every key it pressed is released."""
+        self.field_input()
+        began = time.monotonic()
+        deadline = began + timeout_ms / 1000
+        start = self.position()
+        track = {}
+        p = start
+        if abs(y - p['y']) > tolerance:
+            up = y < p['y']
+            vk = KEYS['UP'][0] if up else KEYS['DOWN'][0]
+
+            def reached(q):
+                if not (q['ladder'] or q['rope']):
+                    return True              # stepped off at the top or bottom (or fell: the next read says)
+                return q['y'] <= y if up else q['y'] >= y
+            p = self._walk_hold(vk, start, deadline, track, 'y', reached,
+                                grab=not (p['ladder'] or p['rope']))
+            p = self._walk_settle(start, deadline, track, 'y')
+            if abs(y - p['y']) > tolerance:
+                if not (p['ladder'] or p['rope']):
+                    raise Refusal('%s (x %d, y %d)' % ('stopped_at_top' if up else 'stopped_at_bottom', p['x'], p['y']))
+                self._walk_correct(p, 'y', y, tolerance, 'DOWN', 'UP', start, deadline, track)
+                p = self._walk_settle(start, deadline, track, 'y')
+        return {'map_id': p['map_id'], 'x': p['x'], 'y': p['y'], 'foothold': p['foothold'], 'rope': p['rope'],
+                'ladder': p['ladder'], 'from_y': start['y'], 'moved': p['y'] - start['y'],
+                'ms': int((time.monotonic() - began) * 1000)}
+
     def use_cash_item(self, item, target):
         """P0-6: uses cash item <item> on <target> (an item id, or inv:slot) through the client's USE_CASH_ITEM packet.
         The QA client takes only the Incubator (5060002). Errors: not_in_inventory, target_not_in_inventory,
@@ -1207,11 +1489,13 @@ class Driver:
 
     def drop_item(self, item, count=1):
         """P1-Q2: drops <count> of the first stack of <item> through the client's own item-move sender (the packet a
-        drag out of the item window sends). Errors: not_in_inventory, no_character, site_mismatch. The answer says the
-        request was sent; the server's drop shows in its lines and on the field."""
+        drag out of the item window sends). qa-drop-honest: ok only once the server took the items (the stack shrank);
+        'left' is what stays in the slot. Errors: not_dropped (the server refused it, e.g. a GM character's drop),
+        not_in_inventory, not_enough_items, no_character, site_mismatch."""
         event = self.qa_request('drop_item %d %d' % (item, count), 'item.drop',
-                                lambda e: e.get('item') == item and e.get('count') == count, 'no_character')
-        return {'item': item, 'count': count, 'slot': event.get('slot')}
+                                lambda e: e.get('item') == item and e.get('count') == count, 'no_character',
+                                DROP_TIMEOUT)
+        return {'item': item, 'count': count, 'slot': event.get('slot'), 'left': event.get('left')}
 
     def party_create(self):
         """P1-Q2: creates a party through the client's own sender (the party window's Create)."""
