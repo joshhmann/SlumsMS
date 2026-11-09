@@ -7,6 +7,8 @@
 # SlumsMS tickets
 
 ## Kuro client RE and job routes (owner request, 2026-11-09)
+| [285](285-aran-finishing-kit.md) | Aran finishing kit (card c-a): combo critical formulas on the stock v83 client | Sites verified against our stock exe; replacement formula and implementation pending |
+
 
 | # | Ticket | State |
 |---|---|---|
