@@ -14,9 +14,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 1.6.8 card cygnus-fight-unreachable: the Dream Key 4032923 is made from 1 of each stone plus the Thunder Stone
+ * 1.6.8 card cygnus-fight-unreachable: the Dream Key 4032923 is made from the four stones plus the Thunder Stone
  * 2430200 (scripts/item/dreamkey.js), and nothing dropped that stone, so no player could make a key and enter the
- * Cygnus Garden. 072 adds the one drop row the reference server has - Thunder 8610004 -> 2430200 - at the owner's
+ * Cygnus Garden. 072 adds the one drop row the reference server has - Thunder 8610004 -> 2430200 - at the default
  * 1.5% (chance is per 1,000,000), and records the row id for an exact rollback.
  */
 class ThunderStoneDropMigrationTest {

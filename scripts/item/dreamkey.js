@@ -25,8 +25,9 @@ function action(mode, type, selection) {
         }
 
         if (status == 0) {
-            // 1.6.8 (owner, 9 Nov): the recipe is the reference one - 1 Dawn, 1 Blaze, 1 Wind, 1 Night and the
-            // Thunder Stone that runs this script. Every ingredient is checked before anything is taken, so a
+            // 1.6.8: the recipe here is the reference server's - 1 Dawn, 1 Blaze, 1 Wind, 1 Night and the Thunder Stone
+            // that runs this script. Ours had asked for 5 of each stone since the 18 Oct baseline; whether to keep 5 is an
+            // OPEN owner question (9 Nov), so change only the counts here and in DreamKeyScriptTest if he says keep 5. Every ingredient is checked before anything is taken, so a
             // missing stone costs nothing and a stack of five loses only one.
             if (!im.hasItem(4000660) || !im.hasItem(4000661) || !im.hasItem(4000662) || !im.hasItem(4000663)
                 || !im.hasItem(2430200))

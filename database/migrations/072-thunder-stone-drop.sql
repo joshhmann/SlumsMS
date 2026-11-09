@@ -2,10 +2,10 @@ SET @thunder_stone_chance = 15000;   -- 1.5%: chance is per 1,000,000 (15000 / 1
 
 -- 1.6.8: card cygnus-fight-unreachable.
 -- The Dream Key 4032923 that opens the Cygnus Garden gate is made by the Thunder Stone 2430200
--- (scripts/item/dreamkey.js) from 1 each of Dawn 4000660, Blaze 4000661, Wind 4000662 and Night 4000663, and nothing
+-- (scripts/item/dreamkey.js) from Dawn 4000660, Blaze 4000661, Wind 4000662 and Night 4000663, and nothing
 -- dropped the Thunder Stone, so no player could make a key and the garden could not be entered.
--- Reference: swordie-plus-v271 sql/init/03_drops.sql lists Thunder 8610004 -> 2430200 at 100 per million; the owner
--- wants 1.5% here, so the one row below carries @thunder_stone_chance. The stored chance is the base rate; the
+-- Reference: swordie-plus-v271 sql/init/03_drops.sql lists Thunder 8610004 -> 2430200 at 100 per million; the
+-- Coordinator's default here is 1.5% (the owner has not named another rate), so the one row below carries @thunder_stone_chance. The stored chance is the base rate; the
 -- server's world drop rate (and coupons) multiply on top of it, as for every other drop row.
 -- 8610004 is the Thunder that stands in Knight District 3 (271030205), in the same Knight Stronghold block as the
 -- gate (Hall of Honor 271030600).
