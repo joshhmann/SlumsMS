@@ -118,3 +118,11 @@ class InstanceTable(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_b_and_c_get_no_cloud_llm_key():
+    """Coordinator 9 Nov: the chat LLM key file stays A's only; B and C run without it."""
+    for name in ("B", "C"):
+        text = open(os.path.join(ROOT, "deploy", "test", "start-test-%s.sh" % name.lower())).read()
+        assert "cloud-llm.env" not in text, name
+

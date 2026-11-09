@@ -63,7 +63,9 @@ load_from_a() { # one read-only dump of A piped into this instance's DB
 }
 
 wait_db() {
-  host "for i in \$(seq 1 60); do docker exec $DBC sh -c 'mysqladmin ping -uroot -p\"\$MYSQL_ROOT_PASSWORD\" --silent' >/dev/null 2>&1 && break; sleep 2; done; docker exec $DBC sh -c 'mysqladmin ping -uroot -p\"\$MYSQL_ROOT_PASSWORD\" --silent'"
+  # a fresh container answers ping during its first-start init (temporary server, no root password yet), so wait until
+  # the real server takes the root password (B's setup, 9 Nov: "Access denied" right after the ping)
+  host "for i in \$(seq 1 90); do docker exec $DBC sh -c 'mysql -uroot -p\"\$MYSQL_ROOT_PASSWORD\" -e \"SELECT 1\"' >/dev/null 2>&1 && break; sleep 2; done; docker exec $DBC sh -c 'mysql -uroot -p\"\$MYSQL_ROOT_PASSWORD\" -e \"SELECT 1\"' >/dev/null"
 }
 
 case "$CMD" in

@@ -1,7 +1,7 @@
 #!/bin/bash
 # GENERATED from deploy/test/start-test.sh by tools/ops/test-instances.py render-start B: do not edit by hand.
 # TEST-B (docs/ops/test-instances.md): unit slums-test-b, folder /opt/mapleroot-dev/test-b, login 8589, population 150 (config.yaml).
-systemd-run --unit=slums-test-b -p EnvironmentFile=-/etc/slums-persistence-test/cloud-llm.env -p CPUQuota=200% -p Nice=19 -p MemoryMax=6442450944 -p TimeoutStopSec=5min -p SuccessExitStatus=143 \
+systemd-run --unit=slums-test-b -p CPUQuota=200% -p Nice=19 -p MemoryMax=6442450944 -p TimeoutStopSec=5min -p SuccessExitStatus=143 \
   -p WorkingDirectory=/opt/mapleroot-dev/test-b/Server \
   /usr/bin/java -Xms4608M -Xmx4608M -Xlog:gc*,safepoint:file=/opt/mapleroot-dev/test-b/gc/gc.log:time,uptime,level,tags:filecount=20,filesize=50M \
   -Dslums.ops.port=8299 -Dslums.ops.secretFile=/etc/slums-test-b/ops -Dslums.inspect=true -Dslums.killcalib=true -Dslums.exchange=true -Dslums.exchange.catalog=scrolls,use,etc -Dslums.exchange.itemMaker=true -Dslums.exchange.items.sellCapMesosPerDay=150000000 -Dslums.exchange.traders=true -Dslums.achievements=true -Dslums.socialtrace=9 -Dslums.bottalk=true -Dslums.crews=true -Dslums.decide.shadow=onejev -Dslums.decide.shadow.text=false -Dslums.auth.revoked=/var/lib/slums-login-test/revoked.txt -Dsolomapling.dashboard=true -Dsolomapling.dashboard.periodSeconds=30 \

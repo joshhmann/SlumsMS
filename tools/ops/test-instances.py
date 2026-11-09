@@ -93,6 +93,8 @@ def render_start(name, a_text=None):
                       ("slums.ops.port", "ops"), ("slums.inspect.port", "inspect"),
                       ("slums.ops.secretFile", "ops_secret"), ("slums.inspect.secretFile", "inspect_secret")):
         t = _sub(t, "-D%s=%s " % (flag, a[key]), "-D%s=%s " % (flag, i[key]), 1)
+    # Coordinator 9 Nov: no cloud chat on B and C (no key file); their regulars use the fallback replies
+    t = _sub(t, "-p EnvironmentFile=-/etc/slums-persistence-test/cloud-llm.env ", "", 1)
     for flag in OFF_IN_BC:
         t, n = re.subn(r" -D%s(?:=\S*)?(?=\s)" % re.escape(flag), "", t)
         if n != 1:
