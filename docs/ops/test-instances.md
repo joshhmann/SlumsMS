@@ -61,6 +61,13 @@ loads it from a dump of A, creates the secrets (0600, from /dev/urandom, never p
 port, DB user/password and BOT_ROSTER_PEAK_ONLINE. `refresh-db` stops that instance, reloads its DB from a fresh dump
 of A and starts it again. Neither ever stops, restarts or writes to A.
 
+**B-only accounts (refresh-db B wipes them).** `dshharness1`-`dshharness3` (ids 146-148, normal players, 3 slots)
+exist only on B, for the owner's DeepSeek harness playthrough (`/root/work/agent-runs/qa/DSH-PLAYTHROUGH-BRIEF.md`).
+Their passwords are in `/root/work/agent-runs/qa/dsh-playthrough/ACCOUNTS.secret` on 187 (0600, owner-only; never
+print or copy it). After any `refresh-db B`, re-add them: bcrypt each password from that file with the server's
+`tools.BCrypt` (cost 12) and INSERT name/password/birthday/tempban into B's `accounts`, feeding the SQL over stdin so
+no hash or password reaches a command line or a log.
+
 ## Clients
 
 Point the client's config.ini at 8589 (B) or 8689 (C). QA tools must allow those ports per run; never 8485 (live).
