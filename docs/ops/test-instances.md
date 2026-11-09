@@ -66,8 +66,8 @@ exist only on B, for the owner's DeepSeek harness playthrough (`/root/work/agent
 Their passwords are in `/root/work/agent-runs/qa/dsh-playthrough/ACCOUNTS.secret` on 187 (0600, owner-only; never
 print or copy it). After any `refresh-db B`, re-add them: bcrypt each password from that file with the server's
 `tools.BCrypt` (cost 12) and INSERT name/password/birthday/tempban into B's `accounts`, feeding the SQL over stdin so
-no hash or password reaches a command line or a log. Then set `tos = 1` on the three rows (the first-login Terms page
-blocks the harness's login tools), and remake their characters with `!makechar` (gm 6, TEST only).
+no hash or password reaches a command line or a log. Then set `tos = 1` and `gender = 0` on the three rows (the first-login Terms page and gender prompt
+block the harness's login tools), and remake their characters with `!makechar` (gm 6, TEST only).
 
 ## Clients
 
