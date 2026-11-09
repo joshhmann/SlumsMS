@@ -31,6 +31,9 @@ public final class ViewAllCharRegisterPicHandler extends AbstractPacketHandler {
 
     @Override
     public final void handlePacket(InPacket p, Client c) {
+        if (PicGate.refusePicOverwrite(c, "VIEW_ALL_PIC_REGISTER")) {   // pic-bypass-char-select (S1): set only when none
+            return;
+        }
         p.readByte();
         int charId = p.readInt();
         p.readInt(); // please don't let the client choose which world they should login
