@@ -157,6 +157,15 @@ class CompanionLootChatTest {
                 .map(BotCommandParser.Target::id).toList(), "the named form works too: @alts jane loot everything");
     }
 
+    /** Wave 4 audit L4: the alt answers "k, loot quest items", so the owner saying it back is the same order. */
+    @Test
+    void whatTheAltSaysBackIsAnOrderToo() {
+        assertEquals("quest only", read("loot quest items").orElseThrow().arg());
+        assertEquals("quest only", read("loot quest only").orElseThrow().arg());
+        assertEquals("quest only", read("loot quest items only").orElseThrow().arg());
+        assertEquals("my kills", read("loot my kills only").orElseThrow().arg());
+    }
+
     @Test
     void aBareLootAndOrdinaryChatStayChat() {
         assertTrue(read("loot").isEmpty(), "a bare loot has to say what");
@@ -210,7 +219,7 @@ class CompanionLootChatTest {
     @Test
     void theOwnersYesHandsTheOfferedPieceOver() {
         List<String> said = new ArrayList<>();
-        Equip piece = new Equip(OFFER_UPGRADE, (short) 0);
+        Equip piece = inJanesBag(OFFER_UPGRADE);
         String line = CompanionUpgradeOffer.consider(jane, player, piece, said::add);
         assertNotNull(line, "the alt found an upgrade for its owner");
         assertEquals(1, said.size());
@@ -224,11 +233,77 @@ class CompanionLootChatTest {
     @Test
     void ordinaryChatDoesNotTouchAnOffer() {
         List<String> said = new ArrayList<>();
-        CompanionUpgradeOffer.consider(jane, player, new Equip(OFFER_UPGRADE, (short) 0), said::add);
+        CompanionUpgradeOffer.consider(jane, player, inJanesBag(OFFER_UPGRADE), said::add);
         assertTrue(CompanionUpgradeOffer.waitingFor(player));
 
         assertFalse(PartyBotOrders.fromPartyChat(player, "brb, one sec"), "not an answer and not an order");
         assertTrue(CompanionUpgradeOffer.waitingFor(player), "the offer keeps waiting");
         assertTrue(handed.isEmpty());
+    }
+
+    /** A piece Jane picked up: in her equip tab at slot 1 (the offer only names what the alt really holds). */
+    private Equip inJanesBag(int id) {
+        Equip piece = new Equip(id, (short) 1);
+        client.inventory.Inventory bag = mock(client.inventory.Inventory.class);
+        when(bag.getItem((short) 1)).thenReturn(piece);
+        when(jane.getInventory(client.inventory.InventoryType.EQUIP)).thenReturn(bag);
+        return piece;
+    }
+
+    // ── wave 4 audit L5 (owner via the Coordinator, 8 Nov 2026): "sell junk" and "offers" are owned-alt orders, taken
+    // from that alt's own owner only; regular party orders are 1.7.1 work ──
+
+    /** Runs the order through the real dispatch and reports which companions were told to sell. */
+    private List<Character> sellJunkSaidBy(Character speaker) {
+        List<Character> sold = new ArrayList<>();
+        try (MockedStatic<soloMapling.companions.CompanionSellJunk> sale =
+                     mockStatic(soloMapling.companions.CompanionSellJunk.class)) {
+            sale.when(() -> soloMapling.companions.CompanionSellJunk.order(org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyBoolean(),
+                    org.mockito.ArgumentMatchers.any())).thenAnswer(call -> {
+                        sold.add(call.getArgument(0));
+                        return true;
+                    });
+            PartyBotOrders.carryOut(speaker, new Order(Verb.SELL_JUNK, List.of(new BotCommandParser.Target(ALT,
+                    "Jane")), List.of(), false, null));
+        }
+        return sold;
+    }
+
+    private void offersOffSaidBy(Character speaker) {
+        PartyBotOrders.carryOut(speaker, new Order(Verb.OFFERS, List.of(new BotCommandParser.Target(ALT,
+                "Jane")), List.of(), false, "off"));
+    }
+
+    @Test
+    void theOwnerTellsTheirOwnAltToSellJunkAndSwitchOffersOff() {
+        when(jane.getOwnedAltOwner()).thenReturn(player);
+        assertEquals(List.of(jane), sellJunkSaidBy(player), "its owner's order is carried out");
+        offersOffSaidBy(player);
+        assertFalse(CompanionSettingsStore.stored(jane).offers(), "its owner switched the offers off");
+    }
+
+    @Test
+    void anotherPartyMemberCannotTellSomeoneElsesAltToSellOrSwitchOffers() {
+        Character stranger = mock(Character.class);
+        when(stranger.getId()).thenReturn(OWNER + 100);
+        when(stranger.getName()).thenReturn("Stranger");
+        Party shared = player.getParty();
+        when(stranger.getParty()).thenReturn(shared);
+        when(jane.getOwnedAltOwner()).thenReturn(player);
+
+        assertTrue(sellJunkSaidBy(stranger).isEmpty(), "not their alt: nothing is sold");
+        offersOffSaidBy(stranger);
+        assertTrue(CompanionSettingsStore.stored(jane).offers(), "not their alt: the switch is unchanged");
+    }
+
+    @Test
+    void aRegularNeverTakesSellJunkOrOffersEvenWithTheRegularsSwitchOn() {
+        when(jane.isOwnedAlt()).thenReturn(false);
+        System.setProperty(Feature.LOOT.property(false), "true");
+
+        assertTrue(sellJunkSaidBy(player).isEmpty(), "a regular sells nothing on an order (1.7.1 work)");
+        offersOffSaidBy(player);
+        assertTrue(CompanionSettingsStore.stored(jane).offers(), "a regular's offer switch is not set by an order");
     }
 }

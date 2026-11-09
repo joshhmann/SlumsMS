@@ -101,6 +101,9 @@ public final class CompanionUpgradeOffer {
         if (owner.getMap() != alt.getMap() || !BotGiveTrade.canGive(alt)) {
             return null; // not standing together, or it cannot hand anything over
         }
+        if (!holds(alt, piece)) {
+            return null; // the drop it went for was picked up by somebody else: there is nothing to offer
+        }
         long now = clock.getAsLong();
         Long last = lastOfferedAt.get(alt.getId());
         if (last != null && now - last < OFFER_GAP_MS) {
@@ -164,7 +167,26 @@ public final class CompanionUpgradeOffer {
         if (!yes || clock.getAsLong() - p.at() > OFFER_GAP_MS) {
             return false;
         }
+        if (!holds(p.alt(), p.piece())) {
+            return false; // it left the bag since the offer: the trade would put whatever sits in that slot
+        }
         return handover.give(p.alt(), p.owner(), p.piece(), null);
+    }
+
+    /**
+     * Wave 4 audit L1: whether this exact piece is in the alt's equip tab at its own slot. The trade window puts the
+     * item at {@code piece.getPosition()} of the giver's tab, so the slot must hold this piece and nothing else.
+     */
+    static boolean holds(Character alt, Equip piece) {
+        if (alt == null || piece == null || piece.getPosition() <= 0) {
+            return false;
+        }
+        try {
+            client.inventory.Inventory bag = alt.getInventory(InventoryType.EQUIP);
+            return bag != null && bag.getItem(piece.getPosition()) == piece;
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     /** Whether an offer is waiting for this owner (a test and the card's own read). */

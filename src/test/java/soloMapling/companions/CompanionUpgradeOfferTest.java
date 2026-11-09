@@ -43,6 +43,9 @@ class CompanionUpgradeOfferTest {
     private final List<String> handed = new ArrayList<>();
     private MockedStatic<OwnedAltService> services;
     private MockedStatic<ItemInformationProvider> itemData;
+    /** The alt's equip tab: a piece made by {@link #equip} is in it, at its own slot. */
+    private client.inventory.Inventory bag;
+    private short nextSlot = 1;
 
     @BeforeAll
     static void loadItemProviderClass() throws Exception {
@@ -86,6 +89,8 @@ class CompanionUpgradeOfferTest {
         when(alt.getOwnedAltOwner()).thenReturn(owner);
         when(alt.getClient()).thenReturn(mock(BotClient.class));
         when(alt.getMap()).thenReturn(field);
+        bag = mock(client.inventory.Inventory.class);
+        when(alt.getInventory(client.inventory.InventoryType.EQUIP)).thenReturn(bag);
 
         OwnedAltService service = mock(OwnedAltService.class);
         services = mockStatic(OwnedAltService.class);
@@ -104,8 +109,46 @@ class CompanionUpgradeOfferTest {
         CompanionSettingsStore.useForTest(null, null);
     }
 
-    private static Equip equip(int id) {
-        return new Equip(id, (short) 0);
+    /** A piece the alt picked up: it sits in its own slot of the alt's equip tab. */
+    private Equip equip(int id) {
+        Equip piece = loose(id);
+        when(bag.getItem(piece.getPosition())).thenReturn(piece);
+        return piece;
+    }
+
+    /** A piece at a slot of the alt's bag that holds something else (or nothing): the alt does not have it. */
+    private Equip loose(int id) {
+        return new Equip(id, nextSlot++);
+    }
+
+    /**
+     * L1 (wave 4 audit): the drop the alt went for was picked up, but by its owner (or anyone else): the alt has
+     * nothing to offer and says nothing.
+     */
+    @Test
+    void aPieceTheAltNeverGotIsNeverOffered() {
+        List<String> said = new ArrayList<>();
+        assertNull(CompanionUpgradeOffer.consider(alt, owner, loose(UPGRADE), said::add),
+                "somebody else picked it up: it is not in the alt's bag");
+        assertTrue(said.isEmpty());
+        assertFalse(CompanionUpgradeOffer.waitingFor(owner));
+    }
+
+    /**
+     * L1: the piece left the alt's bag between the offer and the yes (sold, dropped, moved): the slot now holds another
+     * piece, and that other piece is never put in the window.
+     */
+    @Test
+    void aPieceThatLeftTheBagBeforeTheYesIsNotHandedOver() {
+        List<String> said = new ArrayList<>();
+        Equip piece = equip(UPGRADE);
+        assertNotNull(CompanionUpgradeOffer.consider(alt, owner, piece, said::add));
+        Equip another = new Equip(OTHER, piece.getPosition());
+        when(bag.getItem(piece.getPosition())).thenReturn(another);
+
+        assertFalse(CompanionUpgradeOffer.answer(owner, "yes"), "the offered piece is gone: nothing changes hands");
+        assertTrue(handed.isEmpty(), "the piece now in that slot is not the one offered");
+        assertFalse(CompanionUpgradeOffer.waitingFor(owner), "the offer is over");
     }
 
     @Test

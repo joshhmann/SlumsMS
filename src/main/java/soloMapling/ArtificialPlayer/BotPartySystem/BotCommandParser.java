@@ -516,7 +516,9 @@ public final class BotCommandParser {
                 from++;
             }
             String mode = LOOT_MODES.get(w.get(from));
-            if (mode == null || !fillerOnly(w, from + 1)) {
+            // wave 4 audit L4: "loot quest items" is what the alt says back, so "items"/"only" may follow the mode
+            int after = skip(w, from + 1, Set.of("items", "item", "only", "stuff"));
+            if (mode == null || !fillerOnly(w, after)) {
                 return null;
             }
             return new Cmd(Verb.LOOT, mode);

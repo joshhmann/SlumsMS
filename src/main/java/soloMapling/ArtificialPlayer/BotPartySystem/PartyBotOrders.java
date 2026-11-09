@@ -349,9 +349,11 @@ public final class PartyBotOrders {
             if (c == null || !PartyCompanionPolicy.on(PartyCompanionPolicy.Feature.LOOT, c)) {
                 continue;
             }
+            if ((order.verb() == Verb.SELL_JUNK || order.verb() == Verb.OFFERS) && !ownAlt(player, c)) {
+                continue; // wave 4 audit L5: an owned alt's order, from its own owner only (regulars: 1.7.1)
+            }
             if (order.verb() == Verb.SELL_JUNK) {
-                Character owner = c.getOwnedAltOwner() != null ? c.getOwnedAltOwner() : player;
-                CompanionSellJunk.order(c, owner, "equips".equals(order.arg()), line -> say(t.id(), alts, line));
+                CompanionSellJunk.order(c, player, "equips".equals(order.arg()), line -> say(t.id(), alts, line));
                 continue;
             }
             String reply = apply(player, c, order.verb(), order.arg());
@@ -363,6 +365,15 @@ public final class PartyBotOrders {
         if (speaker >= 0) {
             say(speaker, alts, said);
         }
+    }
+
+    /** Whether {@code c} is an owned alt and {@code player} is its owner. */
+    static boolean ownAlt(Character player, Character c) {
+        if (player == null || c == null || !c.isOwnedAlt()) {
+            return false;
+        }
+        Character owner = c.getOwnedAltOwner();
+        return owner != null && owner.getId() == player.getId();
     }
 
     /**

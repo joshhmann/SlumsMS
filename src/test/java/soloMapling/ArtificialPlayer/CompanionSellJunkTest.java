@@ -35,7 +35,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 /**
- * 1.6.7 alt-qol-batch group D: the owner-ordered "sell junk". The protection list keeps scrolls, equips, quest items,
+ * 1.6.7 alt-qol-batch group D: the owner-ordered "sell junk" (ETC and USE, with the owner's keep-list). It keeps scrolls, equips, quest items,
  * potions, ammo, cash and untradeable items, so by default only plain ETC junk sells; "sell junk equips too" adds
  * plain equips but still keeps a scrolled piece and one that is an upgrade for the companion or its owner. The sale
  * goes through BotBagRoom's own path, so the mesos are the town stop's.
@@ -129,6 +129,64 @@ class CompanionSellJunkTest {
         assertTrue(alt.haveItemWithId(SCROLL, false), "the owner keeps every scroll");
         assertTrue(alt.haveItemWithId(POTION, false), "potions are what it fights with");
         assertTrue(alt.haveItemWithId(PLAIN_EQUIP, false), "every equip is kept by default");
+    }
+
+    /**
+     * Owner, 8 Nov 2026 ("nvm add use"): sell junk sells ETC and USE, and the USE keep-list is every potion (HP, MP,
+     * elixirs, food: whatever BotVitals drinks), return and teleport scrolls, skill and mastery books, summoning sacks,
+     * pet food, stars and bullets, quest items and the rebirth items. One of each stays; the plain USE drop sells.
+     */
+    @Test
+    void theUseKeepListKeepsEachClassTheOwnerNamedAndSellsPlainUseJunk() {
+        int[] kept = {
+                2000005,  // Power Elixir (200: HP/MP potions and elixirs)
+                2001001,  // a 2001 potion (200)
+                2002000,  // a stat pill (200)
+                2010000,  // Apple (201: food it drinks for HP)
+                2020000,  // Salad (202: food)
+                2022000,  // a 2022 drink (202)
+                2050004,  // All Cure Potion (205: cure potions)
+                2030000,  // Return Scroll - Nearest Town (203)
+                2030007,  // a teleport scroll (203)
+                2280000,  // a skill book (228)
+                2290000,  // a mastery book (229)
+                2100000,  // a summoning sack (210)
+                2120000,  // pet food (212)
+                2070000,  // throwing stars (207)
+                2330000,  // bullets (233)
+        };
+        for (int id : kept) {
+            give(InventoryType.USE, new Item(id, (short) 0, (short) 1));
+        }
+        int plainUse = 2380000; // a plain USE drop on no keep-list (a monster card)
+        give(InventoryType.USE, new Item(plainUse, (short) 0, (short) 1));
+
+        BotBagRoom.Sale sale = CompanionSellJunk.sell(alt, owner, false, item -> 10);
+
+        for (int id : kept) {
+            assertTrue(alt.haveItemWithId(id, false), id + " is on the owner's keep-list");
+        }
+        assertFalse(alt.haveItemWithId(plainUse, false), "a plain USE drop is junk and sells");
+        assertEquals(1, sale.items(), "only the plain USE drop");
+    }
+
+    /** The town stop never sells a rebirth key or ingredient (BotRebirth.keeps); an alt's ordered sale never does either. */
+    @Test
+    void theRebirthKeyAndIngredientsAreNeverSold() {
+        // the second rebirth's two boss drops: neither is a quest item (this test's item data says 403xxxx is), so
+        // only the rebirth rule can keep them
+        int[] ingredients = soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.ingredientsFor(1);
+        for (int id : ingredients) {
+            give(InventoryType.ETC, new Item(id, (short) 0, (short) 1));
+        }
+        give(InventoryType.ETC, new Item(ETC_JUNK, (short) 0, (short) 1));
+
+        BotBagRoom.Sale sale = CompanionSellJunk.sell(alt, owner, true, item -> 10);
+
+        for (int id : ingredients) {
+            assertTrue(alt.haveItemWithId(id, false), id + " is a rebirth ingredient: it stays");
+        }
+        assertEquals(1, sale.items(), "only the plain etc junk");
     }
 
     @Test

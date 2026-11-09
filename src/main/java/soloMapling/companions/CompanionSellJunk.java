@@ -37,11 +37,12 @@ import java.util.function.Consumer;
  * decision: an alt sells nothing unless told). The companion finds a shop NPC on the map it stands on, walks to it
  * and sells what the protection list allows, then says what it sold and for how much.
  *
- * <p>The protection list (the owner's: scrolls, equips, quest items) keeps, by default, everything except a plain
- * etc/use drop no quest needs: not a quest item of its own or its owner's, not a potion, scroll, ammo or star, not a
- * cash or untradeable item, not a ring, and nothing {@link SaleRules} refuses. {@code sell junk equips too} adds
- * plain equips only: a piece with an upgrade used, one worth wearing over what the companion or its owner wears
- * ({@link GearUpgrades}), an untradeable or cash piece and anything the SaleRules refuse still stay.
+ * <p>The protection list (the owner's, 8 Nov 2026: ETC and USE are sold, with a keep-list) keeps every potion and food
+ * the bots drink, cure potions, return and teleport scrolls, skill and mastery books, summoning sacks, pet food, scrolls,
+ * stars, bullets and arrows, quest items of its own or its owner's, the rebirth items ({@code BotRebirth.keeps}), cash
+ * and untradeable items, and anything {@link SaleRules} refuses. {@code sell junk equips too} adds plain equips only: a
+ * piece with an upgrade used, one worth wearing over what the companion or its owner wears ({@link GearUpgrades}), an
+ * untradeable or cash piece and anything the SaleRules refuse still stay.
  *
  * <p>The sale is {@link BotBagRoom#sellAll}: the same candidate scan and the same meso credit the town stop uses, so
  * the mesos are exactly what today's junk sale pays and no price or rate changes.
@@ -126,8 +127,11 @@ public final class CompanionSellJunk {
         if (SaleRules.whyNot(item) != null) {
             return true; // uncashable anyway: cash, untradeable, a pet or ring, a boss-only drop, godly scrolled gear
         }
-        if (isScroll(id) || isPotionOrAmmo(id)) {
-            return true; // what it fights and scrolls with
+        if (isScroll(id) || isPotionOrAmmo(id) || keptUse(id)) {
+            return true; // what it fights, travels and scrolls with (the owner's USE keep-list)
+        }
+        if (soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.keeps(id)) {
+            return true; // a rebirth key or ingredient: the town stop keeps these too (townStopKeep)
         }
         if (isQuestItem(id)) {
             return true; // a quest item, whether or not either of them has the quest right now
@@ -198,6 +202,19 @@ public final class CompanionSellJunk {
 
     static boolean isScroll(int itemId) {
         return itemId / 10000 == SCROLL_PREFIX;
+    }
+
+    /**
+     * The owner's USE keep-list (8 Nov 2026, "nvm add use"), by item family: every potion, elixir and food the bots
+     * drink (200-202, the families {@code SupplyData.recovery} reads), cure potions (205), return and teleport scrolls
+     * (203), summoning sacks (210), pet food (212), skill and mastery books (228, 229). Scrolls, stars, bullets and
+     * arrows are {@link #isScroll} and {@link #isPotionOrAmmo}.
+     */
+    static final java.util.Set<Integer> KEPT_USE_FAMILIES = java.util.Set.of(200, 201, 202, 203, 205, 210, 212, 228,
+            229);
+
+    static boolean keptUse(int itemId) {
+        return KEPT_USE_FAMILIES.contains(itemId / 10000);
     }
 
     public static boolean isPotionOrAmmo(int itemId) {

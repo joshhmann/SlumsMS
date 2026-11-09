@@ -53,27 +53,40 @@ Never automatic for an alt. `sell junk` makes the companion look for a shop NPC 
 - no shop NPC there: it says so ("there's no shop on this map") and nothing is sold;
 - one there: it walks to it and sells what the protection list allows, then reports what it sold and the mesos.
 
-The protection list (`CompanionSellJunk.keep`) never sells:
+The protection list (`CompanionSellJunk.keep`) never sells (owner, 8 Nov 2026, "nvm add use": ETC and USE are
+sold, with this keep-list):
 
-- quest items (of its own or its owner's active quests);
-- scrolls;
-- potions, ammo and stars/bullets;
-- cash and untradeable items;
-- anything `SaleRules.whyNot` refuses;
+- every potion: HP, MP, elixirs, stat pills and the foods and drinks the alt drinks (`BotVitals` drinks families
+  200-202), and cure potions (205);
+- return and teleport scrolls (203);
+- skill and mastery books (228, 229);
+- summoning sacks (210);
+- pet food (212);
+- throwing stars, bullets and arrows;
+- scrolls (204);
+- quest items (of its own or its owner's active quests, and anything the item data calls a quest item);
+- the rebirth key items and ingredients (`BotRebirth.keeps`), as the town stop keeps them;
+- cash and untradeable items, and anything `SaleRules.whyNot` refuses;
 - equips (unless the owner says `sell junk equips too`);
 - with `sell junk equips too`: an equip that has been scrolled (upgrade slots used), or one that
   `GearUpgrades` scores as an upgrade for the companion or its owner.
 
-So by default it sells only junk ETC and USE items. The sale goes through `BotBagRoom`'s sell path
-(`BotBagRoom.sellAll`, the same candidate scan, the same `BotYieldCaps` meso credit and `EconomyCounters` record as
-the town stop), so the mesos are exactly what today's junk sale gives and no price or rate changes.
+So by default it sells junk ETC and USE items outside that list (a monster card, say). This is wider than the
+population bots' town stop, which sells only EQUIP and ETC; the alt's sale happens only on its owner's order. The sale
+goes through `BotBagRoom`'s sell path (`BotBagRoom.sellAll`, the same `BotYieldCaps` meso credit and `EconomyCounters`
+record as the town stop), so no price or rate changes.
+
+`sell junk` and `offers on|off` are taken only from the alt's own owner, and only by an owned alt: another party
+member's line, or a party regular (even with `-Dslums.companion.loot.regulars=true`), does nothing. Orders to party
+regulars are 1.7.1 work.
 
 ### 3. An upgrade offer after looting
 
-After an alt loots an equip that `GearUpgrades` scores as an upgrade for its **owner** (or a sibling alt), it says
-once: "found a <item>, better than yours, want it?". One offer per `CompanionUpgradeOffer.OFFER_GAP_MS` (2 min), the
+After an alt loots an equip that `GearUpgrades` scores as an upgrade for its **owner** (or a sibling alt), and the
+piece is really in its bag (a drop the owner or anyone else picked up first is never offered), it says once: "found a <item>, better than yours, want it?". One offer per `CompanionUpgradeOffer.OFFER_GAP_MS` (2 min), the
 same item is never offered twice, and `offers off` silences it (`CompanionSettings.offers`). The owner answers in party
-chat: a plain "yes", "ok" or "sure" (the whole line) hands the item over in a normal trade window (`BotGiveTrade`);
+chat: a plain "yes", "ok" or "sure" (the whole line) hands the item over in a normal trade window (`BotGiveTrade`), as long as that exact piece is still in the alt's bag
+(if it has gone since the offer, nothing changes hands);
 "no" or "later" drops the offer, and anything else is ordinary chat and leaves it waiting until the 2-minute offer
 expires. Party chat is the only place an answer is read; `@alts` stays an order channel.
 
@@ -98,17 +111,26 @@ loots exactly as it does today with the default switches, and the mode applies t
     scroll, an equip and a quest item;
   - `sellJunkEquipsTooSellsAPlainEquipButKeepsAScrolledOneAndAnUpgrade` - the scrolled piece (upgrade slots used) and
     the piece `GearUpgrades` scores as an upgrade stay; a plain equip goes;
-  - `noShopOnTheMapSaysSoAndSellsNothing`.
+  - `noShopOnTheMapSaysSoAndSellsNothing`;
+  - `theUseKeepListKeepsEachClassTheOwnerNamedAndSellsPlainUseJunk` - one item of each keep-list class stays, a
+    plain USE drop sells;
+  - `theRebirthKeyAndIngredientsAreNeverSold`.
 - `CompanionUpgradeOfferTest`:
   - `anUpgradeForTheOwnerIsOfferedOnce` - the first settle says the line, a second settle for the same item says
     nothing;
+  - `aPieceTheAltNeverGotIsNeverOffered` and `aPieceThatLeftTheBagBeforeTheYesIsNotHandedOver` - the offer and the
+    handover are only for the piece in the alt's own bag;
   - `theRateLimitHoldsAndTheToggleSilencesIt` - inside `OFFER_GAP_MS` a second item is not offered, after it a new
     one is, and `offers off` says nothing.
 - `CompanionLootChatTest` - `@alts loot everything` (and "jane loot everything") parses, saves and answers;
   `sell junk`, `sell junk equips too` and `offers off` parse; a regular with the defaults is unchanged and reads them
   with `-Dslums.companion.loot.regulars=true`; `theOwnersYesHandsTheOfferedPieceOver` - a "yes" said in party chat
   with an offer waiting is answered and consumed (the piece changes hands) rather than read as an order;
-  `ordinaryChatDoesNotTouchAnOffer` - any other line leaves the offer waiting.
+  `ordinaryChatDoesNotTouchAnOffer` - any other line leaves the offer waiting;
+  `theOwnerTellsTheirOwnAltToSellJunkAndSwitchOffersOff`,
+  `anotherPartyMemberCannotTellSomeoneElsesAltToSellOrSwitchOffers` and
+  `aRegularNeverTakesSellJunkOrOffersEvenWithTheRegularsSwitchOn`; `whatTheAltSaysBackIsAnOrderToo` ("loot quest
+  items" is an order).
 - `CompanionCardMenuTest.theLootLineFlipsThroughTheModes` - the card's line names the mode in force and a click saves
   the next one.
 - `CompanionLootModeTest.aRegularIsUnchangedUntilTheSwitchIsOnAndAModeIsSaved` - a regular with the default switches
@@ -122,8 +144,8 @@ drops a companion walks to**, and one new command; no item, meso, level, stat, q
 rewritten.
 
 - Inventory, mesos, quest progress, rebirth progress: untouched. The new sale only ever runs when the owner types
-  `sell junk`, and even then it keeps scrolls, potions, ammo, quest items, cash and untradeable items and (by default)
-  every equip - the same rule the town stop applies today. Its mesos are credited exactly as the town stop's are.
+  `sell junk`, and even then it keeps everything on the keep-list above (potions, return scrolls, books, sacks, pet
+  food, ammo, scrolls, quest and rebirth items, cash and untradeable items) and, by default, every equip. Its mesos are credited exactly as the town stop's are.
 - Saved settings: no existing row is reset. `companionsettings` gains one column value inside the JSON blob
   (`lootMode`, written since wave 3 and never read until now) and one new key (`offers`, default true). An alt with no
   row keeps having no row; wave 3's "default not written" rule and `isDefault()` are unchanged.
