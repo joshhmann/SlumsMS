@@ -34,3 +34,6 @@ value slums.inspect.secretFile
 test-only slums.weblogin.dir        # TEST site's approvals folder (live's site uses the revoked.txt folder)
 test-only slums.board.inbox         # TEST site board folders (live uses the defaults under /var/lib/slums-market)
 test-only slums.board.outbox
+# 1.6.7 (b377): the ops notice secret is a host file, /etc/slums-ops-test/secret on TEST and
+# /etc/slumsms-ops/notice.secret on live; the port is the same (8199).
+value slums.ops.secretFile
