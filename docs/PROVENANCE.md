@@ -659,6 +659,21 @@ companion simply gets the same `raiseQuestMobCount` call a party member's own ki
 and the bot registry we have: `Character.getOwnedAltOwner()` for an owned alt, `FollowerBot.leaderId()` for a regular,
 and `PartyCompanionPolicy` for the switches. The owner's per-alt command gate (`@botme quests on|off <name>`) is ours.
 
+## P0nk/Cosmic upstream fixes (1.6.7)
+
+Four fixes ported from P0nk/Cosmic, https://github.com/P0nk/Cosmic (AGPL-3.0, the same upstream our tree descends
+from), each merged by hand onto our code and not copied file by file; changed lines carry a `// Cosmic #<n>:`
+comment. The fifth item is a removal of MapleRoot-only code, not a port, and carries no Ported-From line.
+
+| Upstream | Commit | What was taken | What we changed |
+| --- | --- | --- | --- |
+| #244 Cash Shop Surprise | `1791365e0` | `ItemId.isCashPackage` (`itemId / 10000 == 910`) and skipping package items when a Surprise picks its reward, so a 910xxxx container is never handed out (it crashes the client) | Only the package filter: our `getRandomCashItem` keeps its `CashItem` return and the Surprise flow keeps `randomitemsns`; upstream's switch to `Optional<CashItem>` and its removal of the serial list were not taken |
+| #228 NPC mesos | `0d684c140` | `gainMeso(Double)` so a JS `Number` such as `price * 1.5` binds instead of failing the call; rounding is upstream's `intValue()` (toward zero) | The overload routes through our `gainMeso(int)` so the script meso counters (`recordScriptMeso`, 1.6.0 Track D) still see the move; upstream calls `getPlayer().gainMeso` directly |
+| #261 Chaos scroll rounding | `ec90df9c5` (test `215dc4229`) | `Randomizer.rand` adds `lbound` after the `(int)` cast, so `rand(-range, range)` is uniform: 0 no longer gets double mass and the bound is reachable | Our `config.example.yaml` already had `CHSCROLL_STAT_RANGE: 5` (upstream's commit also changed 6 to 5), so no config change; added a 200,000-roll distribution test, a positive-bound regression test, and a chaos-scroll clamp guard test on top of upstream's range test |
+| Cat's Eye drop | `bfcadc069` | Drop row for Cat's Eye 4031568 from Meerkat 2100108, quest 3911, chance 80000 (`src/main/resources/db/data/152-drop-data.sql:21102`) | Shipped as an idempotent migration `database/migrations/068-cat-eye-meerkat-drop.sql` with a rollback, inserting only when the (dropperid, itemid) row is absent; the Scorpion 2110301 row is kept |
+| Rebirth class swap (removal) | — | Removed our `jobChangeChecker === 1` branch in `scripts/npc/rebirth.js` (dead: the flag is always 0), `NPCConversationManager.changeRebirthJobCerezeth(int)`, `Character.changeRebirthJobCerezeth(Job)` and their two `scripts/lib.d.ts` declarations | Owner decision 2026-11-08: the method swapped only the job id at the character's current level, so a level-10 rebirth could jump back to a 4th job |
+
+
 ## 1.6.7 wave 3: companion settings
 
 ### Per-owner companion settings, 1.6.7 (branch `167-alt-settings`, card `alt-qol-batch` group B), BotStory `81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364` and nutnnut/Cosmic `b684bf7` (AGPL-3.0)

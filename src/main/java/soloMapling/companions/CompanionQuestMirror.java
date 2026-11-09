@@ -46,13 +46,13 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class CompanionQuestMirror {
     private static final Logger log = LoggerFactory.getLogger(CompanionQuestMirror.class);
 
-    /** Alt ids whose owner typed {@code @botme quests on <name>}. Memory only: a restart turns mirroring off. */
+    /** Alt ids turned on this run; the kept choice is in the alt's settings (CompanionSettingsStore). */
     private static final Set<Integer> OPTED_IN = ConcurrentHashMap.newKeySet();
 
     private CompanionQuestMirror() {
     }
 
-    /** Turns the mirror on or off for one owned alt; called by the {@code @botme quests} command. */
+    /** Turns the mirror on or off for one owned alt, in memory only (tests and the old shape). */
     public static void setOptIn(int altId, boolean on) {
         if (on) {
             OPTED_IN.add(altId);
@@ -60,6 +60,27 @@ public final class CompanionQuestMirror {
         } else if (OPTED_IN.remove(altId)) {
             log.info("quest mirror: off for character {}", altId);
         }
+    }
+
+    /**
+     * {@code @botme quests on|off <name>}: turns the mirror on or off and keeps the choice with the alt's settings
+     * (owner, 8 Nov 2026: it survives a restart). Off with every other setting at its default deletes the row.
+     */
+    public static void setOptIn(Character owner, Character alt, boolean on) {
+        if (owner == null || alt == null) {
+            return;
+        }
+        setOptIn(alt.getId(), on);
+        CompanionSettingsStore.save(owner, alt,
+                CompanionSettingsStore.get(owner.getId(), alt.getId()).withQuests(on));
+    }
+
+    /** True when this owner turned the mirror on for this alt: this run's command, or the kept setting. */
+    public static boolean isOptedIn(int ownerId, int altId) {
+        if (OPTED_IN.contains(altId)) {
+            return true;
+        }
+        return CompanionSettingsStore.peek(ownerId, altId).quests();
     }
 
     public static boolean isOptedIn(int altId) {
@@ -176,7 +197,7 @@ public final class CompanionQuestMirror {
             if (!isWith(leader, member)) {
                 continue;
             }
-            if (member.isOwnedAlt() && !isOptedIn(member.getId())) {
+            if (member.isOwnedAlt() && !isOptedIn(leader.getId(), member.getId())) {
                 continue;
             }
             if (!member.isPresentInWorld()) {

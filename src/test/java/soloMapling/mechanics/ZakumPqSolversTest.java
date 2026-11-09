@@ -384,7 +384,7 @@ class ZakumPqSolversTest {
         new ZakumMinesSolver().next(v, v.me); // I place the seven
         assertEquals(1, ZakumMinesSolver.placerId(v), "the placer is remembered for the line");
         v.reactor = 1;
-        assertEquals("RUN zakumpq big chest 2112014 opened on 280011005 by Jinx after 812 s [zakumpq, leader AqClient]",
+        assertEquals("RUN zakumpq big chest 2112014 opened on 280011005 by Jinx after 812 s into the run [zakumpq, leader AqClient]",
                 ZakumMinesSolver.chestOpenedLine(v, "Jinx", 812, tag));
         assertNull(ZakumMinesSolver.chestOpenedLine(v, "Jinx", 813, tag), "said once per stage");
         View other = new View();  // any other room's chest is not this line's business

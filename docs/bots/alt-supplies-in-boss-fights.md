@@ -27,12 +27,16 @@ Two causes in the code:
    calls `BotVitals.spend`, which already ends in `topUp`, so a Brandish alt at 45% MP drinks an MP potion instead
    of falling through to basic attacks.
 2. **Out-of-pots warning.** A companion tells its owner (owned alt) or its leader (party regular) at most once per
-   run at `WARN_AT = 10` potions of a kind and again once when that kind reaches 0. Wording is casual and never says
-   "bot": "I'm down to 10 mana potions", "I'm out of HP potions". Owned alts speak through `OwnedAltOrders.say`
+   when a kind drops under `WARN_PERCENT = 25`% of the stack it last got, and again once when that kind reaches 0
+   (owner, 8 Nov 2026: "25% is a warn from the original stack purchased"; this replaced a fixed 10). The stack is the
+   count right after the last rise (a purchase, a restock or a hand-over), noted on every top-up in or out of a run; a
+   falling count never moves it, and a rise arms both lines again. 1,000 pots: quiet at 250, warned at 249. Wording is
+   casual and never says "bot": "I'm down to 249 mana potions", "I'm out of HP potions". Owned alts speak through `OwnedAltOrders.say`
    (party chat when the owner is in the party, direct otherwise); a party regular speaks through
    `BotPartyChat.sayInParty` to its party. Same level is never said twice in one run; a new run starts clean.
 3. **Pre-run check.** When the leader talks to the recruiter, `ExpeditionBots.shortfall` adds one line per member
-   that will join but is short: fewer than `PRE_RUN_MIN = 50` HP potions, or fewer than 50 MP potions when the job
+   that will join but is short: fewer than `PRE_RUN_MIN = 50` HP potions or under a quarter of its noted HP stack (owner:
+   50 is short, no upper cap), or the same for MP potions when the job
    uses MP (`BotSupplies.needs(c).usesMp()`), or no ammo for a ranged job (`BotSupplies.outOfAmmo`), or no usable
    weapon (the `OwnedAltCompanion.weaponProblem` rule). Joining is not blocked - the leader is only told.
 4. A regular (not an owned alt) sees none of this with the default settings, and all of it with
@@ -47,8 +51,13 @@ the `SupplyData` seam the potion data comes through), one boss run built for rea
   boss run; the same alt outside the run does not drink at 65% (today's 0.50 line). (a)
 - `aBossRunAltDrinksManaOnItsAttackPath` - an owned alt at 45% MP in a boss run gets an MP potion through
   `SwingSupply.prepare` + `commit` (the attack path), i.e. it never falls back to "no MP". (b)
-- `theOwnerIsToldOnceAtTenPotionsAndOnceWhenTheyAreGone` - the warning is said once at `WARN_AT`, once at 0, and a
-  second top-up at the same level says nothing. (c)
+- `theOwnerIsToldOnceUnderAQuarterAndOnceWhenTheyAreGone` - the warning is said once under a quarter of the stack,
+  once at 0, and a second top-up at the same level says nothing. (c)
+- `theWarningComesAtAQuarterOfTheStackItGot` - 1,000 pots: nothing at 250, "I'm down to 249 HP potions" once. (c)
+- `aRestockSetsANewStackAndTheWarningComesAgain` - warned at 200 of 1,000, restocked to 600: quiet at 150, warned at
+  149. (c)
+- `theRecruiterCallsAMemberShortUnderAQuarterOfItsStackOrUnderFifty` - 300 of 1,000 is ready, 240 is short; a member
+  never seen with a stack is short under 50. (d)
 - `theRecruiterNamesTheMemberThatWillFightWithoutManaPotions` - the recruiter's text carries "Second has no mana
   potions." for a member with 0 MP pots and an MP job, and says nothing about a stocked one. (d)
 - `aRegularKeepsTheOldLinesUntilTheRegularSwitchIsOn` - a regular is unchanged with the defaults and gets the boss
