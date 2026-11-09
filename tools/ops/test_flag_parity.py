@@ -73,6 +73,34 @@ class FlagParityTest(unittest.TestCase):
         fp.read_allow(os.path.join(root, "docs", "release", "flag-parity.allow"))
         self.assertIn("slums.qa", fp.flags_of(open(os.path.join(root, "deploy", "test", "start-test.sh")).read()))
 
+    def test_instance_section_applies_only_to_b_and_c(self):
+        allow = self.write("inst", ALLOW + "@instances B C\nlive-only slums.site.export\n@all\nvalue slums.ops.port\n")
+        live = LIVE + " -Dslums.site.export=true -Dslums.ops.port=8199"
+        test = TEST
+        for inst, ok in (("A", False), ("B", True), ("C", True)):
+            a = fp.read_allow(allow, inst)
+            bad = fp.compare(fp.flags_of(live), fp.flags_of(test), a)
+            self.assertEqual(ok, ("live-only", "slums.site.export", "true", None) not in bad, inst)
+        # lines after @all apply to every instance
+        self.assertIn("slums.ops.port", fp.read_allow(allow, "A")["value"])
+
+    def test_repo_allow_file_lets_b_and_c_drop_exactly_the_switched_off_flags(self):
+        root = os.path.abspath(os.path.join(HERE, "..", ".."))
+        allow_path = os.path.join(root, "docs", "release", "flag-parity.allow")
+        a_text = open(os.path.join(root, "deploy", "test", "start-test.sh")).read()
+        # pretend live runs A's flags (plus the ops port and every switched-off flag live would have): the only
+        # undeclared differences left for B and C are none; for A reading B's script there are several
+        live = fp.flags_of(a_text)
+        live["slums.ops.port"] = "8199"
+        for inst, fname in (("B", "start-test-b.sh"), ("C", "start-test-c.sh")):
+            test = fp.flags_of(open(os.path.join(root, "deploy", "test", fname)).read())
+            self.assertEqual([], fp.compare(live, test, fp.read_allow(allow_path, inst)), inst)
+            self.assertNotEqual([], fp.compare(live, test, fp.read_allow(allow_path, "A")), inst + " under A's rules")
+
+    def test_instance_files_exist(self):
+        for path in fp.INSTANCE_FILES.values():
+            self.assertTrue(os.path.exists(os.path.join(fp.ROOT, *path)))
+
 
 if __name__ == "__main__":
     unittest.main()
