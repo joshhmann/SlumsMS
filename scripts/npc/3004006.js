@@ -40,20 +40,26 @@ function action(mode, type, selection) {
         let mapId = cm.getMapId();
         let warpToMapId = getWarpToMapId(mapId);
 
-        if (warpToMapId !== 0) {
-            if (eim === null) {
-                cm.sendYesNo("How did you even get in here without starting the expedition? Do you want to leave?");
-            } else if (!eim.isEventCleared()) {
-                cm.sendYesNo("If you leave now, you'll have to start over. \r\n\r\n" +
-                    cm.getEventInstance().sendDmgDealt(cm.getPlayer().getWorld()) +
-                    "Are you sure you want to leave?");
+        // 1.6.7 plunk-reward-full-bag: the yes/no is the status 0 question only. It used to go out on every call, so
+        // the status 1 refusal below followed a second yes/no in the same call, and the client drops a player who is
+        // sent an NPC dialog while one is open (QA run plunk-bag-zakum-20261109T204759Z), which ended the boss room.
+        if (status == 0) {
+            if (warpToMapId !== 0) {
+                if (eim === null) {
+                    cm.sendYesNo("How did you even get in here without starting the expedition? Do you want to leave?");
+                } else if (!eim.isEventCleared()) {
+                    cm.sendYesNo("If you leave now, you'll have to start over. \r\n\r\n" +
+                        cm.getEventInstance().sendDmgDealt(cm.getPlayer().getWorld()) +
+                        "Are you sure you want to leave?");
+                } else {
+                    cm.sendYesNo("You guys finally overthrew such darkness! What a superb feat! Congratulations! \r\n\r\n" +
+                        cm.getEventInstance().sendDmgDealt(cm.getPlayer().getWorld()) +
+                        "Are you sure you want to leave now?");
+                }
             } else {
-                cm.sendYesNo("You guys finally overthrew such darkness! What a superb feat! Congratulations! \r\n\r\n" +
-                    cm.getEventInstance().sendDmgDealt(cm.getPlayer().getWorld()) +
-                    "Are you sure you want to leave now?");
+                cm.sendYesNo("If you leave now, you'll have to start over. Are you sure you want to leave?");
             }
-        } else {
-            cm.sendYesNo("If you leave now, you'll have to start over. Are you sure you want to leave?");
+            return;
         }
 
         if (status == 1) {

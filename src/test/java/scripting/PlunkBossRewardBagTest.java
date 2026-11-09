@@ -83,6 +83,10 @@ class PlunkBossRewardBagTest {
         public Character player;
         public int map = 280030000;
         public final List<String> oks = new ArrayList<>();
+        /** Every dialog sent, in order ("yesno" or "ok"); the client drops a player sent two in one action. */
+        public final List<String> dialogs = new ArrayList<>();
+        /** How many dialogs the first call (start, status 0) sent. */
+        public int dialogsAtStart = -1;
         public boolean disposed;
         public int warpTo = -1;
 
@@ -99,10 +103,12 @@ class PlunkBossRewardBagTest {
         }
 
         public void sendYesNo(String text) {
+            dialogs.add("yesno");
         }
 
         public void sendOk(String text) {
             oks.add(text);
+            dialogs.add("ok");
         }
 
         public void warp(int mapId) {
@@ -179,6 +185,7 @@ class PlunkBossRewardBagTest {
         engine.put("cm", cm);
         Invocable npc = (Invocable) engine;
         npc.invokeFunction("start");              // status 0: the yes/no question
+        cm.dialogsAtStart = cm.dialogs.size();
         npc.invokeFunction("action", 1, 0, 0);   // status 1: rewards, then the way out
         return cm;
     }
@@ -202,6 +209,36 @@ class PlunkBossRewardBagTest {
         assertEquals(-1, cm.warpTo, "a player whose bag is short is not warped out of the room");
         assertTrue(cm.disposed, "the talk is still closed");
         assertTrue(unclaimedFor.isEmpty(), "nothing was cleared from the boss log for a reward that did not land");
+    }
+
+    /**
+     * plunk-reward-full-bag, QA run plunk-bag-zakum-20261109T204759Z: action() sent the yes/no on every call, so the
+     * refusal at status 1 went out as a second yes/no plus an OK in one call. The client throws on an NPC dialog that
+     * arrives while one is open (CScriptMan::OnScriptMessage, 0x21000003) and drops the player to the login screen,
+     * which ends the boss instance. Each call sends at most one dialog.
+     */
+    @Test
+    void theRefusalIsTheOnlyDialogOfItsTalkAndTheYesNoIsAskedOnce() throws Exception {
+        BossRewardBagTestSupport.Member member = new BossRewardBagTestSupport.Member(1_000_001, world);
+        member.fill(InventoryType.USE, BossRewardBagTestSupport.SLOTS);
+
+        ExitCm cm = leave(member, 280030000);
+
+        assertEquals(List.of("yesno"), cm.dialogs.subList(0, cm.dialogsAtStart), "status 0 asks the yes/no");
+        assertEquals(List.of("ok"), cm.dialogs.subList(cm.dialogsAtStart, cm.dialogs.size()),
+                "status 1 sends only the refusal");
+        assertTrue(cm.disposed, "the talk is closed after the refusal");
+        assertEquals(-1, cm.warpTo, "the player stays in the room to make space");
+    }
+
+    @Test
+    void aClearedTalkWithRoomSendsNoSecondDialogAndLeaves() throws Exception {
+        BossRewardBagTestSupport.Member member = new BossRewardBagTestSupport.Member(1_000_001, world);
+
+        ExitCm cm = leave(member, 280030000);
+
+        assertEquals(List.of("yesno"), cm.dialogs, "only the status 0 yes/no is sent");
+        assertTrue(cm.warpTo > 0, "the player is warped out");
     }
 
     @Test
