@@ -83,13 +83,37 @@ class NewToolsTest(unittest.TestCase):
     def test_login_types_the_vault_account_and_keeps_the_pic(self):
         (self.tmp / 'secrets').mkdir()
         (self.tmp / 'secrets' / 'aq-gm-1.txt').write_text('qa-acct\nqa-pass\n123456\n')
-        self.assertEqual({'vault': 'aq-gm-1', 'entered': True}, self.d.login_credentials('aq-gm-1'))
+        self.d.wait_choice = lambda names, timeout=35: 'world'
+        self.assertEqual({'vault': 'aq-gm-1', 'entered': True, 'first_login': []}, self.d.login_credentials('aq-gm-1'))
         typed = [event for event in self.d.sender.events if event[0] == 'text'
                  or (event[0] == 'key' and event[1] in (9, 13))][:4]
         self.assertEqual([('text', 'qa-acct'), ('key', 9, None), ('text', 'qa-pass'), ('key', 13, None)],
                          [('key', event[1], event[2]) if event[0] == 'key' and len(event) > 2 else event
                           for event in typed])
         self.assertEqual('123456', self.d.vault_pic)
+
+    def test_login_credentials_gets_past_the_first_login_screens(self):
+        # 9 Nov, Silvia DSH dry check: a new dshharness account stopped at the Terms of Use and then the gender
+        # prompt, which login handles and login_credentials did not.
+        (self.tmp / 'secrets').mkdir()
+        (self.tmp / 'secrets' / 'dsh-1.txt').write_text('acct\npass\n')
+        screens = iter(['terms', 'gender'])
+        self.d.wait_choice = lambda names, timeout=35: next(screens)
+        self.d.matches = lambda name, image=None: name in ('login', 'save_login_unchecked', 'terms_accept_ready')
+        self.d.ui['points'].update({'terms_accept': (480, 435), 'terms_scroll_page': (580, 390),
+                                    'terms_scroll_end': (580, 400)})
+        self.assertEqual({'vault': 'dsh-1', 'entered': True, 'first_login': ['terms', 'gender']},
+                         self.d.login_credentials('dsh-1'))
+        clicks = [event[1] for event in self.d.sender.events if event[0] == 'click']
+        self.assertEqual(['terms_accept', 'gender_confirm'], clicks[-2:])
+
+    def test_login_credentials_with_no_first_login_screen_clicks_nothing(self):
+        (self.tmp / 'secrets').mkdir()
+        (self.tmp / 'secrets' / 'dsh-1.txt').write_text('acct\npass\n')
+        self.d.wait_choice = lambda names, timeout=35: 'world'
+        self.assertEqual({'vault': 'dsh-1', 'entered': True, 'first_login': []}, self.d.login_credentials('dsh-1'))
+        self.assertEqual([], [event for event in self.d.sender.events
+                              if event[0] == 'click' and event[1].startswith(('terms', 'gender'))])
 
     def test_a_vault_without_its_file_is_refused_with_the_fix(self):
         with self.assertRaises(self.driver.Refusal) as caught:
