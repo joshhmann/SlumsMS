@@ -1,5 +1,7 @@
 package soloMapling.ArtificialPlayer.BotAttackSystem;
 
+import soloMapling.ArtificialPlayer.BotGrindSystem.Approach;
+
 import client.Character;
 import client.Job;
 import client.Skill;
@@ -653,13 +655,18 @@ public final class BotAttackDriver {
             }
             // Bosses are big and multi-bodied: test their part positions against a vertically
             // padded box so e.g. Zakum's elevated arms still register as in-reach.
+            // 1.6.7 (QA's Zakum run): a boss part with a Mob.wz body is hit where its body is (BossBodyReach, ported
+            // from BotStory); one without keeps the padded box below
             Rectangle test = m.isBoss()
                     ? new Rectangle(box.x, box.y - BOSS_Y_PAD, box.width, box.height + 2 * BOSS_Y_PAD)
                     : box;
+            // 1.6.7 (QA's Zakum run): a boss part is also hit where the swing meets its Mob.wz body (BossBodyReach),
+            // added to the padded anchor test, which melee still needs for the parts high above it
+            boolean inBox = test.contains(mp) || BossBodyReach.bodyReaches(box, m);
             // The reach box is a flat rectangle with no terrain sense, so a tall box would let the bot
             // hit a mob standing on a separate platform overhead/below. Drop mobs on a different ledge
             // than the bot (bosses exempt). Cheap (peek-only) and only run for box-passing mobs.
-            if (test.contains(mp) && onAttackableSurface(bot.getMap(), botPos, m)) {
+            if (inBox && onAttackableSurface(bot.getMap(), botPos, m)) {
                 found.add(m);
             }
         }
@@ -900,6 +907,15 @@ public final class BotAttackDriver {
      * What walking to {@code m} costs this bot (ms): across its own ledge at walking pace, else the nav planner's
      * route ({@link #pathCost}); {@link GCMovement#UNREACHABLE} when no walk gets there.
      */
+    /** The executor's reach for {@code bot}, or plain melee reach when its weapon cannot be read. */
+    private static int[] reachOrMelee(Character bot) {
+        try {
+            return Approach.reach(bot);
+        } catch (RuntimeException e) {
+            return new int[]{Approach.MELEE_X, Approach.MELEE_Y};
+        }
+    }
+
     public static int costTo(Character bot, Monster m) {
         Point at = bot.getPosition();
         Point mp = m.getPosition();
@@ -907,7 +923,9 @@ public final class BotAttackDriver {
             return GCMovement.UNREACHABLE;
         }
         if (onAttackableSurface(bot.getMap(), at, m)) {
-            return (int) Math.min(Integer.MAX_VALUE - 1L, Math.abs(mp.x - at.x) * 8L);
+            Point aim = BossBodyReach.bodyOf(m) == null ? mp
+                    : BossBodyReach.aimPoint(at, m, reachOrMelee(bot)); // a boss part's reachable body edge
+            return (int) Math.min(Integer.MAX_VALUE - 1L, Math.abs(aim.x - at.x) * 8L);
         }
         return pathCost.ms(bot.getMap(), at, mp);
     }
@@ -919,8 +937,15 @@ public final class BotAttackDriver {
      */
     public static boolean canSwingFrom(MapleMap map, Point at, Monster m, int reachX, int reachY) {
         Point mp = m.getPosition();
-        return mp != null && at != null && Math.abs(mp.x - at.x) <= reachX && Math.abs(mp.y - at.y) <= reachY
-                && onAttackableSurface(map, at, m);
+        if (mp == null || at == null) {
+            return false;
+        }
+        boolean byAnchor = Math.abs(mp.x - at.x) <= reachX && Math.abs(mp.y - at.y) <= reachY;
+        // 1.6.7 (QA's Zakum run): a boss part is also in reach where the swing meets its Mob.wz body (BossBodyReach).
+        // Added to the anchor rule, never in place of it: melee clears Horntail's high heads and Zakum's upper arms
+        // today only through the anchor, and nothing else would put it in reach of them in 1.6.7.
+        boolean byBody = !byAnchor && BossBodyReach.bodyReaches(BossBodyReach.reachBox(at, reachX, reachY), m);
+        return (byAnchor || byBody) && onAttackableSurface(map, at, m);
     }
 
     /** A swing's miss that means no mob it may hit stands near (none, or all on another ledge). */

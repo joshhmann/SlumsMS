@@ -437,6 +437,11 @@ public final class GCMovement {
         return mob == null ? null : BotMobHitboxProvider.getMobBounds(mob);
     }
 
+    /* 1.6.7: a mob id's body box placed at {@code at}, mirrored or not as the caller decides (BossBodyReach). */
+    public static java.awt.Rectangle mobBounds(int mobId, java.awt.Point at, boolean mirror) {
+        return at == null ? null : BotMobHitboxProvider.getMobBounds(mobId, at, mirror);
+    }
+
     /* 1.5.0 rc3: the rope or ladder the bot is on, or null. */
     public static Rope climbingRope(Character bot) {
         BotMovementState st = bot == null ? null : STATES.get(bot.getId());
