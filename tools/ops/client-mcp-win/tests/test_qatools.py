@@ -541,6 +541,30 @@ class DialogNextTest(NewToolsTest):
         self.assertEqual('use_click_option', str(caught.exception))
 
 
+class DialogDeclineTest(NewToolsTest):
+    """qa-quest-dialog (1.6.7): No / Decline on the open dialog by its own type, e.g. a stock quest's Decline (QA build 23)."""
+
+    def test_dialog_decline(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'dialog_decline', 'ok': True, 'type': 1}])
+        self.assertEqual({'op': 'dialog_decline', 'type': 1}, self.d.dialog_decline())
+        self.assertEqual(['dialog_decline'], self.d.qa.sent)
+
+    def test_the_decline_anchor_goes_to_dialog_decline(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'dialog_decline', 'ok': True, 'type': 1}])
+        self.assertEqual({'op': 'dialog_decline', 'type': 1}, self.d.click_anchor('npc_dialog.decline'))
+
+    def test_a_dialog_without_decline_is_refused(self):
+        self.d.qa = FakeQa([{'ev': 'click.done', 'op': 'dialog_decline', 'ok': False, 'error': 'no_decline_button',
+                             'type': 0}])
+        with self.assertRaises(self.driver.Refusal) as caught:
+            self.d.dialog_decline()
+        self.assertEqual('no_decline_button', str(caught.exception))
+
+    def test_it_is_a_script_tool_without_arguments(self):
+        self.assertIn('dialog_decline', self.driver.SCRIPT_TOOLS)
+        self.d.validate('dialog_decline', {})
+
+
 class UseCashItemTest(NewToolsTest):
     """P0-6: the Incubator on an egg, or on an explicit (empty) slot."""
 

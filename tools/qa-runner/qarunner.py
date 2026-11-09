@@ -463,6 +463,9 @@ class SilviaWorker:
         elif kind == "click" and step["anchor"] == "npc_dialog.next":
             # OK / Next / Yes / Accept on the open NPC dialog, by the QA client's reply path (the button's own packet)
             name, arguments = "dialog_next", {}
+        elif kind == "click" and step["anchor"] == "npc_dialog.decline":
+            # qa-quest-dialog (1.6.7): No / Decline by the dialog's own type, a stock quest's Decline too (QA build 23)
+            name, arguments = "dialog_decline", {}
         elif kind == "click" and step["anchor"] == "npc_dialog.close":
             # the QA client ends any open NPC dialog the way its End Chat button does: no ui.json point needed
             name, arguments = "close_dialog", {}

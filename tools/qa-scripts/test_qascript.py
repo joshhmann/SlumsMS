@@ -212,6 +212,13 @@ class ValidatorTest(unittest.TestCase):
         self.assertRefused(ifia.replace("rows: 2}", "rows: 17}"), "rows")
         self.assertRefused(ifia.replace("{do: click_dialog_row, row: 2, rows: 2}", "{do: click_dialog_row}"), "row")
 
+    def test_the_decline_anchor_is_known(self):
+        # qa-quest-dialog (1.6.7): GP3 declines or accepts Rain's quest dialog; npc_dialog.decline is a declared anchor.
+        decline = GOOD.replace("  - {do: select_character}\n",
+                               "  - {do: select_character}\n  - {do: click, anchor: npc_dialog.decline}\n")
+        errors, _ = check(decline)
+        self.assertEqual([], [e for e in errors if "unknown anchor" in e])   # proposed: scripts declare proposed_anchors
+
     def test_the_id_matches_the_file_name(self):
         errors, _ = qascript.validate_text(GOOD, "other-name")
         self.assertTrue(any("must match the file name" in e for e in errors))

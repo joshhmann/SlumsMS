@@ -60,6 +60,7 @@ TOOLS = {
     'party_create': {},
     'close_dialog': {},
     'dialog_next': {},
+    'dialog_decline': {},   # qa-quest-dialog (1.6.7): No / Decline by the open dialog's own type (QA build 23)
     # P0-2 GP8: open a hired merchant selling <quantity> of <item> at <price>, the way a player sets one up.
     'merchant_open': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 4999999},
                       'quantity': {'type': 'integer', 'minimum': 1, 'maximum': 2000},
@@ -255,7 +256,7 @@ SCRIPT_TOOLS = {'start_client', 'login', 'login_credentials', 'click_anchor', 's
                 'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to', 'click_npc', 'click_option', 'click_dialog_row', 'position',
                 'walk_to', 'climb',
                 'drop_item', 'party_create', 'party_invite', 'close_dialog',
-                'dialog_next', 'use_cash_item',
+                'dialog_next', 'dialog_decline', 'use_cash_item',
                 'merchant_open', 'merchant_close', 'fredrick_retrieve', 'pickup_item',
                 'shop_buy', 'shop_sell', 'shop_close', 'use_item', 'trade_invite', 'trade_accept',
                 'trade_add_item', 'trade_add_meso', 'trade_confirm', 'trade_cancel', 'jump'}
@@ -827,6 +828,8 @@ class Driver:
             return self.close_dialog()
         if name == 'npc_dialog.next':
             return self.dialog_next()
+        if name == 'npc_dialog.decline':
+            return self.dialog_decline()
         if name not in (self.ui.get('points') or {}):
             raise Refusal('Anchor ' + str(name) + ' is not a calibrated point in ui.json: add it to '
                           'docs/qa/client-scripts/anchors.yaml first.')
@@ -1104,6 +1107,13 @@ class Driver:
         1). Errors: no_dialog, use_click_option (a menu), no_next_button (a text or number prompt)."""
         event = self.qa_request('dialog_next', 'click.done', lambda e: e.get('op') == 'dialog_next', 'no_dialog')
         return {'op': 'dialog_next', 'type': event.get('type')}
+
+    def dialog_decline(self):
+        """qa-quest-dialog (1.6.7): presses No / Decline on the open npc dialog by its own type, also a stock quest's
+        Accept/Decline dialog, which no NPC_TALK brings (QA build 23). Errors: no_dialog, no_decline_button,
+        use_click_option (a menu), site_mismatch."""
+        event = self.qa_request('dialog_decline', 'click.done', lambda e: e.get('op') == 'dialog_decline', 'no_dialog')
+        return {'op': 'dialog_decline', 'type': event.get('type')}
 
     def merchant_open(self, item, quantity, price, title='QA shop'):
         """P0-2 GP8: sets up a hired merchant (the Fredrick check, CREATE, the item, Open) through the QA client, which
