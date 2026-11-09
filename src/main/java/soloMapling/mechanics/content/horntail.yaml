@@ -97,7 +97,9 @@ stages:
     # the room's own clock: reactor 2401000 restarts the script's timer to 60 minutes when it is hit (2401000.js:33)
     timeLimitMinutes: 60
     # no summonProperty: reactor 2401000 sets none. The room is empty before it is hit, so the bots hit the reactor
-    # themselves (SolverStep.HitReactor); the solver clicks each listed reactor once per stage.
+    # themselves (SolverStep.HitReactor). 2401000 has states 0-6 with a hit on each of 0-5 (Reactor.wz/2401000.img.xml)
+    # and scripts/reactor/2401000.js spawns Horntail on the sixth hit, so the solver keeps hitting it while it is still
+    # hittable and the room still holds no part, rather than clicking it once per stage.
     hitReactors: [2401000]
     mobs:
       - 8810002

@@ -47,6 +47,28 @@ public final class BossPhasesSolver implements StageSolver {
     /** b365: when the run was told a reactor needs an item nobody holds (once per reactor per stage). */
     private static final String K_NEEDS = "bossReactorNeeds";
 
+    /**
+     * Where a listed reactor of a room with no summon property is remembered as spent: its state is past the point a
+     * client hits ({@code 2401000} after its sixth hit) or the party cannot reach it. A room with no summon property has
+     * no other signal that its summon happened, because the script sets none (scripts/reactor/2401000.js spawns Horntail
+     * and touches no event property).
+     */
+    private static final String K_FIRED = "bossReactorFired";
+
+    /** Where the repeat loop remembers the state it last saw a reactor in, to tell a slow party from a stuck one. */
+    private static final String K_STALL = "bossReactorStall";
+
+    /**
+     * A listed reactor still hittable this long without its state moving is one no member can reach, so the repeat loop
+     * lets it go: the room then falls to the grace as any other room that summoned nothing (QA run
+     * horntail-alt-visual-c-20261109T113849Z is the failure this guards, not the fix).
+     */
+    static final long REACTOR_STALL_MS = 120_000;
+
+    /** The state a repeat loop last saw, and since when it has stayed there. */
+    private record Stall(int state, long since) {
+    }
+
     @Override
     public String id() {
         return ID;
@@ -79,22 +101,26 @@ public final class BossPhasesSolver implements StageSolver {
                     + " in hand, so stage " + view.stage().index() + " cannot be entered: " + view.stage().name());
         }
         List<BossTargetRules.Part> parts = view.bossParts();
-        BossTargetRules.Phase phase = BossTargetRules.phase(parts, summoned(view), view.cleared());
+        boolean summoned = summoned(view, parts);
+        BossTargetRules.Phase phase = BossTargetRules.phase(parts, summoned, view.cleared());
         if (phase == BossTargetRules.Phase.DONE) {
             return new SolverStep.Done();
         }
-        if (phase == BossTargetRules.Phase.WAITING_FOR_SUMMON) {
-            return new SolverStep.Wait(1_000, "waiting for the boss to be summoned");
-        }
         List<Integer> reactors = view.stage().hitReactors();
         boolean opened = reactors.stream().anyMatch(id -> view.stageMemory().containsKey(K_REACTOR + id));
-        if (opened || parts.isEmpty()) {
+        // a room that names a summon property is gated by it: its reactors are not clicked before the summon, which is
+        // what the early return below did for every room until 1.6.7. A room that names none (Horntail's body room) has
+        // nothing to wait for - its reactors ARE the summon - so it is worked first and the wait comes after.
+        boolean mayOpen = view.stage().summonProperty() == null || summoned;
+        if (mayOpen && (opened || parts.isEmpty())) {
             // the room's fight is behind reactors the party opens itself (Horntail's 2401000, Scarga's 5511000+5511001,
             // Krexel's 5411001, Papulatus' 2201004, Showa's 8001000). The first click happens while the room is empty;
             // after that the rest follow even though the first reactor's boss may already stand, because Scarga's
             // second reactor brings half the fight and a "click it only when the room looks empty" rule would never
-            // reach it. Once per stage: a reactor script is not written to be clicked twice (scripts/reactor/
-            // 2201004.js:22-29 has no guard at all), so the click is remembered in the stage's own scratch memory.
+            // reach it. The FIRST click is once per stage: a reactor script is not written to be opened twice
+            // (scripts/reactor/2201004.js:22-29 has no guard at all), so it is remembered in the stage's scratch
+            // memory. A reactor that takes several hits is repeated by keepHitting below, which asks the live state
+            // instead of counting.
             for (int reactorId : reactors) {
                 if (view.stageMemory().containsKey(K_REACTOR + reactorId)) {
                     continue;
@@ -132,22 +158,31 @@ public final class BossPhasesSolver implements StageSolver {
                     // (d) someone put the item down themselves - a player does, in the real game - and the reactor
                     // moved on to a state no client can hit: it is open, and a hit now would be one no client makes
                     view.stageMemory().put(K_REACTOR + reactorId, view.nowMs());
+                    markFired(view, reactorId);
                     continue;
                 }
                 view.stageMemory().put(K_REACTOR + reactorId, view.nowMs());
                 return new SolverStep.HitReactor(reactorId);
             }
+            SolverStep again = keepHitting(view, parts, reactors);
+            if (again != null) {
+                return again;
+            }
+        }
+        if (phase == BossTargetRules.Phase.WAITING_FOR_SUMMON) {
+            return new SolverStep.Wait(1_000, "waiting for the boss to be summoned");
         }
         List<Integer> order = order(view, parts, view.fighterOf(member.characterId()), phase);
         if (order.isEmpty()) {
             // nothing it may hit: either a part is there but not hittable by this member (an arm while no human drives
             // it, an immunity), which is a wait, or the room has no arm and no body phase at all after the summon,
-            // which is only a moment between phases until the row's own deadline runs out
-            if (nothingToHit(parts)) {
+            // which is only a moment between phases until the row's own deadline runs out. The clock runs only once the
+            // room counts as summoned: a room whose own reactors have not fired yet is before the summon, not after it.
+            if (nothingToHit(parts) && summoned) {
                 long allowed = allowedEmptyMs(view.stage());
                 Object since = view.stageMemory().putIfAbsent(K_NOTHING_SINCE, view.nowMs());
                 long waiting = since instanceof Long start ? view.nowMs() - start : 0L;
-                if (summoned(view) && !view.cleared() && waiting >= allowed) {
+                if (!view.cleared() && waiting >= allowed) {
                     return new SolverStep.Abandon("no arm and no body of " + view.stage().mobs()
                             + " has been alive for " + allowed / 1000
                             + " s after the summon (saw " + ids(parts) + "): the instance can never be cleared,"
@@ -159,6 +194,110 @@ public final class BossPhasesSolver implements StageSolver {
         view.stageMemory().remove(K_NOTHING_SINCE);
         int[] band = band(view, order.get(0));
         return new SolverStep.Fight(order, 0, 0, band[0], band[1], band[0] == 0 && band[1] == 0 ? 0 : BAND_PX);
+    }
+
+    /**
+     * Whether the room's parts were summoned. The data names the property the map's reactor sets ({@code summoned} for
+     * Zakum's altar, {@code scripts/reactor/2111001.js:26-29}, and for Horntail's first two rooms,
+     * {@code 2408003.js}); a part standing before that is the fake body and the map's own life, not a fight the party
+     * started.
+     *
+     * <p>A stage with no such property has no event to read, so its summons is its own data. Horntail's body room,
+     * reactor {@code 2401000} spawns everything and sets nothing (scripts/reactor/2401000.js): there the room counts as
+     * summoned once a part stands or the crystal has fired - a reactor at a state no client hits is a reactor at its
+     * last state, and that script's act() is what spawns the fight. A room with no property and no reactor of its own
+     * (Horntail's first two rooms) stands from setup, so it is summoned at once.
+     */
+    private static boolean summoned(StageView view, List<BossTargetRules.Part> parts) {
+        String property = view.stage().summonProperty();
+        if (property != null) {
+            return view.eventProperty(property).isPresent();
+        }
+        List<Integer> reactors = view.stage().hitReactors();
+        if (reactors.isEmpty()) {
+            return true;
+        }
+        return !parts.isEmpty() || reactors.stream().anyMatch(id -> fired(view, id));
+    }
+
+    /**
+     * Whether a listed reactor of a room with no summon property has done its job. Reactor.wz {@code 2401000} has states
+     * 0-6 with a hit on each of 0-5 and none on 6 (six type-0 hits, the sixth running
+     * scripts/reactor/2401000.js act() and spawning Horntail), so "past its last hittable state" is what its script's
+     * spawn means. A one-hit reactor reads the same way after its single hit, and the memory key keeps it read that way
+     * if the reactor is later reset.
+     */
+    private static boolean fired(StageView view, int reactorId) {
+        if (view.stageMemory().containsKey(K_FIRED + reactorId)) {
+            return true;
+        }
+        return view.reactorState(reactorId) > 0 && !view.reactorHittable(reactorId);
+    }
+
+    private static void markFired(StageView view, int reactorId) {
+        view.stageMemory().put(K_FIRED + reactorId, view.nowMs());
+        view.stageMemory().remove(K_STALL + reactorId);
+    }
+
+    /**
+     * The second and later hits a listed reactor needs, one per solver step: a reactor that takes several hits to open
+     * is hit again while the room still holds no arm and no body, the reactor is still hittable, and its state is below
+     * its last. One click per stage reached state 5 of seven on Horntail's crystal and summoned nothing (QA run
+     * horntail-alt-visual-c-20261109T113849Z), and Krexel's {@code 5411001} has the same six-hit shape.
+     *
+     * <p>This is not a hit count: the reactor's own state says when to stop (after the hit that lands on its last
+     * state, {@link StageView#reactorHittable} answers false, and a one-state reactor whose script must never run twice,
+     * e.g. {@code 2201004}, is hit exactly once). A reactor whose state has not moved for
+     * {@link #REACTOR_STALL_MS} while still hittable is one the party cannot reach: it is let go so the grace ends the
+     * run instead of the solver asking for a hit nobody makes.
+     *
+     * <p>The pace between hits is the executor's own (3 s per member, {@code StepExecutor.hitReactorAt}), so a room of
+     * several bots lands at most one hit per member per 3 s. The loop itself costs a handful of stage-memory reads per
+     * tick and a write only when a reactor's state moves or it is written down as spent.
+     *
+     * @return the next hit, or null when no listed reactor wants one
+     */
+    private static SolverStep keepHitting(StageView view, List<BossTargetRules.Part> parts, List<Integer> reactors) {
+        for (int reactorId : reactors) {
+            if (!view.stageMemory().containsKey(K_REACTOR + reactorId)) {
+                continue; // its first click has not been asked for yet: the loop above owns it
+            }
+            if (fired(view, reactorId)) {
+                if (!view.stageMemory().containsKey(K_FIRED + reactorId)) {
+                    markFired(view, reactorId); // once: a live reactor read is enough until it is written down
+                }
+                continue;
+            }
+            if (view.reactorTakes(reactorId) != null) {
+                continue; // an item reactor opens on its stack, never on a repeat hit
+            }
+            if (!nothingToHit(parts)) {
+                continue; // a part is in the room: the fight is the job, not the reactor
+            }
+            if (!view.reactorHittable(reactorId)) {
+                continue; // no client hits this state
+            }
+            if (stalled(view, reactorId)) {
+                markFired(view, reactorId);
+                continue;
+            }
+            // the reactor is still on its way to its last state: this is the summon in progress, so the empty-room
+            // clock has not started and must not be left running from an earlier tick
+            view.stageMemory().remove(K_NOTHING_SINCE);
+            return new SolverStep.HitReactor(reactorId);
+        }
+        return null;
+    }
+
+    /** Whether a reactor's state has stayed put, without ever leaving it, for a whole {@link #REACTOR_STALL_MS}. */
+    private static boolean stalled(StageView view, int reactorId) {
+        int state = view.reactorState(reactorId);
+        Object seen = view.stageMemory().get(K_STALL + reactorId);
+        if (!(seen instanceof Stall stall) || stall.state() != state) {
+            view.stageMemory().put(K_STALL + reactorId, new Stall(state, view.nowMs()));
+            return false;
+        }
+        return view.nowMs() - stall.since() >= REACTOR_STALL_MS;
     }
 
     /**
@@ -249,17 +388,5 @@ public final class BossPhasesSolver implements StageSolver {
     private static int dataOrder(List<Integer> mobs, int mobId) {
         int index = mobs.indexOf(mobId);
         return index < 0 ? Integer.MAX_VALUE : index;
-    }
-
-    /**
-     * Whether the room's parts were summoned. The data names the property the map's reactor sets ({@code summoned} for
-     * Zakum's altar, {@code scripts/reactor/2111001.js:26-29}, and for Horntail's first two rooms,
-     * {@code 2408003.js}); a part standing before that is the fake body and the map's own life, not a fight the party
-     * started. A stage with no such property (Horntail's body room, where reactor {@code 2401000} spawns everything and
-     * sets nothing) is never gated: there the parts' absence is the only signal.
-     */
-    private static boolean summoned(StageView view) {
-        String property = view.stage().summonProperty();
-        return property == null || view.eventProperty(property).isPresent();
     }
 }
