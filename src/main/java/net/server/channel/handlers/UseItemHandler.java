@@ -54,6 +54,14 @@ public final class UseItemHandler extends AbstractPacketHandler {
         Item toUse = chr.getInventory(InventoryType.USE).getItem(slot);
         if (toUse != null && toUse.getQuantity() > 0 && toUse.getItemId() == itemId) {
             server.reports.PlayerTrail.event(chr, "use", itemId, null); // ticket 131: @bug trail
+            // 1.6.8 useitem-script-item-eaten: a Use item whose spec has a script (the Thunder Stone 2430200 runs
+            // dreamkey.js) is used through SCRIPTED_ITEM, which runs the script; sent here it fell through to remove()
+            // and was eaten with no effect (QA's Cygnus cell, 9 Nov). Refused, nothing taken.
+            ItemInformationProvider.ScriptedItem scripted = ii.getScriptedItemInfo(itemId);
+            if (scripted != null && !scripted.getScript().isEmpty()) {
+                c.sendPacket(PacketCreator.enableActions());
+                return;
+            }
             if (itemId == ItemId.ALL_CURE_POTION) {
                 chr.dispelDebuffs();
                 remove(c, slot);
