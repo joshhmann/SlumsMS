@@ -37,6 +37,10 @@ class IfiaRoseGardenTest {
             return onQuest && quest == 3174;
         }
 
+        public boolean isQuestCompleted(int quest) {
+            return false; // 1.6.6.1: Ifia also asks about 3171 (IfiaCorridorTest covers that menu)
+        }
+
         public void sendSimple(String text) {
             menu = text;
         }

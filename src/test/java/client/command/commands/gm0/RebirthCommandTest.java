@@ -9,8 +9,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * 1.6.6.1 (owner 8 Nov 2026): @rebirth opens Wyatt the Reborn's rebirth talk, only in Base of Roots. The released
- * client sends no talk for a click on Wyatt (1300009), so without it nobody could make an Essence Stone or be reborn.
+ * 1.6.6.1 (owner 8 Nov 2026): @rebirth opens Wyatt the Reborn's rebirth talk, only in Base of Roots. A click on Wyatt
+ * (1300009) opens the client's quest menu first, and the talk is its last row.
  */
 class RebirthCommandTest {
 

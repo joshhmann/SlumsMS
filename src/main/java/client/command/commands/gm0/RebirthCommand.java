@@ -8,9 +8,9 @@ import scripting.npc.NPCScriptManager;
 
 /**
  * 1.6.6.1 (owner 8 Nov 2026): @rebirth opens Wyatt the Reborn's rebirth talk (scripts/npc/rebirth.js), the same one a
- * click on him runs through NPCTalkHandler. The released client never sends the talk for a click on Wyatt (1300009 has
- * no client script), so the Essence Stone and the rebirth were out of reach. It works only in Base of Roots, where he
- * stands, the way @craft opens his crafting talk.
+ * click on him runs through NPCTalkHandler. A click on Wyatt (also a stock quest NPC) first opens the client's own quest
+ * menu, and only its last row sends the talk, which is easy to miss. It works only in Base of Roots, where he stands, the
+ * way @craft opens his crafting talk.
  */
 public class RebirthCommand extends Command {
     {
