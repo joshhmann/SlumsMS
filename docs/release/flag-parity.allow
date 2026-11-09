@@ -37,3 +37,20 @@ test-only slums.board.outbox
 # 1.6.7 (b377): the ops notice secret is a host file, /etc/slums-ops-test/secret on TEST and
 # /etc/slumsms-ops/notice.secret on live; the port is the same (8199).
 value slums.ops.secretFile
+
+# ---- TEST-B / TEST-C only (docs/ops/test-instances.md) ----------------------------------------------------------
+# Applies only to `tools/ops/flag-parity --instance B|C` (deploy-test does that for those instances). TEST-A never
+# reads these lines. B and C switch off A's website/dashboard plumbing; behaviour flags stay identical to A and live.
+@instances B C
+live-only slums.site.export         # TEST site export: the TEST website follows A only
+live-only slums.market.export
+live-only slums.board
+live-only slums.board.inbox
+live-only slums.board.outbox
+live-only slums.weblogin.dir
+live-only solomapling.dashboard.dir
+live-only solomapling.reportsFile
+live-only slums.auth.port           # no launcher auth endpoint on B/C
+live-only slums.auth.secretFile
+value slums.ops.port                # 8299 (B) / 8399 (C); A and live use 8199
+@all

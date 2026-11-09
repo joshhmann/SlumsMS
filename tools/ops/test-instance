@@ -1,0 +1,115 @@
+#!/bin/bash
+# Set up or refresh the DB of a TEST-B / TEST-C instance on mapletest (docs/ops/test-instances.md). Never TEST-A, never live.
+#
+#   tools/ops/test-instance setup B|C [--dry-run]       # folder, secrets, DB container, DB load, config.yaml, start script
+#   tools/ops/test-instance refresh-db B|C [--dry-run]  # stop that instance, reload its DB from a fresh dump of A, start it
+#
+# --dry-run prints every host command and runs none (it does not even ssh). Values come from tools/ops/test-instances.py.
+# A is only ever READ: a copy of its Server folder (wz/ hard-linked: no extra disk) and one mysqldump --single-transaction
+# of its database. A's unit and container are never stopped, restarted or written. Secrets are made on the host from
+# /dev/urandom with mode 0600 and are never printed. setup does not start the instance: deploy it with
+#   tools/ops/deploy-test --instance <B|C> --since <the commit A runs>
+set -euo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"   # TEST_HOST, test_ssh, test_scp
+
+OPS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$OPS/../.." && pwd)"
+usage() { sed -n '2,12p' "$0"; exit "${1:-2}"; }
+
+CMD=${1:-}; INST=${2:-}; DRY=0
+[ $# -ge 2 ] || usage
+shift 2
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --dry-run) DRY=1 ;;
+    -h|--help) usage 0 ;;
+    *) echo "unknown option $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+case "$CMD" in setup|refresh-db) ;; *) echo "unknown command '$CMD'" >&2; usage ;; esac
+case "$INST" in
+  B|C) ;;
+  A) echo "refusing: TEST-A is never set up or refreshed by this tool" >&2; exit 2 ;;
+  *) echo "unknown instance '$INST': use B or C" >&2; exit 2 ;;
+esac
+
+inst() { python3 "$OPS/test-instances.py" get "$1" "$2"; }
+FOLDER=$(inst "$INST" folder); SRV=$FOLDER/Server; UNIT=$(inst "$INST" unit)
+DBC=$(inst "$INST" db_container); DBPORT=$(inst "$INST" db_port); DBN=$(inst "$INST" db_name)
+SECRETS=$(inst "$INST" secrets_dir); POP=$(inst "$INST" population); LOGIN=$(inst "$INST" login)
+START=$(inst "$INST" start_script)
+A_FOLDER=$(inst A folder); A_SRV=$A_FOLDER/Server; A_DBC=$(inst A db_container); A_DBN=$(inst A db_name)
+A_DBPORT=$(inst A db_port)
+IMAGE=mysql:8.4.9
+# never the live DB port (3309), whatever the table says
+[ "$DBPORT" != 3309 ] || { echo "refusing: 3309 is live's DB port" >&2; exit 1; }
+# the instance must not be A's names
+[ "$DBC" != "$A_DBC" ] && [ "$UNIT" != "$(inst A unit)" ] && [ "$FOLDER" != "$A_FOLDER" ] || { echo "refusing: $INST names A's unit, folder or DB" >&2; exit 1; }
+
+# host <command>: one command on the TEST box (printed, not run, with --dry-run)
+host() {
+  if [ $DRY = 1 ]; then printf '[host root@%s] %s\n' "$TEST_HOST" "$1"; else test_ssh "$1"; fi
+}
+# a MySQL client run inside a container, password taken from that container's own environment (never visible here)
+MYSQL_IN='mysql -uroot -p"$MYSQL_ROOT_PASSWORD"'
+
+mkfile() { # mkfile <name>: a random secret, 0600, created on the host only if missing, never printed
+  host "umask 077; [ -e $SECRETS/$1 ] || head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \\n' > $SECRETS/$1"
+}
+
+load_from_a() { # one read-only dump of A piped into this instance's DB
+  host "docker exec $A_DBC sh -c 'mysqldump -uroot -p\"\$MYSQL_ROOT_PASSWORD\" --single-transaction --routines --triggers $A_DBN' | docker exec -i $DBC sh -c '$MYSQL_IN $DBN'"
+}
+
+wait_db() {
+  host "for i in \$(seq 1 60); do docker exec $DBC sh -c 'mysqladmin ping -uroot -p\"\$MYSQL_ROOT_PASSWORD\" --silent' >/dev/null 2>&1 && break; sleep 2; done; docker exec $DBC sh -c 'mysqladmin ping -uroot -p\"\$MYSQL_ROOT_PASSWORD\" --silent'"
+}
+
+case "$CMD" in
+setup)
+  echo "== test-instance setup $INST ($UNIT, $FOLDER, login $LOGIN, db $DBC:$DBPORT, population $POP)$([ $DRY = 1 ] && echo ' [dry run]') =="
+  # 1. preconditions: nothing of this instance exists yet, its ports are free
+  host "[ ! -e $FOLDER ] || { echo '$FOLDER already exists: refusing' >&2; exit 1; }"
+  host "docker inspect $DBC >/dev/null 2>&1 && { echo 'container $DBC already exists: refusing' >&2; exit 1; } || true"
+  host "ss -ltn | grep -E ':($LOGIN|$DBPORT) ' && { echo 'a port of $INST is in use: refusing' >&2; exit 1; } || true"
+  host "[ -d $A_SRV ] || { echo '$A_SRV missing' >&2; exit 1; }"
+  # 2. folder: a copy of A's Server, wz/ hard-linked (read-only data, no extra disk)
+  host "mkdir -p $SRV $FOLDER/gc $FOLDER/deploys"
+  host "(cd $A_SRV && tar cf - --exclude=./wz --exclude=./logs .) | tar xf - -C $SRV"
+  host "cp -al $A_SRV/wz $SRV/wz"
+  # 3. secrets, 0600, from /dev/urandom, never printed
+  host "umask 077; mkdir -p $SECRETS && chmod 700 $SECRETS"
+  mkfile inspect
+  mkfile ops
+  host "umask 077; [ -e $SECRETS/db.env ] || printf 'MYSQL_ROOT_PASSWORD=%s\\n' \"\$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \\n')\" > $SECRETS/db.env"
+  host "chmod 600 $SECRETS/inspect $SECRETS/ops $SECRETS/db.env"
+  # 4. DB container from $IMAGE on its own port, then A's data loaded into it
+  host "docker run -d --name $DBC --restart unless-stopped --env-file $SECRETS/db.env -p 127.0.0.1:$DBPORT:3306 -v $DBC-data:/var/lib/mysql $IMAGE"
+  wait_db
+  host "docker exec $DBC sh -c '$MYSQL_IN -e \"CREATE DATABASE IF NOT EXISTS $DBN\"'"
+  load_from_a
+  # 5. config.yaml: DB port, the instance's own DB login, population; HOST stays as A's
+  host "cd $SRV && pw=\$(sed -n 's/^MYSQL_ROOT_PASSWORD=//p' $SECRETS/db.env) && sed -i -e 's|:$A_DBPORT/|:$DBPORT/|' -e \"s|^\\( *DB_USER:\\).*|\\1 \\\"root\\\"|\" -e \"s|^\\( *DB_PASS:\\).*|\\1 \\\"\$pw\\\"|\" -e 's|^\\( *BOT_ROSTER_PEAK_ONLINE:\\).*|\\1 $POP|' config.yaml"
+  host "cd $SRV && grep -q ':$DBPORT/' config.yaml && grep -q 'BOT_ROSTER_PEAK_ONLINE: $POP\$' config.yaml || { echo 'config.yaml was not updated as expected' >&2; exit 1; }"
+  # 6. the generated start script (python3 tools/ops/test-instances.py render-start $INST)
+  if [ $DRY = 1 ]; then
+    echo "[local] scp $START root@$TEST_HOST:$FOLDER/start-test.sh"
+  else
+    test_scp "$ROOT/$START" "root@$TEST_HOST:$FOLDER/start-test.sh"
+  fi
+  host "chmod 755 $FOLDER/start-test.sh && bash -n $FOLDER/start-test.sh"
+  echo "next: tools/ops/deploy-test --instance $INST --since \$(ssh root@$TEST_HOST cat $A_SRV/DEPLOYED_COMMIT)"
+  ;;
+refresh-db)
+  echo "== test-instance refresh-db $INST ($UNIT, db $DBC:$DBPORT)$([ $DRY = 1 ] && echo ' [dry run]') =="
+  host "docker inspect $DBC >/dev/null 2>&1 || { echo 'container $DBC missing: run setup $INST first' >&2; exit 1; }"
+  host "systemctl stop $UNIT || true"
+  host "for i in \$(seq 1 60); do systemctl is-active -q $UNIT || break; sleep 5; done; systemctl reset-failed $UNIT 2>/dev/null || true"
+  host "docker exec $DBC sh -c '$MYSQL_IN -e \"DROP DATABASE IF EXISTS $DBN; CREATE DATABASE $DBN\"'"
+  load_from_a
+  host "bash $FOLDER/start-test.sh"
+  ;;
+esac
+[ $DRY = 1 ] && echo "dry run: nothing was run"
+exit 0

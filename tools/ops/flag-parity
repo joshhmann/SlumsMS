@@ -6,8 +6,10 @@ behaviour (b371: bossfight.reach on TEST only). Every difference must be declare
   - as a live change of the release being prepared: a -D flag in the release conf's UNIT_EDITS (live gets it on the
     night, TEST runs it already) or in UNIT_FLAGS_ABSENT (live loses it on the night).
 
-  tools/ops/flag-parity [--conf docs/release/<version>.conf] [--running] [--live-flags FILE] [--test-flags FILE] [--quiet]
+  tools/ops/flag-parity [--instance A|B|C] [--conf docs/release/<version>.conf] [--running] [--live-flags FILE] [--test-flags FILE] [--quiet]
 
+--instance B or C checks that instance's generated start script (deploy/test/start-test-b.sh / -c.sh) or, with --running,
+its unit, and also honours the "@instances B C" section of the allow file (the B/C-only differences). Default A.
 TEST's flags come from deploy/test/start-test.sh (what TEST is meant to run), or with --running from the running unit
 on TEST. Live's come from the slumsms unit on 164 (read only). --live-flags/--test-flags read a file instead (one
 command line or one flag per line; tests use these). Exit 0 = every difference declared, 1 = undeclared differences
@@ -53,28 +55,43 @@ def live_flags(path):
     return flags_of(out)
 
 
-def test_flags(path, running):
+INSTANCE_FILES = {"A": ("deploy", "test", "start-test.sh"), "B": ("deploy", "test", "start-test-b.sh"),
+                  "C": ("deploy", "test", "start-test-c.sh")}
+INSTANCE_UNITS = {"A": "slums-persistence-test", "B": "slums-test-b", "C": "slums-test-c"}
+
+
+def test_flags(path, running, instance="A"):
     if path:
         return flags_of(open(path).read())
     if running:
         host = os.environ.get("SLUMS_TEST_HOST", "192.168.0.111")
         key = os.path.expanduser("~/.ssh/id_slums_lxc")
         argv = ["ssh", "-o", "BatchMode=yes"] + (["-o", "IdentitiesOnly=yes", "-i", key] if os.path.exists(key) else [])
-        out, err = read_cmd(argv + ["root@" + host, "systemctl show slums-persistence-test -p ExecStart --value"])
+        out, err = read_cmd(argv + ["root@" + host, "systemctl show %s -p ExecStart --value" % INSTANCE_UNITS[instance]])
         if out is None:
             sys.exit("flag-parity: cannot read TEST's unit: " + err)
         return flags_of(out)
-    return flags_of(open(START_SCRIPT).read())
+    return flags_of(open(os.path.join(ROOT, *INSTANCE_FILES[instance])).read())
 
 
-def read_allow(path):
-    """kind -> set of names. Lines: '<test-only|live-only|value> <flag name>  # why'."""
+def read_allow(path, instance="A"):
+    """kind -> set of names. Lines: '<test-only|live-only|value> <flag name>  # why'. A line '@instances B C' starts a
+    section that only applies when checking one of those instances; '@all' ends it."""
     allow = {"test-only": set(), "live-only": set(), "value": set()}
+    active = True
     for n, line in enumerate(open(path), 1):
         line = line.split("#", 1)[0].strip()
         if not line:
             continue
         parts = line.split()
+        if parts[0] == "@all" and len(parts) == 1:
+            active = True
+            continue
+        if parts[0] == "@instances" and len(parts) > 1:
+            active = instance in parts[1:]
+            continue
+        if not active:
+            continue
         if len(parts) != 2 or parts[0] not in allow:
             sys.exit("flag-parity: %s:%d: expected '<test-only|live-only|value> <flag>'" % (path, n))
         allow[parts[0]].add(parts[1])
@@ -128,6 +145,7 @@ def compare(live, test, allow, gains=None, loses=None):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--instance", default="A", choices=sorted(INSTANCE_FILES))
     ap.add_argument("--conf")
     ap.add_argument("--running", action="store_true")
     ap.add_argument("--live-flags")
@@ -135,13 +153,13 @@ def main():
     ap.add_argument("--allow", default=ALLOW)
     ap.add_argument("--quiet", action="store_true")
     a = ap.parse_args()
-    live, test = live_flags(a.live_flags), test_flags(a.test_flags, a.running)
+    live, test = live_flags(a.live_flags), test_flags(a.test_flags, a.running, a.instance)
     if not live or not test:
         print("flag-parity: no -D flags read for %s" % ("live" if not live else "TEST"), file=sys.stderr)
         return 2
     gains, loses = conf_changes(a.conf)
-    bad = compare(live, test, read_allow(a.allow), gains, loses)
-    src = "running unit" if a.running else (a.test_flags or "deploy/test/start-test.sh")
+    bad = compare(live, test, read_allow(a.allow, a.instance), gains, loses)
+    src = "running unit" if a.running else (a.test_flags or "/".join(INSTANCE_FILES[a.instance]))
     if not bad:
         if not a.quiet:
             print("flag-parity OK: live %d flags, TEST (%s) %d; every difference declared%s" % (
