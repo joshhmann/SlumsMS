@@ -34,6 +34,7 @@ function act() {
             rm.spawnMonster(i);
         }
         rm.createMapMonitor(280030001, "ps00");
+        feedSpawn("chaoszakum", 8800100, 280030001);
         rm.mapMessage(5, "Chaos Zakum is summoned by the force of Eye of Fire.");
     } else {
         rm.spawnFakeMonster(8800000);
@@ -41,6 +42,21 @@ function act() {
             rm.spawnMonster(i);
         }
         rm.createMapMonitor(280030000, "ps00");
+        feedSpawn("zakum", 8800000, 280030000);
         rm.mapMessage(5, "Zakum is summoned by the force of Eye of Fire.");
+    }
+}
+
+// 1.6.7 boss-feed-lines: the summon's own line (observe only; the rest of the run's lines are in the event script).
+function feedSpawn(id, body, map) {
+    try {
+        var eim = rm.getPlayer().getEventInstance();
+        if (eim == null) {
+            return;
+        }
+        var leader = eim.getLeader();
+        eim.feed("RUN boss " + id + " spawn: body " + body + " and 8 arms on " + map + ", party " + eim.getPlayerCount()
+                + " [" + id + (leader == null ? "" : ", leader " + leader.getName()) + "]");
+    } catch (e) {
     }
 }

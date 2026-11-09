@@ -31,6 +31,12 @@ function act() {
 
         var eim = rm.getEventInstance();
         eim.restartEventTimer(60 * 60000);
+        try {   // 1.6.7 boss-feed-lines: observe only
+            var leader = eim.getLeader();
+            eim.feed("RUN boss horntail main start: body 8810018 and 8 parts on " + rm.getReactor().getMap().getId()
+                    + ", clock 60 min [horntail" + (leader == null ? "" : ", leader " + leader.getName()) + "]");
+        } catch (e) {
+        }
     }
     rm.mapMessage(6, "From the depths of his cave, here comes Horntail!");
 }
