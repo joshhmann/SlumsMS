@@ -163,6 +163,14 @@ class BossFeedTest {
     }
 
     @Test
+    void aSkillLineNamesItsChannelToo() {
+        MapleMap map = pianusMap(human(21));
+        when(map.getChannelId()).thenReturn(3);
+        BossFeed.immune(pianus(BossFeed.PIANUS_L, map), true, 35);
+        assertEquals(List.of("BOSS immune pianus L weapon 35 s ch 3"), log);
+    }
+
+    @Test
     void pianusSpawnKillAndRewardLinesCarryTheirSourceAndCounts() {
         handle.topics(List.of(QaLog.Topic.MECHANICS));
         MapleMap map = pianusMap(human(21), bot(1_000_000_007));

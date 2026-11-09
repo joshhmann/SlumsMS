@@ -187,12 +187,12 @@ public final class BossFeed {
         String line = null;
         if (now - t.lastLog[kind] >= LOG_GAP_MS) {
             t.lastLog[kind] = now;
-            line = text.get();
+            line = text.get() + channelSuffix(boss.getMap());
             toLog(line);
         }
         if (now - t.lastFeed[kind] >= FEED_GAP_MS && on()) {
             t.lastFeed[kind] = now;
-            toFeed(boss.getMap(), line != null ? line : text.get());
+            toFeed(boss.getMap(), line != null ? line : text.get() + channelSuffix(boss.getMap()));
         }
     }
 
