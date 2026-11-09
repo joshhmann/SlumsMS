@@ -51,6 +51,9 @@ public final class CharSelectedHandler extends AbstractPacketHandler {
 
     @Override
     public final void handlePacket(InPacket p, Client c) {
+        if (PicGate.refusePicLessSelect(c, "CHAR_SELECT")) {   // pic-bypass-char-select (S1)
+            return;
+        }
         int charId = p.readInt();
 
         String macs = p.readString();

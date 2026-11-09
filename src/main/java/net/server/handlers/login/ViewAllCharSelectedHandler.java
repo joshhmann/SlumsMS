@@ -52,6 +52,9 @@ public final class ViewAllCharSelectedHandler extends AbstractPacketHandler {
 
     @Override
     public final void handlePacket(InPacket p, Client c) {
+        if (PicGate.refusePicLessSelect(c, "PICK_ALL_CHAR")) {   // pic-bypass-char-select (S1)
+            return;
+        }
         int charId = p.readInt();
         p.readInt(); // please don't let the client choose which world they should login
 
