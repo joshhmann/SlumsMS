@@ -1,6 +1,9 @@
 package soloMapling.mechanics;
 
 import org.junit.jupiter.api.Test;
+import server.maps.ReactorFactory;
+import server.maps.ReactorStats;
+import soloMapling.WzTestData;
 import soloMapling.mechanics.BossTargetRules.Part;
 
 import java.util.ArrayList;
@@ -34,6 +37,9 @@ class BossPhasesSolverTest {
     private static final int HORNTAIL_PREHEAD = 8810000;
 
     private final BossPhasesSolver solver = new BossPhasesSolver();
+
+    /** Mirrors {@code BossPhasesSolver.REACTOR_STALL_MS} as a literal, so these tests compile against the base too. */
+    private static final long STALL_MS = 120_000;
 
     @Test
     void waitsForTheSummonWhileOnlyTheMapLifeStands() {
@@ -303,6 +309,7 @@ class BossPhasesSolverTest {
         View view = new View(room, List.of(), Map.of());
 
         assertEquals(5511000, assertInstanceOf(SolverStep.HitReactor.class, solver.next(view, member())).reactorId());
+        view.states.put(5511000, 1); // the click opened it: state 1 takes no hit, so the room counts as summoned
         view.parts.add(add(9420542));
         view.now += 100;
         assertInstanceOf(SolverStep.Fight.class, solver.next(view, member()), "Targa's group is all there is");
@@ -375,6 +382,186 @@ class BossPhasesSolverTest {
         assertEquals(4000381, place.itemId());
         assertEquals(1, place.count());
         assertFalse(solver.next(holds, member()) instanceof SolverStep.PlaceItemOn, "placed once per stage");
+    }
+
+    /**
+     * A reactor that takes several hits is hit until it fires, one solver step per hit: Reactor.wz {@code 2401000} has
+     * seven states, six type-0 hits, and the sixth runs scripts/reactor/2401000.js act() which spawns Horntail. QA run
+     * horntail-alt-visual-c-20261109T113849Z clicked once per stage, reached state 5 and summoned nothing.
+     */
+    @Test
+    void aSixHitReactorIsHitUntilItsLastStateAndThenTheFightIs() {
+        MechanicsModel.Stage room = withReactors(horntailBodyRoom(), List.of(4242424), 0);
+        View view = new View(room, List.of(), Map.of());
+        view.lastHittable = 5; // states 0-5 take a hit; the sixth hit lands on state 6, which takes none
+        view.states.put(4242424, 0);
+
+        for (int hit = 1; hit <= 6; hit++) {
+            SolverStep step = solver.next(view, member());
+            assertEquals(4242424, assertInstanceOf(SolverStep.HitReactor.class, step).reactorId(),
+                    "hit " + hit + " of the six the reactor takes: " + step);
+            view.states.put(4242424, hit); // StepExecutor's hit moves it one state
+            view.now += 3_000;             // and it paces one hit per member per 3 s
+        }
+
+        // the reactor is at its last state, so one of these parts is what it spawned
+        view.parts.add(body(8810026, true));
+        SolverStep step = solver.next(view, member());
+        assertInstanceOf(SolverStep.Fight.class, step, "the parts the last hit spawned are the fight: " + step);
+    }
+
+    /**
+     * A reactor whose script must never run twice is still hit exactly once: {@code scripts/reactor/2201004.js:22-29} has
+     * no guard, and a one-state reactor lands on a state no client hits. The loop reads the live state, not a count.
+     */
+    @Test
+    void aOneHitReactorIsNeverHitASecondTime() {
+        MechanicsModel.Stage room = withReactors(horntailBodyRoom(), List.of(2201004), 0);
+        View view = new View(room, List.of(), Map.of());
+        view.states.put(2201004, 0);
+        assertEquals(2201004, assertInstanceOf(SolverStep.HitReactor.class, solver.next(view, member())).reactorId());
+
+        view.states.put(2201004, 1); // its one hit opened it, and state 1 takes no hit
+        view.now += 3_000;
+        SolverStep step = solver.next(view, member());
+
+        assertFalse(step instanceof SolverStep.HitReactor, "one hit, never two: " + step);
+        assertInstanceOf(SolverStep.Wait.class, step, "the room is open with nothing in it yet: " + step);
+    }
+
+    /**
+     * The empty-room clock is the after-the-summon clock: a room whose own reactor has not fired yet is before the
+     * summon, so no abandon may be answered while the hits are still going in. Once the reactor fires and nothing
+     * appears, the grace runs and the run is ended, as it always did.
+     */
+    @Test
+    void theEmptyRoomClockWaitsForTheRoomReactorToFire() {
+        View view = new View(horntailBodyRoom(), List.of(), Map.of());
+        view.lastHittable = 5;
+        view.states.put(2401000, 0);
+
+        for (long now = 0; now <= 60_000; now += 3_000) {
+            view.now = now;
+            SolverStep step = solver.next(view, member());
+            assertFalse(step instanceof SolverStep.Abandon, "the crystal has not fired yet, at " + now + " ms: " + step);
+            assertInstanceOf(SolverStep.HitReactor.class, step, "the answer is the next hit, at " + now + " ms: " + step);
+        }
+
+        view.states.put(2401000, 6); // the sixth hit: the script spawned Horntail, or nothing came
+        view.now = 63_000;
+        assertInstanceOf(SolverStep.Wait.class, solver.next(view, member()), "the reactor fired: the clock starts here");
+
+        view.now = 92_000;
+        assertInstanceOf(SolverStep.Wait.class, solver.next(view, member()), "29 s after the fire is inside the grace");
+
+        view.now = 93_000;
+        SolverStep step = solver.next(view, member());
+        assertInstanceOf(SolverStep.Abandon.class, step, "30 s after the fire with nothing alive: " + step);
+    }
+
+    /**
+     * A reactor no hit ever moves - the party cannot reach it, or the hits bounce off a state the server still calls
+     * hittable - must not keep the run asking forever. After the stall period the loop lets it go, the room counts as
+     * fired, and the ordinary grace ends the run.
+     */
+    @Test
+    void aReactorNoHitEverMovesIsLetGoAndTheRunEndsAtTheGrace() {
+        View view = new View(horntailBodyRoom(), List.of(), Map.of());
+        view.lastHittable = 5;
+        view.states.put(2401000, 0);
+
+        assertEquals(2401000, assertInstanceOf(SolverStep.HitReactor.class, solver.next(view, member())).reactorId(),
+                "the first click");
+        assertInstanceOf(SolverStep.HitReactor.class, solver.next(view, member()),
+                "then the repeat, which starts the stall");
+
+        view.now = STALL_MS - 1;
+        assertInstanceOf(SolverStep.HitReactor.class, solver.next(view, member()), "still inside the stall");
+
+        view.now = STALL_MS;
+        SolverStep step = solver.next(view, member());
+        assertFalse(step instanceof SolverStep.HitReactor, "the state never moved, so the reactor is let go: " + step);
+        assertInstanceOf(SolverStep.Wait.class, step, "the room is now judged as fired-with-nothing-alive");
+
+        view.now += 30_000;
+        assertInstanceOf(SolverStep.Wait.class, solver.next(view, member()), "the grace starts on this tick");
+        view.now += 30_000;
+        assertInstanceOf(SolverStep.Abandon.class, solver.next(view, member()), "and the grace ends the run");
+    }
+
+    /** A room with no summon property and no reactor of its own (Horntail's head rooms) is summoned as it was. */
+    @Test
+    void aRoomWithNoPropertyAndNoReactorIsSummonedFromTheFirstTick() {
+        MechanicsModel.Stage headRoom = MechanicsRuns.contentFor("HorntailBattle").stages().get(0);
+        assertNull(headRoom.summonProperty());
+        assertTrue(headRoom.hitReactors().isEmpty(), "the head rooms stand without a reactor: " + headRoom.hitReactors());
+        View view = new View(headRoom, List.of(), Map.of());
+
+        assertInstanceOf(SolverStep.Wait.class, solver.next(view, member()), "nothing to hit yet, nothing to click");
+
+        view.now += 30_000;
+        assertInstanceOf(SolverStep.Abandon.class, solver.next(view, member()),
+                "an empty head room is the same stall it always was");
+    }
+
+    /** A room that names a summon property waits for that property before a single reactor is clicked. */
+    @Test
+    void aRoomWithASummonPropertyIsNeverClickedBeforeTheProperty() {
+        MechanicsModel.Stage room = withReactors(MechanicsRuns.contentFor("ZakumBattle").stages().get(0),
+                List.of(2201004), 0);
+        assertEquals("summoned", room.summonProperty());
+        View view = new View(room, List.of(), Map.of());
+        view.states.put(2201004, 0);
+
+        SolverStep step = solver.next(view, member());
+        assertFalse(step instanceof SolverStep.HitReactor, "not before the property: " + step);
+        assertInstanceOf(SolverStep.Wait.class, step);
+
+        view.props.put("summoned", "true");
+        assertInstanceOf(SolverStep.HitReactor.class, solver.next(view, member()),
+                "once it is summoned the room's own reactor is opened");
+    }
+
+    /**
+     * Wiring: the shipped row and the real Reactor.wz agree on the six hits. The state chain is read out of
+     * {@code Reactor.wz/2401000.img.xml} through {@link ReactorFactory}, not written into the test, so a data change
+     * that makes the crystal take a different number of hits shows up here.
+     */
+    @Test
+    void theShippedBodyRoomAsksForEveryHitItsCrystalTakesInReactorWz() {
+        WzTestData.assumePresent("Reactor.wz");
+        MechanicsModel.Stage room = horntailBodyRoom();
+        assertEquals(List.of(2401000), room.hitReactors());
+        assertNull(room.summonProperty(), "the crystal sets no property: the hits are the only signal");
+
+        ReactorStats stats = ReactorFactory.getReactor(2401000);
+        List<Integer> hittable = new ArrayList<>(); // the states a client hits, in order
+        int state = 0;
+        while (stats.hasState((byte) state) && stats.getType((byte) state) < 999) {
+            hittable.add(state);
+            byte next = stats.getNextState((byte) state, (byte) 0);
+            if (next < 0) {
+                break;
+            }
+            state = next;
+        }
+        assertEquals(6, hittable.size(), "the crystal's hittable states: " + hittable);
+
+        View view = new View(room, List.of(), Map.of());
+        view.lastHittable = hittable.get(hittable.size() - 1);
+        view.states.put(2401000, 0);
+        for (int hit = 1; hit <= hittable.size(); hit++) {
+            SolverStep step = solver.next(view, member());
+            assertEquals(2401000, assertInstanceOf(SolverStep.HitReactor.class, step).reactorId(),
+                    "hit " + hit + ": " + step);
+            view.states.put(2401000, (int) stats.getNextState((byte) view.reactorState(2401000), (byte) 0));
+            view.now += 3_000;
+        }
+        assertFalse(view.reactorHittable(2401000), "the sixth hit left the crystal on a state no client hits");
+
+        view.parts.add(body(8810026, true));
+        assertInstanceOf(SolverStep.Fight.class, solver.next(view, member()),
+                "Horntail's body is the fight once the crystal has fired");
     }
 
     private static final int REGULAR = 1_000_000_123;
@@ -617,6 +804,8 @@ class BossPhasesSolverTest {
         List<RunMember> party = List.of(member());
         final Map<Integer, Integer> states = new HashMap<>();
         final Map<Integer, Integer> heldBy = new HashMap<>();
+        /** The highest state a client still hits: 0 for the one-state reactor most rows use, 5 for Horntail's crystal. */
+        int lastHittable;
 
         @Override
         public int reactorState(int reactorId) {
@@ -625,7 +814,8 @@ class BossPhasesSolverTest {
 
         @Override
         public boolean reactorHittable(int reactorId) {
-            return states.getOrDefault(reactorId, -1) == 0; // these reactors' later states take no hit
+            int state = states.getOrDefault(reactorId, -1);
+            return state >= 0 && state <= lastHittable; // these reactors' last state takes no hit
         }
 
         @Override
