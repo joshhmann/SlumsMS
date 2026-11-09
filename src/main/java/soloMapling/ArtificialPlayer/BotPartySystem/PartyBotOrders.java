@@ -11,6 +11,8 @@ import soloMapling.ArtificialPlayer.BotMessagingSystem.BotAddressee;
 import soloMapling.ArtificialPlayer.BotTypes.FollowerBot;
 import soloMapling.ArtificialPlayer.BotTypes.TrainingBot;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
+import soloMapling.companions.CompanionLootMode;
+import soloMapling.companions.CompanionSellJunk;
 import soloMapling.companions.CompanionSettings;
 import soloMapling.companions.CompanionSettingsStore;
 import soloMapling.companions.OwnedAltOrders;
@@ -104,6 +106,9 @@ public final class PartyBotOrders {
         if (settingsReadable(alts)) {
             allowed.addAll(BotCommandParser.SETTINGS); // 1.6.7 alt-settings: "heals off", "pots at 60", "card"
         }
+        if (lootReadable(alts)) {
+            allowed.addAll(BotCommandParser.LOOT); // 1.6.7 group D: "loot everything", "sell junk", "offers off"
+        }
         return BotCommandParser.parse(line, slots, allowed);
     }
 
@@ -119,6 +124,20 @@ public final class PartyBotOrders {
             }
         }
         return Boolean.getBoolean(PartyCompanionPolicy.Feature.SETTINGS.property(false));
+    }
+
+    /**
+     * 1.6.7 alt-loot: read only when a companion would take it - when the loot switch is on for one of the player's
+     * alts, or for party regulars (-Dslums.companion.loot.regulars=true). With the defaults and no alts, "loot
+     * everything" stays ordinary chat.
+     */
+    private static boolean lootReadable(Map<Integer, Character> alts) {
+        for (Character alt : alts.values()) {
+            if (PartyCompanionPolicy.on(PartyCompanionPolicy.Feature.LOOT, alt)) {
+                return true;
+            }
+        }
+        return Boolean.getBoolean(PartyCompanionPolicy.Feature.LOOT.property(false));
     }
 
     /**
@@ -184,6 +203,9 @@ public final class PartyBotOrders {
         if (!CompanionSwitches.any()) {
             return false;
         }
+        if (soloMapling.companions.CompanionUpgradeOffer.answer(player, line)) {
+            return true; // 1.6.7 group D: the owner's yes to a companion's "found a <item>, want it?"
+        }
         Optional<Order> order = read(player, line);
         if (order.isEmpty()) {
             return false;
@@ -226,6 +248,10 @@ public final class PartyBotOrders {
         }
         if (BotCommandParser.SETTINGS.contains(verb)) {
             settings(player, order, alts); // 1.6.7 alt-settings
+            return;
+        }
+        if (BotCommandParser.LOOT.contains(verb)) {
+            loot(player, order, alts); // 1.6.7 group D: the loot mode, "sell junk", "offers on|off"
             return;
         }
         if (BotCommandParser.ITEMS.contains(verb) || BotCommandParser.UPGRADE.contains(verb)
@@ -306,6 +332,51 @@ public final class PartyBotOrders {
     }
 
     /**
+     * 1.6.7 alt-loot: "loot everything|my kills|quest|nothing|like me" saves the mode for the companion(s) the line
+     * names and one of them answers; "sell junk" (and "sell junk equips too") is carried out for each named companion
+     * by {@link CompanionSellJunk}, which never runs by itself; "offers on|off" saves the upgrade-offer switch. A
+     * companion the loot switch is off for takes nothing and says nothing.
+     */
+    private static void loot(Character player, Order order, Map<Integer, Character> alts) {
+        if (player == null) {
+            return;
+        }
+        List<Target> who = order.everyone() ? slots(player, alts) : order.targets();
+        int speaker = -1;
+        String said = null;
+        for (Target t : who) {
+            Character c = companion(t.id(), alts);
+            if (c == null || !PartyCompanionPolicy.on(PartyCompanionPolicy.Feature.LOOT, c)) {
+                continue;
+            }
+            if ((order.verb() == Verb.SELL_JUNK || order.verb() == Verb.OFFERS) && !ownAlt(player, c)) {
+                continue; // wave 4 audit L5: an owned alt's order, from its own owner only (regulars: 1.7.1)
+            }
+            if (order.verb() == Verb.SELL_JUNK) {
+                CompanionSellJunk.order(c, player, "equips".equals(order.arg()), line -> say(t.id(), alts, line));
+                continue;
+            }
+            String reply = apply(player, c, order.verb(), order.arg());
+            if (reply != null && speaker < 0) {
+                speaker = t.id();
+                said = reply;
+            }
+        }
+        if (speaker >= 0) {
+            say(speaker, alts, said);
+        }
+    }
+
+    /** Whether {@code c} is an owned alt and {@code player} is its owner. */
+    static boolean ownAlt(Character player, Character c) {
+        if (player == null || c == null || !c.isOwnedAlt()) {
+            return false;
+        }
+        Character owner = c.getOwnedAltOwner();
+        return owner != null && owner.getId() == player.getId();
+    }
+
+    /**
      * Saves one switch or potion line for one companion and answers the line it says. The number is clamped by the
      * store (10..90), and the answer carries what was stored, so "pots at 5" says what it became.
      */
@@ -318,6 +389,8 @@ public final class PartyBotOrders {
             case BUFF_POTS -> next = current.withBuffPots(!"off".equals(arg));
             case HP_POTS -> next = current.withHpPercent(number(arg, current.hpPercent()));
             case MP_POTS -> next = current.withMpPercent(number(arg, current.mpPercent()));
+            case LOOT -> next = current.withLootMode(arg);
+            case OFFERS -> next = current.withOffers(!"off".equals(arg));
             default -> {
                 return null;
             }
@@ -342,6 +415,11 @@ public final class PartyBotOrders {
             case BUFF_POTS -> s.buffPots() ? "buff pots on" : "buff pots off";
             case HP_POTS -> "k, i'll pot at " + s.hpPercent() + "%";
             case MP_POTS -> "k, i'll drink mp at " + s.mpPercent() + "%";
+            case LOOT -> {
+                CompanionLootMode mode = CompanionLootMode.parse(s.lootMode());
+                yield mode == null ? "k" : "k, " + mode.said();
+            }
+            case OFFERS -> s.offers() ? "offers on" : "offers off";
             default -> null;
         };
     }

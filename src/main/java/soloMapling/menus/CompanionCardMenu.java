@@ -3,6 +3,7 @@ package soloMapling.menus;
 import client.Character;
 import soloMapling.ArtificialPlayer.BotChatPrompt;
 import soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals;
+import soloMapling.companions.CompanionLootMode;
 import soloMapling.companions.CompanionSettings;
 import soloMapling.companions.CompanionSettingsStore;
 import soloMapling.menus.MenuWindow.Option;
@@ -21,7 +22,8 @@ import java.util.function.UnaryOperator;
  * came from.
  *
  * <p>The potion lines are shown as text: they are set in chat ("pots at 60", "mp pots at 40"), and the store clamps
- * them. Looting is shown only when the owner has a mode set; this branch stores it for group D and nothing reads it.
+ * them. Looting is one clickable line (group D): it names the mode in force and a click flips to the next one and
+ * saves it, so the four settings lines of the card keep their meaning and nothing else moves.
  */
 public final class CompanionCardMenu {
 
@@ -54,12 +56,12 @@ public final class CompanionCardMenu {
                 + "hp " + alt.getHp() + "/" + alt.getMaxHp() + "  mp " + alt.getMp() + "/" + alt.getMaxMp() + "\r\n"
                 + "pots: " + hpPots + " hp, " + mpPots + " mp"
                 + " (pots at " + line(now.hpPercent()) + ", mp at " + line(now.mpPercent()) + ")\r\n"
-                + (now.lootMode().isEmpty() ? "" : "loot: " + now.lootMode() + "\r\n")
                 + "\r\n#eClick a switch to flip it.#n\r\n";
         List<Option> lines = new ArrayList<>();
         lines.add(toggle("Party heals: ", now.heals(), alt, s -> s.withHeals(!s.heals())));
         lines.add(toggle("Party buffs: ", now.support(), alt, s -> s.withSupport(!s.support())));
         lines.add(toggle("Buff pots: ", now.buffPots(), alt, s -> s.withBuffPots(!s.buffPots())));
+        lines.add(lootLine(alt, CompanionLootMode.of(alt))); // SlumsMS: 1.6.7 group D, one line, flips through
         return new Page(text, lines);
     }
 
@@ -68,6 +70,15 @@ public final class CompanionCardMenu {
         return new Option(what + (on ? "#bON#k" : "#rOFF#k"), p -> {
             CompanionSettings current = CompanionSettingsStore.get(p.getId(), alt.getId());
             CompanionSettingsStore.save(p, alt, flip.apply(current));
+            return menu(p, alt);
+        });
+    }
+
+    /** 1.6.7 group D: the loot mode in force, and a click saves the next one and redraws. */
+    private static Option lootLine(Character alt, CompanionLootMode mode) {
+        return new Option("Looting: #b" + mode.stored() + "#k", p -> {
+            CompanionSettings current = CompanionSettingsStore.get(p.getId(), alt.getId());
+            CompanionSettingsStore.save(p, alt, current.withLootMode(mode.next().stored()));
             return menu(p, alt);
         });
     }

@@ -89,6 +89,30 @@ class OwnedAltLootTest {
         assertFalse(OwnedAltLoot.ours(alt, prop, PARTY, NOW));
     }
 
+    /**
+     * 1.6.7 alt-loot: the owner's decision - an alt with no saved choice picks up only its own kills, so its owner's
+     * drop stays on the floor; one stored "everything" and it takes them again.
+     */
+    @Test
+    void theDefaultModeLeavesTheOwnersDropsOnTheFloorAndEverythingTakesThemAgain() {
+        CompanionSettingsStore.useForTest(new CompanionSettingsStore.Memory(), Runnable::run);
+        try {
+            Character alt = alt(mock(MapleMap.class), 0);
+            when(alt.getClient()).thenReturn(mock(client.BotClient.class)); // a bot, so the switch can be on for it
+            long settled = NOW - OwnedAltLoot.SETTLE_MS - 1;
+            assertFalse(OwnedAltLoot.ours(alt, drop(OWNER, 0, 4000000, settled), PARTY, NOW),
+                    "no saved choice: only its own kills");
+
+            CompanionSettingsStore.save(mock(Character.class), alt,
+                    CompanionSettings.DEFAULT.withLootMode("everything"));
+            assertTrue(OwnedAltLoot.ours(alt, drop(OWNER, 0, 4000000, settled), PARTY, NOW),
+                    "with \"everything\" stored the owner's drops are its again");
+        } finally {
+            CompanionSettingsStore.forgetForTest();
+            CompanionSettingsStore.useForTest(null, null);
+        }
+    }
+
     @Test
     void theNearestDropItHasRoomFor() {
         long settled = NOW - 5_000;

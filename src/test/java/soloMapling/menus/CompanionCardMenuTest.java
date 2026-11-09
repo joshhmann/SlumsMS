@@ -20,7 +20,8 @@ import static org.mockito.Mockito.when;
 
 /**
  * 1.6.7 alt-settings (finished by Bots): one alt's card in the @settings window - level and job, hp/mp, its potion
- * counts and the three switches as clickable lines; a click saves the opposite and the redrawn card shows it.
+ * counts and the switches as clickable lines; a click saves the opposite and the redrawn card shows it.
+ * 1.6.7 group D added the fourth line: the loot mode, which flips through its five modes.
  */
 class CompanionCardMenuTest {
 
@@ -42,6 +43,7 @@ class CompanionCardMenuTest {
         when(alt.getMp()).thenReturn(1_500);
         when(alt.getMaxMp()).thenReturn(2_000);
         when(alt.isOwnedAlt()).thenReturn(true);
+        when(alt.getClient()).thenReturn(mock(client.BotClient.class)); // an owned alt: the loot line is on for it
         vitals = mockStatic(BotVitals.class);
         vitals.when(() -> BotVitals.potionCount(alt, true)).thenReturn(120);
         vitals.when(() -> BotVitals.potionCount(alt, false)).thenReturn(40);
@@ -62,7 +64,8 @@ class CompanionCardMenuTest {
         assertTrue(text.contains("hp 900/1200") && text.contains("mp 1500/2000"), text);
         assertTrue(text.contains("120 hp, 40 mp"), text);
         List<String> labels = page.options().stream().map(MenuWindow.Option::label).toList();
-        assertEquals(List.of("Party heals: #bON#k", "Party buffs: #bON#k", "Buff pots: #bON#k"), labels);
+        assertEquals(List.of("Party heals: #bON#k", "Party buffs: #bON#k", "Buff pots: #bON#k",
+                "Looting: #bmy kills#k"), labels);
         assertTrue(page.options().stream().allMatch(MenuWindow.Option::clickable));
 
         MenuWindow.Menu next = page.options().get(0).pick().apply(owner); // click "Party heals: ON"
@@ -71,5 +74,17 @@ class CompanionCardMenuTest {
         MenuWindow.Page redrawn = next.page(owner);
         assertEquals("Party heals: #rOFF#k", redrawn.options().get(0).label());
         assertEquals("Party buffs: #bON#k", redrawn.options().get(1).label(), "the other switches are untouched");
+    }
+
+    @Test
+    void theLootLineFlipsThroughTheModes() {
+        MenuWindow.Page page = CompanionCardMenu.page(owner, alt);
+        MenuWindow.Option loot = page.options().get(3);
+        assertEquals("Looting: #bmy kills#k", loot.label(), "an alt with no saved choice picks up its own kills");
+
+        MenuWindow.Menu next = loot.pick().apply(owner);
+        assertEquals("quest only", CompanionSettingsStore.get(owner.getId(), alt.getId()).lootMode(),
+                "the click saved the next mode");
+        assertEquals("Looting: #bquest only#k", next.page(owner).options().get(3).label());
     }
 }

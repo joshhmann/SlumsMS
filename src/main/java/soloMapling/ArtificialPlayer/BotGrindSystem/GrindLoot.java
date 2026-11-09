@@ -149,12 +149,10 @@ final class GrindLoot {
     static final long INSTANT_AFTER_KILL_MS = 3_000;
 
     // Etc. drops that are no quest's: what a junk-skipping bot leaves behind (mesos, equips and usables it takes).
+    // SlumsMS: 1.6.7 group D made it the shared rule (CompanionLootMode.junk, "loot like you" leaves the same drops),
+    // so the habit and the mode can never disagree about what junk is.
     static boolean isJunk(MapItem mi) {
-        if (mi.getMeso() > 0 || mi.getItem() == null || mi.getQuest() > 0) {
-            return false;
-        }
-        return constants.inventory.ItemConstants.getInventoryType(mi.getItem().getItemId())
-                == client.inventory.InventoryType.ETC;
+        return soloMapling.companions.CompanionLootMode.junk(mi);
     }
 
     private MapItem nearestCollectableDrop(Character chr, int rangePx, int x0, int x1, int yLimit) {
@@ -180,7 +178,10 @@ final class GrindLoot {
     // cannot hold, and never delete it uncredited), and a junk-skipping bot leaves etc. junk (1.5.0 rc3).
     private boolean botMayTake(Character chr, MapItem mi) {
         return DropCommands.botCanLoot(chr, mi) && BotHoldings.canCreditDrop(chr, mi)
-                && !(b.lootStyle == BotHabits.Loot.SKIP_JUNK && isJunk(mi));
+                && !(b.lootStyle == BotHabits.Loot.SKIP_JUNK && isJunk(mi))
+                // SlumsMS: 1.6.7 group D - the companion's own loot mode, asked last so it only ever narrows. With
+                // the switch off for this bot (every regular by default) this is "everything" and changes nothing.
+                && soloMapling.companions.CompanionLootMode.allows(chr, mi);
     }
 
     // In-sweep vacuum: while the sweep walk carries the bot across the chain, grab up to SWEEP_PICKUP_CAP drops

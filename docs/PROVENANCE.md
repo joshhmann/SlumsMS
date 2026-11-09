@@ -691,3 +691,26 @@ Changed:
 - 0 means "the bot's own potion line", so an untouched companion behaves exactly as before;
 - the gates are in our shared `BotPartySupport` / `BotBuffDriver` / `BotVitals`;
 - the load is lazy, and a bot's first read after a restart starts it (Bots).
+
+## 1.6.7 group D: alt loot
+
+### Companion loot mode, sell junk and the upgrade offer, 1.6.7 (branch `167-alt-loot`, card `alt-qol-batch` group D), BotStory `81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364` and Kiwiism/cosmic_agents `3c7e094357329932734a860e5a831d57add27a00` (AGPL-3.0)
+
+| From theirs | Our files |
+| --- | --- |
+| BotStory `server/agents/capabilities/looting/AgentLootPolicy.java`: one mode that only narrows what the loot rules already allow (everything / own kills / quest only / none / like the owner), meso taken in every mode but none | `soloMapling/companions/CompanionLootMode.java` |
+| cosmic_agents `server/agents/capabilities/trade/AgentOfferService.java`: after a looted piece that beats what the owner wears, ask once, at most one ask per window, and only when the owner wants to be asked | `soloMapling/companions/CompanionUpgradeOffer.java` |
+| cosmic_agents `server/agents/capabilities/inventory/AgentInventorySellTrashPolicy.java` and `AgentShopService.requestSellTrashVisit`: the kept-item list (scrolled gear, upgrades over what is worn) and "find a shop on this map, walk to it, else say there is none" | `soloMapling/companions/CompanionSellJunk.java`, `BotBagRoom.sellAll` |
+
+Changed:
+- their mode enum is read through our per-companion settings store, not a host-installed rule, and our quest needs come
+  from `Character.needQuestItem` on the drop's own quest id, not a host callback;
+- "like the owner" reads our `GrindLoot.isJunk` (this codebase stores no per-owner loot habits), and "none" takes
+  nothing at all, which is what the owner asked for in the card;
+- an owned alt with no saved choice defaults to "my kills" (owner decision, 8 Nov 2026); a party regular defaults to
+  today's behaviour and only changes with `-Dslums.companion.loot.regulars=true`;
+- the offer's handover is a normal `BotGiveTrade` window and the yes/no is plain party chat, not their pending-action
+  flow; the rate limit and the on/off switch live in `CompanionSettings.offers`;
+- our sale goes through the existing NPC counter path (`BotBagRoom`: the same candidate scan, the same
+  `BotYieldCaps` meso credit and the same `EconomyCounters` record as the town stop), so no price, rate or shop
+  protocol is added; their shop-visit request packet is not ported.
