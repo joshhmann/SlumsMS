@@ -142,7 +142,8 @@ only, which is the state this branch ships.
 ## Out of scope
 
 Self-only buffs (Combo, Shadow Partner, Infinity, Berserk, Enrage, charges, Mana Reflection, Concentrate, Shadow
-Stars, Magic Guard) stay cosmetic on the caster. The chat-request grant (`BotBuffRequestHandler`), its cooldowns and
+Stars, Magic Guard — the `SELF_ONLY` set in BotBuffEffects) stay cosmetic on the caster and are never handed to a
+companion. The chat-request grant (`BotBuffRequestHandler`), its cooldowns and
 the GM commands are untouched. `BotDamage` is not edited: only tested. Per-alt toggles beyond the existing
 `CompanionSettings` heals/support are not added.
 
