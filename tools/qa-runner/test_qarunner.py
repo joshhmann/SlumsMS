@@ -305,10 +305,19 @@ class OrchestratorTest(unittest.TestCase):
         self.assertEqual(['ok', 'ok'], [cap['result'] for cap in m['captures'] if cap['kind'] == 'burst'])
 
     def test_the_feed_secret_is_read_on_the_test_box_by_path(self):
-        cmd = qarunner.SshFeed().remote_command("since=0&topics=COMBAT")
+        cmd = qarunner.SshFeed(instance='a').remote_command("since=0&topics=COMBAT")
         self.assertIn("$(cat /etc/slums-inspect-test/secret)", cmd)
         self.assertIn("-H @-", cmd)
         self.assertIn("http://127.0.0.1:8198/qa/events?since=0", cmd)
+
+    def test_test_b_has_its_own_feed_port_and_secret(self):
+        # owner 9 Nov: lane runs go to TEST-B (login 8589, feed 8298, secret /etc/slums-test-b/inspect)
+        cmd = qarunner.SshFeed(instance='b').remote_command("since=0&topics=COMBAT")
+        self.assertIn("$(cat /etc/slums-test-b/inspect)", cmd)
+        self.assertIn("http://127.0.0.1:8298/qa/events?since=0", cmd)
+        with mock.patch.dict(os.environ, {k: v for k, v in os.environ.items() if k != 'SLUMS_TEST_INSTANCE'},
+                             clear=True):
+            self.assertEqual('b', qarunner.SshFeed().instance)   # the lanes' instance unless a run says a
 
     def test_a_script_that_does_not_validate_is_refused(self):
         bad = Path(tempfile.mkdtemp()) / "bad.yaml"
@@ -382,10 +391,12 @@ class TestHostTest(unittest.TestCase):
                 return Done()
 
         with self.setting('192.168.0.111'):
-            commit = qarunner.read_deployed_commit(runner=Runner())
+            commit = qarunner.read_deployed_commit(runner=Runner(), instance='a')
+            qarunner.read_deployed_commit(runner=Runner(), instance='b')
         self.assertEqual(commit, 'e3050a1d9')
-        self.assertEqual(calls[-1][-2], 'root@192.168.0.111')
-        self.assertEqual(calls[-1][-1], 'cat /opt/mapleroot-dev/persistence-test/Server/DEPLOYED_COMMIT')
+        self.assertEqual(calls[-2][-2], 'root@192.168.0.111')
+        self.assertEqual(calls[-2][-1], 'cat /opt/mapleroot-dev/persistence-test/Server/DEPLOYED_COMMIT')
+        self.assertEqual(calls[-1][-1], 'cat /opt/mapleroot-dev/test-b/Server/DEPLOYED_COMMIT')
 
     def test_the_feed_polls_on_the_test_box(self):
         calls = []

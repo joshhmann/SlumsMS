@@ -16,7 +16,7 @@ import testhost
 ROOT = Path(__file__).resolve().parents[1]
 TOOLS = {
     'status': {},
-    'start_client': {},
+    'start_client': {'instance': {'type': 'string', 'maxLength': 1, 'enum': ['a', 'b']}},
     'login': {'channel': {'type': 'integer', 'minimum': 1, 'maximum': 5}},
     'command': {'line': {'type': 'string', 'minLength': 1, 'maxLength': 160}},
     'go_to': {'map_id': {'type': 'integer', 'minimum': 0, 'maximum': 999999999},
@@ -179,8 +179,9 @@ def test_host():
         raise Refusal(str(error)) from None
 
 
-def verify_config(path):
-    """Require exactly one endpoint pair; never silently rewrite an unsafe target."""
+def verify_config(path, port=None):
+    """Require exactly one endpoint pair on a TEST instance (A's or B's port); never silently rewrite an unsafe
+    target. `port` also requires that instance's port."""
     text = path.read_text(encoding='utf-8-sig')
     hosts, ports = [], []
     for line in text.splitlines():
@@ -203,10 +204,30 @@ def verify_config(path):
             testhost.port(value, source='config port')
     except testhost.Refused as error:
         raise Refusal('Refusing client config: %s' % error) from None
-    if hosts != [wanted] or ports != [testhost.PORT]:
+    allowed = [port] if port else list(testhost.PORTS)
+    if hosts != [wanted] or len(ports) != 1 or ports[0] not in allowed:
         raise Refusal('Refusing client config: require exactly %s port %s, the config has %s port %s.'
-                      % (wanted, testhost.PORT, ' and '.join(hosts) or 'no host',
+                      % (wanted, ' or '.join(allowed), ' and '.join(hosts) or 'no host',
                          ' and '.join(ports) or 'no port'))
+
+
+def point_config(path, instance):
+    """qa-test-b (owner 9 Nov): sets the client's login port to the run's TEST instance (a 8489, b 8589). Only a
+    config that already passes verify_config (TEST's host, a TEST port) is rewritten, and only its one port line."""
+    try:
+        wanted = testhost.instance_port(testhost.instance(instance, source='instance'))
+    except testhost.Refused as error:
+        raise Refusal(str(error)) from None
+    verify_config(path)
+    text = path.read_text(encoding='utf-8-sig')
+    lines = text.splitlines(keepends=True)
+    for i, line in enumerate(lines):
+        match = re.fullmatch(r'(\s*port\s*=\s*)(\S*)(\s*)', line, flags=re.IGNORECASE)
+        if match:
+            lines[i] = match.group(1) + wanted + match.group(3)
+    path.write_text(''.join(lines), encoding='utf-8')
+    verify_config(path, port=wanted)
+    return wanted
 
 
 class Secrets:
@@ -597,8 +618,10 @@ class Driver:
         except Exception as error:
             return {'error': str(error) if isinstance(error, Refusal) else type(error).__name__}
 
-    def start_client(self):
+    def start_client(self, instance=None):
+        """Starts the client on the run's TEST instance (qa-test-b): its config.ini port is set to it first."""
         self.endpoint()
+        point_config(inside(self.root / 'client' / 'config.ini', self.root), instance)
         self.display_guard()
         if self.client.pids():
             raise Refusal('An owned client is already running. Stop it before starting another.')
@@ -615,7 +638,8 @@ class Driver:
         self.unhidden = False   # GM Hide is on again after a client start
         self.wait('login', 60)
         self.qa = QaPipe.connect(self.client.pids(), timeout=5) if self.qa_build() else None
-        return {'state': self.state, 'pids': self.client.pids(), 'qa_pipe': bool(self.qa)}
+        return {'state': self.state, 'pids': self.client.pids(), 'qa_pipe': bool(self.qa),
+                'instance': testhost.instance(instance)}
 
     def qa_build(self):
         build = inside(self.root / 'client' / 'slums-build.txt', self.root)

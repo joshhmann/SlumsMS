@@ -69,6 +69,10 @@
     },
     "commit_source": {
      "type": "string"
+    },
+    "instance": {
+     "description": "the TEST instance the run used: a (the owner's QA server) or b (the lanes', since 9 Nov)",
+     "enum": ["a", "b"]
     }
    }
   },

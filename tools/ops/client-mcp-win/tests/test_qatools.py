@@ -295,9 +295,54 @@ class ClientEndpointTest(unittest.TestCase):
                 with self.assertRaises(self.driver.Refusal, msg=refused):
                     self.driver.verify_config(self.config('host=192.168.0.164\nport=8489\n'))
 
+    # -- TEST-B (owner 9 Nov): A (8489) is the owner's QA server, B (8589) the lanes'. The instance is chosen per run.
+
+    def instance(self, value):
+        environ = {k: v for k, v in os.environ.items() if k != 'SLUMS_TEST_INSTANCE'}
+        if value is not None:
+            environ['SLUMS_TEST_INSTANCE'] = value
+        return mock.patch.dict(os.environ, environ, clear=True)
+
+    def test_the_lanes_instance_b_is_the_default(self):
+        with self.instance(None):
+            self.assertEqual('b', self.testhost.instance())
+            self.assertEqual('8589', self.testhost.instance_port())
+        with self.instance('a'):
+            self.assertEqual('8489', self.testhost.instance_port())
+        for refused in ('c', '', 'B ', 'live'):
+            with self.instance(refused):
+                with self.assertRaises(self.testhost.Refused, msg=refused):
+                    self.testhost.instance()
+
+    def test_both_test_ports_pass_and_live_never_does(self):
+        with self.setting(None):
+            for text in ('host=192.168.0.111\nport=8489\n', 'host=192.168.0.111\nport=8589\n'):
+                self.driver.verify_config(self.config(text))
+            with self.assertRaises(self.driver.Refusal):
+                self.driver.verify_config(self.config('host=192.168.0.111\nport=8485\n'))
+            with self.assertRaises(self.driver.Refusal):
+                self.driver.verify_config(self.config('host=192.168.0.111\nport=8489\n'), port='8589')
+
+    def test_the_client_config_is_pointed_at_the_runs_instance(self):
+        with self.setting(None):
+            path = self.config('[general]\nresolution=5\n\n[config]\nhost=192.168.0.111\nport=8489\n')
+            self.driver.point_config(path, 'b')
+            self.assertEqual('[general]\nresolution=5\n\n[config]\nhost=192.168.0.111\nport=8589\n',
+                             path.read_text(encoding='utf-8'))
+            self.driver.point_config(path, 'a')
+            self.assertIn('port=8489', path.read_text(encoding='utf-8'))
+            live = self.config('[config]\nhost=slumsms.asslorde.com\nport=8485\n')
+            with self.assertRaises(self.driver.Refusal):
+                self.driver.point_config(live, 'b')            # never rewrites a config that was not TEST's
+            self.assertIn('port=8485', live.read_text(encoding='utf-8'))
+
+    def test_start_client_takes_the_instance(self):
+        self.assertEqual({'instance': {'type': 'string', 'maxLength': 1, 'enum': ['a', 'b']}},
+                         self.driver.TOOLS['start_client'])
+
     def test_the_guard_is_one_allowlist_and_one_port(self):
         self.assertEqual(('192.168.0.164', '192.168.0.111'), self.testhost.TEST_HOSTS)
-        self.assertEqual('8489', self.testhost.PORT)
+        self.assertEqual(('8489', '8589'), self.testhost.PORTS)
         with self.setting(None):
             self.assertEqual('192.168.0.111', self.driver.test_host())
             for name in self.testhost.TEST_HOSTS:
