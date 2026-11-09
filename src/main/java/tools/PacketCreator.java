@@ -362,6 +362,16 @@ public class PacketCreator {
         p.writeLong(getTime(time)); // offset expiration time issue found thanks to Thora
     }
 
+    /**
+     * A pet's dateDead. The v83 client draws a pet as dried up when dateDead >= DEFAULT_TIME (CompareFileTime at
+     * 0x004E4044, Client lane 9 Nov 2026), so a permanent pet (stored Long.MAX_VALUE, or -1) must get PERMANENT, one
+     * day earlier, not the items' no-expiry DEFAULT_TIME (8f9cf5c54 sent DEFAULT_TIME: card starter-pet-dried-up).
+     */
+    static long petDateDead(long expiration) {
+        long t = getTime(expiration);
+        return t == DEFAULT_TIME ? PERMANENT : t;
+    }
+
     private static void addItemInfo(OutPacket p, Item item) {
         addItemInfo(p, item, false);
     }
@@ -401,7 +411,7 @@ public class PacketCreator {
             p.writeByte(pet.getLevel());
             p.writeShort(pet.getTameness());
             p.writeByte(pet.getFullness());
-            addExpirationTime(p, item.getExpiration());
+            p.writeLong(petDateDead(item.getExpiration()));   // dateDead: PERMANENT, never DEFAULT_TIME (the client's "dried up" line)
             p.writeShort(pet.getPetAttribute()); // PetAttribute noticed by lrenex & Spoon
             p.writeShort(0); // PetSkill
             p.writeInt(18000); // RemainLife
