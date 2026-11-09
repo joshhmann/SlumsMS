@@ -72,13 +72,26 @@ public final class BossFeed {
         }
     }
 
-    /** A field boss line: both sinks. The members named to the feed are the human players on the map. */
+    /**
+     * A field boss line: both sinks. The members named to the feed are the human players on the map. The line ends with
+     * the channel ("ch 3"): a field boss map can be loaded on several channels at once, each with its own boss (TEST,
+     * 9 Nov: two Pianus spawns 4 s apart were two channels, not two bosses on one map).
+     */
     public static void field(MapleMap map, String text) {
         if (text == null) {
             return;
         }
-        toLog(text);
-        toFeed(map, text);
+        String line = text + channelSuffix(map);
+        toLog(line);
+        toFeed(map, line);
+    }
+
+    private static String channelSuffix(MapleMap map) {
+        try {
+            return map == null || map.getChannelId() <= 0 ? "" : " ch " + map.getChannelId();
+        } catch (RuntimeException e) {
+            return "";
+        }
     }
 
     private static void toLog(String text) {

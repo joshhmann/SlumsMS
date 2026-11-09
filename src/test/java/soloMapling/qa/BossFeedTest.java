@@ -155,6 +155,14 @@ class BossFeedTest {
     // ---------------------------------------------------------------- Pianus
 
     @Test
+    void aFieldLineNamesItsChannelSoTwoCopiesOfTheMapStayApart() {
+        MapleMap map = pianusMap(human(21));
+        when(map.getChannelId()).thenReturn(3);
+        BossFeed.spawned(map, pianus(BossFeed.PIANUS_R, map));
+        assertEquals(List.of("BOSS spawn pianus R map 230040420 source timer ch 3"), log);
+    }
+
+    @Test
     void pianusSpawnKillAndRewardLinesCarryTheirSourceAndCounts() {
         handle.topics(List.of(QaLog.Topic.MECHANICS));
         MapleMap map = pianusMap(human(21), bot(1_000_000_007));
