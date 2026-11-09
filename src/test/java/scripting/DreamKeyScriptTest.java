@@ -77,23 +77,26 @@ class DreamKeyScriptTest {
         ((Invocable) engine).invokeFunction("start");
     }
 
+    /** Owner, 9 Nov: 5 of each stone (our recipe since the 18 Oct baseline), not the reference's 1. */
+    private static final int PER_STONE = 5;
+
     private static FakeIm oneOfEach() {
         FakeIm im = new FakeIm();
         for (int stone : STONES) {
-            im.counts.put(stone, 1);
+            im.counts.put(stone, PER_STONE);
         }
         im.counts.put(THUNDER_STONE, 1);
         return im;
     }
 
     @Test
-    void oneOfEachStoneAndTheThunderStoneMakesTheKeyAndTakesExactlyThoseFive() throws Exception {
+    void fiveOfEachStoneAndTheThunderStoneMakesTheKey() throws Exception {
         FakeIm im = oneOfEach();
 
         start(im);
 
-        assertEquals(List.of(STONES[0] + ":-1", STONES[1] + ":-1", STONES[2] + ":-1", STONES[3] + ":-1",
-                THUNDER_STONE + ":-1", DREAM_KEY + ":1"), im.gained, "one each, then the key");
+        assertEquals(List.of(STONES[0] + ":-5", STONES[1] + ":-5", STONES[2] + ":-5", STONES[3] + ":-5",
+                THUNDER_STONE + ":-1", DREAM_KEY + ":1"), im.gained, "five of each stone, the Thunder Stone, then the key");
         for (int stone : STONES) {
             assertEquals(0, im.counts.get(stone), "stone " + stone + " is used up");
         }
@@ -104,18 +107,31 @@ class DreamKeyScriptTest {
     }
 
     @Test
-    void stacksOfFiveLoseOnlyOneEach() throws Exception {
-        FakeIm im = new FakeIm(STONES[0], 5, STONES[1], 5, STONES[2], 5, STONES[3], 5, THUNDER_STONE, 3);
+    void biggerStacksLoseOnlyFiveEach() throws Exception {
+        FakeIm im = new FakeIm(STONES[0], 7, STONES[1], 7, STONES[2], 7, STONES[3], 7, THUNDER_STONE, 3);
 
         start(im);
 
         for (int stone : STONES) {
-            assertEquals(4, im.counts.get(stone), "only one " + stone + " is taken");
+            assertEquals(2, im.counts.get(stone), "only five " + stone + " are taken");
         }
         assertEquals(2, im.counts.get(THUNDER_STONE), "only one Thunder Stone is taken");
         assertEquals(1, im.counts.get(DREAM_KEY));
-        assertEquals(List.of(STONES[0] + ":-1", STONES[1] + ":-1", STONES[2] + ":-1", STONES[3] + ":-1",
-                THUNDER_STONE + ":-1", DREAM_KEY + ":1"), im.gained, "five single items, never a whole stack");
+    }
+
+    @Test
+    void fourOfAStoneIsNotEnough() throws Exception {
+        for (int shortStone : STONES) {
+            FakeIm im = oneOfEach();
+            im.counts.put(shortStone, PER_STONE - 1);
+            Map<Integer, Integer> before = new HashMap<>(im.counts);
+
+            start(im);
+
+            assertTrue(im.gained.isEmpty(), "4 of " + shortStone + " takes nothing: " + im.gained);
+            assertEquals(before, im.counts);
+            assertTrue(im.messages.get(0).contains("5 of each stone"), im.messages.get(0));
+        }
     }
 
     @Test
@@ -126,7 +142,7 @@ class DreamKeyScriptTest {
         start(im);
 
         assertTrue(im.gained.isEmpty(), "nothing is taken when the key would not fit: " + im.gained);
-        assertEquals(1, im.counts.get(STONES[0]), "the Dawn stone stays");
+        assertEquals(PER_STONE, im.counts.get(STONES[0]), "the Dawn stones stay");
         assertEquals(1, im.counts.get(THUNDER_STONE), "the Thunder Stone stays");
         assertEquals(0, im.counts.getOrDefault(DREAM_KEY, 0), "no key");
         assertTrue(im.disposed);
@@ -148,7 +164,7 @@ class DreamKeyScriptTest {
             assertTrue(im.disposed);
             assertEquals(1, im.messages.size());
             String said = im.messages.get(0);
-            assertTrue(said.contains("1 of each stone"), said);
+            assertTrue(said.contains("5 of each stone"), said);
             for (String stone : List.of("Dawn", "Blaze", "Wind", "Night")) {
                 assertTrue(said.contains(stone), said + " names the " + stone + " stone");
             }
