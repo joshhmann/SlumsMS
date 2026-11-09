@@ -238,7 +238,13 @@ public class MobSkill {
             case MAGIC_ATTACK_UP, MAGIC_ATTACK_UP_M, MAD -> stats.put(MonsterStatus.MAGIC_ATTACK_UP, x);
             case DEFENSE_UP, DEFENSE_UP_M, PDR -> stats.put(MonsterStatus.WEAPON_DEFENSE_UP, x);
             case MAGIC_DEFENSE_UP, MAGIC_DEFENSE_UP_M, MDR -> stats.put(MonsterStatus.MAGIC_DEFENSE_UP, x);
-            case HEAL_M -> applyHealEffect(skill, monster);
+            case HEAL_M -> {
+                long hpBefore = monster.getHp();
+                applyHealEffect(skill, monster);
+                if (monster.isBoss()) {
+                    soloMapling.qa.BossFeed.healed(monster, monster.getHp() - hpBefore);
+                }
+            }
             case SEAL -> disease = Disease.SEAL;
             case DARKNESS -> disease = Disease.DARKNESS;
             case WEAKNESS -> disease = Disease.WEAKEN;
@@ -255,11 +261,17 @@ public class MobSkill {
             case PHYSICAL_IMMUNE -> {
                 if (makeChanceResult() && !monster.isBuffed(MonsterStatus.MAGIC_IMMUNITY)) {
                     stats.put(MonsterStatus.WEAPON_IMMUNITY, x);
+                    if (monster.isBoss()) {
+                        soloMapling.qa.BossFeed.immune(monster, true, getDuration() / 1000);
+                    }
                 }
             }
             case MAGIC_IMMUNE -> {
                 if (makeChanceResult() && !monster.isBuffed(MonsterStatus.WEAPON_IMMUNITY)) {
                     stats.put(MonsterStatus.MAGIC_IMMUNITY, x);
+                    if (monster.isBoss()) {
+                        soloMapling.qa.BossFeed.immune(monster, false, getDuration() / 1000);
+                    }
                 }
             }
             case PHYSICAL_COUNTER -> {
@@ -337,6 +349,7 @@ public class MobSkill {
             skillLimit = Integer.MAX_VALUE;
         }
 
+        int spawnedNow = 0, firstSpawned = 0;
         if (map.getSpawnedMonstersOnMap() < 80) {
             List<Integer> summons = new ArrayList<>(toSummon);
             int summonLimit = monster.countAvailableMobSummons(summons.size(), skillLimit);
@@ -397,9 +410,15 @@ public class MobSkill {
                             map.spawnMonsterWithEffect(toSpawn, spawnEffect, toSpawn.getPosition());
                         }
                         monster.addSummonedMob(toSpawn);
+                        if (spawnedNow++ == 0) {
+                            firstSpawned = toSpawn.getId();
+                        }
                     }
                 }
             }
+        }
+        if (spawnedNow > 0 && monster.isBoss()) {
+            soloMapling.qa.BossFeed.summoned(monster, spawnedNow, firstSpawned);
         }
     }
 

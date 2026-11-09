@@ -40,6 +40,38 @@ var eventTime = 120;     // 120 minutes
 
 const maxLobbies = 1;
 
+// 1.6.7 boss-feed-lines: observe-only lines for the QA feed and the server log (logger BossFeed). No gameplay here.
+var feedId = "zakum";
+var feedArmIds = [8800003, 8800010];
+var feedBodyIds = [8800000, 8800001];
+
+function feedLine(eim, text) {
+    try {   // an observer never breaks the fight
+        var leader = eim.getLeader();
+        eim.feed("RUN boss " + feedId + " " + text + " [" + feedId + (leader == null ? "" : ", leader " + leader.getName()) + "]");
+    } catch (e) {
+    }
+}
+
+function feedSecs(eim) {
+    var t0 = parseInt(eim.getProperty("feedT0"));
+    return isNaN(t0) ? 0 : Math.floor((Date.now() - t0) / 1000);
+}
+
+function feedProgress(mob, eim) {
+    var id = mob.getId();
+    if (id >= feedArmIds[0] && id <= feedArmIds[1]) {
+        var total = feedArmIds[1] - feedArmIds[0] + 1;
+        var down = parseInt(eim.getProperty("feedArms") || "0") + 1;
+        eim.setProperty("feedArms", "" + down);
+        if (down == total) {
+            feedLine(eim, "arms down: all " + total + " after " + feedSecs(eim) + " s");
+        }
+    } else if (id == feedBodyIds[0] || id == feedBodyIds[1]) {
+        feedLine(eim, "body " + (id + 1) + " up after " + feedSecs(eim) + " s");
+    }
+}
+
 function init() {
     setEventRequirements();
 }
@@ -99,6 +131,7 @@ function setup(channel) {
     var eim = em.newInstance("Zakum" + channel);
     eim.setProperty("canJoin", 1);
     eim.setProperty("defeatedBoss", 0);
+    eim.setProperty("feedT0", "" + Date.now());
 
     var level = 1;
     eim.getInstanceMap(280030000).resetPQ(level);
@@ -180,9 +213,11 @@ function playerExit(eim, player) {
 
 function end(eim) {
     var party = eim.getPlayers();
+    var moved = party.size();
     for (var i = 0; i < party.size(); i++) {
         playerExit(eim, party.get(i));
     }
+    feedLine(eim, "cleanup: " + moved + " members moved to " + exitMap + ", instance disposed");
     eim.dispose();
 }
 
@@ -191,6 +226,7 @@ function giveRandomEventReward(eim, player) {
 }
 
 function clearPQ(eim) {
+    feedLine(eim, "cleared after " + feedSecs(eim) + " s: defeatedBoss=1");
     eim.stopEventTimer();
     eim.setEventCleared(ExpeditionType.ZAKUM);
     updateGateState(0);
@@ -202,15 +238,19 @@ function isZakum(mob) {
 }
 
 function monsterKilled(mob, eim) {
+    feedProgress(mob, eim);
     if (isZakum(mob)) {
         eim.setIntProperty("defeatedBoss", 1);
         eim.showClearEffect(mob.getMap().getId());
         eim.clearPQ();
         party = eim.getPlayers()
+        var rewarded = 0, botsSkipped = 0;
         for (var i = 0; i < party.size(); i++) {
-            if (party.get(i).isBot()) continue; // 1.6.1: a bot has no client to hand leaves to (it threw and stopped the loop)
+            if (party.get(i).isBot()) { botsSkipped++; continue; } // 1.6.1: a bot has no client to hand leaves to (it threw and stopped the loop)
             party.get(i).getClient().getAbstractPlayerInteraction().gainItem(4001126, 20);
+            rewarded++;
         }
+        feedLine(eim, "rewards: item 4001126 x20 to " + rewarded + " members, " + botsSkipped + " bots skipped");
         
     
       //  mob.getMap().broadcastZakumVictory();

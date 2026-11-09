@@ -16,6 +16,34 @@ var eventTime = 120;     // 120 minutes
 
 const maxLobbies = 1;
 
+// 1.6.7 boss-feed-lines: observe-only lines for the QA feed and the server log (logger BossFeed). No gameplay here.
+var feedPartLo = 8810002, feedPartHi = 8810009;
+
+function feedLine(eim, text) {
+    try {   // an observer never breaks the fight
+        var leader = eim.getLeader();
+        eim.feed("RUN boss horntail " + text + " [horntail" + (leader == null ? "" : ", leader " + leader.getName()) + "]");
+    } catch (e) {
+    }
+}
+
+function feedSecs(eim) {
+    var t0 = parseInt(eim.getProperty("feedT0"));
+    return isNaN(t0) ? 0 : Math.floor((Date.now() - t0) / 1000);
+}
+
+function feedPartDown(mob, eim) {
+    var id = mob.getId();
+    if (id >= feedPartLo && id <= feedPartHi) {
+        var total = feedPartHi - feedPartLo + 1;
+        var down = parseInt(eim.getProperty("feedParts") || "0") + 1;
+        eim.setProperty("feedParts", "" + down);
+        if (down == total) {
+            feedLine(eim, "parts down: all " + total + " after " + feedSecs(eim) + " s");
+        }
+    }
+}
+
 function init() {
     setEventRequirements();
 }
@@ -74,6 +102,7 @@ function setup(channel) {
     eim.setProperty("canJoin", 1);
     eim.setProperty("defeatedBoss", 0);
     eim.setProperty("defeatedHead", 0);
+    eim.setProperty("feedT0", "" + Date.now());
 
     var level = 1;
     eim.getInstanceMap(240060000).resetPQ(level);
@@ -164,9 +193,11 @@ function playerExit(eim, player) {
 
 function end(eim) {
     var party = eim.getPlayers();
+    var moved = party.size();
     for (var i = 0; i < party.size(); i++) {
         playerExit(eim, party.get(i));
     }
+    feedLine(eim, "cleanup: " + moved + " members moved to " + exitMap + ", instance disposed");
     eim.dispose();
 }
 
@@ -175,6 +206,7 @@ function giveRandomEventReward(eim, player) {
 }
 
 function clearPQ(eim) {
+    feedLine(eim, "cleared after " + feedSecs(eim) + " s: defeatedBoss=1");
     eim.stopEventTimer();
     eim.setEventCleared(ExpeditionType.HORNTAIL);
 }
@@ -190,12 +222,14 @@ function isHorntail(mob) {
 }
 
 function monsterKilled(mob, eim) {
+    feedPartDown(mob, eim);
     if (isHorntail(mob)) {
         eim.setIntProperty("defeatedBoss", 1);
         eim.showClearEffect(mob.getMap().getId());
         eim.clearPQ();
 
         var party = eim.getPlayers();
+        var rewarded = 0, botsSkipped = 0;
         var baseExp = 107545760; // Set to Horntail's base EXP value
         var expLimit = 2147483647; // Maximum 32-bit integer value (~2.1 billion)
 
@@ -227,8 +261,12 @@ function monsterKilled(mob, eim) {
             // Grant item reward
             if (!player.isBot()) { // 1.6.1: a bot has no client to hand leaves to (it threw and stopped the loop)
                 player.getClient().getAbstractPlayerInteraction().gainItem(4001126, 40);
+                rewarded++;
+            } else {
+                botsSkipped++;
             }
         }
+        feedLine(eim, "rewards: exp " + baseExp + " each (rate-scaled), item 4001126 x40 to " + rewarded + " members, " + botsSkipped + " bots skipped");
 
         eim.dispatchRaiseQuestMobCount(8810018, 240060200);
         // mob.getMap().broadcastHorntailVictory();
@@ -236,6 +274,7 @@ function monsterKilled(mob, eim) {
     } else if (isHorntailHead(mob)) {
         var killed = eim.getIntProperty("defeatedHead");
         eim.setIntProperty("defeatedHead", killed + 1);
+        feedLine(eim, "head " + (killed + 1) + " down after " + feedSecs(eim) + " s");
         eim.showClearEffect(mob.getMap().getId());
     }
 }
