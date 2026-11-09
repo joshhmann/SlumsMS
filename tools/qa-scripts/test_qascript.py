@@ -197,6 +197,21 @@ class ValidatorTest(unittest.TestCase):
         self.assertEqual([], errors)
         self.assertRefused(rain.replace("npc: 12101", "npc: 0"), "npc")
 
+    def test_click_dialog_row_takes_a_row_and_an_optional_row_count(self):
+        # qa-dialog-row (1.6.7): Ifia 2161001's own quest menu, row 2 of 2 is "Please send me to the Audience Room
+        # Corridor" (QA run rebirth2-ifia-20261109T032557Z); no NPC_TALK brought it, so click_option cannot answer it.
+        ifia = GOOD.replace("  - {do: select_character}\n",
+                            "  - {do: select_character}\n  - {do: click_npc, npc: 2161001}\n"
+                            "  - {do: click_dialog_row, row: 2, rows: 2}\n")
+        errors, _ = check(ifia)
+        self.assertEqual([], errors)
+        errors, _ = check(ifia.replace(", rows: 2}", "}"))
+        self.assertEqual([], errors)
+        self.assertRefused(ifia.replace("row: 2,", "row: 0,"), "row")
+        self.assertRefused(ifia.replace("row: 2,", "row: 17,"), "row")
+        self.assertRefused(ifia.replace("rows: 2}", "rows: 17}"), "rows")
+        self.assertRefused(ifia.replace("{do: click_dialog_row, row: 2, rows: 2}", "{do: click_dialog_row}"), "row")
+
     def test_the_id_matches_the_file_name(self):
         errors, _ = qascript.validate_text(GOOD, "other-name")
         self.assertTrue(any("must match the file name" in e for e in errors))

@@ -50,6 +50,10 @@ TOOLS = {
     # qa-position-signal (1.6.6): where the character is (the server's !pos coordinates), for gm-0 scripts.
     'position': {},
     'click_option': {'option': {'type': 'integer', 'minimum': 1, 'maximum': 8}},
+    # qa-dialog-row (1.6.7): row <row> of the open npc dialog from its own row list, also the client's local quest-npc
+    # menu, which no NPC_TALK brings. rows: the count the script expects (0 = any); another count is refused.
+    'click_dialog_row': {'row': {'type': 'integer', 'minimum': 1, 'maximum': 16},
+                         'rows': {'type': 'integer', 'minimum': 0, 'maximum': 16}},
     # P1-Q2 (Zakum run): the QA client calls the item and party windows' own senders; no mouse, no window anchors.
     'drop_item': {'item': {'type': 'integer', 'minimum': 1000000, 'maximum': 5999999},
                   'count': {'type': 'integer', 'minimum': 1, 'maximum': 32767}},
@@ -113,6 +117,7 @@ REQUIRED = {'qa_wait': ('signal',), 'qa_burst': ('fps', 'ms', 'label'), 'run_scr
             'login_credentials': ('vault',), 'click_anchor': ('name',), 'select_world': ('world',),
             'select_channel': ('channel',), 'select_character': ('slot',),
             'mouse_drag': ('x1', 'y1', 'x2', 'y2'), 'click_npc': ('npc',), 'click_option': ('option',),
+            'click_dialog_row': ('row',),
             'drop_item': ('item',), 'party_invite': ('name',), 'pickup_item': ('item',),
             'shop_buy': ('item', 'quantity'), 'shop_sell': ('item',), 'use_item': ('item',),
             'trade_invite': ('name',), 'trade_add_item': ('item',), 'trade_add_meso': ('meso',),
@@ -247,7 +252,7 @@ def log_tail(path, lines):
 SCRIPT_NAME = re.compile(r'^[a-z0-9][a-z0-9_-]{0,47}$')
 SCRIPT_TOOLS = {'start_client', 'login', 'login_credentials', 'click_anchor', 'select_world', 'select_channel',
                 'select_character', 'qa_events', 'command', 'press_key', 'mouse_click', 'mouse_drag', 'screenshot',
-                'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to', 'click_npc', 'click_option', 'position',
+                'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to', 'click_npc', 'click_option', 'click_dialog_row', 'position',
                 'walk_to', 'climb',
                 'drop_item', 'party_create', 'party_invite', 'close_dialog',
                 'dialog_next', 'use_cash_item',
@@ -1048,6 +1053,29 @@ class Driver:
         if not event.get('ok'):
             raise Refusal(str(event.get('error') or 'not_a_menu'))
         return {'option': option, 'value': event.get('value')}
+
+    def click_dialog_row(self, row, rows=0):
+        """qa-dialog-row (1.6.7): picks row <row> of the open npc dialog from the dialog's own row list and ends it with
+        OK, as a click on the row and NEXT do. That also answers the menu the client builds itself for a quest npc
+        (Ifia 2161001, Wyatt 1300009, Rain 12101): a row past its quests sends NPC_TALK. rows > 0 refuses a dialog with
+        another count. Errors: no_dialog, not_a_menu, row_count, no_such_row, site_mismatch."""
+        command = 'click_dialog_row %d' % row + (' %d' % rows if rows else '')
+        pipe = self.need_qa()
+        pipe.send(command)
+        deadline = time.monotonic() + NPC_POS_TIMEOUT
+        while True:
+            left = deadline - time.monotonic()
+            event = pipe.wait('click.done', left) if left > 0 else None
+            if event is None:
+                raise Refusal('no_dialog')   # no answer: no npc dialog open
+            if event.get('op') == 'click_dialog_row' and event.get('row') == row:
+                break
+        if not event.get('ok'):
+            error = str(event.get('error') or 'no_dialog')
+            if error == 'row_count':
+                error += ': the dialog has %s rows' % event.get('rows')
+            raise Refusal(error)
+        return {'row': row, 'rows': event.get('rows'), 'value': event.get('value')}
 
     def qa_request(self, command, ev, matches, timeout_error, timeout=NPC_POS_TIMEOUT):
         """Sends one QA client command and returns its answer event; the client's error code is the refusal."""
