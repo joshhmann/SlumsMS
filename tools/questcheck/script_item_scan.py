@@ -15,7 +15,7 @@ checks for an item never counts as a source for it.
 
 An item has a source when ANY of these hold: a mob drop, reactor drop, global drop, shop row (the --db-dir TSV
 exports, as in quest_check.py), a drop/reactor/shop INSERT in a database migration (--migrations), a quest reward
-in Act.img, a Maker recipe output, a script GRANT, or a line in the --known file (a source in Java code: the
+in Act.img, a map object tagged itemId=<id> in Map.wz, a Maker recipe output, a script GRANT, or a line in the --known file (a source in Java code: the
 reason is required, so the list explains itself).
 
 Output: ERROR = required and no source at all; INFO = required, the only source is a script GRANT in another
@@ -103,6 +103,23 @@ def cashshop_items(path):
     return out
 
 
+MAP_TAG_ITEM = re.compile(r'itemId=(\d{7})')
+
+
+def map_tag_items(wz):
+    """Items a map hands out itself: Map.wz objects tagged itemId=<id> (the Yoshi door keys 4036551/2)."""
+    out = {}
+    base = os.path.join(wz, "Map.wz")
+    for root, _, files in os.walk(base):
+        for f in files:
+            if not f.endswith(".xml"):
+                continue
+            with open(os.path.join(root, f), encoding="utf-8", errors="replace") as fh:
+                for m in MAP_TAG_ITEM.finditer(fh.read()):
+                    out.setdefault(int(m.group(1)), f)
+    return out
+
+
 def load_known(path):
     known = {}
     if path and os.path.isfile(path):
@@ -135,6 +152,7 @@ def scan(wz, scripts, db_dir=None, migrations=None, known=None, character_list=N
     mig = migration_sources(migrations)
     rewards = quest_rewards(g)
     cash = cashshop_items(cashshop)
+    tags = map_tag_items(wz)
     findings = []
     for item in sorted(requires):
         where = requires[item]
@@ -151,6 +169,8 @@ def scan(wz, scripts, db_dir=None, migrations=None, known=None, character_list=N
             have.append("migration " + sorted(mig[item])[0])
         if item in rewards:
             have.append("quest reward")
+        if item in tags:
+            have.append("map tag in " + tags[item])
         if item in cash:
             have.append("cash shop")
         if item in g.maker_outputs:

@@ -61,6 +61,8 @@ class ScriptItemScanTest(unittest.TestCase):
         write(cls.scripts, "portal/needs_known.js", "function enter(pi) { return pi.haveItem(4000007); }")
         cls.known = os.path.join(t, "known.tsv")
         write(t, "known.tsv", "# item\\treason\n4000007\tgiven by Foo.java")
+        write(cls.scripts, "portal/needs_tag.js", "function enter(pi) { return pi.haveItem(4000008); }")
+        write(cls.wz, "Map.wz/Map/Map9/1.img.xml", '<imgdir name="1"><string name="tags" value="itemId=4000008;qty=1"/></imgdir>')
         cls.findings, cls.n = sis.scan(cls.wz, cls.scripts, cls.db, cls.mig,
                                        {4000007: "given by Foo.java"})
         cls.errors = {f[1] for f in cls.findings if f[0] == "ERROR"}
@@ -72,7 +74,7 @@ class ScriptItemScanTest(unittest.TestCase):
         self.assertIn(4000004, self.errors)
 
     def test_sources_clear_the_item(self):
-        for item in (4000001, 4000003, 4000005, 4000006, 4000007):
+        for item in (4000001, 4000003, 4000005, 4000006, 4000007, 4000008):
             self.assertNotIn(item, self.errors, item)
 
     def test_take_counts_as_a_require(self):

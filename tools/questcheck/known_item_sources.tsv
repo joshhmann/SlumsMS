@@ -1,0 +1,2 @@
+# itemid<TAB>reason. A source this scan cannot see. Every line needs a reason (checked by the tool).
+2430200	Thunder Stone is the item that scripts/item/dreamkey.js is attached to: the script consumes the item being used, so it is its own source (a Dream Key craft item, not a requirement)
