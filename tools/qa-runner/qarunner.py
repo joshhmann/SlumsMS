@@ -638,6 +638,14 @@ class SilviaWorker:
         `labels` maps each burst label to its capture id (the run knows both); without it nothing is copied."""
         dest = Path(dest)
         pulled = 0
+        # qa-pipe-tail (1.6.7): the pipe is read only inside waits, so the events of the steps after the last wait (an
+        # accept's click.done, run gp03-1009-accept-20261109T071628Z) never reached pipe.log. Read it once more; best
+        # effort, like the feed's tail: a client that is gone keeps what was read.
+        for alias in list(self.cursor):
+            try:
+                self.events(alias)
+            except Exception:
+                pass
         for label, cap_id in (labels or self.labels).items():
             folder = dest / "frames" / cap_id
             self.transport.fetch("client/qa-captures/" + label, folder)
