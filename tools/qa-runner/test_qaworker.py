@@ -587,6 +587,31 @@ class WorkerPullTest(unittest.TestCase):
         self.assertIn('field.ready', (folder / 'client' / 'me' / 'pipe.log').read_text())
         self.assertIn('log line', (folder / 'client' / 'me' / 'client.log').read_text())
 
+    def test_pull_reads_the_events_after_the_last_wait(self):
+        # Run gp03-1009-accept-20261109T071628Z: the accept's click.done came after the last wait step, and the
+        # runner reads the pipe only inside waits, so pipe.log ended before it although the click worked.
+        worker, transport = make_worker()
+        worker.seen['me'] = [HELLO]
+        worker.cursor['me'] = 1
+        done = {'ev': 'click.done', 'op': 'dialog_next', 'ok': True, 'type': 1, 'utc': '2026-11-09T07:17:39.700Z'}
+        transport.answers['qa_events'] = answer({'from': 1, 'next': 2, 'events': [done]})
+        transport.answers['read_logs'] = answer({'integration.log': '', 'crash.log': ''})
+        folder = Path(tempfile.mkdtemp())
+        worker.pull(folder, {})
+        self.assertIn('"op": "dialog_next"', (folder / 'client' / 'me' / 'pipe.log').read_text())
+        self.assertIn(('qa_events', {'since': 1}), transport.calls)
+
+    def test_a_failed_last_read_still_writes_the_pipe_log(self):
+        worker, transport = make_worker()
+        worker.seen['me'] = [HELLO]
+        worker.cursor['me'] = 1
+        transport.answers['read_logs'] = answer({'integration.log': '', 'crash.log': ''})
+        worker.json_tool = lambda name, args=None: ({'integration.log': '', 'crash.log': ''} if name == 'read_logs'
+                                                    else (_ for _ in ()).throw(qarunner.RunFailed('pipe gone', 'error')))
+        folder = Path(tempfile.mkdtemp())
+        worker.pull(folder, {})
+        self.assertIn('hello', (folder / 'client' / 'me' / 'pipe.log').read_text())
+
 
 if __name__ == '__main__':
     unittest.main()
