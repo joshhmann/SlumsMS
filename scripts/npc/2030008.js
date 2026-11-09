@@ -29,6 +29,14 @@
  * Custom Quest 100201 = Whether you have done the trials
 */
 
+const ItemConstants = Java.type("constants.inventory.ItemConstants");
+const InventoryManipulator = Java.type("client.inventory.manipulator.InventoryManipulator");
+const InventoryType = Java.type("client.inventory.InventoryType");
+const ArrayList = Java.type("java.util.ArrayList");
+const JavaInteger = Java.type("java.lang.Integer");
+// Inventory tab names, indexed like InventoryType.getType() - 1 (EQUIP 1 ... CASH 5).
+const TAB_NAMES = ["Equip", "Use", "Set-up", "Etc", "Cash"];
+
 var status;
 var em;
 var selectedType;
@@ -116,6 +124,17 @@ function action(mode, type, selection) {
                     if (!cm.haveItem(4000082, 30)) {
                         cm.sendOk("You have completed the trials, however there's still the need of #b30 #t4000082##k to forge 5 #t4001017#.");
                     } else {
+                        // 1.6.7 bagrewards: the three materials were taken and then the Eyes handed out with no
+                        // space check, so a full Etc tab cost the player the Eyes (about 1500 kills of teeth) after
+                        // completeQuest had already been recorded. Nothing is taken unless the Eyes fit, measured
+                        // against the bag as the takes will leave it: a stack the takes empty frees its slot.
+                        const short = eyesSlotsShort();
+                        if (short > 0) {
+                            cm.sendOk(`Free ${short === 1 ? "1 slot" : short + " slots"} in your ${eyesTabName()} tab, then come back, nothing was taken.`);
+                            cm.dispose();
+                            return;
+                        }
+
                         cm.completeQuest(100201);
                         cm.gainItem(4031061, -1);
                         cm.gainItem(4031062, -1);
@@ -136,4 +155,35 @@ function action(mode, type, selection) {
             cm.dispose();
         }
     }
+}
+
+// The Eyes of Fire this NPC hands out, measured against the bag as the same talk's takes will leave it. An Etc
+// stack that a take empties frees its slot and pays for the Eyes; a stack with something left frees nothing.
+// InventoryManipulator.checkSpaceProgressively is the same counter cm.gainItem consults, so a bag this says fits
+// is a bag the grant delivers to.
+function eyesSlotsShort() {
+    const chr = cm.getPlayer();
+    const addType = ItemConstants.getInventoryType(4001017);
+    const removed = [[4031061, 1], [4031062, 1], [4000082, 30]];
+
+    let freedInGrantTab = 0;
+    for (let i = 0; i < removed.length; i++) {
+        const removeType = ItemConstants.getInventoryType(removed[i][0]);
+        if (removeType !== addType) continue; // only a slot in the grant's own tab pays for the grant
+
+        const stacks = chr.getInventory(removeType).listById(removed[i][0]);
+        let remaining = removed[i][1];
+        for (let s = 0; s < stacks.size() && remaining > 0; s++) {
+            const quantity = stacks.get(s).getQuantity();
+            if (quantity <= remaining) freedInGrantTab++;
+            remaining -= quantity;
+        }
+    }
+
+    const needed = InventoryManipulator.checkSpaceProgressively(chr, 4001017, 5, "", 0, false) >> 1;
+    return needed - chr.getInventory(addType).getNumFreeSlot() - freedInGrantTab;
+}
+
+function eyesTabName() {
+    return TAB_NAMES[ItemConstants.getInventoryType(4001017).getType() - 1];
 }
