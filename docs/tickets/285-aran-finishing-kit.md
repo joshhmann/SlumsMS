@@ -1,6 +1,7 @@
 # 285 - Aran finishing kit (card c-a): combo critical formulas on the stock v83 client
 
-Recorded 2026-11-09. Route A (owner approved, ticket 284, §Owner decisions). Read-only analysis so far; this
+Recorded 2026-11-09. **Status: brief ready, deferred to post-1.7.0 (owner, 2026-11-09: jobs wait until
+1.7.0 ships; 1.6.6 -> 1.7.0 is full).** Route A (owner approved, ticket 284, §Owner decisions). Read-only analysis so far; this
 briefs the implementation, no code has changed.
 
 ## Why

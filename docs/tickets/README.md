@@ -7,12 +7,12 @@
 # SlumsMS tickets
 
 ## Kuro client RE and job routes (owner request, 2026-11-09)
-| [285](285-aran-finishing-kit.md) | Aran finishing kit (card c-a): combo critical formulas on the stock v83 client | Sites verified against our stock exe; replacement formula and implementation pending |
+| [285](285-aran-finishing-kit.md) | Aran finishing kit (card c-a): combo critical formulas on the stock v83 client | Brief ready (sites verified against our stock exe); deferred to post-1.7.0, implementation pending |
 
 
 | # | Ticket | State |
 |---|---|---|
-| [284](284-kuro-client-re-job-routes.md) | Kuro v83 client RE: class finishing kit and the job-addition route | Owner approved Route A and the Dual Blade pilot route (2026-11-09); briefs in progress; nothing implemented |
+| [284](284-kuro-client-re-job-routes.md) | Kuro v83 client RE: class finishing kit and the job-addition route | Owner approved Route A and the Dual Blade pilot route, both deferred to post-1.7.0 (2026-11-09); briefs ready, nothing implemented |
 
 ## Server-code audit (owner direction, 2026-11-03)
 

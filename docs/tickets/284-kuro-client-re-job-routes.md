@@ -15,6 +15,10 @@ proposed route; it implements nothing.
 - **Evan and the remaining classes are expected to be tough** (owner). Evan stays decided and on its current branch;
   it must not block Route A or the Dual Blade pilot.
 - Sequencing recorded: Route A now; Dual Blade pilot next; Evan and the rest after the pilot.
+- **Deferred to post-1.7.0 (owner, 2026-11-09):** no job work before 1.7.0 ships - the 1.6.6 -> 1.7.0 window is
+  already full. Route A and Route C are parked as ready-to-pick briefs (the Dual Blade pilot stays first when they
+  resume). Nothing here should be picked up inside 1.7.0; Evan is unaffected because it is already in the 1.7.0 plan.
+
 
 ## 1. What was reviewed
 
