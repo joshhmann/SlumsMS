@@ -6,6 +6,12 @@
 
 # SlumsMS tickets
 
+## Housing design (owner request, 2026-11-09)
+
+| # | Ticket | State |
+|---|---|---|
+| [286](286-housing-design.md) | Housing v0 design: Kuro + MushMS blend, partner co-habitation, guild halls | Design only; phases 0-3, ownership/ACL model and packet/DB contract proposed; owner decisions requested |
+
 ## Server-code audit (owner direction, 2026-11-03)
 
 Read-only audit of the server code (eleven lanes). Documented, not changed.
