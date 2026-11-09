@@ -827,11 +827,27 @@ class Run:
                                                    "client": self.alias(step), "result": "not run"})
         finally:
             self.manifest["finished_utc"] = iso(self.clock())
+            self.tail_feed()
             self.evaluate_checks()
             self.pull()
             self.write()
             self.worker.close()
         return self.manifest
+
+    def tail_feed(self):
+        """Reads the feed one last time before the folder is written: the feed is otherwise polled only at the start and
+        inside server_line waits, so a run that fails or never reaches a server_line wait (Horntail 9 Nov, 0 lines) kept
+        none of the BOSS/MECHANICS lines of its fight. Best effort: a failed poll never hides the run's result."""
+        if not self.topics:
+            return
+        try:
+            for _ in range(20):   # 1000 lines a page
+                before = self.last_seq
+                self.poll(0)
+                if self.last_seq == before:
+                    break
+        except Exception as e:   # the run's result stands without the tail
+            self.manifest["runner"]["feed_tail"] = "failed: %s" % e
 
     def pull(self):
         """Copies what the client produced (frames, the pipe log, its logs) into the run folder. A copy that fails is

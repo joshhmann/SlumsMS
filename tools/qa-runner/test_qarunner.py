@@ -243,6 +243,25 @@ class OrchestratorTest(unittest.TestCase):
         self.assertEqual("timeout", m["steps"][5]["result"])
         self.assertEqual("not run", m["steps"][-1]["result"])
 
+    def test_a_run_that_fails_before_any_server_line_wait_still_keeps_the_fights_feed_lines(self):
+        """9 Nov 2026 (Horntail): the feed was polled only at arming and inside server_line waits, so a failed run kept 0 lines."""
+        feed = FakeFeed()
+
+        class FightWorker(FakeWorker):
+            def wait_signal(self, alias, name, timeout_s, extra):
+                if name == "charselect.ready":
+                    feed.add("MECHANICS", "BOSS spawn horntail head A map 240060000 ch 3", [31])
+                return super().wait_signal(alias, name, timeout_s, extra)
+
+        worker = FightWorker(feed, missing={"charselect.ready"})
+        run = qarunner.Run(SCRIPT, feed, worker, runs_root=tempfile.mkdtemp(), commit="d4f103b0e", clock=clock,
+                           sleep=lambda s: None)
+        run.topics = ["MECHANICS"]
+        run.doc["steps"][5]["timeout_ms"] = 500
+        m = run.run()
+        self.assertEqual("FAIL", m["result"])
+        self.assertTrue(any(ln["line"].startswith("BOSS spawn horntail") for ln in run.lines))
+
     def test_a_server_line_from_before_the_arming_step_does_not_count(self):
         feed = FakeFeed()
         feed.add("COMBAT", "PARTY HEAL Old -> AqClient from an earlier run", [31])
