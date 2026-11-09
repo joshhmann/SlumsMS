@@ -5,6 +5,45 @@ r/mapleservers (a purchasable town house, a private instanced interior built fro
 collaborative editing). The ticket text below is the owner-provided draft, kept as given; scope it before any work.
 SlumsMS-specific angle to add when scoping: bots visiting, decorating or running small shops from homes.
 
+
+## Reference implementations (client RE, 2026-11-09)
+
+Two working v83-base implementations were inspected; they use opposite strategies. See ticket 284 for the
+reverse-engineering rig and the constraint note (behaviour references only; no assets or code copied).
+
+### Kuro - custom WZ overlay + dedicated house map + native client hooks
+
+- Ships `KuroHousing.wz` (about 68 MB) next to the exe and mounts it as an **overlay** on the stock `Map.wz`:
+  furniture art lives at `Map/Obj/kuroHousing.img/furniture`, with `Map/Back` overlays too. If the file is
+  missing, housing is disabled (soft fail); if the overlay breaks the stock Map.wz namespace, the client exits
+  and tells the player to repair.
+- Requires house map **871100001** (`Map/Map/Map8/871100001.img`) inside their `Map.wz`; their validator says
+  "this Map.wz predates the housing patch" when it is absent. **Our v170-era WZ dump does not contain
+  871100001**, so a house map would have to come from a later WZ or be built.
+- Native client work: `mainfunc.vm_hook.housing_platform_physics` (standing and moving on furniture), layered
+  furniture rendering with foothold-based depth ordering (`depth: piece uid=... furniture=... at (x,y) ...
+  basePage`), per-house STATE updates, daily boxes and house music, `housing.log`.
+- Net design: one WZ overlay for *art*, one shared map, per-house state over instances.
+
+### MushMS - instanced interior from existing assets (the idea ticket 180 already follows)
+
+- Client `Mush_Beta_V0.1` uses split WZ (`Data/{Character,Map,...}` plus `manifest.json`), with `mushcore.dll`
+  (about 5 MB) as the mod layer. The public housing post describes a purchasable town house, a private
+  instanced interior built from existing map assets, and live collaborative editing - i.e. no per-house WZ and
+  no dedicated house map.
+
+### What to take
+
+- Keep ticket 180's stated preference (reuse installed WZ assets through validated references; avoid a separate
+  WZ map per house). MushMS is the closer model for that.
+- Take from Kuro only the **art-delivery trick**: a separate overlay WZ can carry new furniture art without
+  editing stock WZ nodes - at the cost of overlay namespace validation and a soft-fail path. Their validator
+  enumerates the failure modes we would need to handle.
+- Take the **physics/layering lesson**: placed furniture needs a client-side platform/physics hook and depth
+  sorting. In our stack that is `slums.dll` work, not WZ work.
+- Do not take: their map 871100001 (not in our data), their 68 MB WZ, or their per-house protocol layout.
+- Priority unchanged: housing stays "later"; this section is reference material for when it is scoped.
+
 ## Objective
 
 Build the foundation for account-owned player housing in our server and modified client. The long-term goal is a
