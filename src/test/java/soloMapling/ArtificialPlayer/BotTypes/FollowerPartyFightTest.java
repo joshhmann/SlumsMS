@@ -62,6 +62,7 @@ class FollowerPartyFightTest {
             @Override public int mpCost(Character bot, int skillId, int level) { return 40; }
             @Override public boolean pay(Character bot, int mp) { return true; }
             @Override public void heal(Character bot, Character target, int skillId, int level) { healed.add(target.getId()); }
+            @Override public void dispel(Character bot, Character target, int skillId, int level) { }
             @Override public List<BotPartySupport.Pot> pots(Character bot) { return List.of(); }
             @Override public Set<BuffStat> active(Character bot) { return Set.of(); }
             @Override public boolean drink(Character bot, BotPartySupport.Pot pot) { return false; }

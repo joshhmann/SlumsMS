@@ -3,7 +3,24 @@ package soloMapling.ArtificialPlayer.BotAttackSystem;
 import client.Character;
 import client.Skill;
 import client.SkillFactory;
+import constants.skills.Aran;
+import constants.skills.Bishop;
+import constants.skills.BlazeWizard;
+import constants.skills.Bowmaster;
 import constants.skills.Crusader;
+import constants.skills.DarkKnight;
+import constants.skills.DawnWarrior;
+import constants.skills.Evan;
+import constants.skills.FPArchMage;
+import constants.skills.Hermit;
+import constants.skills.Hero;
+import constants.skills.ILArchMage;
+import constants.skills.Magician;
+import constants.skills.NightLord;
+import constants.skills.NightWalker;
+import constants.skills.Paladin;
+import constants.skills.ThunderBreaker;
+import constants.skills.WhiteKnight;
 import net.server.Server;
 import net.server.world.Party;
 import server.StatEffect;
@@ -198,22 +215,77 @@ public final class BotBuffEffects {
         StatEffect shown = skill.getEffect(skill.getMaxLevel());
         if (shown == null) return 0;
 
-        if (shown.isPartyBuff()) {
+        if (isSharedBuff(skillId, shown)) {
             List<Character> members = nearbyPartyMembers(bot);
             StatEffect real = handOutEffect(bot, skillId);
-            if (real != null && !paid && anyRealPlayer(members) && !payFor(bot, skillId)) {
-                real = null;   // no MP: party-member bots see it, players get nothing
+            // 1.6.7 regular-buffs-real: the caster of a party buff holds it too, as a player's own cast does, and it is
+            // one more target a real cast is paid for
+            boolean self = real != null && receivesRealBuff(bot, bot);
+            if (real != null && !paid && (self || anyRealReceiver(bot, members)) && !payFor(bot, skillId)) {
+                real = null;   // no MP: party-member bots see it, real players and companions get nothing
+            }
+            if (real != null && self) {
+                applyToSelf(bot, real);
             }
             applyToTargets(bot, real, skillId, members);
         }
         return shown.getDuration();
     }
 
-    private static boolean anyRealPlayer(Collection<Character> targets) {
+    /*
+     * 1.6.7 regular-buffs-real: whether this cast really reaches anyone - a real player, or a companion the policy
+     * lets a party buff land on. Only a cast that reaches someone is worth its MP.
+     */
+    private static boolean anyRealReceiver(Character caster, Collection<Character> targets) {
         for (Character c : targets) {
-            if (c != null && !BotHelpers.isBot(c)) return true;
+            if (c != null && (receivesRealBuff(caster, c) || !BotHelpers.isBot(c))) return true;
         }
         return false;
+    }
+
+    /*
+     * 1.6.7 regular-buffs-real: whether a party buff cast by {@code caster} is registered on {@code target}. A real
+     * player always gets it; a bot only when it is a companion the policy allows (an owned alt by default, party
+     * regulars with -Dslums.companion.buffs.regulars=true). Any other bot keeps the cosmetic aura.
+     */
+    static boolean receivesRealBuff(Character caster, Character target) {
+        if (target == null) return false;
+        if (!BotHelpers.isBot(target)) return true;
+        return soloMapling.ArtificialPlayer.BotPartySystem.PartyCompanionPolicy.on(
+                soloMapling.ArtificialPlayer.BotPartySystem.PartyCompanionPolicy.Feature.REAL_BUFFS, target);
+    }
+
+    /*
+     * 1.6.7 regular-buffs-real: the buffs that are the CASTER's own, whatever box their WZ level carries. A party cast
+     * must never register one of these on the caster, because a self buff's statup is the caster's alone: Combo (and
+     * Advanced Combo), Shadow Partner, Infinity, Berserk, Enrage, the weapon charges (the White Knight six, the
+     * Paladin holy ones, DawnWarrior's and ThunderBreaker's), Mana Reflection, Concentrate, Shadow Stars and Magic
+     * Guard. isPartyBuff() alone is NOT this list - it answers "the WZ effect has an lt/rb box", which a self buff may
+     * carry and a charge falls under - so the ids are named here instead of inferred.
+     */
+    static final java.util.Set<Integer> SELF_ONLY = java.util.Set.of(
+            Crusader.COMBO, DawnWarrior.COMBO, Hero.ADVANCED_COMBO, DawnWarrior.ADVANCED_COMBO,
+            Hermit.SHADOW_PARTNER, NightWalker.SHADOW_PARTNER,
+            FPArchMage.INFINITY, ILArchMage.INFINITY, Bishop.INFINITY,
+            DarkKnight.BERSERK, Hero.ENRAGE,
+            FPArchMage.MANA_REFLECTION, ILArchMage.MANA_REFLECTION, Bishop.MANA_REFLECTION,
+            Bowmaster.CONCENTRATE, NightLord.SHADOW_STARS,
+            Magician.MAGIC_GUARD, Evan.MAGIC_GUARD, BlazeWizard.MAGIC_GUARD,
+            WhiteKnight.SWORD_FIRE_CHARGE, WhiteKnight.BW_FIRE_CHARGE,
+            WhiteKnight.SWORD_ICE_CHARGE, WhiteKnight.BW_ICE_CHARGE,
+            WhiteKnight.SWORD_LIT_CHARGE, WhiteKnight.BW_LIT_CHARGE,
+            Paladin.SWORD_HOLY_CHARGE, Paladin.BW_HOLY_CHARGE,
+            DawnWarrior.SOUL_CHARGE, ThunderBreaker.LIGHTNING_CHARGE, Aran.COMBO_ABILITY);
+
+    /* True only for a buff the caster shares: it has an area box AND is not one of the caster's own. */
+    private static boolean isSharedBuff(int skillId, StatEffect shown) {
+        return shown.isPartyBuff() && !SELF_ONLY.contains(skillId);
+    }
+
+    /* A party buff the caster registers on itself, as the primary branch of a player's cast does. */
+    private static void applyToSelf(Character bot, StatEffect effect) {
+        effect.applyToTarget(bot, bot);
+        showReceivedBuff(bot, effect.getSourceId());
     }
 
     /*
@@ -248,12 +320,15 @@ public final class BotBuffEffects {
     private static void applyToTargets(Character bot, StatEffect effect, int skillId, Collection<Character> targets) {
         for (Character target : targets) {
             if (target == null || target == bot) continue;
-            if (BotHelpers.isBot(target)) {
-                showBuff(target, skillId);            // party-member bots stay cosmetic
+            if (BotHelpers.isBot(target) && !receivesRealBuff(bot, target)) {
+                showBuff(target, skillId);            // a bot the policy leaves out stays cosmetic
             } else if (effect != null) {
-                effect.applyToTarget(bot, target);    // real player gets the working buff
+                effect.applyToTarget(bot, target);    // a real player or an allowed companion gets the working buff
                 showReceivedBuff(target, skillId);    // + the "received a party buff" particle
+            } else if (BotHelpers.isBot(target)) {
+                showBuff(target, skillId);            // unpaid: an allowed companion keeps the cosmetic aura
             }
+            // unpaid and a real player: nothing, as before 1.6.7 (wave 4 audit R1: no aura without a working buff)
         }
     }
 
@@ -339,16 +414,18 @@ public final class BotBuffEffects {
     }
 
     /*
-     * Ticket 161: whether a real party member in reach has lost (or never got) this buff - judged by the buff's first
-     * stat on the member. Only real players count: a bot partner's buff is a picture.
+     * Ticket 161: whether a party member in reach has lost (or never got) this buff - judged by the buff's first stat on
+     * the member. 1.6.7 regular-buffs-real: a companion the policy lets the buff land on counts too, so a dispelled alt
+     * gets its recast; any other bot partner's buff is still only a picture.
      */
     public static boolean partyMemberLacks(Character bot, int skillId) {
         Skill skill = skill(skillId);
         StatEffect effect = skill == null ? null : skill.getEffect(skill.getMaxLevel());
-        if (effect == null || effect.getStatups().isEmpty() || !effect.isPartyBuff()) return false;
+        // a self-only buff never lands on a companion, so it can never be lacking on one (and must not churn a recast)
+        if (effect == null || effect.getStatups().isEmpty() || !isSharedBuff(skillId, effect)) return false;
         client.BuffStat stat = effect.getStatups().get(0).getLeft();
         for (Character member : nearbyPartyMembers(bot)) {
-            if (!BotHelpers.isBot(member) && member.isAlive() && member.getBuffedValue(stat) == null) {
+            if (receivesRealBuff(bot, member) && member.isAlive() && member.getBuffedValue(stat) == null) {
                 return true;
             }
         }

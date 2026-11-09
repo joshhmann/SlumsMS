@@ -2,12 +2,14 @@ package soloMapling.ArtificialPlayer.BotAttackSystem;
 
 import client.BuffStat;
 import client.Character;
+import client.Disease;
 import client.Skill;
 import client.SkillFactory;
 import client.inventory.Inventory;
 import client.inventory.InventoryType;
 import client.inventory.Item;
 import constants.skills.Cleric;
+import constants.skills.Priest;
 import net.server.world.Party;
 import net.server.world.PartyCharacter;
 import server.ItemInformationProvider;
@@ -46,6 +48,7 @@ public final class BotPartySupport {
 
     static final int HEAL_BELOW_PERCENT = 60;
     static final long HEAL_GAP_MS = 4_000;
+    static final long DISPEL_GAP_MS = 4_000;
     static final long POT_GAP_MS = 3_000;
     static final int REACH_X = 600;
     static final int REACH_Y = 300;
@@ -58,6 +61,7 @@ public final class BotPartySupport {
     static final long HEAL_ATTACK_HOLD_MS = 900;
 
     private static final Map<Integer, Long> lastHealAt = new ConcurrentHashMap<>();
+    private static final Map<Integer, Long> lastDispelAt = new ConcurrentHashMap<>();
     private static final Map<Integer, Long> lastPotAt = new ConcurrentHashMap<>();
 
     /** The pot stats worth a drink in a fight. */
@@ -91,6 +95,40 @@ public final class BotPartySupport {
 
     public static boolean healDue(long now, Long lastCast) {
         return lastCast == null || now - lastCast >= HEAL_GAP_MS;
+    }
+
+    public static boolean dispelDue(long now, Long lastCast) {
+        return lastCast == null || now - lastCast >= DISPEL_GAP_MS;
+    }
+
+    /**
+     * What a Dispel really clears on this server: {@link Character#dispelDebuffs()} - CURSE, DARKNESS, POISON, SEAL,
+     * WEAKEN, SLOW. SEDUCE, ZOMBIFY, CONFUSE, STUN and STOP_POTION are not dispellable (that is purgeDebuffs), so a
+     * member carrying only those is not worth a cast.
+     */
+    private static final List<Disease> DISPELLABLE = List.of(Disease.CURSE, Disease.DARKNESS, Disease.POISON,
+            Disease.SEAL, Disease.WEAKEN, Disease.SLOW);
+
+    /**
+     * 1.6.7 regular-buffs-real: the party member {@code caster}'s Dispel should be cast for - in reach, alive, carrying
+     * a disease Dispel clears, and someone the cast may really land on: a real player, or a companion the policy allows
+     * (an owned alt by default). Null when nobody needs it.
+     */
+    public static Character pickDispelTarget(Character caster, List<Character> inReach) {
+        if (caster == null || inReach == null) {
+            return null;
+        }
+        for (Character c : inReach) {
+            if (c == null || c == caster || !c.isAlive() || !BotBuffEffects.receivesRealBuff(caster, c)) {
+                continue;
+            }
+            for (Disease d : DISPELLABLE) {
+                if (c.hasDisease(d)) {
+                    return c;
+                }
+            }
+        }
+        return null;
     }
 
     /** A buff potion the bot holds: its item id and the stat it lifts (a pot of several is judged by its first). */
@@ -148,6 +186,9 @@ public final class BotPartySupport {
 
         void heal(Character bot, Character target, int skillId, int level);
 
+        /** Casts Dispel for real on a member carrying a disease it clears, for the skill's MP (already paid). */
+        void dispel(Character bot, Character target, int skillId, int level);
+
         List<Pot> pots(Character bot);
 
         Set<BuffStat> active(Character bot);
@@ -160,11 +201,13 @@ public final class BotPartySupport {
     public static void useForTest(Effects test) {
         effects = test == null ? new GameEffects() : test;
         lastHealAt.clear();
+        lastDispelAt.clear();
         lastPotAt.clear();
     }
 
     public static void clearBot(int botId) {
         lastHealAt.remove(botId);
+        lastDispelAt.remove(botId);
         lastPotAt.remove(botId);
     }
 
@@ -184,7 +227,35 @@ public final class BotPartySupport {
         if (!heals && !pots) {
             return false;
         }
-        return (heals && heal(bot, now)) || (pots && drinkPot(bot, now));
+        // 1.6.7 regular-buffs-real: Heal keeps priority - a member under the line is healed before anyone is dispelled
+        return (heals && heal(bot, now)) || (heals && dispel(bot, now)) || (pots && drinkPot(bot, now));
+    }
+
+    /*
+     * 1.6.7 regular-buffs-real: a companion Priest clears the disease a mob put on a party member the cast may really
+     * reach, through the real Dispel effect, for its MP, at most once every DISPEL_GAP_MS. A companion the policy does
+     * not allow on the caster, a skill it has not learned, and a disease Dispel does not clear (see DISPELLABLE) all
+     * leave it alone.
+     */
+    private static boolean dispel(Character bot, long now) {
+        int level = bot.getSkillLevel(Priest.DISPEL);
+        if (level <= 0
+                || !soloMapling.ArtificialPlayer.BotPartySystem.PartyCompanionPolicy.on(
+                        soloMapling.ArtificialPlayer.BotPartySystem.PartyCompanionPolicy.Feature.REAL_BUFFS, bot)
+                || !dispelDue(now, lastDispelAt.get(bot.getId()))) {
+            return false;
+        }
+        Character target = pickDispelTarget(bot, effects.partyInReach(bot));
+        if (target == null) {
+            return false;
+        }
+        if (!effects.pay(bot, effects.mpCost(bot, Priest.DISPEL, level))) {
+            lastDispelAt.put(bot.getId(), now);   // no MP: try again after the gap, not every tick
+            return false;
+        }
+        lastDispelAt.put(bot.getId(), now);
+        effects.dispel(bot, target, Priest.DISPEL, level);
+        return true;
     }
 
     private static boolean heal(Character bot, long now) {
@@ -277,6 +348,22 @@ public final class BotPartySupport {
         }
     }
 
+    /* 1.6.7 regular-buffs-real: one COMBAT line per bot Dispel cast (at most one per bot every 2 s). */
+    static void logDispel(Character bot, Character target, int level, int inBox) {
+        if (QaLog.on(QaLog.Topic.COMBAT) && QaLog.every("party-dispel:" + bot.getId(), HEAL_LOG_GAP_MS)) {
+            String line = "PARTY DISPEL " + bot.getName() + " -> " + target.getName()
+                    + " skill " + Priest.DISPEL + " lv " + level
+                    + " in box " + inBox
+                    + " sent " + SENT_CAST
+                    + " hold " + HEAL_ATTACK_HOLD_MS + "ms";
+            if (!BotHelpers.isBot(target)) {
+                QaLog.owner(QaLog.Topic.COMBAT, target.getId(), line);
+            } else {
+                QaLog.map(QaLog.Topic.COMBAT, bot.getMapId(), line);
+            }
+        }
+    }
+
     // ---------------------------------------------------------------- real effects
 
     static final class GameEffects implements Effects {
@@ -354,6 +441,32 @@ public final class BotPartySupport {
                 return null;
             }
             Skill skill = SkillFactory.getSkill(Cleric.HEAL);
+            return skill == null ? null : skill.getEffect(level);
+        }
+
+        /*
+         * 1.6.7 regular-buffs-real: Dispel as a player's (SpecialMoveHandler -> StatEffect.applyTo -> applyToTarget):
+         * the cast effect a viewer's client draws, then the level's effect on the member the bot cast for, which is
+         * where Character.dispelDebuffs runs. Dispel has no time and no statups, so nothing is registered and nothing
+         * is broadcast per member.
+         */
+        @Override
+        public void dispel(Character bot, Character target, int skillId, int level) {
+            StatEffect effect = dispelEffect(level);
+            if (effect == null || target == null) {
+                return;
+            }
+            showHealCast(bot, effect);   // the same one packet a player's cast sends: SHOW_FOREIGN_EFFECT/1
+            effect.applyToTarget(bot, target);
+            BotAttackDriver.holdAttacks(bot.getId(), System.currentTimeMillis() + HEAL_ATTACK_HOLD_MS);
+            logDispel(bot, target, level, effect.partyBuffTargets(bot, false).size());
+        }
+
+        private static StatEffect dispelEffect(int level) {
+            if (level <= 0) {
+                return null;
+            }
+            Skill skill = SkillFactory.getSkill(Priest.DISPEL);
             return skill == null ? null : skill.getEffect(level);
         }
 

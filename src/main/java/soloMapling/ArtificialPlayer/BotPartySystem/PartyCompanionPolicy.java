@@ -35,7 +35,9 @@ public final class PartyCompanionPolicy {
         /** alt-qol-batch D: per-alt loot mode, sell junk with a protection list, upgrade offer. */
         LOOT("loot"),
         /** alt-qol-batch E: quest mirror (party quests the owner takes progress for the alt too). */
-        QUEST_MIRROR("quests");
+        QUEST_MIRROR("quests"),
+        /** regular-buffs-real: a party buff a bot casts really lands on the companion, and it dispels. */
+        REAL_BUFFS("buffs");
 
         private final String key;
 

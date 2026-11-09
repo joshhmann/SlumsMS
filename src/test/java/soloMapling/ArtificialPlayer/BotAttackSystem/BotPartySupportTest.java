@@ -48,6 +48,7 @@ class BotPartySupportTest {
             @Override public int mpCost(Character bot, int skillId, int level) { return 40; }
             @Override public boolean pay(Character bot, int mp) { if (hasMp) paid.add(mp); return hasMp; }
             @Override public void heal(Character bot, Character target, int skillId, int level) { healed.add(target.getId()); }
+            @Override public void dispel(Character bot, Character target, int skillId, int level) { }
             @Override public List<Pot> pots(Character bot) { return pots; }
             @Override public Set<BuffStat> active(Character bot) { return active; }
             @Override public boolean drink(Character bot, Pot pot) { drunk.add(pot.itemId()); return true; }
