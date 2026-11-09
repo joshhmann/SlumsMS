@@ -249,6 +249,7 @@ public class CommandsExecutor {
         addCommand("check", CheckCommand.class);
         addCommand("droplimit", DropLimitCommand.class);
        // addCommand("craft", CraftCommand.class);
+        addCommand("rebirth", RebirthCommand.class);   // 1.6.6.1: Wyatt's rebirth talk in Base of Roots (a click on him sends nothing)
         addCommand("time", TimeCommand.class);
         addCommand("coupons", CouponsCommand.class);   // 1.5.1: when your EXP/drop coupons work (server and Pacific time)
         addCommand("credits", StaffCommand.class);

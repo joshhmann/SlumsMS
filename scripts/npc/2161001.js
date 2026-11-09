@@ -1,6 +1,9 @@
 // Ifia, on the Roof of the Fifth Tower (211061001). During the Von Leon quests (3173-3176) she sends you to the
 // Audience Room corridor, as before. 1.6.1 (owner 2026-10-29): she also walks you into the Rose Garden, the same warp
 // as the roof's next00 portal (pt_rosegarden.js), because pressing Up on that portal did nothing in a real client.
+// 1.6.6.1 (owner 8 Nov 2026): once "Defeat the Lion King" (3171) is started or done, the same rule as the recruiter
+// 2161000, she also offers the way back to the Audience Room corridor. Before this the one Return Scroll from 3170 was
+// the only way back, so after a first fight nobody could reach Von Leon again.
 var status = 0;
 
 function start() {
@@ -32,10 +35,16 @@ function action(mode, type, selection) {
             cm.dispose();
             return;
         }
-        cm.sendSimple("Please help me...\r\n#b#L0#Take me to the Rose Garden.#l");
+        var menu = "Please help me...\r\n#b#L0#Take me to the Rose Garden.#l";
+        if (cm.isQuestStarted(3171) || cm.isQuestCompleted(3171)) {
+            menu += "\r\n#L1#Take me to the Audience Room corridor.#l";
+        }
+        cm.sendSimple(menu);
     } else if (status == 1) {
         if (selection == 0) {
             cm.warp(211080000, "west00");
+        } else if (selection == 1 && (cm.isQuestStarted(3171) || cm.isQuestCompleted(3171))) {
+            cm.warp(211070000, "west00");
         }
         cm.dispose();
     } else {
