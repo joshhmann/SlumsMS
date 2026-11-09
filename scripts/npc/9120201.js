@@ -80,7 +80,8 @@ function action(mode, type, selection) {
                 }
             } else if (expedition.isInProgress()) { //Only if the expedition is in progress
                 if (expedition.contains(player)) { //If you're registered, warp you in
-                    var eim = em.getInstance(expedName + player.getClient().getChannel());
+                    // ShowaBattle registers the run as "Showa" + channel; expedName is the display name only.
+                    var eim = em.getInstance("Showa" + player.getClient().getChannel());
                     if (eim != null && eim.getIntProperty("canJoin") == 1) {
                         eim.registerPlayer(player);
                     } else {

@@ -110,6 +110,10 @@ function setup(channel) {
 }
 
 function respawnStages(eim) {
+    if (eim.isEventCleared()) {     // the room hosts the reward NPC after the clear: no trash mobs, no more ticks
+        return;
+    }
+
     eim.getInstanceMap(801040100).instanceMapRespawn();
 
     eim.schedule("respawnStages", 15 * 1000);
