@@ -109,6 +109,12 @@ class WorkerCallsTest(unittest.TestCase):
         self.assertEqual([('click_dialog_row', {'row': 2, 'rows': 2}), ('click_dialog_row', {'row': 1, 'rows': 0})],
                          transport.calls)
 
+    def test_npc_dialog_decline_goes_through_dialog_decline_not_the_mouse(self):
+        # qa-quest-dialog (1.6.7): Decline on a stock quest's Accept/Decline dialog (QA build 23).
+        worker, transport = self.make()
+        self.assertEqual('ok', worker.send('me', {'do': 'click', 'anchor': 'npc_dialog.decline'})['result'])
+        self.assertEqual([('dialog_decline', {})], transport.calls)
+
     def test_npc_dialog_close_goes_through_close_dialog_not_the_mouse(self):
         worker, transport = self.make()
         self.assertEqual('ok', worker.send('me', {'do': 'click', 'anchor': 'npc_dialog.close'})['result'])
