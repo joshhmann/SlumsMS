@@ -255,6 +255,8 @@ rt=(target/Cosmic.jar config.yaml scripts src/main)
 [ -f "$SRV/cashshop/catalog.tsv" ] && rt+=(cashshop/catalog.tsv)   # the catalogue goes back with the old jar
 tar -czf "$B/server-runtime.tgz" -C "$SRV" "${rt[@]}"
 tar -tzf "$B/server-runtime.tgz" > /dev/null || down "runtime backup unreadable"
+# P2-8: the monitor's VERSION_FILE. Keep the old one with the backup (rollback.sh puts it back); written below, after the smoke.
+if [ -f "$SRV/SLUMSMS_VERSION" ]; then cp -p "$SRV/SLUMSMS_VERSION" "$B/SLUMSMS_VERSION.old"; else : > "$B/SLUMSMS_VERSION.absent"; fi
 cp "$C" "$B/config.yaml"
 if [ -f "$WZT" ]; then   # the WZ files this release writes: saved while the server is down, before any extra step
   mkdir -p "$B/wz-backup"; : > "$B/wz-absent.txt"
@@ -371,6 +373,11 @@ echo "SELECT 'characters by world', world, COUNT(*) FROM characters GROUP BY wor
 mark smoke1
 
 result=PASS; [ "${#fail[@]}" = 0 ] || result="FAIL (${fail[*]})"
+# P2-8: only a passed smoke advertises the new version (line 1 version, line 2 commit); atomic, so the monitor never reads half.
+if [ "$result" = PASS ]; then
+  printf '%s\n%s\n' "$VERSION" "$COMMIT" > "$SRV/SLUMSMS_VERSION.tmp" && mv -f "$SRV/SLUMSMS_VERSION.tmp" "$SRV/SLUMSMS_VERSION" \
+    && echo "version file: $SRV/SLUMSMS_VERSION = $VERSION" || echo "WARN: could not write $SRV/SLUMSMS_VERSION (the monitor falls back to VERSION=)"
+fi
 {
   echo "# SlumsMS $VERSION deploy receipt"
   echo

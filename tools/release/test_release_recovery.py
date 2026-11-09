@@ -202,6 +202,23 @@ MIGRATION_IDS=() MIGRATION_FILES=() UNIT_EDITS=()
             self.assertEqual((srv / path).read_text(), 'old')
             self.assertEqual((backup / 'rolled-back-runtime' / path).read_text(), 'new')
 
+    def test_rollback_restores_the_previous_version_file(self):
+        # P2-8: deploy.sh saves the old SLUMSMS_VERSION in the backup; rollback.sh puts it back (or removes the new one)
+        script, srv, backup, env = self.rollback_fixture()
+        (srv / 'SLUMSMS_VERSION').write_text('1.6.7\nnewcommit\n')
+        (backup / 'SLUMSMS_VERSION.old').write_text('1.6.6.1\noldcommit\n')
+        result = self.shell(f'bash {shlex.quote(str(script))}', **env)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual((srv / 'SLUMSMS_VERSION').read_text(), '1.6.6.1\noldcommit\n')
+
+    def test_rollback_removes_the_version_file_when_there_was_none(self):
+        script, srv, backup, env = self.rollback_fixture()
+        (srv / 'SLUMSMS_VERSION').write_text('1.6.7\nnewcommit\n')
+        (backup / 'SLUMSMS_VERSION.absent').touch()
+        result = self.shell(f'bash {shlex.quote(str(script))}', **env)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse((srv / 'SLUMSMS_VERSION').exists())
+
     def test_attempted_unledgered_migrations_reverse_and_dump_guidance(self):
         script, _, backup, env = self.rollback_fixture()
         stage = self.work / 'staging/migrations'

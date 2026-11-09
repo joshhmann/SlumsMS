@@ -17,6 +17,7 @@ announcements, for one or more game servers on 192.168.0.164. Python 3 standard 
 | bot population | bots in the world, counted from the botroster rows open now (`LastLoginAt > LastLogoutAt`) whose `LastLoginAt` is after the unit's current start: rows from before this boot are what a crash leaves behind (the bots only write a logout at the shutdown sweep, the hourly autosave or a despawn), so they are counted apart and the detail line names them — `1186 online (1255 rows logged in before this boot are stale), director target 1600`. Until `BOTS_STALE_MIN` (75, past the first hourly autosave) minutes of uptime the two cannot be told apart: the total is counted and the run is a skip. Under `BOTS_MIN_RATIO` (60%) of the director target after `BOTS_GRACE_MIN` (20) minutes of uptime, or `[Director] tick failed` lines, is a failure | 10 runs |
 | bot chat LLM / Decide | `LLM_URL` (`192.168.0.17:8095/health`) or `DECIDE_URL` (`:8900/health`) not 2xx within 5 s, twice 3 s apart | 1 run |
 | scheduled jobs | a timer in `TIMERS` is not active, its last run failed, or it has not run for `TIMER_MAX_AGE_H` (26) hours; `name:hours` gives one job its own limit (`slumsms-restore-drill:768` for the monthly drill) | 1 run |
+| auto-QA health | opt-in: only when `HEALTH_FILE` is set (TEST: `Server/data/autoqa/health-latest.json`, rewritten by `HealthSweeper`). The file is missing or unreadable, older than `HEALTH_MAX_AGE_MIN` (20), or its `status` is `FAIL` (the detail names the failing checks, never the sweep's own text); `WARN` is not an alert. Skipped while the unit is down or booted less than the age limit ago and the file is stale. Live leaves it unset | 3 runs |
 | cloud budget | today's spend in `CLOUD_BUDGET_FILE` (`<server>/data/convo/cloud-budget.json`, written by `CloudBudget.java`) passes `CLOUD_WARN_PCT` (80%) of the daily cap, or reaches it | once a day per level |
 | cloud balance | the provider account's USD balance (`GET <base>/user/balance`) is under `BALANCE_MIN_USD` (5), or the request failed three times in a row | 3 failed calls / immediately when low |
 
@@ -94,7 +95,7 @@ Updated <t:...:R>
 
 Online means the unit is active and the login port answers. Players are real players only: accounts in game
 (`loggedin = 2`) that own no character with id >= 1000000000 (bots). `VERSION` comes from the target config (bump it
-with each deploy) or `VERSION_FILE`. `STATUS_SHOW_BOTS=1` adds a regulars-online line (players read "regulars", never "bots"), split the same way as the check:
+with each deploy) or `VERSION_FILE`. The generated `deploy.sh` writes `Server/SLUMSMS_VERSION` (line 1 version, line 2 commit) only after the smoke test passes and `rollback.sh` restores the old one; `tools/ops/deploy-test` does the same on TEST after its boot check. Live and TEST point `VERSION_FILE` at it and keep `VERSION=` as the fallback. `STATUS_SHOW_BOTS=1` adds a regulars-online line (players read "regulars", never "bots"), split the same way as the check:
 `Regulars online: 1186 (1255 stale rows from before this boot)`, or `Regulars online: 2441 (1255 open rows from before this
 boot, not split yet)` inside the first `BOTS_STALE_MIN` minutes. Nothing is read back from Discord.
 
@@ -164,7 +165,7 @@ a fake budget file, a fake key file and a local `http.server` standing in for `/
 real API. `python3 test_log.py` covers the game log silence check with a back-dated log file and a local socket that
 answers like the login server (silent log + answering port, growing log, rolled log, closed port, restart grace). `python3 test_timers.py`
 covers the scheduled jobs check with a faked `systemctl` (missed backup, failed push, disabled drill timer, the
-monthly drill's own age limit).
+monthly drill's own age limit). `python3 test_health.py` covers the auto-QA health check (fresh, stale, FAIL, missing, unset) and `read_version` preferring `VERSION_FILE`.
 
 ## Configuration
 

@@ -117,7 +117,7 @@ Paths that are reachable today and do the wrong thing.
 | website/market-service | health returns `{"ok": true}` and nothing checks it, and a stopped exporter still renders old prices as "as of …" with no staleness warning | `website/market-service.md` |
 | website/report-service | no rotation on either side; the id scan reads a 256 KB tail so ids can repeat; `report_export` emits `accountId` while the staff reader hides it | `website/report-service.md` |
 | ops/backups-and-restore | off-box copy is off by default and rotation defaults to dry-run; rotate and drill timers are unmonitored; `deploy-test`'s own per-stamp backups are never pruned | `ops/backups-and-restore.md` |
-| ops/monitoring | `health-latest.json` is written and read by `tools/ops/test-status` but no monitor check reads it; `targets/live.conf` still advertises `VERSION=1.4.0` | `ops/monitoring.md` |
+| ops/monitoring | (P2-8, fixed on branch 167-p2-8: opt-in `HEALTH_FILE` monitor check; `VERSION_FILE` kept current by deploy.sh/rollback.sh/deploy-test; live.conf `VERSION=1.6.6.1` plus `VERSION_FILE`, installing it on 164 needs the owner's go) | `ops/monitoring.md` |
 | ops/qa-runner | the b286 batch loss (broken above) plus no test that runs two signals in one batch | `ops/qa-runner.md` |
 | ops/safety-guards | `hotfix-parity` is invoked by nothing; the `REHEARSAL.md` gate matches only the `smoke PASS` substring; `RELEASE_HOST` defaults to live | `ops/safety-guards.md` |
 | ops/test-deploy | the deploy marker is written before a verified boot, the boot wait cannot fail, and nothing rolls back; `grep -q` with `pipefail` can false-negative | `ops/test-deploy.md` |

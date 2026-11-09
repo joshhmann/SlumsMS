@@ -107,4 +107,7 @@ printf '%s\n' "${GONE[@]}" | test_ssh "cat > $D/deleted.txt"
 echo "$HEAD $VERSION $SHA" | test_ssh "cat > $D/DEPLOY.txt"
 
 test_ssh bash -s -- "$D" "$HEAD" "$MIGRATE" "$BASE" "$UNIT" "$DBN" < "$(dirname "$0")/deploy-test-remote.sh"
+# P2-8: the monitor's VERSION_FILE (line 1 version, line 2 commit). Reached only when the remote boot check passed
+# (set -e: deploy-test-remote.sh exits 1 on a failed boot, like DEPLOYED_COMMIT it names the last proven version).
+printf '%s\n%s\n' "$VERSION" "$HEAD" | test_ssh "cat > $SRV/SLUMSMS_VERSION.tmp && mv -f $SRV/SLUMSMS_VERSION.tmp $SRV/SLUMSMS_VERSION"
 echo "done: test server runs $VERSION ($HEAD), backups in $D"

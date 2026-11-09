@@ -287,6 +287,24 @@ class ReleaseConfigTest(unittest.TestCase):
         release = (HERE / 'release').read_text()
         self.assertLess(release.index('# ---- 3. client publish'), release.index('# ---- 4. apply + start'))
 
+    def test_deploy_writes_the_version_file_only_after_the_smoke_passes(self):
+        # P2-8: the monitor's VERSION_FILE (Server/SLUMSMS_VERSION): line 1 version, line 2 commit
+        deploy, rollback = self.generate('LEDGER_BEFORE=""\n')
+        save = deploy.index('SLUMSMS_VERSION.old')
+        backup = deploy.index('tar -czf "$B/server-runtime.tgz"')
+        smoke = deploy.index('step "smoke test (')
+        write = deploy.index('"$SRV/SLUMSMS_VERSION"', smoke)
+        result = deploy.index('result=PASS;')
+        self.assertLess(backup, save)       # the old file is saved while the server is down, with the backup
+        self.assertLess(smoke, write)
+        self.assertLess(result, write)
+        guarded = deploy[result:write]
+        self.assertIn('[ "$result" = PASS ]', guarded)   # a failed smoke never advertises the new version
+        self.assertIn('printf \'%s\\n%s\\n\' "$VERSION" "$COMMIT"', deploy[write - 200:write + 200])
+        self.assertIn('SLUMSMS_VERSION', rollback)
+        self.assertLess(rollback.index('tar -xzf'), rollback.index('SLUMSMS_VERSION.old'))
+        self.assertLess(rollback.index('SLUMSMS_VERSION.old'), rollback.index('step "start"'))
+
     def test_publish_client_release_without_no_packs_does_not_exit(self):
         # `x=$([ 0 = 1 ] && echo y)` fails under set -e: publish-client stopped silently after the hash-diff
         # whenever --no-packs was not given (found publishing the 1.5.0-rc4 client to /launcher-rc/).
