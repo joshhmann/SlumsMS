@@ -37,7 +37,7 @@ ITEM = r"(\d{7})"
 REQUIRE_CALLS = re.compile(
     r"\b(?:haveItem|hasItem|haveItemWithId|itemQuantity|getItemQuantity|countItem|getItemCount)\s*\(\s*" + ITEM)
 TAKE_CALL = re.compile(r"\bgainItem\s*\(\s*" + ITEM + r"\s*,\s*-\s*\d+")
-LITERAL = re.compile(r"(?<![\d.])" + ITEM + r"(?![\d.])")
+LITERAL = re.compile(r"(?<![\d.])(?<!#[a-zA-Z])" + ITEM + r"(?![\d.])")  # #t4001086# in dialog text is a name, not a grant
 COMMENT_BLOCK = re.compile(r"/\*.*?\*/", re.S)
 COMMENT_LINE = re.compile(r"//[^\n]*")
 MIGRATION_SOURCE = re.compile(r"\b(?:drop_data|reactordrops|shopitems|drop_data_global)\b", re.I)

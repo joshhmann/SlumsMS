@@ -58,6 +58,8 @@ class ScriptItemScanTest(unittest.TestCase):
         write(cls.mig, "001.sql", """
             -- 4000099 in a comment does not count
             INSERT INTO drop_data (dropperid, itemid, chance) VALUES (100200, 4000006, 1000);""")
+        # an item name shown in dialog text (#t4000009#) is not a grant
+        write(cls.scripts, "npc/text.js", 'function start() { if (!cm.haveItem(4000009)) cm.sendOk("Bring #t4000009#."); }')
         write(cls.scripts, "portal/needs_known.js", "function enter(pi) { return pi.haveItem(4000007); }")
         cls.known = os.path.join(t, "known.tsv")
         write(t, "known.tsv", "# item\\treason\n4000007\tgiven by Foo.java")
@@ -69,6 +71,9 @@ class ScriptItemScanTest(unittest.TestCase):
 
     def test_require_only_item_is_an_error(self):
         self.assertIn(4032860, self.errors)
+
+    def test_dialog_name_is_not_a_source(self):
+        self.assertIn(4000009, self.errors)
 
     def test_commented_mention_is_not_a_source(self):
         self.assertIn(4000004, self.errors)
