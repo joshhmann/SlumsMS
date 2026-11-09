@@ -26,6 +26,12 @@ class FeedCheckTest(unittest.TestCase):
         self.assertEqual(feed_check.main(["--feed", self.feed("1.6.5", "SlumsMS 1.6.10"), "--releases", self.d]), 1)
         self.assertEqual(feed_check.main(["--feed", self.feed("1.6.10", "SlumsMS 1.6.5"), "--releases", self.d]), 1)
 
+    def test_hotfix_news_title_matches_the_four_part_version(self):
+        feed = {"version": "1.6.6.1", "news": [{"title": "SlumsMS 1.6.6 hotfix 1"}]}
+        self.assertEqual(feed_check.problems(feed, "1.6.6.1"), [])
+        feed["news"][0]["title"] = "SlumsMS 1.6.6"
+        self.assertEqual(len(feed_check.problems(feed, "1.6.6.1")), 1)
+
     def test_expect_overrides_the_release_pages(self):
         feed = self.feed("1.6.6", "SlumsMS 1.6.6")
         self.assertEqual(feed_check.main(["--feed", feed, "--expect", "1.6.6"]), 0)
