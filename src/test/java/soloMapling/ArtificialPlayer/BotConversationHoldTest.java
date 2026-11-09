@@ -131,8 +131,15 @@ class BotConversationHoldTest {
     }
 
 
+    /**
+     * Waits up to 30 s (the delivery latch's own bound) for {@code done}. It was 200 x 25 ms = 5 s: the reply goes out
+     * through BotTiming on the shared virtual-thread carriers, and with two suites loading 187 it took longer
+     * (Server Dev's staging suite, 9 Nov 11:53 UTC: "one line, said once: []" after 5.19 s). Reproduced with one
+     * carrier held by a busy virtual thread for 6 s (-Djdk.virtualThreadScheduler.parallelism=1).
+     */
     private void waitFor(java.util.function.BooleanSupplier done) throws InterruptedException {
-        for (int i = 0; i < 200 && !done.getAsBoolean(); i++) {
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(30);
+        while (!done.getAsBoolean() && System.nanoTime() < deadline) {
             Thread.sleep(25);
         }
     }
