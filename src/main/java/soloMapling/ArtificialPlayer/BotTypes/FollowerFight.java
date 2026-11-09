@@ -291,7 +291,7 @@ public final class FollowerFight {
         Point at = bot.getPosition();
         Point mob = t.getPosition();
         int[] reach = Approach.reach(bot);
-        if (!closeEnough(at, mob, reach, t.isBoss())) {
+        if (!closeEnough(at, mob, reach, t.isBoss()) && !Approach.inSwingReach(at, t, reach)) {
             int[] spot = Approach.fightSpot(bot, t, reach, BotCombatTuning.human());
             s.lastMoveX = Approach.walkTo(bot, spot[0], spot[1], s.lastMoveX);
             log(bot, leader, "walks to " + t.getName() + " (" + Math.abs(mob.x - at.x) + " px away)");
