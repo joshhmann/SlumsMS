@@ -1505,6 +1505,9 @@ public class MapleMap {
     private int cygnusSpawnCounter = 0;
     private int MagnusHpTreshold = 0;
     private boolean spawningcygnus = false;
+    /** Cygnus' final form (8850012) is brought on once per room: set when it is summoned, by the fifth guard or by
+     * {@link #afterBossKilled} handing form 1 over. A later form 1 must not bring a second one (cygnus-fight-unreachable). */
+    private boolean cygnusFinalFormSummoned = false;
     public boolean moveVL = false;
 
     public void spawnPillars(int count) {
@@ -1628,9 +1631,41 @@ public class MapleMap {
         } else if (monster.getId() == 8850004) {
             killMonster(monster, chr, true); // the last guard drops too (1.6.1)
             Monster cygnus = LifeFactory.getMonster(8850012);
+            cygnusFinalFormSummoned = true;
             killAllMonsters();
             spawnMonster(cygnus);
             damageMonster(chr, cygnus, (long) (cygnus.getMaxHp() * (0.15 * cygnusSpawnCounter)));
+            spawningcygnus = false;
+            return true;
+        } else if (monster.getId() == 8850011) {
+            // cygnus-fight-unreachable part 3 (Coordinator 2026-11-09): form 1 is meant to leave only through a guard
+            // (spawnCygnusMobs swaps it out at each HP threshold). A death that skips the guards - a GM kill of the
+            // full-HP form, a blow that jumps over the last threshold - left the room with no clear: nothing brought
+            // 8850012 on, and 8850012 is the only id the event's isCygnus and migration 055's drop table know.
+            if (spawningcygnus) {
+                // the threshold swap already took this form down and put its guard up: this is the same blow arriving
+                // on the removed mob, not a death to hand over. A form 1 spawned from outside while a guard stands is
+                // still on the field: take it down dropless.
+                if (getMonsterByOid(monster.getObjectId()) == monster) {
+                    killMonster(monster, chr, false, 0);
+                }
+                return true;
+            }
+            // form 1 stays dropless (migration 055): its own kill is the normal one, without drops
+            killMonster(monster, chr, false, 0);
+            if (cygnusFinalFormSummoned) {
+                return true; // the room handed over once already: no second final form, and 8850012 is left alone
+            }
+            Monster cygnus = LifeFactory.getMonster(8850012);
+            cygnusFinalFormSummoned = true;
+            killAllMonsters();
+            spawnMonster(cygnus);
+            // the share the guard chain would have left: 15% of the final form's HP per guard already through. With no
+            // guard through (counter 0) the final form comes whole - full HP, hit for nothing, and it stays killable.
+            long share = (long) (cygnus.getMaxHp() * (0.15 * cygnusSpawnCounter));
+            if (share > 0) {
+                damageMonster(chr, cygnus, share);
+            }
             spawningcygnus = false;
             return true;
         }
