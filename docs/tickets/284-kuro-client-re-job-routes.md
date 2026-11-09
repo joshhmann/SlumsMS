@@ -5,6 +5,17 @@ from Kuro is copied into this repository, nothing was executed or attached to, a
 touched. Owner request: "what would it take to port jobs over?" This ticket records the findings and the
 proposed route; it implements nothing.
 
+
+## Owner decisions (2026-11-09)
+
+- **Route A approved** - the finishing-kit cards (Aran, Buccaneer, Dark Knight, Dawn Warrior) may be briefed for 1.7.0.
+- **Route C approved as the job-addition route**: new jobs go through a reusable pipeline, with **Dual Blade as the
+  pilot** - not one-off ports from Kuro. The five classes excluded by the roadmap stay excluded until the pilot
+  proves the pipeline.
+- **Evan and the remaining classes are expected to be tough** (owner). Evan stays decided and on its current branch;
+  it must not block Route A or the Dual Blade pilot.
+- Sequencing recorded: Route A now; Dual Blade pilot next; Evan and the rest after the pilot.
+
 ## 1. What was reviewed
 
 Source: the installed Kuro client on Silvia, `Z:\MSv83\Client_Sources\kuro\Kuro` (v3.2.0, ~11 GB, v83 base +

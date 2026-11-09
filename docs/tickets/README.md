@@ -10,7 +10,7 @@
 
 | # | Ticket | State |
 |---|---|---|
-| [284](284-kuro-client-re-job-routes.md) | Kuro v83 client RE: class finishing kit and the job-addition route | Read-only RE recorded; four finishing-kit cards and an optional Dual Blade pilot proposed; owner decisions requested; nothing implemented |
+| [284](284-kuro-client-re-job-routes.md) | Kuro v83 client RE: class finishing kit and the job-addition route | Owner approved Route A and the Dual Blade pilot route (2026-11-09); briefs in progress; nothing implemented |
 
 ## Server-code audit (owner direction, 2026-11-03)
 
