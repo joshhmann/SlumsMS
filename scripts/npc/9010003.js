@@ -8,8 +8,16 @@ let jobs = [];
 let level = 0;
 let job;
 let fee = 0;
+// The [itemid, quantity] pairs the chosen job hands out, built once in action() so the space check and the handing
+// out read the same list. A script global like job and fee: one engine serves one conversation.
+let rewards = [];
 const JobMasterFees = Java.type('constants.game.JobMasterFees');
 const Job = Java.type('client.Job');
+const ItemConstants = Java.type('constants.inventory.ItemConstants');
+const InventoryManipulator = Java.type('client.inventory.manipulator.InventoryManipulator');
+// Inventory tab names, indexed like InventoryType.getType() - 1 (EQUIP 1 ... CASH 5): the index the slot counter
+// below uses, the same one Inventory.checkSpots hands to checkSpaceProgressively.
+const TAB_NAMES = ["Equip", "Use", "Set-up", "Etc", "Cash"];
 
 // No regular expressions in server scripts: this GraalJS build has no regex engine ("No language for id regex").
 function mesos(n) {
@@ -115,6 +123,17 @@ function action(m, t, s) {
         if (m === 0) { // no
             start();
         } else { // yes
+            rewards = rewardsFor(job);
+            // 1.6.7 jobmaster-fee-then-bag: a reward that does not land is a reward lost. cm.gainItem answers a full
+            // bag with "Your inventory is full" and drops the item, so the fee and the job change were paid for
+            // nothing. The whole list is measured first, and a bag that cannot take it is refused while nothing has
+            // been taken and nothing has changed.
+            const short = tabsToFree(rewards);
+            if (short.length > 0) {
+                cm.sendOk(`Your bag can't take what I hand out for that job. Free ${slotsText(short)}, then talk to me again.`);
+                cm.dispose();
+                return;
+            }
             if (fee > 0 && cm.getMeso() < fee) {
                 cm.sendOk(`You need #b${mesos(fee)} mesos#k to skip the test. You can still take your job instructor's test for free.`);
                 cm.dispose();
@@ -136,7 +155,13 @@ function jobAdvance() {
         // 1.6.4 ticket 164: changeJobById returns false when the id has no Job behind it and nothing was changed.
         // Ignoring it handed out the rewards (50 Power Elixirs at least) and closed the dialog as if it worked.
         if (!cm.changeJobById(job)) {
-            cm.sendOk(`#rThe job advancement failed.#k\r\n\r\nThis server has no job #b${job}#k to advance to, so you are still a #b${cm.getJobName(cm.getJobId())}#k.`);
+            // 1.6.7: the fee buys the advancement. Where there is no advancement to buy, the mesos go back, still
+            // straight on the character so the refund is not counted as an npc_fee either.
+            const refund = fee > 0 ? ` Your #b${mesos(fee)} mesos#k have been returned.` : "";
+            if (fee > 0) {
+                cm.getPlayer().gainMeso(fee);
+            }
+            cm.sendOk(`#rThe job advancement failed.#k\r\n\r\nThis server has no job #b${job}#k to advance to, so you are still a #b${cm.getJobName(cm.getJobId())}#k.${refund}`);
             return;
         }
         cm.teachFourthJobMasteries(job); // the master levels the Leafre instructors give (4th jobs only)
@@ -144,33 +169,105 @@ function jobAdvance() {
     giveRewards();
 }
 
+// The [itemid, quantity] pairs a job hands out: the same ids and quantities giveRewards has always given, kept in one
+// place so the space check and the handing out can never disagree. Jobs 0, 1000 and 2000 hand out nothing. Item
+// 4036541 is taken from the player rather than given, so it is not in this list: taking an item needs no free slot.
+function rewardsFor(jobId) {
+    if (jobId === 0 || jobId === 1000 || jobId === 2000) return [];
+    const list = [[2000005, 50]]; // Power Elixirs
+
+    // job specific gear
+    switch (jobId) {
+        case 100: // both 100 and 1100
+        case 1100:
+            list.push([1302077, 1]);
+            break;
+        case 700:
+            list.push([1302024, 1], [1040014, 1], [1002419, 1], [1060004, 1],
+                [1072368, 1], [1082245, 1], [1102174, 1], [1092003, 1]);
+            break;
+        case 200:
+        case 1200:
+            list.push([1372043, 1], [1382100, 1]);
+            break;
+        case 300:
+        case 1300:
+            list.push([1452051, 1], [1462092, 1], [2060000, 999], [2061000, 999]);
+            break;
+        case 400:
+        case 1400:
+            list.push([1472061, 1], [1332063, 1], [2070015, 999]);
+            break;
+        case 500:
+        case 1500:
+            list.push([1492014, 1], [1482063, 1], [2330000, 999]);
+            break;
+        case 2100:
+            list.push([1442000, 1]);
+            break;
+    }
+    return list;
+}
+
+// Slots the reward list needs in each inventory tab, counting a stack with room left as needing no new slot: this is
+// the counter Inventory.checkSpots (what cm.canHoldAll asks) and InventoryManipulator.addFromDrop (what cm.gainItem
+// adds with) both use, so a list this says fits is a list cm.gainItem delivers.
+function slotsNeeded(rewards) {
+    const chr = cm.getPlayer();
+    const used = [0, 0, 0, 0, 0];
+    for (let i = 0; i < rewards.length; i++) {
+        const id = rewards[i][0];
+        const type = ItemConstants.getInventoryType(id);
+        if (chr.getInventory(type) == null) {
+            // In game every character carries all five bags (Character builds them in its constructor), so this only
+            // keeps a character stubbed without bags (tests, probes) from being refused over a bag it does not have.
+            return null;
+        }
+        const tab = type.getType() - 1;
+        const result = InventoryManipulator.checkSpaceProgressively(chr, id, rewards[i][1], "", used[tab], false);
+        used[tab] = result >> 1;
+    }
+    return used;
+}
+
+// [tab name, slots to free] for every tab that cannot take the whole reward list, empty when it all fits.
+function tabsToFree(rewards) {
+    const needed = slotsNeeded(rewards);
+    if (needed == null) return [];
+    const short = [];
+    for (let tab = 0; tab < needed.length; tab++) {
+        if (needed[tab] === 0) continue;
+        const missing = needed[tab] - cm.getInventory(tab + 1).getNumFreeSlot();
+        if (missing > 0) short.push([TAB_NAMES[tab], missing]);
+    }
+    return short;
+}
+
+function slotsText(short) {
+    let out = "";
+    for (let i = 0; i < short.length; i++) {
+        if (i > 0) out += i === short.length - 1 ? " and " : ", ";
+        out += `${short[i][1] === 1 ? "1 slot" : short[i][1] + " slots"} in your ${short[i][0]} tab`;
+    }
+    return out;
+}
+
 function giveRewards() {
     // everyone gets these depressions
     if (job === 0 || job === 1000 || job === 2000) return;
-    cm.gainItem(2000005, 50); // Power Elixirs
+    for (let i = 0; i < rewards.length; i++) {
+        cm.gainItem(rewards[i][0], rewards[i][1]);
+    }
 
     // job specific depressions
     switch (job) {
-        case 100: // both 100 and 1100
-        case 1100:
-            cm.gainItem(1302077, 1);
-            break;
         case 700:
-            cm.gainItem(1302024, 1);
-            cm.gainItem(1040014, 1);
-            cm.gainItem(1002419, 1);
-            cm.gainItem(1060004, 1);
-            cm.gainItem(1072368, 1);
-            cm.gainItem(1082245, 1);
-            cm.gainItem(1102174, 1);
-            cm.gainItem(1092003, 1);
             cm.teachSkill(1051, 1, 1, -1);   // Chain Attack 2
             cm.teachSkill(1052, 1, 1, -1);   // Chain Attack
             cm.sendOk("You're on the right path now.");
             break;
         case 2100:
             // Teach skills after advancing to job ID 2100
-            cm.gainItem(1442000, 1);
             cm.teachSkill(21000000, 0, 10, -1);   // Combo Ability
             cm.teachSkill(21110002, 0, 20, -1);   // Full Swing
             cm.teachSkill(21100000, 0, 20, -1);   // Polearm Mastery
@@ -178,34 +275,9 @@ function giveRewards() {
             cm.teachSkill(21100004, 0, 20, -1);   // Combo Smash
             cm.teachSkill(21100005, 0, 20, -1);   // Combo Drain
             break;
-        case 200:
-        case 1200:
-            // Job advancement from 1000 to 1200
-            cm.gainItem(1372043, 1); // First item ID and quantity
-            cm.gainItem(1382100, 1); // Second item ID and quantity
-            break;
         case 232:
             // BAHAMUT SKILL AT LEVEL 30 FOR BISHOP
             cm.teachSkill(2321003, 0, 30, -1);   // BAHAMUT
-            break;
-        case 300:
-        case 1300:
-            cm.gainItem(1452051, 1); // First item ID and quantity
-            cm.gainItem(1462092, 1); // Second item ID and quantity
-            cm.gainItem(2060000, 999); // Third item ID and quantity
-            cm.gainItem(2061000, 999); // Fourth item ID and quantity
-            break;
-        case 400:
-        case 1400:
-            cm.gainItem(1472061, 1); // Item ID and quantity
-            cm.gainItem(1332063, 1); // Second ID and quantity
-            cm.gainItem(2070015, 999); // Third item ID and quantity
-            break;
-        case 500:
-        case 1500:
-            cm.gainItem(1492014, 1); // Item ID and quantity
-            cm.gainItem(1482063, 1); // Second ID and quantity
-            cm.gainItem(2330000, 999); // Third item ID and quantity
             break;
         case 1411:
         case 411:
