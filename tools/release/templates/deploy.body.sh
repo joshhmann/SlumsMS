@@ -54,8 +54,10 @@ MAINT_REASON=${MAINT_REASON:-}
 # stop and independent of MONITOR. Port and secret file come from the unit's own -Dslums.ops.* flags; the secret goes to
 # curl on stdin, never on a command line. Soft: no endpoint or a refused post never stops the deploy. The rehearsals set
 # NOTICE_SECONDS=0 (their copy of the unit names live's port). NOTICE_SECONDS=0 skips the notices and the wait.
-NOTICE_SECONDS=${NOTICE_SECONDS:-60}
-NOTICE_TEXT=${NOTICE_TEXT:-"The server restarts in 1 minute for an update. You'll be back in about a minute."}
+# Owner 9 Nov 2026: warn players 5 minutes ahead (first notice), again 1 minute ahead, and once more at 10 s.
+NOTICE_SECONDS=${NOTICE_SECONDS:-300}
+NOTICE_TEXT=${NOTICE_TEXT:-"The server restarts in 5 minutes for an update. Please find a safe spot; you'll be back in about a minute."}
+NOTICE_MID=${NOTICE_MID:-"The server restarts in 1 minute for an update."}
 NOTICE_LAST=${NOTICE_LAST:-"Restarting now, see you in a minute."}
 
 exec > >(tee -a "$LOG") 2>&1
@@ -220,7 +222,7 @@ if [ "$DRY_RUN" = 1 ]; then
   [ -n "$CASHSHOP_CATALOG" ] && echo "  cashshop/catalog.tsv from staging ($(sha256sum "$ST/$CASHSHOP_CATALOG" | cut -c1-16); now $( [ -f "$SRV/cashshop/catalog.tsv" ] && sha256sum "$SRV/cashshop/catalog.tsv" | cut -c1-16 || echo none))"
   echo "  start ($START_CMD), wait for 'is now online', smoke test ${SMOKE_SECONDS}s, receipt $RECEIPT"
   if [ "$NOTICE_SECONDS" -gt 0 ] && [ -n "$(ops_flag port)" ]; then
-    echo "  in game, ${NOTICE_SECONDS}s before the stop: '$NOTICE_TEXT'; 10s before: '$NOTICE_LAST'"
+    echo "  in game, ${NOTICE_SECONDS}s before the stop: '$NOTICE_TEXT';$([ "$NOTICE_SECONDS" -gt 60 ] && echo " 60s before: '$NOTICE_MID';") 10s before: '$NOTICE_LAST'"
   else
     echo "  no in-game notice (NOTICE_SECONDS=$NOTICE_SECONDS, ops port on the unit: $(ops_flag port))"
   fi
@@ -234,7 +236,11 @@ fi   # pre-checks
 if [ "$PHASE" = all ] || [ "$PHASE" = stop-backup ]; then
 step "in-game notice: restart in ${NOTICE_SECONDS}s"
 if notice "$NOTICE_TEXT"; then
-  [ "$NOTICE_SECONDS" -gt 10 ] && sleep $((NOTICE_SECONDS - 10))
+  if [ "$NOTICE_SECONDS" -gt 60 ]; then   # the 1-minute reminder, then the last 10 s
+    sleep $((NOTICE_SECONDS - 60)); notice "$NOTICE_MID" || true; sleep 50
+  elif [ "$NOTICE_SECONDS" -gt 10 ]; then
+    sleep $((NOTICE_SECONDS - 10))
+  fi
   notice "$NOTICE_LAST" || true
   sleep $(( NOTICE_SECONDS < 10 ? NOTICE_SECONDS : 10 ))
 fi

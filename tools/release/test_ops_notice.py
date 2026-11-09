@@ -99,3 +99,18 @@ class OpsNoticeTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class FiveMinuteWarningTest(unittest.TestCase):
+    """Owner 9 Nov 2026: players get the first notice 5 minutes before the stop, a reminder at 1 minute, then 10 s."""
+
+    def test_default_lead_is_five_minutes_with_a_one_minute_reminder(self):
+        body = (HERE / 'templates' / 'deploy.body.sh').read_text()
+        self.assertIn('NOTICE_SECONDS=${NOTICE_SECONDS:-300}', body)
+        self.assertIn('restarts in 5 minutes', body)
+        first = body.index('if notice "$NOTICE_TEXT"; then')
+        mid = body.index('notice "$NOTICE_MID"', first)
+        last = body.index('notice "$NOTICE_LAST"', first)
+        self.assertLess(mid, last, 'the 1-minute reminder comes before the last notice')
+        self.assertIn('sleep $((NOTICE_SECONDS - 60))', body[first:last])
+
