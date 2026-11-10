@@ -180,6 +180,34 @@ class OrchestratorTest(unittest.TestCase):
             run.play(922, {"do": "pickup_item", "item": 4001022, "count": 3})
         self.assertEqual("refused", run.manifest["steps"][-1]["result"])
 
+    def test_a_damaged_gm_line_is_resent_up_to_twice(self):
+        # horntail-stand-short-20261109T213110Z step 79: "!heal" arrived as chat "heal" right after a map change; the
+        # driver refused it as line_damaged (the command did not run) and the 17-minute run failed on it.
+        run, m, feed, worker = self.run_b140()
+        run.sleep = lambda s: None
+        damaged = {"result": "refused", "detail": 'line_damaged: the command went out as chat "heal"; it did not run.'}
+        answers, lines = [], []
+
+        def send(alias, step):
+            lines.append(step.get("line"))
+            return answers.pop(0)
+        worker.send = send
+        answers[:] = [damaged, {"result": "ok"}]
+        run.play(930, {"do": "gm", "line": "!heal"})
+        entry = run.manifest["steps"][-1]
+        self.assertEqual("ok", entry["result"])
+        self.assertEqual(1, entry["damaged_retries"])
+        self.assertEqual(["!heal", "!heal"], lines)
+        answers[:] = [damaged, damaged, damaged]
+        with self.assertRaises(qarunner.RunFailed):
+            run.play(931, {"do": "gm", "line": "!heal"})
+        self.assertEqual(2, run.manifest["steps"][-1]["damaged_retries"])
+        self.assertEqual(5, len(lines), "two resends, then the step fails")
+        answers[:] = [{"result": "refused", "detail": "Field screen is not visible."}]
+        with self.assertRaises(qarunner.RunFailed):
+            run.play(932, {"do": "gm", "line": "!heal"})
+        self.assertEqual(6, len(lines), "any other refusal is not resent")
+
     def test_an_optional_pickup_that_is_refused_is_tolerated_and_a_required_one_fails(self):
         # 8 Nov lpq-stage1-handin-20261108T053234Z: the pickup lost the pass drop to a collector bot (taken_by_other)
         # and the whole run failed; a loop that picks up whatever has landed must go on.

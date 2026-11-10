@@ -51,6 +51,8 @@ PLACEHOLDER = qascript.PLACEHOLDER
 # The client logs this once at login: the only place on the box that says which capabilities the client has.
 BUILD_STAMP_CAPS = re.compile(r"Build stamp: caps (0x[0-9A-Fa-f]{8})")
 QA_BUILD_CAP = 1 << 31  # buildstamp_proto.h kCapQaBuild
+GM_DAMAGED_RESENDS = 2    # a gm line the driver refused as line_damaged (it did not run) is sent again up to this often
+GM_DAMAGED_PAUSE_S = 1.5  # before each resend: lets a map change or a header banner settle
 
 
 class TestHostRefused(testhost.Refused):
@@ -953,6 +955,17 @@ class Run:
             self.wait(i, step, alias, entry)
             return
         r = self.worker.send(alias, self.prepared(step, alias)) or {}
+        if kind == "gm":
+            # qa-gm-retry (1.6.7): line_damaged means the client's own echo showed the command went out as plain chat,
+            # so it did not run and a resend is safe (horntail-stand-short-20261109T213110Z lost a 17-minute run to
+            # one). Any other refusal still fails the step at once.
+            tries = 0
+            while (r.get("result", "ok") != "ok" and "line_damaged:" in str(r.get("detail", ""))
+                   and tries < GM_DAMAGED_RESENDS):
+                tries += 1
+                entry["damaged_retries"] = tries
+                self.sleep(GM_DAMAGED_PAUSE_S)
+                r = self.worker.send(alias, self.prepared(step, alias)) or {}
         if r.get("result", "ok") != "ok":
             raise RunFailed("%s refused: %s" % (kind, r.get("detail", "")), "refused")
         if kind in ("position", "walk_to", "climb", "pickup_item") and r.get("detail"):
